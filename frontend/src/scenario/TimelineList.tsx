@@ -2,15 +2,15 @@ import { useState } from "react";
 import type { ScenarioTimelineEntry } from "@/api/scenario";
 
 /**
- * 经历时间线：按**回合**分组的学生动作 + 世界的回应。
+ * 经历时间线：按**时间单位**分组的学生动作 + 世界的回应（同一时间单位内的多条属于同一时间点）。
  *
  * 侧栏与经历页展示同一份 `timeline`（后端 `build_view`/`report` 的同一投影），
  * 所以分组逻辑只有这一处。
  *
- * 排版：每回合两行——**你做了什么（正文色）+ 世界怎么变（弱化色）**；回合号是极小的
+ * 排版：每个时间单位两行——**你做了什么（正文色）+ 世界怎么变（弱化色）**；时间标记是极小的
  * 弱化前缀；用行距与 1px 分隔线组织，不用圆点/色条列表。
  *
- * - 侧栏（`collapseLatest`）：**最新回合在上**，只看本回合，其余折在"全部 N 回合"后面——
+ * - 侧栏（`collapseLatest`）：**最新时间单位在上**，只看最新，其余折在"全部 N 个时间单位"后面——
  *   学生最需要的是"我刚做了什么、世界怎么变"。
  * - 经历页：全量、按发生顺序（叙述顺序），用于回看全过程。
  * - 归属不署名（"X 的回应"是系统在解释投影规则）；长文截断，需要时单条展开。
@@ -39,15 +39,40 @@ function TimelineEntry({ entry }: { entry: ScenarioTimelineEntry }) {
 	);
 }
 
+/** 时间点定位：页面给了 `onLocateTurn` 就是按钮，没给就是纯文本（信息一样在）。 */
+function TurnLocator({
+	turn,
+	onLocateTurn,
+}: {
+	turn: number;
+	onLocateTurn?: (turn: number) => void;
+}) {
+	if (onLocateTurn === undefined) {
+		return <span className="sc-locate">时间单位 {turn}</span>;
+	}
+	return (
+		<button
+			type="button"
+			className="sc-locate"
+			onClick={() => onLocateTurn(turn)}
+		>
+			时间单位 {turn}
+		</button>
+	);
+}
+
 export default function TimelineList({
 	timeline,
 	emptyLabel = "还没有动作。",
 	collapseLatest = false,
+	onLocateTurn,
 }: {
 	timeline: ScenarioTimelineEntry[];
 	emptyLabel?: string;
-	/** 只显示最新一个回合（其余折在"全部 N 回合"后）；侧栏用。 */
+	/** 只显示最新一个时间单位（其余折在"全部 N 个时间单位"后）；侧栏用。 */
 	collapseLatest?: boolean;
+	/** 点时间标记 → 页面把它滚进视野（不传则不渲染可点时间点）。 */
+	onLocateTurn?: (turn: number) => void;
 }) {
 	const [showAll, setShowAll] = useState(false);
 	const byTurn = new Map<number, ScenarioTimelineEntry[]>();
@@ -76,12 +101,14 @@ export default function TimelineList({
 					aria-expanded={showAll}
 					onClick={() => setShowAll((value) => !value)}
 				>
-					{showAll ? "只看本回合" : `全部 ${turns.length} 回合`}
+					{showAll ? "只看最新" : `全部 ${turns.length} 个时间单位`}
 				</button>
 			)}
 			{shown.map(([turn, entries]) => (
 				<div key={turn}>
-					<div className="sc-timeline-turn">第 {turn} 回合</div>
+					<div className="sc-timeline-turn">
+						<TurnLocator turn={turn} onLocateTurn={onLocateTurn} />
+					</div>
 					{entries.map((entry, index) => (
 						<TimelineEntry entry={entry} key={`${turn}-${index}-${entry.label}`} />
 					))}

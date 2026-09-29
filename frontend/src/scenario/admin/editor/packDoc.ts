@@ -32,6 +32,17 @@ export function fromJsonText(text: string): ScenarioPackDoc {
 	return parsed as ScenarioPackDoc;
 }
 
+/**
+ * 后端返回的内容（`{[key: string]: unknown}`）是不是编辑器能读的内容。
+ *
+ * 判据只到**顶层**（与 `fromJsonText` 一致）：必须是一张表；缺省/数组/标量一律 `false`，
+ * 调用方据此显示"没有可编辑的内容"，而不是把 `undefined` 塞进表单状态再到处判空。
+ * 深层的字段形状由**后端**那同一套校验负责，前端不复刻。
+ */
+export function isPackDocShaped(value: unknown): value is ScenarioPackDoc {
+	return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 /** 把解析失败翻成一句可读的中文（尽量带行号；`JSON.parse` 的原文折在最后）。 */
 export function describeJsonError(error: unknown): string {
 	const raw = error instanceof Error ? error.message : String(error);

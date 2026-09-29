@@ -1877,14 +1877,7 @@ button.sc-panel-head:hover {
 	overflow-wrap: anywhere;
 }
 
-.sc-board-entry[data-superseded="true"] .sc-board-line {
-	color: var(--sc-dim);
-	text-decoration: line-through;
-	text-decoration-thickness: 1px;
-}
-
-.sc-board-count,
-.sc-board-superseded {
+.sc-board-count {
 	flex: none;
 	font-size: var(--sc-fs-meta);
 	font-variant-numeric: tabular-nums;
@@ -2766,4 +2759,284 @@ button.sc-panel-head:hover {
 	.sc-intent {
 		transition: none;
 	}
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   机制重设计（docs/23 §7）新增的呈现：完整回合、系统消息、来源、复盘层级。
+   沿用同一套 `--sc-*` 刻度与语义色；不新增调色板、不加持续动画。
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 完整回合：一次尝试 + 世界回应 + 可见变化（不再只渲染最近五条）── */
+.sc-turn {
+	display: flex;
+	flex-direction: column;
+	gap: var(--sc-2);
+	min-width: 0;
+}
+
+.sc-turn + .sc-turn {
+	margin-top: var(--sc-3);
+	padding-top: var(--sc-3);
+	border-top: 1px solid var(--sc-line);
+}
+
+.sc-turn-mark {
+	display: flex;
+	align-items: center;
+	gap: var(--sc-2);
+	font-size: var(--sc-fs-meta);
+	color: var(--sc-dim);
+	scroll-margin-top: var(--sc-3);
+}
+
+.sc-turn-mark::after {
+	content: "";
+	flex: 1 1 auto;
+	height: 1px;
+	background: var(--sc-line);
+}
+
+/* 本回合变化：刚得到的信息轻量高亮（左侧强调色边），不闪烁、不整块染色 */
+.sc-line[data-highlight="true"] .sc-line-main {
+	border-left: 2px solid var(--sc-accent);
+	padding-left: var(--sc-2);
+}
+
+/*
+ * 系统消息（引擎直出：被阻止 / 未建模 / 澄清）：与台词、旁白并列但形态不同，
+ * 且带**可读标签**（不靠颜色区分）。红色只留给有依据的异常：被阻止用「注意」色，
+ * 未建模用中性色——两者都不是学生的临床错误（docs/23 §7.6）。
+ */
+.sc-line[data-role="system"] {
+	grid-template-columns: minmax(0, 1fr);
+}
+
+.sc-line[data-role="system"] .sc-line-main {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: var(--sc-1) var(--sc-2);
+	border: 1px dashed var(--sc-line);
+	border-radius: var(--sc-radius);
+	background: var(--sc-raised);
+}
+
+.sc-line[data-role="system"] .sc-line-who {
+	font-size: var(--sc-fs-meta);
+	font-weight: 700;
+	color: var(--sc-dim);
+}
+
+.sc-line[data-role="system"][data-kind="blocked"] .sc-line-who {
+	color: var(--sc-warn);
+}
+
+.sc-line[data-role="system"][data-kind="clarification"] .sc-line-who {
+	color: var(--sc-accent-text);
+}
+
+/* 旁白/提示的类别标签：次级小字，出现在正文之上 */
+.sc-line[data-role="scene"] .sc-line-who {
+	font-size: var(--sc-fs-meta);
+	color: var(--sc-dim);
+}
+
+/* 来源引用（回看定位）与待提交说明：次级小字，不进正文 */
+.sc-line-source,
+.sc-decl-note {
+	font-size: var(--sc-fs-meta);
+	color: var(--sc-dim);
+}
+
+/* 输入区的对象提示（"先选对象" / "原对象已不可达"）：一句说明，不是报错 */
+.sc-composer-note,
+.sc-form-target {
+	font-size: var(--sc-fs-meta);
+	color: var(--sc-dim);
+}
+
+/* 事实条目上的"第 N 回合"定位按钮：可读、可聚焦、触屏达 44 */
+.sc-locate {
+	min-height: var(--sc-h-sm);
+	padding: 0 var(--sc-1);
+	border: none;
+	background: transparent;
+	color: var(--sc-dim);
+	font: inherit;
+	font-size: var(--sc-fs-meta);
+	font-variant-numeric: tabular-nums;
+	cursor: pointer;
+	text-decoration: underline dotted;
+}
+
+.sc-locate:hover {
+	color: var(--sc-text);
+}
+
+/* ── 复盘页：经历与证据优先，判读降为可展开的次级区（docs/23 §7.7）── */
+.sc-key-turns {
+	display: flex;
+	flex-direction: column;
+	gap: var(--sc-2);
+}
+
+.sc-key-turn {
+	display: flex;
+	flex-direction: column;
+	gap: var(--sc-1);
+	padding-left: var(--sc-2);
+	border-left: 2px solid var(--sc-accent);
+}
+
+.sc-key-turn-head {
+	display: flex;
+	align-items: baseline;
+	gap: var(--sc-2);
+	flex-wrap: wrap;
+}
+
+.sc-key-turn-no {
+	font-size: var(--sc-fs-meta);
+	color: var(--sc-dim);
+	font-variant-numeric: tabular-nums;
+}
+
+.sc-key-turn-said {
+	font-size: var(--sc-fs-body);
+	color: var(--sc-text);
+	overflow-wrap: anywhere;
+}
+
+.sc-key-turn-row {
+	display: flex;
+	align-items: baseline;
+	gap: var(--sc-2);
+	flex-wrap: wrap;
+}
+
+.sc-key-turn-label {
+	flex: none;
+	font-size: var(--sc-fs-meta);
+	color: var(--sc-dim);
+}
+
+.sc-reflection {
+	display: flex;
+	flex-direction: column;
+	gap: var(--sc-1);
+	padding: var(--sc-3);
+	border: 1px solid var(--sc-line);
+	border-radius: var(--sc-radius-container);
+}
+
+.sc-reflection-label {
+	font-size: var(--sc-fs-meta);
+	font-weight: 700;
+	color: var(--sc-dim);
+}
+
+.sc-reflection-text {
+	margin: 0;
+	font-size: var(--sc-fs-body);
+	line-height: var(--sc-lh-body);
+}
+
+/* 可展开的次级区：标题行本身可点、可聚焦 */
+.sc-report-fold > summary.sc-panel-head {
+	min-height: var(--sc-control-h);
+	cursor: pointer;
+	list-style: none;
+}
+
+.sc-report-fold > summary.sc-panel-head::-webkit-details-marker {
+	display: none;
+}
+
+.sc-report-fold > summary.sc-panel-head::before {
+	content: "▸";
+	color: var(--sc-dim);
+}
+
+.sc-report-fold[open] > summary.sc-panel-head::before {
+	content: "▾";
+}
+
+/* 判读是次级信息：分数不再占据首屏的视觉重量 */
+.sc-assessment .sc-score-value {
+	font-size: var(--sc-fs-lg);
+}
+
+/* 旧机制原报告：原样留档、只读、可滚动、等宽 */
+.sc-legacy {
+	padding: var(--sc-3);
+	border: 1px solid var(--sc-line);
+	border-radius: var(--sc-radius-container);
+}
+
+.sc-legacy-json {
+	margin: 0;
+	max-height: 40vh;
+	overflow: auto;
+	font-size: var(--sc-fs-meta);
+	line-height: var(--sc-lh-tight);
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	color: var(--sc-dim);
+}
+
+/* 白板条目的次级行：来源引用 + 来源回合 */
+.sc-board-meta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sc-2);
+	min-width: 0;
+}
+
+.sc-board-source {
+	font-size: var(--sc-fs-meta);
+	line-height: var(--sc-lh-tight);
+	color: var(--sc-dim);
+	overflow-wrap: anywhere;
+}
+
+/* 没有定位入口时同一个类名渲染为 <span>：不假装可点 */
+span.sc-locate {
+	cursor: default;
+	text-decoration: none;
+}
+
+/* 输入组的语义容器：`fieldset` 只承担语义（mode + object 是一组），不带默认边框与缩进 */
+fieldset.sc-intents {
+	min-width: 0;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+/* 只给辅助技术看的标签（控件组、图标按钮的可读名） */
+.sc-visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+	border: 0;
+}
+
+/*
+ * 「耗时」标记：只说明这个动作会花情境时间，不给数字、不给单位、不做倒计时、不做进度条。
+ * 克制到只是一枚次级小字标签——时间是世界的属性，不是学生的计分板。
+ */
+.sc-time-cost {
+	margin-left: var(--sc-1);
+	padding: 0 4px;
+	border: 1px solid var(--sc-line);
+	border-radius: var(--sc-radius);
+	font-size: var(--sc-fs-meta);
+	color: var(--sc-dim);
+	white-space: nowrap;
 }

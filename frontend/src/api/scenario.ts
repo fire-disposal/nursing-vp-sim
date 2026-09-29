@@ -6,556 +6,77 @@ import { api } from "./client";
 
 type Schemas = components["schemas"];
 
-// --------------------------------------------------------------------------- //
-// 学生可见视图（`build_view` 的投影）
-//
-// 后端这些接口返回的是投影 dict，openapi 里只生成到 `{ [key: string]: unknown }`
-// （FastAPI 无法从 `dict[str, Any]` 反推形状），所以形状在这里按后端
-// `modules/scenario_training/runtime/view.py` 的键**镜像声明**（只声明 UI 实际消费的键，
-// 后端多出来的键 UI 不读）；
-// 请求体的类型仍直接取生成物（`Schemas["OpenSessionRequest"]` / `["ActionRequest"]`）。
-// 本模块是唯一的收口处：视图字段与后端不同步只改这里，页面不各自猜形状。
-// --------------------------------------------------------------------------- //
-
-/** `GET /scenario/packs` 的一项：情境包摘要（含最新修订）。 */
-export interface ScenarioPackSummary {
-	key: string;
-	title: string;
-	state: string;
-	one_line: string;
-	revision_id: number | null;
-	revision_no: number | null;
-	/** 你将扮演谁（`pack.player.role`，如「夜班护士」）——入口页卡片的**学生语义**徽章。 */
-	player_role: string;
-	/** 在哪儿（`pack.setting.place`，如「呼吸内科病房」）。 */
-	place: string;
-}
-
-export interface ScenarioMessage {
-	/** `student` = 学生自己做过的事（自由表达的原话 / 按钮与选项的标签）。 */
-	role: "scene" | "actor" | "student";
-	text: string;
-	/** `role === "actor"` 时的说话人 id（**临时角色可能为空**）。 */
-	actor?: string | null;
-	/** 显示用身份名：声明角色给 pack 的 role，临时角色给 DM 写的显示名。 */
-	actor_role?: string | null;
-	/** true = 只在这一次出现（走廊护工 / 广播 / 电话另一头），不入在场者名册。 */
-	ephemeral?: boolean;
-	/** 头像种子（临时角色 = 显示名，声明角色 = actor id），头像由前端派生。 */
-	avatar_seed?: string | null;
-	/** `dm` = DM 代言；`entity` = 独立角色实体自己说的话。 */
-	origin?: string;
-	turn?: number;
-	/**
-	 * **前端自定义字段，后端不返回**：这条是"待定"条目——学生刚提交、权威视图还没到，
-	 * 先按正式样式顶上；`view` 一到就被同回合同文案的正式消息接管（见 `scenario/stream.ts`）。
-	 */
-	pending?: boolean;
-	/**
-	 * 学生这条是**声明过的对话**还是**自定义行动**（后端 `runtime.world.student_declaration`）：
-	 * `say` = 对某个在场者说 / `act` = 自定义行动 / `null` = 未声明（旧客户端、按钮、选项）。
-	 * 只用来区分气泡形态，不写"你说：""执行："这类平台口吻。
-	 */
-	declaration?: "say" | "act" | null;
-}
-
-export interface ScenarioOption {
-	label?: string | null;
-	type?: string | null;
-	affordance_id?: string | null;
-	params?: Record<string, unknown>;
-	free_input?: boolean;
-}
-
-export type ScenarioSelect = "none" | "single" | "multi";
-
-export interface ScenarioAffordance {
-	id: string;
-	type: string;
-	label: string;
-	select: ScenarioSelect;
-	/** `select !== "none"` 时的可选项（来自 pack 声明）。 */
-	options: string[];
-	/** `type === "document"` 时的记录字段名。 */
-	fields: string[];
-	free_input: boolean;
-	confirm: boolean;
-}
-
-export interface ScenarioActor {
-	id: string;
-	role: string;
-	presence: string;
-	present: boolean;
-}
-
-export interface ScenarioHudSlot {
-	slot: string;
-	source: "state" | "cue" | "actor" | "affordance";
-	label?: string;
-	value?: unknown;
-	ref?: string;
-	items?: string[];
-	count?: number;
-}
-
-export interface ScenarioSituation {
-	place: string;
-	time_hint: string;
-	resources: string[];
-	visible_cues: string[];
-	noticed: string[];
-}
-
-export interface ScenarioTimelineEntry {
-	turn: number;
-	kind: "student" | "world";
-	label: string;
-	by?: string | null;
-}
-
-export interface ScenarioDim {
-	id: string;
-	label: string;
-	agg: string;
-	value: unknown;
-	unit: string;
-	detail: string;
-}
-
-/** 场景资源包内的预定义图片（场景准备者预先准备）。 */
-export interface ScenarioAsset {
-	id: string;
-	title: string;
-	alt: string;
-	url: string;
-	suggest_when: string;
-}
-
-/** 本回合 DM 决定展示的图片。`origin === "generated"` 才可能来自绘画者 AI。 */
-export interface ScenarioImage {
-	asset_id: string;
-	url: string;
-	title: string;
-	alt: string;
-	caption: string;
-	origin: "pack" | "generated" | string;
-}
-
-/** 线索板条目的类别（后端封闭词表）：现场线索 / 读数 / 你注意到的 / 已确认 / 已处置 / 板上的判断。 */
-export type ScenarioBoardKind =
-	| "cue"
-	| "state"
-	| "noticed"
-	| "fact"
-	| "action"
-	| "note";
-
-/** 板上的条目来源：pack 声明 / 世界状态 / DM 写入 / 学生动作。 */
-export type ScenarioBoardSource = "pack" | "world" | "dm" | "student";
-
-/** 线索板的一条：**单行**（`text` 后端已限长去重，前端不再截断或补全）。 */
-export interface ScenarioBoardEntry {
-	id: string;
-	kind: ScenarioBoardKind;
-	text: string;
-	source: ScenarioBoardSource;
-	/** `kind === "fact"` 时的原话证据（次行小字，不展开成长段落）。 */
-	evidence?: string;
-	/** `kind === "state"` 的读数。 */
-	value?: number;
-	/** `kind === "action"` 的合并次数（`text` 已含 `×N`，这用于徽章）。 */
-	count?: number;
-	turn?: number;
-	/** 已被后续条目订正（旧条目**不消失**，划线保留）。 */
-	superseded?: boolean;
-	/** 该条目订正了哪一条（`superseded` 的逆向指针）。 */
-	supersedes?: string;
-}
-
-/** 线索板的一个版块：同一来源的条目按来源聚成一段。 */
-export interface ScenarioBoardSection {
-	id: string;
-	title: string;
-	source: ScenarioBoardKind;
-	entries: ScenarioBoardEntry[];
-	/** 超过每版块上限、被截掉的条数（`>0` 时版块底部提示）。 */
-	more: number;
-}
-
-/**
- * 线索板（白板）：**只读、按需具现**的事实区。
- *
- * `editable` 恒为 false（学生只能通过"做事情"让它长出来）；版块与条目由后端按
- * 触发条件投影，缺省即"此刻还不该出现"——前端不缓存旧视图、不补位。
- */
-export interface ScenarioBoard {
-	editable: boolean;
-	entry_count: number;
-	sections: ScenarioBoardSection[];
-}
-
-/** 设备类型：监护仪 / 值班电话 / 输液泵 / 其它。 */
-export type ScenarioDeviceKind = "monitor" | "phone" | "pump" | "other";
-
-/** 通道状态：正常 / 偏低 / 偏高 / 危急 / 未知（配色见 `status` 钩子，**不闪烁**）。 */
-export type ScenarioChannelStatus =
-	| "normal"
-	| "low"
-	| "high"
-	| "critical"
-	| "unknown";
-
-/**
- * 设备的一个通道读数。
- *
- * `display` 是**后端格式化好的**字符串（小数位由 pack 声明），前端不再自己格式化；
- * `delta`/`history` 只在 pack 声明了趋势时才给（否则为 `null` / `[]`）。
- */
-export interface ScenarioDeviceChannel {
-	ref: string;
-	label: string;
-	unit: string;
-	display: string;
-	value: unknown;
-	status: ScenarioChannelStatus;
-	delta: number | null;
-	history: number[];
-	normal: [number, number] | null;
-	critical: [number, number] | null;
-}
-
-/** 场景里的一台设备（监护仪 / 值班电话…）。服务端已按需求过滤：不该出现的根本不会来。 */
-export interface ScenarioDevice {
-	id: string;
-	kind: ScenarioDeviceKind;
-	title: string;
-	/** `beep` 才给提示音；`off`（或不声明）表示这台设备不响。 */
-	sound: "off" | "beep";
-	channels: ScenarioDeviceChannel[];
-}
-
-export interface ScenarioView {
-	session: { id: number; status: string; turn: number; lost: boolean };
-	pack: { key: string; title: string; player_role: string; revision_id?: number | null };
-	situation: ScenarioSituation;
-	actors: ScenarioActor[];
-	hud: ScenarioHudSlot[];
-	messages: ScenarioMessage[];
-	options: ScenarioOption[];
-	affordances: ScenarioAffordance[];
-	free_input: boolean;
-	timeline: ScenarioTimelineEntry[];
-	dims: ScenarioDim[];
-	nudges: string[];
-	problems: string[];
-	/** pack 声明的呈现面板：timeline / emotion / coverage（空 = 不声明，UI 全开）。 */
-	panels?: string[];
-	/** 后端实验面在补：缺失时按"没有图"渲染，不占位、不造假图。 */
-	assets?: ScenarioAsset[];
-	images?: ScenarioImage[];
-	/** 线索板（只读事实区）；老后端没有这个键时按"没有板"渲染。 */
-	board?: ScenarioBoard;
-	/** 设备面（实时读数）；服务端按需求过滤，缺省即"此刻没有设备"。 */
-	devices?: ScenarioDevice[];
-}
-
-export type ScenarioAnchor = "strong" | "adequate" | "missed";
-
-/**
- * 结算报告的一条评分条目（场景作者自己写的 rubric：条目数、标题、权重都不同）。
- *
- * `weight` 是**平台/维护者的事**：学生侧只看 `title` + 锚点 + `detail`，
- * 看到权重只会诱发凑分；管理侧才展开完整明细。
- */
-export interface ScenarioCriterion {
-	id: string;
-	title: string;
-	anchor: ScenarioAnchor;
-	/** 锚点映射到的得分（0..1）——只在管理侧显示数值。 */
-	score: number;
-	weight: number;
-	detail: string;
-	evidence: string[];
-}
-
-/** 得分率汇总：`rate` 为 `null` 表示本情境没有可计权的条目（不是 0 分）。 */
-export interface ScenarioScore {
-	rate: number | null;
-	weighted_sum: number;
-	total_weight: number;
-	criteria: ScenarioCriterion[];
-}
-
-/** 结算报告（`POST /close` 的 `report`，也是"经历页"的数据源）。 */
-export interface ScenarioReport {
-	pack: { key: string; title: string };
-	turn: number;
-	lost: boolean;
-	summary: Record<string, number>;
-	score: ScenarioScore;
-	criteria: ScenarioCriterion[];
-	dims: ScenarioDim[];
-	timeline: ScenarioTimelineEntry[];
-	problems: string[];
-}
-
-export interface ScenarioSessionResponse {
-	session_id: number;
-	pack: { key: string; title: string; revision_id: number };
-	view: ScenarioView;
-}
-
-/** `GET /sessions/{id}`：会话 + 可能已存在的报告（重入时用）。 */
-export interface ScenarioSessionState {
-	session_id: number;
-	status: string;
-	report: ScenarioReport | null;
-	view: ScenarioView;
-}
-
-export interface ScenarioTurnResponse {
-	session_id: number;
-	problems: string[];
-	view: ScenarioView;
-}
-
-export interface ScenarioCloseResponse {
-	session_id: number;
-	report: ScenarioReport;
-	view: ScenarioView;
-}
-
-/** 学生做的一件事：`text` = 自由发问；`selected`/`custom_text` = 选择型动作与自输入。 */
-export interface ScenarioActionInput {
-	affordance_id?: string | null;
-	/**
-	 * 学生**先声明**的意图：`say` = 对某个在场者说话（必须带 `target_actor_id`）/
-	 * `act` = 自定义行动 / `ask` = 旧形态（不声明）。后端按它决定 DM 以对话还是以行动后果回应。
-	 */
-	type: string;
-	text?: string | null;
-	selected?: string[];
-	custom_text?: string | null;
-	/** `type === "say"` 时的收信人；必须是 pack 已声明且搭得上话的 actor id（否则 422）。 */
-	target_actor_id?: string | null;
-}
-
-/** `GET /scenario/sessions`（我的情境历史）与 `/admin/sessions` 列表行。 */
-export interface ScenarioSessionRow {
-	id: number;
-	pack_key: string;
-	pack_title: string;
-	status: string;
-	turn: number | null;
-	lost: boolean | null;
-	summary: Record<string, number> | null;
-	created_at: string | null;
-	updated_at: string | null;
-}
-
-/** 管理侧会话行额外带学生与修订（学生侧不返回这些键）。 */
-export interface ScenarioAdminSessionRow extends ScenarioSessionRow {
-	user_id: number;
-	pack_revision_id: number;
-}
-
-/** 管理侧：一次修订。 */
-export interface ScenarioAdminRevision {
-	id: number;
-	no: number;
-	note: string;
-}
-
-/**
- * 管理侧：最新修订的**声明投影**（病例工作区的「概览」读它）。
- *
- * 只有作者声明的那几面：角色 / 场景 / 在场者 / 锚点 / 各栏计数。
- * DM 侧的真相字段（`truth`、`hidden_from_player`、actor 的 knowledge）**不在投影里**。
- */
-export interface ScenarioAdminOverview {
-	player_role: string;
-	place: string;
-	time_hint: string;
-	resources: string[];
-	actors: { id: string; role: string; presence: string }[];
-	anchors: { id: string; stage: string; goal: string }[];
-	cues: number;
-	affordances: number;
-	reactions: number;
-	facts: number;
-	criteria: number;
-	criteria_weight: number;
-	failure: string;
-	image_generation: string;
-}
-
-/** 管理侧：资源声明 + 库里是否已有字节（`uploaded=false` = 只有声明，取图会 404）。 */
-export interface ScenarioAdminAsset {
-	id: string;
-	kind: string;
-	title: string;
-	alt: string;
-	suggest_when: string;
-	filename: string;
-	mime_type: string;
-	file_size: number;
-	uploaded: boolean;
-}
-
-/** 管理侧：`GET /scenario/admin/packs` 的一项。 */
-export interface ScenarioAdminPack {
-	key: string;
-	title: string;
-	state: string;
-	one_line: string;
-	revision_id: number | null;
-	revision_no: number | null;
-	revisions: ScenarioAdminRevision[];
-	assets: ScenarioAdminAsset[];
-	/** 最新修订的声明投影；没有可读修订时为 `null`（老修订可能已不合当前 schema）。 */
-	overview: ScenarioAdminOverview | null;
-	sessions: number;
-}
-
-/** `POST /scenario/admin/packs`：上传包 JSON 的结果。 */
-export interface ScenarioAdminPackUpload {
-	key: string;
-	revision_id: number;
-	revision_no: number;
-	/** false = 内容与既有最新修订一致（幂等，未新增修订）。 */
-	created: boolean;
-	/** pack 声明了但库里还没有字节的资源 id。 */
-	assets_pending: string[];
-}
-
-/** `POST /scenario/admin/packs/{key}/assets`：上传图片的结果（上传即追加一个新修订）。 */
-export interface ScenarioAdminAssetUpload {
-	key: string;
-	revision_no: number;
-	asset: ScenarioAdminAsset;
-}
-
-/** 管理侧：会话回放里的一条事件（`payload` 形状随 `kind` 变化，按原样呈现）。 */
-export interface ScenarioAdminEvent {
-	kind: string;
-	payload: Record<string, unknown> | null;
-}
-
-/** 管理侧：`GET /scenario/admin/sessions` 的分页结果。 */
-export interface ScenarioAdminSessionList {
-	total: number;
-	items: ScenarioAdminSessionRow[];
-}
-
-/** 锚点状态（后端 `runtime/anchors.py::AnchorStatus` 的封闭五值）。 */
-export type ScenarioAnchorStatus =
-	| "pending"
-	| "active"
-	| "satisfied"
-	| "blocked"
-	| "abandoned";
-
-/** 回放的锚点面板：**一个回合末尾**的一个锚点（`runtime/anchors.py` 的重算结果）。 */
-export interface ScenarioAdminAnchorState {
-	id: string;
-	stage: string;
-	/** 教学意图（只给教师/回放看；学生侧没有这个键）。 */
-	goal: string;
-	status: ScenarioAnchorStatus;
-	/** `blocked` 时缺的那一步（事实/动作 id）；其余状态为空串。 */
-	reason: string;
-	/** 首次成为 `active` 的回合（从未成为 active → `null`）。 */
-	active_since: number | null;
-	/** 超期回合数（0 = 未超期）。 */
-	overdue: number;
-	/** 本回合引擎发出的催办原文（空串 = 未发）。 */
-	nudge: string;
-	missing_requires: string[];
-	satisfied_requires: string[];
-}
-
-/** 一条被拒的锚点提案：DM 提的（`proposal`）与引擎重算的（`actual`）不一致。 */
-export interface ScenarioAdminAnchorRejection {
-	turn: number;
-	anchor_id: string;
-	proposal: string;
-	actual: string;
-}
-
-/** 一个回合的锚点全景（`turn 0` = 开场）。 */
-export interface ScenarioAdminAnchorTurn {
-	turn: number;
-	states: ScenarioAdminAnchorState[];
-	rejected: ScenarioAdminAnchorRejection[];
-}
-
-/** 锚点面板：`null` = 该病例没声明 anchors（管理回放里整块不渲染）。 */
-export interface ScenarioAdminAnchorPanel {
-	count: number;
-	turns: ScenarioAdminAnchorTurn[];
-}
-
-/** 管理侧：单次会话的完整回放（含**每回合诊断问题**，仅维护者可见）。 */
-export interface ScenarioAdminSessionDetail {
-	session: ScenarioAdminSessionRow;
-	view: ScenarioView;
-	report: ScenarioReport | null;
-	problems: string[];
-	event_count: number;
-	events: ScenarioAdminEvent[];
-	/** 锚点面板；`null` / 缺键（老后端）= 该病例没有声明锚点。 */
-	anchors?: ScenarioAdminAnchorPanel | null;
-}
-
-/** 管理侧：按包的汇总。 */
-export interface ScenarioAdminStatsBucket {
-	pack_key: string;
-	pack_title: string;
-	sessions: number;
-	completed: number;
-	lost: number;
-	anchors: { strong: number; adequate: number; missed: number };
-}
-
-export interface ScenarioAdminStats {
-	packs: ScenarioAdminStatsBucket[];
-}
-
-/** 管理侧：DM 运行期生成的图片（按病例分页）。 */
-export interface ScenarioGeneratedAsset {
-	id: number;
-	session_id: number;
-	pack_key: string;
-	pack_revision_id: number;
-	kind: string;
-	prompt: string;
-	mime_type: string;
-	file_size: number;
-	sha256: string;
-	created_at: string | null;
-}
-
-export interface ScenarioGeneratedList {
-	items: ScenarioGeneratedAsset[];
-	total: number;
-}
-
-export interface ScenarioGeneratedQuery {
-	limit?: number;
-	offset?: number;
-	session_id?: number | null;
-}
-
-export interface ScenarioAdminSessionQuery {
-	pack_key?: string | null;
-	status?: string | null;
-	limit?: number;
-	offset?: number;
-}
-
-/** 包状态（生成物 `PackState` 的封闭两值）：`experimental` 允许犯错，`reviewed` 才算定稿。 */
-export type ScenarioPackState = NonNullable<Schemas["PackState"]>;
+// Public wire shapes have one owner: the generated backend schema.
+export type ScenarioPackSummary = Schemas["ScenarioPackSummary"];
+export type ScenarioMessage = Schemas["ScenarioMessage"];
+export type ScenarioTarget = Schemas["TargetRef"];
+export type ScenarioAffordance = Schemas["ScenarioAffordance"];
+export type ScenarioActor = Schemas["ScenarioActor"];
+export type ScenarioHudSlot = Schemas["ScenarioHudSlot"];
+export type ScenarioSituation = Schemas["ScenarioSituation"];
+export type ScenarioTimelineEntry = Schemas["ScenarioTimelineEntry"];
+export type ScenarioDim = Schemas["ScenarioDim"];
+export type ScenarioAsset = Schemas["ScenarioAsset"];
+export type ScenarioImage = Schemas["ScenarioImage"];
+export type ScenarioBoardEntry = Schemas["ScenarioBoardEntry"];
+export type ScenarioBoardSection = Schemas["ScenarioBoardSection"];
+export type ScenarioBoard = Schemas["ScenarioBoard"];
+export type ScenarioDeviceChannel = Schemas["ScenarioDeviceChannel"];
+export type ScenarioDevice = Schemas["ScenarioDevice"];
+export type ScenarioView = Schemas["ScenarioView"];
+export type ScenarioCriterion = Schemas["ScenarioCriterion"];
+export type ScenarioScore = Schemas["ScenarioScore"];
+export type ScenarioReport = Schemas["ScenarioReport"];
+export type ScenarioOpenSessionRequest = Schemas["ScenarioOpenSessionRequest"];
+export type ScenarioArchiveRef = Schemas["ScenarioArchiveRef"];
+export type ScenarioSessionResponse = Schemas["ScenarioSessionResponse"];
+export type ScenarioSessionState = Schemas["ScenarioSessionState"];
+export type ScenarioTurnRequest = Schemas["ScenarioTurnRequest"];
+export type ScenarioTurnResult = Schemas["ScenarioTurnResult"];
+export type ScenarioRequestLookup = Schemas["ScenarioRequestLookup"];
+export type ScenarioSsePhase = Schemas["ScenarioSsePhase"];
+export type ScenarioSseDelivery = Schemas["ScenarioSseDelivery"];
+export type ScenarioSseCommitted = Schemas["ScenarioSseCommitted"];
+export type ScenarioSseError = Schemas["ScenarioSseError"];
+/** SSE 阶段词表（封闭枚举，来自生成物；前端只翻译，不自造阶段名）。 */
+export type ScenarioTurnPhase = ScenarioSsePhase["phase"];
+export type ScenarioCloseResponse = Schemas["ScenarioCloseResponse"];
+export type ScenarioCloseRequest = Schemas["ScenarioCloseRequest"];
+export type ScenarioErrorInfo = Schemas["ScenarioErrorInfo"];
+/** Composer draft: request identity is assigned only when submitted. */
+export type ScenarioActionInput = Omit<ScenarioTurnRequest, "request_id" | "expected_seq">;
+export type ScenarioSessionRow = Schemas["ScenarioSessionRow"];
+export type ScenarioAdminSessionRow = Schemas["ScenarioAdminSessionRow"];
+export type ScenarioAdminRevision = Schemas["ScenarioAdminRevision"];
+export type ScenarioAdminOverview = Schemas["ScenarioAdminOverview"];
+export type ScenarioAdminAsset = Schemas["ScenarioAdminAsset"];
+export type ScenarioAdminPack = Schemas["ScenarioAdminPack"];
+export type ScenarioAdminPackUpload = Schemas["ScenarioAdminPackUpload"];
+export type ScenarioAdminAssetUpload = Schemas["ScenarioAdminAssetUpload"];
+export type ScenarioAdminEvent = Schemas["ScenarioAdminEvent"];
+export type ScenarioAdminSessionList = Schemas["ScenarioAdminSessionList"];
+export type ScenarioAdminSessionDetail = Schemas["ScenarioAdminSessionDetail"];
+export type ScenarioAdminFocusTurn = Schemas["ScenarioAdminFocusTurn"];
+export type ScenarioAdminTurnReplay = Schemas["ScenarioAdminTurnReplay"];
+export type ScenarioAdminStatsBucket = Schemas["ScenarioAdminStatsBucket"];
+export type ScenarioAdminStats = Schemas["ScenarioAdminStats"];
+export type ScenarioGeneratedAsset = Schemas["ScenarioGeneratedAsset"];
+export type ScenarioGeneratedList = Schemas["ScenarioGeneratedList"];
+export type ScenarioPackProblem = Schemas["ScenarioPackProblem"];
+export type ScenarioPackValidation = Schemas["ScenarioPackValidation"];
+export type ScenarioAdminPackSource = Schemas["ScenarioAdminPackSource"];
+export type ScenarioArchiveSummary = Schemas["ScenarioArchiveSummary"];
+export type ScenarioArchiveList = Schemas["ScenarioArchiveList"];
+export type ScenarioArchiveRaw = Schemas["ScenarioArchiveRaw"];
+export type ScenarioArchiveDetail = Schemas["ScenarioArchiveDetail"];
+export type ScenarioPackState = Schemas["PackState"];
+export type ScenarioAnchor = Schemas["Anchor"];
+export type ScenarioChannelStatus = ScenarioDeviceChannel["status"];
+export type ScenarioDeviceKind = ScenarioDevice["kind"];
+export interface ScenarioGeneratedQuery { limit?: number; offset?: number; session_id?: number | null }
+export interface ScenarioAdminSessionQuery { pack_key?: string | null; status?: string | null; limit?: number; offset?: number }
+/** 归档列表的查询参数（后端是 `Query(...)`，不是请求体模型 → 前端自己声明，见 handoff §13.4）。 */
+export interface ScenarioAdminArchiveQuery { pack_key?: string | null; limit?: number; offset?: number }
 
 /** 上传请求体：multipart 的字段名与生成物一致，只有 `file` 在浏览器里是 `File`（生成物是二进制字符串）。 */
 export type ScenarioPackUploadInput = Omit<
@@ -578,7 +99,7 @@ export const listScenarioPacks = () =>
 		.then((r) => r.data);
 
 export const createScenarioSession = (
-	payload: Schemas["OpenSessionRequest"] = {},
+	payload: ScenarioOpenSessionRequest = { trial: false },
 ) =>
 	api
 		.post<ScenarioSessionResponse>(
@@ -594,22 +115,11 @@ export const getScenarioSession = (sessionId: number) =>
 		)
 		.then((r) => r.data);
 
-export const postScenarioAction = (
-	sessionId: number,
-	action: ScenarioActionInput,
-) =>
-	api
-		.post<ScenarioTurnResponse>(
-			`/scenario/sessions/${sessionId}/actions` as ApiPath,
-			{
-				affordance_id: action.affordance_id ?? null,
-				type: action.type,
-				text: action.text ?? null,
-				selected: action.selected ?? [],
-				custom_text: action.custom_text ?? null,
-			} satisfies Schemas["ActionRequest"],
-		)
-		.then((r) => r.data);
+export const postScenarioTurn = (sessionId: number, request: ScenarioTurnRequest) =>
+	api.post<ScenarioTurnResult>(`/scenario/sessions/${sessionId}/turns` as ApiPath, request).then((r) => r.data);
+
+export const getScenarioRequest = (sessionId: number, requestId: string) =>
+	api.get<ScenarioRequestLookup>(`/scenario/sessions/${sessionId}/requests/${encodeURIComponent(requestId)}` as ApiPath).then((r) => r.data);
 
 // --------------------------------------------------------------------------- //
 // 流式回合（SSE）
@@ -618,142 +128,78 @@ export const postScenarioAction = (
 // 自己按行切（与 `./stream.ts` 的做法一致）。
 // --------------------------------------------------------------------------- //
 
-/** SSE 的三种事件：增量块 / 权威视图 / 已知失败面。 */
+/**
+ * SSE 的四种事件：`kind` 是前端加上的传输判别键（SSE 把事件名放在 `event:` 行，
+ * `data:` 里没有它），载荷本身**逐字**取生成物里的 `ScenarioSse{Phase,Delivery,Committed,Error}`。
+ *
+ * **`delivery` 是已通过结构校验但尚未提交的草稿**：无论它看起来多完整，都不代表世界已经变化，
+ * 一律不得渲染成事实（失败回合也可能先收到 delivery 再收到 error）。提交前学生只看到
+ * 阶段状态与待发送的自己的消息（`docs/23` §4.5）。
+ */
 export type ScenarioStreamEvent =
-	| { kind: "blocks"; blocks: Record<string, unknown> }
-	| {
-			kind: "view";
-			view: ScenarioView;
-			problems: string[];
-			session_id: number;
-	  }
-	| { kind: "error"; message: string };
+	| ({ kind: "phase" } & ScenarioSsePhase)
+	| ({ kind: "delivery" } & ScenarioSseDelivery)
+	| ({ kind: "committed" } & ScenarioSseCommitted)
+	| ({ kind: "error" } & ScenarioSseError);
 
-/**
- * 「流式这条路走不通」——调用方应当**自动退回非流式** `/actions`（行为与今天一致，不得更差）。
- *
- * 只覆盖"换条路就能成"的情况：浏览器没有 fetch/流、连接中断、端点不存在（404/405/501）、
- * 流结束却一个事件都没给。**业务失败**（如 409 已结束、403、422）不走这个异常。
- */
-export class ScenarioStreamUnavailable extends Error {}
-
-function streamUrl(sessionId: number): string {
-	const base = api.defaults.baseURL ?? "";
-	return `${base}/scenario/sessions/${sessionId}/actions/stream`;
-}
-
-/**
- * 流式提交一个动作；每个事件都会同步回调 `onEvent`。
- *
- * 正常返回 = 至少收到过一个事件（`view` 或 `error` 由调用方处理）；
- * 抛 `ScenarioStreamUnavailable` = 该退回非流式；抛别的错误 = 真正的失败（照旧报给用户）。
- */
-export async function streamScenarioAction(
+/** A broken stream says nothing about commit status. The caller must look up the request. */
+export async function streamScenarioTurn(
 	sessionId: number,
-	action: ScenarioActionInput,
+	request: ScenarioTurnRequest,
 	onEvent: (event: ScenarioStreamEvent) => void,
 	signal?: AbortSignal,
 ): Promise<void> {
-	if (typeof fetch !== "function") {
-		throw new ScenarioStreamUnavailable("这个浏览器不支持流式读取");
-	}
-
-	let response: Response;
-	try {
-		response = await fetch(streamUrl(sessionId), {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				...(useAuthStore.getState().token
-					? { Authorization: `Bearer ${useAuthStore.getState().token}` }
-					: {}),
-			},
-			body: JSON.stringify({
-				affordance_id: action.affordance_id ?? null,
-				type: action.type,
-				text: action.text ?? null,
-				selected: action.selected ?? [],
-				custom_text: action.custom_text ?? null,
-			} satisfies Schemas["ActionRequest"]),
-			signal,
-		});
-	} catch (err) {
-		// 主动取消不算"走不通"，交给上层按取消处理
-		if (signal?.aborted) throw err;
-		throw new ScenarioStreamUnavailable("流式连接建立失败");
-	}
-
-	if (response.status === 404 || response.status === 405 || response.status === 501) {
-		throw new ScenarioStreamUnavailable(`流式端点不可用（${response.status}）`);
-	}
+	const response = await fetch(`${api.defaults.baseURL ?? ""}/scenario/sessions/${sessionId}/turns/stream`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json", Authorization: `Bearer ${useAuthStore.getState().token ?? ""}` },
+		body: JSON.stringify(request),
+		signal,
+	});
 	if (!response.ok) {
-		const detail = await response.text().catch(() => "");
-		throw new ScenarioHttpError(response.status, detail);
+		const body = await response.json().catch(() => null);
+		throw new ScenarioHttpError(response.status, body?.detail ?? { code: "http_error", message: `请求失败（${response.status}）` });
 	}
-	if (response.body === null) {
-		throw new ScenarioStreamUnavailable("响应没有可读的流");
-	}
-
+	if (!response.body) throw new Error("连接未返回可读结果");
 	const reader = response.body.getReader();
 	const decoder = new TextDecoder();
 	let buffer = "";
-	let seen = 0;
-
-	const consume = (chunk: string) => {
-		for (const raw of chunk.split("\n")) {
-			const line = raw.trimStart();
-			if (!line.startsWith("data:")) continue;
-			const payload = line.slice(5).trim();
-			if (!payload) continue;
-			let event: ScenarioStreamEvent;
-			try {
-				event = JSON.parse(payload) as ScenarioStreamEvent;
-			} catch {
-				continue; // 半个 JSON 不猜，等下一个块
-			}
-			seen += 1;
-			onEvent(event);
-		}
+	const consume = (frame: string) => {
+		const lines = frame.split("\n");
+		const kind = lines.find((line) => line.startsWith("event:"))?.slice(6).trim();
+		if (!kind || !["phase", "delivery", "committed", "error"].includes(kind)) return;
+		const data = lines.filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trimStart()).join("\n");
+		onEvent({ ...JSON.parse(data), kind } as ScenarioStreamEvent);
 	};
-
-	while (true) {
-		let step: ReadableStreamReadResult<Uint8Array>;
-		try {
-			step = await reader.read();
-		} catch (err) {
-			if (seen > 0 || signal?.aborted) throw err;
-			throw new ScenarioStreamUnavailable("流在给出任何内容前中断");
+	try {
+		while (true) {
+			const { value, done } = await reader.read();
+			buffer += decoder.decode(value, { stream: !done }).replace(/\r\n/g, "\n");
+			let boundary = buffer.indexOf("\n\n");
+			while (boundary !== -1) {
+				consume(buffer.slice(0, boundary));
+				buffer = buffer.slice(boundary + 2);
+				boundary = buffer.indexOf("\n\n");
+			}
+			if (done) break;
 		}
-		if (step.done) break;
-		buffer += decoder.decode(step.value, { stream: true });
-		const boundary = buffer.lastIndexOf("\n\n");
-		if (boundary === -1) continue;
-		const ready = buffer.slice(0, boundary);
-		buffer = buffer.slice(boundary + 2);
-		consume(ready);
+		if (buffer.trim()) consume(buffer);
+	} finally {
+		reader.releaseLock();
 	}
-	buffer += decoder.decode();
-	consume(buffer);
-
-	if (seen === 0) throw new ScenarioStreamUnavailable("流结束了但没有给出任何事件");
 }
 
-/** HTTP 层失败（带状态码与原文），让上层照旧用 409/403 这些既有语义处理。 */
 export class ScenarioHttpError extends Error {
-	readonly status: number;
-	readonly detail: string;
-	constructor(status: number, detail: string) {
-		super(detail || `请求失败（${status}）`);
+	constructor(readonly status: number, readonly detail: ScenarioErrorInfo) {
+		super(detail.message);
 		this.name = "ScenarioHttpError";
-		this.status = status;
-		this.detail = detail;
 	}
 }
 
-export const closeScenarioSession = (sessionId: number) =>
+export const closeScenarioSession = (sessionId: number, request: ScenarioCloseRequest) =>
 	api
 		.post<ScenarioCloseResponse>(
 			`/scenario/sessions/${sessionId}/close` as ApiPath,
+			request,
 		)
 		.then((r) => r.data);
 
@@ -789,7 +235,7 @@ export const uploadAdminScenarioPack = (payload: ScenarioPackUploadInput) => {
 
 export const patchAdminScenarioPack = (
 	packKey: string,
-	payload: Schemas["PackPatchRequest"],
+	payload: Schemas["ScenarioPackPatchRequest"],
 ) =>
 	api
 		.patch<{ key: string; state: string; title: string; one_line: string }>(
@@ -850,39 +296,6 @@ export type ScenarioPackValue =
 /** 一份 pack 内容（顶层是一张表）。 */
 export type ScenarioPackDoc = { [key: string]: ScenarioPackValue };
 
-/** 编辑器：一条校验问题。`path` 是稳定字段路径（如 `affordances[suction].type`、`actors.0.presence`）。 */
-export interface ScenarioPackProblem {
-	path: string;
-	message: string;
-}
-
-/** 编辑器：保存前校验的结果（不落库）。 */
-export interface ScenarioPackValidation {
-	ok: boolean;
-	problems: ScenarioPackProblem[];
-	/** 通过校验时的内容哈希；不通过为 `null`。 */
-	content_sha: string | null;
-	/** 最新修订的内容哈希（用来判断"这次保存会不会真的产生新修订"）。 */
-	latest_sha: string | null;
-	will_append: boolean;
-	next_revision_no: number | null;
-	/** 载入/校验时 pack 自带的 `pack_schema_version`。 */
-	pack_schema_version: number;
-}
-
-/** 编辑器：`GET /scenario/admin/packs/{key}/source` —— 原始内容 + 修订清单。 */
-export interface ScenarioAdminPackSource {
-	key: string;
-	title: string;
-	state: string;
-	revision_id: number;
-	revision_no: number;
-	note: string;
-	content: ScenarioPackDoc;
-	/** 这份内容拿**当前**校验器跑的结果（历史修订可能已不合今天的 schema）。 */
-	problems: ScenarioPackProblem[];
-	revisions: ScenarioAdminRevision[];
-}
 
 /** 编辑器：读某个病例某一修订的原始内容（`revisionId` 省略 = 最新修订）。 */
 export const getAdminScenarioPackSource = (packKey: string, revisionId?: number) =>
@@ -914,6 +327,9 @@ export const saveAdminScenarioPackRevision = (
 			{ content, note },
 		)
 		.then((r) => r.data);
+
+export const convertAdminScenarioPack = (packKey: string, revisionId: number) =>
+	api.post<Schemas["ScenarioAdminPackConvert"]>(`/scenario/admin/packs/${packKey}/convert` as ApiPath, { revision_id: revisionId }).then((r) => r.data);
 
 export const listAdminScenarioSessions = (
 	query: ScenarioAdminSessionQuery = {},
@@ -968,6 +384,31 @@ export const deleteAdminGeneratedAsset = (id: number) =>
 export const adminGeneratedAssetSrc = (id: number) =>
 	`/scenario/admin/generated/${id}/content`;
 
+/** 历史归档（**只读**）：机制切换前的旧局投影，按原会话 id 唯一。 */
+export const listAdminScenarioArchives = (
+	query: ScenarioAdminArchiveQuery = {},
+) =>
+	api
+		.get<ScenarioArchiveList>(
+			"/scenario/admin/archives" satisfies ApiPath as string,
+			{
+				params: {
+					pack_key: query.pack_key ?? undefined,
+					limit: query.limit,
+					offset: query.offset,
+				},
+			},
+		)
+		.then((r) => r.data);
+
+/** 归档详情：`report` 是新形状或 null；旧局原报告原样放在 `legacy_report`，**绝不重算**。 */
+export const getAdminScenarioArchive = (sessionId: number) =>
+	api
+		.get<ScenarioArchiveDetail>(
+			`/scenario/admin/archives/${sessionId}` as ApiPath,
+		)
+		.then((r) => r.data);
+
 export const getAdminScenarioStats = () =>
 	api
 		.get<ScenarioAdminStats>("/scenario/admin/stats" satisfies ApiPath as string)
@@ -979,7 +420,8 @@ export const getAdminScenarioStats = () =>
  * 后端 `_asset_url` 返回值带 `/api` 前缀，而 axios 实例的 `baseURL` 就是 `/api`
  * ——直接透传会打成 `/api/api/...`。这里只做前缀剥离，不猜其他形状（不是本域的 URL 原样返回）。
  */
-export function scenarioImageSrc(url: string): string {
+export function scenarioImageSrc(url: string | null | undefined): string {
+	if (!url) return "";
 	return url.startsWith("/api/") ? url.slice(4) : url;
 }
 

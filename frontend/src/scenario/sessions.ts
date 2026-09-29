@@ -16,27 +16,27 @@ export function sessionStatusLabel(status: string): string {
 	return STATUS_LABEL[status] ?? status;
 }
 
-const ANCHOR_LABEL: Record<string, string> = {
+const TIER_LABEL: Record<string, string> = {
 	strong: "强",
 	adequate: "合格",
 	missed: "漏",
 };
 
-/** 结算摘要（`report.summary`）→ 一行读数；未结算时返回空串。 */
+/** 判读档位摘要（`report.assessment.summary`）→ 一行读数；未结算时返回空串。 */
 export function summaryText(summary: Record<string, number> | null): string {
 	if (!summary) return "";
 	return ["strong", "adequate", "missed"]
-		.map((anchor) => `${ANCHOR_LABEL[anchor]} ${summary[anchor] ?? 0}`)
+		.map((tier) => `${TIER_LABEL[tier]} ${summary[tier] ?? 0}`)
 		.join(" · ");
 }
 
 /**
  * 学生面的一行说明：**诚实的进度** + 最后活动。
  *
- * 不一律写"进行中"——回合数为 0 与做到一半不是一回事，写成一个词等于骗学生
- * （会话只有显式结算才会变 `completed`）。回合数是**学生真的动过几次**（后端按事件流算，
- * 开场那回合是 DM 立的，不算他动过），所以 0 回合才写「未开始」。
- * 后端只给状态与回合数，这里也只说这两件事，不自己造"搁置"这类阈值。
+ * 不一律写"进行中"——时间没用掉单位与推进了一半不是一回事，写成一个词等于骗学生
+ * （会话只有显式结算才会变 `completed`）。`turn` 是**已经过掉的情境时间单位**（后端按事件流算，
+ * 开场那一刻是 0），所以 0 才写「未开始」。
+ * 后端只给状态与时间单位，这里也只说这两件事，不自己造"搁置"这类阈值。
  */
 export function sessionRowMeta(row: ScenarioSessionRow): string {
 	const status =
@@ -46,10 +46,10 @@ export function sessionRowMeta(row: ScenarioSessionRow): string {
 				: "未开始"
 			: "已结束";
 	const parts = [status];
-	if (row.turn) parts.push(`第 ${row.turn} 回合`);
+	if (row.turn) parts.push(`已过 ${row.turn} 个时间单位`);
 	if (row.lost) parts.push("不可逆结局");
-	const summary = summaryText(row.summary);
-	if (summary) parts.push(summary);
+	const summary = summaryText(row.summary ?? null);
+	if (summary) parts.push(`判读 ${summary}`);
 	parts.push(
 		`最后活动 ${formatShortDateTime(row.updated_at ?? row.created_at)}`,
 	);

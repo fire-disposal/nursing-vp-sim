@@ -1,235 +1,213 @@
 import type {
-	ScenarioActionInput,
-	ScenarioBoard,
-	ScenarioBoardEntry,
-	ScenarioImage,
 	ScenarioMessage,
-	ScenarioOption,
+	ScenarioTarget,
 	ScenarioView,
 } from "@/api/scenario";
 
 /**
- * 流式回合的**草稿合并**（纯函数，唯一的读法）。
+ * 学生侧的**投影读法**（纯函数，唯一收口处）。
  *
- * 后端的块是"顶层字段写完即推"：`narration` / `lines` / `options` / `images` / `notes`。
- * 这里只做一件事：把这些块**叠加到当前视图之上**让界面先长出来；权威 `view` 一到，
- * 调用方把草稿丢掉、整体换成它（草稿永远不是真相）。
+ * 这里只做三件事，全部由权威 `ScenarioView` 得出：
+ * - 把「同一时间单位内的尝试 → 世界回应 → 可见变化」**分组**（不再按最近 N 条裁剪；
+ *   一个时间单位里可以有多条消息，也可能一条都没有推进时间）；
+ * - 把机器值翻成学生能读的话（阶段、消息类别、对象、行动归属）；
+ * - 提交中那条**待定**学生消息的形状（权威消息到达后按稳定 `id` 接替）。
  *
- * 字段映射与后端 `runtime/view.py` 的投影**逐键对应**（同一份契约，两处镜像）：
- * - 台词：`as_role` → `actor_role`、`avatar_seed = as_role || actor`；
- * - 选项：`label/type/affordance_id/params`；
- * - 图片：`asset_id` 去当前视图的 `assets` 里取 url（DM 只能引用 pack 声明过的图）；
- * - 板上的判断：`text/supersedes` → note 版块条目。
+ * 不再有：模型原始块（`blocks`）的前端镜像、按「时间点＋文案」猜同一件事、把未提交
+ * 草稿当事实。视图缺什么就是还没有（`docs/23` §4.5、§7.5）。
  */
 
-export interface ScenarioStreamDraft {
-	narration?: string;
-	lines?: unknown[];
-	options?: unknown[];
-	images?: unknown[];
-	notes?: unknown[];
-}
-
-/**
- * 待定（乐观）学生条目：学生刚提交、权威 `view` 还没到的那一句。
- *
- * 它**不是**会话状态的一部分：只活在"`view` 未到"的窗口里，`view` 一到就整体退场
- * （对话流以 `view.messages` 为准重绘），所以它永远不会跟正式消息同时出现。
- */
+/** 一条待定（乐观）学生消息：学生刚提交、权威视图还没到的那一句。 */
 export interface PendingStudentLine {
-	/**
-	 * 与后端口径一致的那一句：`action.text or 可读标签`（取法见 `ScenarioConsole.submit`，
-	 * 与 `runtime/view.py` 的 `_messages` 逐字对应）。两边同口径，接管时才是同一句。
-	 */
+	requestId: string;
+	kind: "speech" | "action" | "hint";
 	text: string;
-	/** 预期回合号（`view.session.turn + 1`）："同回合 + 同文案"去重判据用的就是它。 */
+	/** 收信人／行动对象；`null` = 未指定。 */
+	target: ScenarioTarget | null;
+}
+
+/**
+ * SSE 阶段 → 学生能读的话（`docs/23` §7.6：只给**真实**阶段，不伪造进度、不做假轮播）。
+ *
+ * 阶段名是后端契约的封闭枚举，这里只负责翻译；出现未知阶段原样透传，不自造新阶段名。
+ */
+export const PHASE_LABEL: Record<string, string> = {
+	receiving: "正在接受本次请求",
+	parsing: "正在理解你的表达",
+	resolving: "正在结算本次行动",
+	delivering: "正在生成回应",
+	validating: "正在校验回应",
+	committing: "正在提交本次结果",
+};
+
+/** 阶段文案；未知阶段原样返回（不认识就不假装认识）。 */
+export function phaseText(phase: string): string {
+	if (phase === "") return "正在处理本次请求";
+	return PHASE_LABEL[phase] ?? phase;
+}
+
+/** 消息类别的可读标签：形状之外还有文字，不靠颜色／图标区分（`docs/23` §7.8）。 */
+export function messageKindLabel(kind: ScenarioMessage["kind"]): string {
+	switch (kind) {
+		case "speech":
+			return "对话";
+		case "action":
+			return "行动";
+		case "narration":
+			return "旁白";
+		case "clarification":
+			return "需要补充";
+		case "hint":
+			return "提示";
+		case "blocked":
+			return "未能执行";
+		case "unmodeled":
+			return "未建模";
+	}
+}
+
+/**
+ * 目标引用 → 可读文字。
+ *
+ * 名字只来自当前视图里**已经存在**的声明对象；查不到就如实显示引用本身
+ * （对方离场时不该凭空编一个名字，也不该静默换成别人）。
+ */
+export function targetText(
+	target: ScenarioTarget | null | undefined,
+	view: ScenarioView | null = null,
+): string {
+	if (!target) return "";
+	switch (target.kind) {
+		case "actor": {
+			const actor = view?.actors?.find((item) => item.id === target.id);
+			return actor?.role || target.id;
+		}
+		case "device": {
+			const device = view?.devices?.find((item) => item.id === target.id);
+			return device?.title || target.id;
+		}
+		case "scene":
+			return "当前场景";
+		default:
+			return target.id;
+	}
+}
+
+/** 学生这条是**说话**还是**尝试行动**（`declaration` 与气泡形态一致）。 */
+export function studentDeclarationLabel(
+	message: ScenarioMessage,
+): string | null {
+	if (message.role !== "student") return null;
+	const act = message.declaration === "act" || message.kind === "action";
+	return act ? "行动" : "说话";
+}
+
+/**
+ * 学生消息的完整读法，例如「对 2 床患者 · 行动」。
+ *
+ * 学生说过／尝试过什么必须能读出**对象**（`docs/23` §7.4）；没有对象的自由表达只给
+ * 「说话／行动」，平台不替他补一个最近聊天对象。
+ */
+export function studentLineLabel(
+	message: ScenarioMessage,
+	view: ScenarioView | null = null,
+): string | null {
+	const declaration = studentDeclarationLabel(message);
+	if (declaration === null) return null;
+	const target = targetText(message.target, view);
+	return target === "" ? declaration : `对 ${target} · ${declaration}`;
+}
+
+/** 一个时间单位内的全部消息（`messages[].turn` 是发生的时间单位，不是提交序号）。 */
+export interface ScenarioTurnGroup {
 	turn: number;
-	/** 学生声明过的意图（说话 / 行动）：待定气泡与正式气泡形态必须一致，接管时才不跳变。 */
-	declaration: ScenarioMessage["declaration"];
+	messages: ScenarioMessage[];
 }
 
 /**
- * 学生**先声明**的意图 → 后端 `student_declaration` 的同一条判据（两处镜像，见 `runtime/world.py`）：
- * 自由通道（没有 affordance）里的 `say` / `act` 才算声明，按钮与选项走的不是声明。
+ * 按**发生的时间单位**分组消息（升序）。视图给全量消息，前端不再只取最近五条：
+ * 学生向上回看时，正在读的那一段不能被裁掉（`docs/23` §7.5）。
+ * 纯交流不推进时间，所以同一时间单位里出现多条消息是正常情形。
  */
-export function studentDeclaration(
-	action: ScenarioActionInput,
-): ScenarioMessage["declaration"] {
-	if (action.affordance_id != null) return null;
-	return action.type === "say" || action.type === "act" ? action.type : null;
+export function groupTurns(
+	messages: ScenarioMessage[] | undefined,
+): ScenarioTurnGroup[] {
+	const groups: ScenarioTurnGroup[] = [];
+	for (const message of messages ?? []) {
+		const last = groups[groups.length - 1];
+		if (last !== undefined && last.turn === message.turn) last.messages.push(message);
+		else groups.push({ turn: message.turn, messages: [message] });
+	}
+	return groups;
 }
 
 /**
- * 权威视图里是否已经有这条待定条目的正式身（**同回合 + 同文案**）——防重复的判据。
+ * 待定学生消息 → 参与渲染的正式消息形状。
  *
- * 命中 = 正式消息已经顶上来了，待定的那条立即不渲染。
- * 没命中也不留幽灵：`view` 到达时调用方整体清掉待定条目（以 `view.messages` 为准重绘）。
+ * `id` 用请求身份派生（同一次尝试重连不会产生第二条），权威消息到达后由视图里的
+ * 真身接管；`id` 前缀 `pending:` 让「这条还没被确认」可被识别，而不是靠文案比对。
  */
-export function hasStudentLine(
-	view: ScenarioView,
+export function pendingMessage(
 	line: PendingStudentLine,
-): boolean {
-	return view.messages.some(
-		(message) =>
-			message.role === "student" &&
-			message.turn === line.turn &&
-			message.text === line.text,
-	);
-}
-
-/** 同一个 key 再次出现 = 更新（后端只推变化，但允许修正）。 */
-export function mergeBlocks(
-	draft: ScenarioStreamDraft,
-	blocks: Record<string, unknown>,
-): ScenarioStreamDraft {
-	const next: ScenarioStreamDraft = { ...draft };
-	for (const key of Object.keys(blocks)) {
-		const value = blocks[key];
-		if (value === null || value === undefined) continue;
-		if (key === "narration" && typeof value === "string") next.narration = value;
-		else if (key === "lines" && Array.isArray(value)) next.lines = value;
-		else if (key === "options" && Array.isArray(value)) next.options = value;
-		else if (key === "images" && Array.isArray(value)) next.images = value;
-		else if (key === "notes" && Array.isArray(value)) next.notes = value;
-	}
-	return next;
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-	return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-}
-
-function str(value: unknown): string {
-	return typeof value === "string" ? value : "";
-}
-
-function toLineMessage(raw: unknown): ScenarioMessage | null {
-	const line = asRecord(raw);
-	const text = str(line.text);
-	if (!text) return null;
-	const actor = str(line.actor);
-	const asRole = str(line.as_role);
+	view: ScenarioView | null,
+): ScenarioMessage {
 	return {
-		role: "actor",
-		actor: actor || null,
-		actor_role: asRole || null,
-		ephemeral: line.ephemeral === true,
-		avatar_seed: asRole || actor,
-		text,
-		origin: line.origin === "entity" ? "entity" : "dm",
+		id: `pending:${line.requestId}`,
+		role: "student",
+		kind: line.kind === "hint" ? "hint" : line.kind,
+		text: line.text,
+		turn: view?.session?.turn ?? 0,
+		target: line.target,
+		declaration: line.kind === "action" ? "act" : "say",
+		actor: null,
+		actor_role: null,
+		ephemeral: false,
+		avatar_seed: null,
+		origin: "student",
+		sources: [],
 	};
 }
 
-function toOption(raw: unknown): ScenarioOption | null {
-	const option = asRecord(raw);
-	const label = str(option.label);
-	if (!label) return null;
-	return {
-		label,
-		type: str(option.type) || "ask",
-		affordance_id: str(option.affordance_id) || null,
-		params: asRecord(option.params),
-		free_input: true,
-	};
-}
-
-function toImage(raw: unknown, assets: ScenarioImage[]): ScenarioImage | null {
-	const image = asRecord(raw);
-	const assetId = str(image.asset_id);
-	if (!assetId) return null;
-	const known = assets.find((asset) => asset.asset_id === assetId);
-	return {
-		asset_id: assetId,
-		url: known?.url ?? "",
-		title: str(image.title) || known?.title || "",
-		alt: str(image.alt) || known?.alt || "",
-		caption: str(image.caption),
-		origin: str(image.origin) || "pack",
-	};
-}
-
-function toNoteEntry(raw: unknown, index: number): ScenarioBoardEntry | null {
-	const note = asRecord(raw);
-	const text = str(note.text);
-	if (!text) return null;
-	return {
-		id: str(note.id) || `draft-note:${index}`,
-		kind: "note",
-		text,
-		source: "dm",
-		supersedes: str(note.supersedes) || undefined,
-	};
-}
-
-/** 把草稿里的判断挂进板上的 note 版块（没有该版块就不凭空造版块）。 */
-function withDraftNotes(board: ScenarioBoard, notes: unknown[]): ScenarioBoard {
-	const entries = notes
-		.map((note, index) => toNoteEntry(note, index))
-		.filter((entry): entry is ScenarioBoardEntry => entry !== null);
-	if (entries.length === 0) return board;
-	const target = board.sections.findIndex((section) => section.source === "note");
-	if (target === -1) return board;
-	const sections = board.sections.map((section, index) =>
-		index === target
-			? { ...section, entries: [...section.entries, ...entries] }
-			: section,
-	);
-	return { ...board, sections, entry_count: board.entry_count + entries.length };
+/** 权威视图是否已经接管这条待定消息（同一次尝试 → 同一条学生消息）。 */
+export function isPendingPlaceholder(message: ScenarioMessage): boolean {
+	return message.id.startsWith("pending:");
 }
 
 /**
- * 当前视图 + 草稿 + **待定学生条目** → 用于渲染的视图。
+ * 这个动作是否会**花情境时间**（包声明字段 `Affordance.time_cost`）。
  *
- * **不改变会话状态**：只在展示层追加"已经写完的块"与"还没落地的学生条目"。
- * 待定条目排在这一回合**最前**——回合内顺序是 学生 → 旁白 → 台词（他先做，世界才回应，
- * 与后端 `_messages` 的排序同口径）。`view` 到达时草稿与待定条目一起由调用方丢掉。
+ * 时间语义：说话/观察/测量不花时间，只有声明为耗时的尝试（以及刻意等待）让时间前进。
+ * 学生有权在上手前看出哪些动作要花时间——这是透明化，不是提示答案。
+ * 字段目前在包的声明形状里（编辑器按原始 JSON 编辑）；学生视图投影是否带上它由后端决定，
+ * 所以这里是边界读法：拿不到就按 0 处理（不标记），**不猜、不按提交次数推导**。
  */
-export function draftView(
-	view: ScenarioView,
-	draft: ScenarioStreamDraft | null,
-	pending: PendingStudentLine | null = null,
-): ScenarioView {
-	const merged = draft ?? {};
-	const added: ScenarioMessage[] = [];
-	if (merged.narration) {
-		added.push({ role: "scene", text: merged.narration });
+export function timeCost(affordance: unknown): number {
+	if (affordance !== null && typeof affordance === "object" && "time_cost" in affordance) {
+		const value = affordance.time_cost;
+		return typeof value === "number" ? value : 0;
 	}
-	for (const raw of merged.lines ?? []) {
-		const message = toLineMessage(raw);
-		if (message) added.push(message);
+	return 0;
+}
+
+/** 回看定位：把某个时间单位滚进视野的定位 id（`sources` 里的 `event:` 不下钻到行）。 */
+export function turnAnchorId(turn: number): string {
+	return `sc-turn-${turn}`;
+}
+
+/** 来源引用（`event:<seq>` / `cue:<id>` / `effect:<key>` / `action:<id>`）的可读标签。 */
+export function sourceLabel(source: string): string {
+	const [kind, ...rest] = source.split(":");
+	const name = rest.join(":");
+	switch (kind) {
+		case "event":
+			return `事件 #${name}`;
+		case "cue":
+			return `线索 ${name}`;
+		case "effect":
+			return `变化 ${name}`;
+		case "action":
+			return `动作 ${name}`;
+		default:
+			return source;
 	}
-
-	const assets = view.images ?? [];
-	// 待定条目的回合号是**预测**的（`view.session.turn + 1`，与后端 `world.turn + 1` 同口径）：
-	// 猜对了，正式消息接管时连 DOM 节点都不用换；猜错了也只是回到"以 view.messages 为准"。
-	const lead: ScenarioMessage[] = pending
-		? [
-				{
-					role: "student",
-					text: pending.text,
-					turn: pending.turn,
-					pending: true,
-					declaration: pending.declaration,
-				},
-			]
-		: [];
-	const images = (merged.images ?? [])
-		.map((raw) => toImage(raw, assets))
-		.filter((image): image is ScenarioImage => image !== null);
-	const options = (merged.options ?? [])
-		.map(toOption)
-		.filter((option): option is ScenarioOption => option !== null);
-	const board = view.board;
-
-	return {
-		...view,
-		messages:
-			lead.length + added.length > 0
-				? [...view.messages, ...lead, ...added]
-				: view.messages,
-		options: merged.options ? options : view.options,
-		images: images.length > 0 ? [...assets, ...images] : view.images,
-		board:
-			board && merged.notes ? withDraftNotes(board, merged.notes) : view.board,
-	};
 }

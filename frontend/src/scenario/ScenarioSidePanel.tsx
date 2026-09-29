@@ -6,11 +6,9 @@ import TimelineList from "./TimelineList";
 
 /** 线索条数：抽屉入口要显示"有东西可看"，也用来判"面板是否成立"。 */
 function boardEntryCount(view: ScenarioView): number {
-	return (
-		view.board?.sections.reduce(
-			(total, section) => total + section.entries.length,
-			0,
-		) ?? 0
+	return (view.board?.sections ?? []).reduce(
+		(total, section) => total + (section.entries ?? []).length,
+		0,
 	);
 }
 
@@ -23,7 +21,7 @@ function boardEntryCount(view: ScenarioView): number {
 export function sidePanelNames(view: ScenarioView): string[] {
 	const names: string[] = [];
 	if (view.board !== undefined && boardEntryCount(view) > 0) names.push("线索");
-	if (resolvePanels(view.panels).timeline && view.timeline.length > 0) {
+	if (resolvePanels(view.panels).timeline && (view.timeline ?? []).length > 0) {
 		names.push("时间线");
 	}
 	return names;
@@ -34,8 +32,8 @@ export function sidePanelNames(view: ScenarioView): string[] {
  *
  * - 线索 = 只读事实区（后端 `view.board`）：线索与"你注意到的"**只出现在这里**，
  *   同一件事不在别处再说一遍。
- * - 时间线 = 按回合分组的经历（后端 `view.timeline`）：最新回合在上，其余折起来。
- * - 默认停在**线索**（本回合最常用；时间线切过去看全过程）。
+ * - 时间线 = 按时间单位分组的经历（后端 `view.timeline`）：最新的在上，其余折起来。
+ * - 默认停在**线索**（当前处境最常用；时间线切过去看全过程）。
  * - 时间线由 pack 声明的 `panels` 决定是否出现（映射见 `panels.ts`）；
  *   **两块都没内容就整块不渲染**——不写空态说明句，也不留空壳。
  *
@@ -52,12 +50,15 @@ export default function ScenarioSidePanel({
 	view,
 	open = true,
 	onClose,
+	onLocateTurn,
 }: {
 	view: ScenarioView;
 	/** 抽屉是否展开（只对"可召唤"形态有意义；桌面常驻，与它无关）。 */
 	open?: boolean;
 	/** 传了才可召唤（给关闭控件 + 窄屏抽屉形态）；不传 = 常驻排布。 */
 	onClose?: () => void;
+	/** 点事实的时间点 → 页面把它滚进视野（原样转给里层面板）。 */
+	onLocateTurn?: (turn: number) => void;
 }) {
 	const [tab, setTab] = useState<"board" | "timeline">("board");
 	const boardTabRef = useRef<HTMLButtonElement>(null);
@@ -72,7 +73,8 @@ export default function ScenarioSidePanel({
 	const board = view.board;
 	const boardCount = boardEntryCount(view);
 	const hasBoard = board !== undefined && boardCount > 0;
-	const hasTimeline = resolvePanels(view.panels).timeline && view.timeline.length > 0;
+	const hasTimeline =
+		resolvePanels(view.panels).timeline && (view.timeline ?? []).length > 0;
 
 	if (!hasBoard && !hasTimeline) return null;
 
@@ -89,9 +91,15 @@ export default function ScenarioSidePanel({
 			</button>
 		);
 
-	const boardBody = hasBoard && board !== undefined && <BoardPanel board={board} />;
+	const boardBody = hasBoard && board !== undefined && (
+		<BoardPanel board={board} onLocateTurn={onLocateTurn} />
+	);
 	const timelineBody = (
-		<TimelineList timeline={view.timeline} collapseLatest />
+		<TimelineList
+			timeline={view.timeline ?? []}
+			collapseLatest
+			onLocateTurn={onLocateTurn}
+		/>
 	);
 
 	// 两块都有：一个卡片 + 两个页签（左右方向键在两个页签之间移动）

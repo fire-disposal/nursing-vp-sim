@@ -82,7 +82,7 @@ describe("取值与不可变写", () => {
 
 	it("取值助手对缺失/类型不符给安全默认（不抛）", () => {
 		expect(textAt(DOC, "nope", "deeper")).toBe("");
-		expect(numberAt(DOC, ["anchors", 0, "deadline_turns"], 3)).toBe(3);
+		expect(numberAt(DOC, ["presentation", "devices", 0, "size"], 3)).toBe(3);
 		expect(boolAt(DOC, "setting", "cues", 0, "visible_from_start")).toBe(true);
 		expect(boolAt(DOC, "setting", "cues", 5, "visible_from_start")).toBe(false);
 		expect(listAt<string>(DOC, "presentation", "panels")).toEqual(["timeline"]);

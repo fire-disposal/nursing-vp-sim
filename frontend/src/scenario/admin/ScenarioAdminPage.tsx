@@ -1,5 +1,5 @@
 import { Alert, Loader, SegmentedControl, Stack, Tabs, Text } from "@mantine/core";
-import { IconAlertTriangle, IconChartBar, IconPackages } from "@tabler/icons-react";
+import { IconAlertTriangle, IconArchive, IconChartBar, IconPackages } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { useState } from "react";
@@ -14,6 +14,7 @@ import { getApiErrorMessage } from "@/utils/error";
 // 管理侧回放复用学生侧的场景/舞台组件（`sc-*` 类），样式只有这一份来源。
 // 不引进来时，这些类在 `/scenario-admin` 直接访问（不经由 /scenario）会整片失样式。
 import "../scenario.css";
+import AdminArchivesPanel from "./AdminArchivesPanel";
 import AdminCaseListPanel from "./AdminCaseListPanel";
 import AdminCaseWorkspace, {
 	type CaseBlock,
@@ -25,8 +26,15 @@ import AdminStatsPanel from "./AdminStatsPanel";
 /** 顶层两个区。 */
 type Area = "cases" | "data";
 
-/** 「会话 / 统计」区的分块（跨病例视图，按包筛选是可选项，不是前提）。 */
-const DATA_BLOCKS: CaseBlock[] = ["sessions", "stats"];
+/**
+ * 「会话 / 统计 / 归档」区的分块（跨病例视图，按病例筛选是可选项，不是前提）。
+ *
+ * 与病例工作区的分块词表**分开**：这里的分块权限都是 `stats_view`（与后端 `/admin/**`
+ * 数据面的 `_DataViewer` 依赖逐字一致：`/admin/sessions`、`/admin/stats`、`/admin/archives`）。
+ * 「归档」因此不是病例工作区的块，也不会出现在工作区页签里。
+ */
+type DataBlock = "sessions" | "stats" | "archives";
+const DATA_BLOCKS: DataBlock[] = ["sessions", "stats", "archives"];
 
 /**
  * 情境训练 · 管理侧 —— 隐藏路由 `/scenario-admin`，不出现在导航。
@@ -101,18 +109,19 @@ export default function ScenarioAdminPage() {
 					: "data";
 
 	const blocks = visibleCaseBlocks(permissions);
-	// 当前区能看的块：跨病例区只有会话/统计；工作区是全部有权限的块；病例列表页没有块。
-	const allowedBlocks: CaseBlock[] =
-		area === "data"
-			? DATA_BLOCKS.filter((block) => blocks.includes(block))
-			: selected === null
-				? []
-				: blocks;
-	const blockParam = searchParams.get("block") as CaseBlock | null;
+	const blockParam = searchParams.get("block");
+	// 数据区（跨病例）与病例工作区是两套分块词表：各自的合法值各自回落，互不借用。
+	// 地址栏仍是唯一真源——`?block=archives` 贴在 `?area=data` 上才有意义，非法值一律回落。
+	const dataBlock: DataBlock =
+		blockParam !== null && (DATA_BLOCKS as string[]).includes(blockParam)
+			? (blockParam as DataBlock)
+			: (DATA_BLOCKS[0] ?? "sessions");
+	// 病例列表页没有块；工作区是全部有权限的块。
+	const caseBlocks: CaseBlock[] = selected === null ? [] : blocks;
 	const block: CaseBlock =
-		blockParam !== null && allowedBlocks.includes(blockParam)
-			? blockParam
-			: (allowedBlocks[0] ?? "overview");
+		blockParam !== null && (caseBlocks as string[]).includes(blockParam)
+			? (blockParam as CaseBlock)
+			: (caseBlocks[0] ?? "overview");
 
 	/** 只动地址栏：`patch` 里值为 null 表示删掉这个参数。 */
 	const navigateWith = (patch: Record<string, string | null>, replace = false) => {
@@ -163,7 +172,7 @@ export default function ScenarioAdminPage() {
 
 			{area === "data" ? (
 				<Tabs
-					value={block}
+					value={dataBlock}
 					onChange={(value) => value && navigateWith({ block: value }, true)}
 				>
 					<Tabs.List mb="md" className="sc-admin-tabs">
@@ -173,9 +182,14 @@ export default function ScenarioAdminPage() {
 						<Tabs.Tab value="stats" leftSection={<IconChartBar size={15} />}>
 							统计
 						</Tabs.Tab>
+						<Tabs.Tab value="archives" leftSection={<IconArchive size={15} />}>
+							归档
+						</Tabs.Tab>
 					</Tabs.List>
-					{block === "stats" ? (
+					{dataBlock === "stats" ? (
 						<AdminStatsPanel />
+					) : dataBlock === "archives" ? (
+						<AdminArchivesPanel />
 					) : (
 						<AdminSessionsPanel focusSessionId={focusSession} />
 					)}

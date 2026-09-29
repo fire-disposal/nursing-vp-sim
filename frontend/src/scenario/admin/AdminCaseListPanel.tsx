@@ -50,7 +50,7 @@ export default function AdminCaseListPanel({
 	const uploadMutation = useMutation({
 		mutationFn: uploadAdminScenarioPack,
 		onSuccess: (data) => {
-			const pending = data.assets_pending;
+			const pending = data.assets_pending ?? [];
 			toast.success(
 				data.created
 					? `${data.key}：已新增修订 #${data.revision_no}`
@@ -132,8 +132,12 @@ export default function AdminCaseListPanel({
 						</Table.Thead>
 						<Table.Tbody>
 							{packs.map((pack) => {
-								const uploaded = pack.assets.filter((a) => a.uploaded).length;
-								const missing = pack.assets.length - uploaded;
+								// `assets` / `revisions` 在生成物里是可选的：缺就是"没声明"，
+								// 不把 undefined 拿去 `.length`，也不在下游各处再兜一次。
+								const assets = pack.assets ?? [];
+								const revisions = pack.revisions ?? [];
+								const uploaded = assets.filter((a) => a.uploaded).length;
+								const missing = assets.length - uploaded;
 								return (
 									<Table.Tr key={pack.key}>
 										<Table.Td>
@@ -158,14 +162,14 @@ export default function AdminCaseListPanel({
 										<Table.Td>
 											<Text size="sm">#{pack.revision_no ?? "—"}</Text>
 											<Text size="xs" c="dimmed">
-												{pack.revisions.length} 个修订
+												{revisions.length} 个修订
 											</Text>
 										</Table.Td>
 										<Table.Td>
 											<Text size="sm">{pack.sessions}</Text>
 										</Table.Td>
 										<Table.Td>
-											{pack.assets.length === 0 ? (
+											{assets.length === 0 ? (
 												<Text size="xs" c="dimmed">
 													未声明资源
 												</Text>
@@ -175,7 +179,7 @@ export default function AdminCaseListPanel({
 														color={missing > 0 ? "orange" : "green"}
 														variant="light"
 													>
-														{uploaded}/{pack.assets.length} 已上传
+														{uploaded}/{assets.length} 已上传
 													</Badge>
 													{missing > 0 && (
 														<Text size="xs" c="orange">
@@ -188,7 +192,7 @@ export default function AdminCaseListPanel({
 												<Text size="xs" c="dimmed" mt={4}>
 													未上传：
 													<Code>
-														{pack.assets
+														{assets
 															.filter((a) => !a.uploaded)
 															.map((a) => a.id)
 															.join(", ")}

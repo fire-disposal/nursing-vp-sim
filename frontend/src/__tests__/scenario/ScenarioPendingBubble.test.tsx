@@ -2,17 +2,32 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, screen, waitFor } from "@/__tests__/render";
-import type { ScenarioView } from "@/api/scenario";
+import { act, render, screen, waitFor, within } from "@/__tests__/render";
+import type {
+	ScenarioStreamEvent,
+	ScenarioTurnRequest,
+	ScenarioView,
+} from "@/api/scenario";
 import ScenarioConsole from "@/scenario/ScenarioConsole";
+import ScenarioStage from "@/scenario/ScenarioStage";
 import { startPack } from "./entry";
-import { chooseCustomAction } from "./intent";
+import { chooseMode, chooseTarget } from "./intent";
+import {
+	PACK,
+	makeMessage,
+	makeSessionResponse,
+	makeSessionState,
+	makeTurnResult,
+	makeView,
+	sseCommitted,
+	sseError,
+} from "./fixtures";
 
 /**
- * 学生自己的气泡：**提交瞬间入流**（待定/乐观），权威 `view` 到达后由正式消息无缝接管。
+ * 学生自己的那条消息：**提交瞬间入流**（乐观/待提交），权威视图到达后按稳定身份接替。
  *
- * 修复的是交互感错位：此前他要盯着"正在生成…"看几秒，对话流里没有自己那句话，
- * 像发进了虚空。这里按用户能看到的四件事验收：先出现、不重复、失败回滚、确认前不出现。
+ * 用户能看到的只有四件事，这里也只钉这四件：先出现、不重复、失败退场、世界不因失败而改动。
+ * 待提交**不是**"已完成"：文本里必须写着它还没提交。
  */
 
 const mocks = vi.hoisted(() => ({
@@ -20,356 +35,283 @@ const mocks = vi.hoisted(() => ({
 	listMyScenarioSessions: vi.fn(),
 	createScenarioSession: vi.fn(),
 	getScenarioSession: vi.fn(),
-	postScenarioAction: vi.fn(),
+	getScenarioRequest: vi.fn(),
 	closeScenarioSession: vi.fn(),
 }));
 
-// 只替换网络调用；流式走真实实现（fetch 被替身接管），退回策略也才是真的被验证
+// 只替换网络调用：`streamScenarioTurn` 走真实实现（fetch 被替身接管），SSE 帧的解析才是真的被验证。
 vi.mock("@/api/scenario", async () => {
 	const actual = await vi.importActual<Record<string, unknown>>("@/api/scenario");
-	return {
-		...actual,
-		listScenarioPacks: mocks.listScenarioPacks,
-		listMyScenarioSessions: mocks.listMyScenarioSessions,
-		createScenarioSession: mocks.createScenarioSession,
-		getScenarioSession: mocks.getScenarioSession,
-		postScenarioAction: mocks.postScenarioAction,
-		closeScenarioSession: mocks.closeScenarioSession,
-	};
+	return { ...actual, ...mocks };
 });
 
-const PACK = {
-	key: "sputum-ineffective",
-	title: "吸痰无效：血氧上不来",
-	state: "experimental",
-	one_line: "夜班，患者痰多却吸不出来。",
-	revision_id: 6,
-	revision_no: 6,
-	player_role: "夜班护士",
-	place: "呼吸内科病房",
-};
-
-function makeView(overrides: Partial<ScenarioView> = {}): ScenarioView {
-	return {
-		session: { id: 51, status: "active", turn: 1, lost: false },
-		pack: {
-			key: PACK.key,
-			title: PACK.title,
-			player_role: "夜班护士",
-			revision_id: 6,
-		},
-		situation: {
-			place: "呼吸内科病房",
-			time_hint: "凌晨 02:10",
-			resources: [],
-			visible_cues: [],
-			noticed: [],
-		},
-		actors: [{ id: "patient", role: "患者", presence: "on_site", present: true }],
-		hud: [],
-		messages: [{ role: "scene", text: "监护仪在响。", turn: 1 }],
-		options: [],
-		affordances: [],
-		free_input: true,
-		timeline: [],
-		dims: [],
-		nudges: [],
-		problems: [],
-		...overrides,
-	};
-}
-
-/** 可手动推块的 SSE 响应替身：能精确控制"什么时候到哪一块"。 */
-function sseResponse() {
+/** 可手动推帧的 SSE 响应：`fetch` 每次调用给一条新流，帧按调用序 `push(index, …)`。 */
+function sseHarness() {
 	const encoder = new TextEncoder();
-	let controller: ReadableStreamDefaultController<Uint8Array>;
-	const stream = new ReadableStream<Uint8Array>({
-		start(c) {
-			controller = c;
-		},
-	});
-	return {
-		response: new Response(stream, {
+	const requests: ScenarioTurnRequest[] = [];
+	const controllers: ReadableStreamDefaultController<Uint8Array>[] = [];
+	const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+		requests.push(JSON.parse(String(init?.body ?? "{}")) as ScenarioTurnRequest);
+		const stream = new ReadableStream<Uint8Array>({
+			start(controller) {
+				controllers.push(controller);
+			},
+		});
+		return new Response(stream, {
 			status: 200,
 			headers: { "Content-Type": "text/event-stream" },
-		}),
-		push(payload: unknown) {
-			controller.enqueue(
-				encoder.encode(`data: ${JSON.stringify(payload)}\n\n`),
+		});
+	});
+	return {
+		requests,
+		fetchMock,
+		push(index: number, event: ScenarioStreamEvent) {
+			controllers[index].enqueue(
+				encoder.encode(`event: ${event.kind}\ndata: ${JSON.stringify(event)}\n\n`),
 			);
 		},
-		close() {
-			controller.close();
+		close(index: number) {
+			controllers[index].close();
 		},
 	};
 }
 
-async function enterSession(user: UserEvent, view: ScenarioView) {
-	mocks.createScenarioSession.mockResolvedValue({
-		session_id: view.session.id,
-		pack: { key: PACK.key, title: PACK.title, revision_id: 6 },
-		view,
+/** SSE 事件必须带**这次请求**的身份：控制台按 `request_id` 收口，别的请求的帧一律不算数。 */
+function forRequest(event: ScenarioStreamEvent, requestId: string): ScenarioStreamEvent {
+	return { ...event, request_id: requestId };
+}
+
+function baseView(overrides: Partial<ScenarioView> = {}): ScenarioView {
+	return makeView({
+		session: { id: 12, status: "active", turn: 1, lost: false, seq: 4, read_only: false, trial: false },
+		...overrides,
 	});
+}
+
+/** 一次成功的行动之后的权威视图：学生的原话在，世界的回应跟在它后面。 */
+function committedView(text: string): ScenarioView {
+	return makeView({
+		session: { id: 12, status: "active", turn: 2, lost: false, seq: 6, read_only: false, trial: false },
+		messages: [
+			makeMessage({ id: "m1.0", role: "scene", kind: "narration", text: "监护仪在响。", turn: 1 }),
+			makeMessage({
+				id: "m1.1",
+				role: "actor",
+				kind: "speech",
+				actor: "patient",
+				actor_role: "2 床患者",
+				text: "我……喘不上气。",
+				turn: 1,
+			}),
+			makeMessage({
+				id: "m2.0",
+				role: "student",
+				kind: "action",
+				declaration: "act",
+				target: { kind: "actor", id: "patient" },
+				text,
+				turn: 2,
+			}),
+			makeMessage({ id: "m2.1", role: "scene", kind: "narration", text: "氧流量 2 升，他的呼吸还是费力。", turn: 2 }),
+		],
+	});
+}
+
+/** 对话流里正文正好是 `text` 的**学生行**（按正文过滤：标签上有同一个对象名不算）。 */
+function studentLines(text: string): HTMLElement[] {
+	return [...document.querySelectorAll('.sc-lines .sc-line[data-role="student"]')].filter(
+		(line) => line.querySelector(".sc-line-text")?.textContent === text,
+	) as HTMLElement[];
+}
+
+function renderConsole() {
 	const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-	render(
+	return render(
 		<QueryClientProvider client={qc}>
 			<MemoryRouter initialEntries={["/scenario"]}>
 				<ScenarioConsole />
 			</MemoryRouter>
 		</QueryClientProvider>,
 	);
-	await startPack(user, PACK.title);
-	await screen.findByLabelText("动作区");
 }
 
-/** 自由表达：先声明「自定义行动」，再写内容并回车（与既有 `ScenarioStream.test.tsx` 同一条路径）。 */
-async function submitFree(user: UserEvent, text: string) {
-	await chooseCustomAction(user);
-	await user.type(screen.getByLabelText("你要做什么"), text);
-	await user.keyboard("{Enter}");
-}
-
-/**
- * 对话流里文案正好是 `text` 的**学生气泡**。
- *
- * 按 `.sc-lines` 收口、且按 `data-role="student"` 过滤：选项/按钮上可能有同一串字，
- * 那不是"他这句话进流了"。返回条数就是验收要看的"几条"。
- */
-function studentBubbles(text: string): Element[] {
-	const lines = document.querySelector(".sc-lines");
-	if (lines === null) return [];
-	return [...lines.querySelectorAll('.sc-line[data-role="student"]')].filter(
-		(line) => line.textContent === text,
+async function enterSession(user: UserEvent, view: ScenarioView) {
+	mocks.createScenarioSession.mockResolvedValue(
+		makeSessionResponse({ session_id: view.session.id, view }),
 	);
+	mocks.getScenarioSession.mockResolvedValue(
+		makeSessionState({ session_id: view.session.id, view }),
+	);
+	renderConsole();
+	await startPack(user, PACK.title);
+	await screen.findByLabelText("表达与行动");
 }
 
-/** 权威回合：`view` 事件是整回合的唯一真相（与后端 `router.py` 的 `send({"kind": "view"})` 同形）。 */
-function viewEvent(view: ScenarioView) {
-	return { kind: "view", session_id: view.session.id, problems: [], view };
+/** 学生先选对象、再表达：行动 + 2 床患者 + 一句话 → 发送。 */
+async function submitAction(user: UserEvent, text: string) {
+	await chooseMode(user, "行动");
+	await chooseTarget(user, "2 床患者");
+	await user.type(screen.getByRole("textbox", { name: "要尝试的行动" }), text);
+	await user.click(screen.getByRole("button", { name: "发送" }));
 }
 
 beforeEach(() => {
 	mocks.listScenarioPacks.mockResolvedValue([PACK]);
 	mocks.listMyScenarioSessions.mockResolvedValue([]);
-	mocks.createScenarioSession.mockResolvedValue({
-		session_id: 51,
-		pack: { key: PACK.key, title: PACK.title, revision_id: 6 },
-		view: makeView(),
-	});
+	// 控制台把草稿与未决请求存在 sessionStorage（刷新后续训用）：用例之间必须清干净，
+	// 否则上一条用例的"未决请求"会把下一条的发送按钮按成 disabled。
+	sessionStorage.clear();
 });
 
 afterEach(() => {
+	sessionStorage.clear();
 	vi.clearAllMocks();
 	vi.unstubAllGlobals();
 });
 
-describe("学生气泡：提交瞬间入流（先于权威 view）", () => {
-	it("权威 view 还没到，他那句话已经在对话流里（与正式气泡同构 + 待定态）", async () => {
-		const user = userEvent.setup();
-		const sse = sseResponse();
-		vi.stubGlobal("fetch", vi.fn().mockResolvedValue(sse.response));
-		await enterSession(user, makeView());
+describe("待提交行本身（受控渲染）", () => {
+	it("说话类待提交：标签读出对象与「说话」，写明还没提交，且贴在流尾", () => {
+		const view = baseView();
+		render(
+			<ScenarioStage
+				view={view}
+				pending={{
+					requestId: "req-9",
+					kind: "speech",
+					text: "您现在感觉怎么样？",
+					target: { kind: "actor", id: "patient" },
+				}}
+			/>,
+		);
 
-		await submitFree(user, "我先看看瞳孔。");
+		const line = screen.getByText("您现在感觉怎么样？").closest(".sc-line") as HTMLElement;
+		expect(line).toHaveAttribute("data-role", "student");
+		expect(line).toHaveAttribute("data-pending", "true");
+		expect(within(line).getByText("对 2 床患者 · 说话")).toBeInTheDocument();
+		expect(line.textContent).toContain("待提交");
 
-		const bubbles = studentBubbles("我先看看瞳孔。");
-		expect(bubbles).toHaveLength(1);
-		// 与正式学生气泡同一结构：右对齐那一套 class + 内层文本节点
-		expect(bubbles[0]).toHaveAttribute("data-role", "student");
-		expect(bubbles[0].querySelector(".sc-line-main .sc-line-text")).not.toBeNull();
-		// 待定态只是"轻一点"，不给"发送中…"这类世界里不存在的字
-		expect(bubbles[0]).toHaveAttribute("data-pending", "true");
-		expect(screen.queryByText(/发送中/)).toBeNull();
-		// 此刻世界那边还是"正在生成…"（他的话已经先到了）
-		expect(screen.getByText("正在生成…")).toBeInTheDocument();
-
-		await act(async () => {
-			sse.push(viewEvent(makeView()));
-			sse.close();
-		});
+		const turns = [...document.querySelectorAll(".sc-lines .sc-turn")];
+		expect(turns[turns.length - 1].querySelector(".sc-line")).toBe(line);
+		// 它只是"刚说出口"，不是既成事实：流里的行数 = 权威消息 + 这一条
+		expect(document.querySelectorAll(".sc-lines .sc-line")).toHaveLength(
+			(view.messages ?? []).length + 1,
+		);
 	});
+});
 
-	it("权威 view 到达：该文案只有一条学生气泡，且不再是待定态", async () => {
+describe("提交瞬间入流：先出现", () => {
+	it("权威视图还没到，他那句话已经在流里（同一结构 + 待提交）", async () => {
 		const user = userEvent.setup();
-		const sse = sseResponse();
-		vi.stubGlobal("fetch", vi.fn().mockResolvedValue(sse.response));
-		await enterSession(user, makeView());
+		const harness = sseHarness();
+		vi.stubGlobal("fetch", harness.fetchMock);
+		await enterSession(user, baseView());
 
-		await submitFree(user, "我先看看瞳孔。");
-		expect(studentBubbles("我先看看瞳孔。")).toHaveLength(1);
-		const pendingNode = studentBubbles("我先看看瞳孔。")[0];
+		await submitAction(user, "先给他吸氧。");
+		await waitFor(() => expect(harness.requests).toHaveLength(1));
+
+		const pending = studentLines("先给他吸氧。");
+		expect(pending).toHaveLength(1);
+		expect(pending[0]).toHaveAttribute("data-role", "student");
+		expect(pending[0].querySelector(".sc-line-main .sc-line-text")).not.toBeNull();
+		expect(pending[0]).toHaveAttribute("data-pending", "true");
+		// 对象与"行动"都读得出来；且明写还没提交（不假装已完成）
+		expect(pending[0].textContent).toContain("对 2 床患者 · 行动");
+		expect(pending[0].textContent).toContain("待提交");
+		expect(pending[0].closest(".sc-turn")).toHaveAttribute("data-pending", "true");
+
+		// 世界那边还停在上一段：还没有第 2 段的段落，已有的世界仍然可读
+		expect(document.getElementById("sc-turn-2")).toBeNull();
+		// 顶栏读的是累计情境时间；说话不消耗时间，所以还是「已过 1 个时间单位」
+		expect(document.querySelector(".sc-topbar-meta")?.textContent).toBe("已过 1 个时间单位");
+		// 学生会话面里没有「回合」这套旧口径
+		expect(document.querySelector(".sc-root")?.textContent).not.toContain("回合");
+		const flow = document.querySelector(".sc-lines") as HTMLElement;
+		expect(within(flow).getByText("监护仪在响。")).toBeInTheDocument();
+		expect(within(flow).queryByText("氧流量 2 升，他的呼吸还是费力。")).toBeNull();
+	});
+});
+
+describe("权威视图到达：接替，不重复", () => {
+	it("原来那一条变成正式消息，不再是待提交，也不会两条并存", async () => {
+		const user = userEvent.setup();
+		const harness = sseHarness();
+		vi.stubGlobal("fetch", harness.fetchMock);
+		await enterSession(user, baseView());
+
+		await submitAction(user, "先给他吸氧。");
+		await waitFor(() => expect(harness.requests).toHaveLength(1));
+		const request = harness.requests[0];
+		expect(studentLines("先给他吸氧。")).toHaveLength(1);
 
 		await act(async () => {
-			sse.push(
-				viewEvent(
-					makeView({
-						session: { id: 51, status: "active", turn: 2, lost: false },
-						messages: [
-							{ role: "scene", text: "监护仪在响。", turn: 1 },
-							{ role: "student", text: "我先看看瞳孔。", turn: 2 },
-							{ role: "scene", text: "瞳孔等大等圆，对光反射在。", turn: 2 },
-						],
-					}),
+			harness.push(
+				0,
+				forRequest(
+					sseCommitted(
+						makeTurnResult({
+							request_id: request.request_id,
+							// 这次提交没让情境时间前进：后端报的 `time_cost` 就是 0
+							time_cost: 0,
+							view: committedView("先给他吸氧。"),
+						}),
+					),
+					request.request_id,
 				),
 			);
-			sse.close();
+			harness.close(0);
 		});
 
-		const topbar = document.querySelector(".sc-topbar-meta") as HTMLElement;
-		await waitFor(() => {
-			expect(topbar.textContent).toContain("第 2 回合");
-		});
+		await waitFor(() => expect(document.getElementById("sc-turn-2")).not.toBeNull());
+		expect(document.querySelector(".sc-topbar-meta")?.textContent).toBe("已过 2 个时间单位");
+		// 时间代价如实为 0（`time_cost: 0`）的提交不点亮「本段变化」：又说了句话不等于世界变了
+		// （用户裁定 2026-09-29）——判据就是这个类型化字段本身，与提交次数、与段落分组都无关
+		expect(document.querySelectorAll(".sc-lines [data-highlight]")).toHaveLength(0);
 
-		// 防重复：待定的与正式的**不会**同时出现
-		const bubbles = studentBubbles("我先看看瞳孔。");
-		expect(bubbles).toHaveLength(1);
-		expect(bubbles[0]).not.toHaveAttribute("data-pending");
-		// 接管是"同一条"：回合同文案预测对了 → key 不变 → React 复用同一个 DOM 节点，
-		// 不重挂、不重播 160ms 入场动画（这是"无缝"的字面含义）
-		expect(bubbles[0]).toBe(pendingNode);
+		const lines = studentLines("先给他吸氧。");
+		expect(lines).toHaveLength(1);
+		expect(lines[0]).not.toHaveAttribute("data-pending");
+		expect(lines[0].textContent).not.toContain("待提交");
 		// 顺序照旧：他先做，世界才回应
-		const scene = [
-			...document.querySelectorAll('.sc-line[data-role="scene"] .sc-subtitle'),
-		].find((node) => node.textContent === "瞳孔等大等圆，对光反射在。");
-		expect(scene).not.toBeUndefined();
+		const reply = screen.getByText("氧流量 2 升，他的呼吸还是费力。").closest(".sc-line");
+		expect(reply).not.toBeNull();
 		expect(
-			bubbles[0].compareDocumentPosition(scene as Element) &
-				Node.DOCUMENT_POSITION_FOLLOWING,
+			lines[0].compareDocumentPosition(reply as Element) & Node.DOCUMENT_POSITION_FOLLOWING,
 		).toBeTruthy();
 	});
 });
 
-describe("学生气泡：失败回滚", () => {
-	it("流式失败 → 待定气泡退场，原话回到输入框", async () => {
+describe("时间未前进的失败：退场，世界不变", () => {
+	it("待提交行消失，权威视图保持原样，原输入还在", async () => {
 		const user = userEvent.setup();
-		const sse = sseResponse();
-		vi.stubGlobal("fetch", vi.fn().mockResolvedValue(sse.response));
-		await enterSession(user, makeView());
+		const harness = sseHarness();
+		vi.stubGlobal("fetch", harness.fetchMock);
+		await enterSession(user, baseView());
 
-		await submitFree(user, "给他吸痰");
-		expect(studentBubbles("给他吸痰")).toHaveLength(1);
-		// 那句话已经变成气泡：框里先清空（失败才还回去）
-		expect(screen.getByLabelText("你要做什么")).toHaveValue("");
-
-		await act(async () => {
-			sse.push({ kind: "error", message: "本回合生成中断，请重试" });
-			sse.close();
-		});
-
-		expect(
-			await screen.findByRole("button", { name: "重试" }),
-		).toBeInTheDocument();
-		expect(studentBubbles("给他吸痰")).toHaveLength(0);
-		expect(screen.getByLabelText("你要做什么")).toHaveValue("给他吸痰");
-	});
-
-	it("重试成功后重新入流（同一个待定档，不必从头猜文案）", async () => {
-		const user = userEvent.setup();
-		const first = sseResponse();
-		vi.stubGlobal("fetch", vi.fn().mockResolvedValue(first.response));
-		await enterSession(user, makeView());
-
-		await submitFree(user, "给他吸痰");
-		await act(async () => {
-			first.push({ kind: "error", message: "本回合生成中断，请重试" });
-			first.close();
-		});
-		expect(studentBubbles("给他吸痰")).toHaveLength(0);
-
-		const second = sseResponse();
-		vi.stubGlobal("fetch", vi.fn().mockResolvedValue(second.response));
-		await user.click(screen.getByRole("button", { name: "重试" }));
-		expect(studentBubbles("给他吸痰")).toHaveLength(1);
+		await submitAction(user, "先给他吸氧。");
+		await waitFor(() => expect(harness.requests).toHaveLength(1));
+		const request = harness.requests[0];
+		expect(studentLines("先给他吸氧。")).toHaveLength(1);
 
 		await act(async () => {
-			second.push(viewEvent(makeView()));
-			second.close();
-		});
-	});
-
-	it("重试不回填旧的还原：学生已经改了框里那一句，就保留他自己写的", async () => {
-		const user = userEvent.setup();
-		const first = sseResponse();
-		vi.stubGlobal("fetch", vi.fn().mockResolvedValue(first.response));
-		await enterSession(user, makeView());
-
-		await submitFree(user, "给他吸痰");
-		await act(async () => {
-			first.push({ kind: "error", message: "本回合生成中断，请重试" });
-			first.close();
-		});
-		expect(screen.getByLabelText("你要做什么")).toHaveValue("给他吸痰");
-
-		// 他没急着重试，先把自己那句改掉
-		const area = screen.getByLabelText("你要做什么");
-		await user.clear(area);
-		await user.type(area, "再看看血氧");
-
-		const second = sseResponse();
-		vi.stubGlobal("fetch", vi.fn().mockResolvedValue(second.response));
-		await user.click(screen.getByRole("button", { name: "重试" }));
-		// 重试发的仍是那一件事（气泡=待定文案），框里那句是他的、不动
-		expect(studentBubbles("给他吸痰")).toHaveLength(1);
-		expect(screen.getByLabelText("你要做什么")).toHaveValue("再看看血氧");
-
-		await act(async () => {
-			second.push({ kind: "error", message: "本回合生成中断，请重试" });
-			second.close();
-		});
-		expect(studentBubbles("给他吸痰")).toHaveLength(0);
-		expect(screen.getByLabelText("你要做什么")).toHaveValue("再看看血氧");
-	});
-});
-
-describe("学生气泡：二次确认", () => {
-	it("confirm: true 的动作在用户确认之前**不**入流，确认之后才入流", async () => {
-		const user = userEvent.setup();
-		const sse = sseResponse();
-		const fetchMock = vi.fn().mockResolvedValue(sse.response);
-		vi.stubGlobal("fetch", fetchMock);
-		await enterSession(
-			user,
-			makeView({
-				options: [
-					{
-						label: "立即停止输液",
-						type: "act",
-						affordance_id: "stop_infusion",
-						params: {},
-					},
-				],
-				affordances: [
-					{
-						id: "stop_infusion",
-						type: "act",
-						label: "停止输液",
-						select: "none",
-						options: [],
-						fields: [],
-						free_input: true,
-						confirm: true,
-					},
-				],
-			}),
-		);
-
-		await user.click(screen.getByRole("button", { name: /立即停止输液/ }));
-
-		// 二次确认还在问：还没提交，流里不该有这句话
-		expect(await screen.findByText("这个动作不可逆。")).toBeInTheDocument();
-		expect(studentBubbles("立即停止输液")).toHaveLength(0);
-		expect(fetchMock).not.toHaveBeenCalled();
-
-		await user.click(screen.getByRole("button", { name: "继续" }));
-
-		expect(studentBubbles("立即停止输液")).toHaveLength(1);
-		await waitFor(() => {
-			expect(fetchMock).toHaveBeenCalledTimes(1);
+			harness.push(
+				0,
+				forRequest(sseError("dm_failed", "本次回应没有生成出来，请重试"), request.request_id),
+			);
+			harness.close(0);
 		});
 
-		await act(async () => {
-			sse.push(viewEvent(makeView()));
-			sse.close();
-		});
+		await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
+
+		// 退场：没有半条学生消息留在流里
+		expect(studentLines("先给他吸氧。")).toHaveLength(0);
+		expect(document.querySelectorAll('.sc-lines .sc-line[data-role="student"]')).toHaveLength(0);
+		// 世界没有被改动：还是第 1 段那两条，也没有替学生补一个世界回应
+		expect(document.getElementById("sc-turn-2")).toBeNull();
+		expect(document.querySelector(".sc-topbar-meta")?.textContent).toBe("已过 1 个时间单位");
+		const flow = document.querySelector(".sc-lines") as HTMLElement;
+		expect(within(flow).getByText("监护仪在响。")).toBeInTheDocument();
+		expect(within(flow).queryByText("氧流量 2 升，他的呼吸还是费力。")).toBeNull();
+		// 失败不是学生的错：他打的字还在，不用重打
+		expect(screen.getByRole("textbox")).toHaveValue("先给他吸氧。");
 	});
 });

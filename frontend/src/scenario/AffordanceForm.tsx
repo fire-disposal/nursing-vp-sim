@@ -1,5 +1,10 @@
 import { useState } from "react";
-import type { ScenarioActionInput, ScenarioAffordance } from "@/api/scenario";
+import type {
+	ScenarioActionInput,
+	ScenarioAffordance,
+	ScenarioTarget,
+} from "@/api/scenario";
+import { timeCost } from "./stream";
 
 /**
  * 自输入入口的固定文案。**由前端无条件提供**：pack/DM 被禁止提供同类选项
@@ -23,17 +28,20 @@ const AFFORDANCE_TYPE_LABELS: Record<string, string> = {
 };
 
 /**
- * 「其他」在选择型动作里的哨兵值：它**不进 `selected`**——列出的选项才是 `selected`，
- * 用户自己写的文本一律走 `custom_text`（后端判读 `accept_custom` 也只读 `custom_text`）。
+ * 「其他」在选择型动作里的内部哨兵：它**不进 `selection`**——列出的选项才是 `selection`，
+ * 学生自己写的字一律进 `text`（后端不解析 JSON，判读的 `accept_custom` 也从 `text` 读词）。
  */
 const OTHER = "\u0000scenario-other";
 
-/** 与后端 `ActionRequest` 的 2000 字符上限一致（同理见 `ActionBar`）。 */
+/** 与后端 `ScenarioTurnRequest.text` 的 2000 字符上限一致（同理见 `ActionBar`）。 */
 const MAX_INPUT = 2000;
 
 interface AffordanceFormProps {
 	affordance: ScenarioAffordance;
 	busy: boolean;
+	/** 这次动作的对象（表单里要**一直看得见**，不能被表单盖住）。 */
+	target: ScenarioTarget | null;
+	targetLabel: string;
 	onSubmit: (action: ScenarioActionInput) => void;
 	onCancel: () => void;
 }
@@ -41,20 +49,22 @@ interface AffordanceFormProps {
 /**
  * 选择型动作（`select: single|multi`）与记录表单（`type: document`）的展开形态。
  *
- * 入口：
- * 1. pack/DM 列出的选项（单选 / 多选）；
- * 2. `document` 的字段（`params.fields`）；
- * 3. **「其他」**——默认附加（平台保证，见 §九），
- *    只在作者显式写了 `free_input: false` 时收起，文本作为 `custom_text` 提交。
+ * 提交形状（后端契约）：`selection` 只放**声明过的选项 id**；学生打的字（「其他」的自写内容、
+ * document 各字段的记录）按行拼成纯文本进 `text`——服务端不解析 JSON，也不做
+ * "把学生的临床表达纠正成标准操作"。
  *
  * 调用方按 `affordance.id` 挂 `key`，换动作即重置草稿（不靠 effect 清状态）。
  */
 export default function AffordanceForm({
 	affordance,
 	busy,
+	target,
+	targetLabel,
 	onSubmit,
 	onCancel,
 }: AffordanceFormProps) {
+	const options = affordance.options ?? [];
+	const fields = affordance.fields ?? [];
 	const needsSingle = affordance.select === "single";
 	const needsMulti = affordance.select === "multi";
 	const isDocument = affordance.type === "document";
@@ -76,7 +86,7 @@ export default function AffordanceForm({
 		);
 	};
 
-	const record = affordance.fields
+	const record = fields
 		.map((field) => [field, (fieldValues[field] ?? "").trim()] as const)
 		.filter(([, value]) => value.length > 0)
 		.map(([field, value]) => `${field}：${value}`)
@@ -84,27 +94,32 @@ export default function AffordanceForm({
 		.slice(0, MAX_INPUT);
 
 	const customText = otherText.trim().slice(0, MAX_INPUT);
+	const wantsCustom = needsSingle ? choice === OTHER : otherOn;
 	const canSubmit = needsSingle
 		? choice !== "" && (choice !== OTHER || customText.length > 0)
 		: needsMulti
 			? checked.length > 0 || (otherOn && customText.length > 0)
-			: record.length > 0 || customText.length > 0;
+			: record.length > 0 || (otherOn && customText.length > 0);
 
 	const submit = () => {
 		if (!canSubmit || busy) return;
+		// 记录内容（document）与「其他」自写内容都进同一个纯文本字段，按行拼接。
+		const text = [isDocument ? record : "", wantsCustom ? customText : ""]
+			.filter((part) => part.length > 0)
+			.join("\n")
+			.slice(0, MAX_INPUT);
 		onSubmit({
+			kind: "action",
+			target,
 			affordance_id: affordance.id,
-			type: affordance.type,
-			text: isDocument ? record || null : null,
-			selected: needsSingle
-				? choice !== OTHER
+			selection: needsSingle
+				? choice !== "" && choice !== OTHER
 					? [choice]
 					: []
 				: needsMulti
 					? checked
 					: [],
-			custom_text:
-				(needsSingle ? choice === OTHER : otherOn) && customText ? customText : null,
+			text: text.length > 0 ? text : null,
 		});
 	};
 
@@ -116,52 +131,56 @@ export default function AffordanceForm({
 					{AFFORDANCE_TYPE_LABELS[affordance.type] ?? AFFORDANCE_TYPE_LABELS.other}
 				</span>
 			</div>
+			<div className="sc-form-target">
+				对象：{targetLabel !== "" ? targetLabel : "当前场景"}
+				{timeCost(affordance) > 0 && <span className="sc-time-cost">耗时</span>}
+			</div>
 
-			{needsSingle && (
+			{needsSingle && options.length > 0 && (
 				<div className="sc-field">
 					<span className="sc-field-label">选一项</span>
-					{affordance.options.map((option) => (
+					{options.map((option) => (
 						<label
-							key={option}
+							key={option.id}
 							className="sc-choice"
-							data-checked={choice === option}
+							data-checked={choice === option.id}
 						>
 							<input
 								type="radio"
 								name={`scenario-single-${affordance.id}`}
-								value={option}
-								checked={choice === option}
-								onChange={() => setChoice(option)}
+								value={option.id}
+								checked={choice === option.id}
+								onChange={() => setChoice(option.id)}
 							/>
-							<span className="sc-choice-label">{option}</span>
+							<span className="sc-choice-label">{option.label || option.id}</span>
 						</label>
 					))}
 				</div>
 			)}
 
-			{needsMulti && (
+			{needsMulti && options.length > 0 && (
 				<div className="sc-field">
 					<span className="sc-field-label">可多选</span>
-					{affordance.options.map((option) => (
+					{options.map((option) => (
 						<label
-							key={option}
+							key={option.id}
 							className="sc-choice"
-							data-checked={checked.includes(option)}
+							data-checked={checked.includes(option.id)}
 						>
 							<input
 								type="checkbox"
-								value={option}
-								checked={checked.includes(option)}
-								onChange={() => toggleChecked(option)}
+								value={option.id}
+								checked={checked.includes(option.id)}
+								onChange={() => toggleChecked(option.id)}
 							/>
-							<span className="sc-choice-label">{option}</span>
+							<span className="sc-choice-label">{option.label || option.id}</span>
 						</label>
 					))}
 				</div>
 			)}
 
 			{isDocument &&
-				affordance.fields.map((field) => (
+				fields.map((field) => (
 					<label key={field} className="sc-field">
 						<span className="sc-field-label">{field}</span>
 						<input
@@ -203,19 +222,18 @@ export default function AffordanceForm({
 					</label>
 				))}
 
-			{allowCustom &&
-				((needsSingle && choice === OTHER) || (!needsSingle && otherOn)) && (
-					<label className="sc-field">
-						<span className="sc-field-label">自己写</span>
-						<textarea
-							className="sc-textarea"
-							rows={2}
-							maxLength={MAX_INPUT}
-							value={otherText}
-							onChange={(event) => setOtherText(event.currentTarget.value)}
-						/>
-					</label>
-				)}
+			{allowCustom && wantsCustom && (
+				<label className="sc-field">
+					<span className="sc-field-label">自己写</span>
+					<textarea
+						className="sc-textarea"
+						rows={2}
+						maxLength={MAX_INPUT}
+						value={otherText}
+						onChange={(event) => setOtherText(event.currentTarget.value)}
+					/>
+				</label>
+			)}
 
 			<div className="sc-form-actions">
 				<button

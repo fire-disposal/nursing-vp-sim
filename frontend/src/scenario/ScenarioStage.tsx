@@ -19,6 +19,16 @@ import AuthImage, { type AuthImageStatus } from "@/components/ui/auth-image";
 import { PRESENCE_HINT, presenceInteractive } from "./actors";
 import { avatarFor } from "./avatar";
 import DevicePanel from "./DevicePanel";
+import {
+	groupTurns,
+	isPendingPlaceholder,
+	messageKindLabel,
+	pendingMessage,
+	phaseText,
+	sourceLabel,
+	studentLineLabel,
+	type PendingStudentLine,
+} from "./stream";
 
 function openImage(image: ScenarioImage | ScenarioAsset) {
 	modals.open({
@@ -28,20 +38,14 @@ function openImage(image: ScenarioImage | ScenarioAsset) {
 		children: (
 			<AuthImage
 				className="sc-modal-image"
-				alt={"alt" in image ? image.alt : ""}
+				alt={("alt" in image ? image.alt : "") ?? ""}
 				src={scenarioImageSrc(image.url)}
 			/>
 		),
 	});
 }
 
-/**
- * 场景缩略图：**拿不到字节就整块消失**（与设备面"空即不渲染"同一口径）。
- *
- * `AuthImage` 失败时只返回 `null`，如果外面还留着一个固定尺寸的按钮，学生看到的就是一个
- * 空框——所以这里按加载状态决定要不要渲染按钮本身。图没了就**不留占位、不留说明句**：
- * 界面里没有它，就是世界里没有它。
- */
+/** 声明过的图片失败是技术故障，保留身份和可重试入口。 */
 function AssetThumb({
 	image,
 	label,
@@ -52,7 +56,16 @@ function AssetThumb({
 	onOpen: (image: ScenarioImage | ScenarioAsset) => void;
 }) {
 	const [status, setStatus] = useState<AuthImageStatus | null>(null);
-	if (status === "error") return null;
+	const [attempt, setAttempt] = useState(0);
+	if (status === "error") return (
+		<div className="sc-image-error" role="status">
+			<span>{label}：图片加载失败</span>
+			<button type="button" className="sc-btn" onClick={() => {
+				setStatus(null);
+				setAttempt((value) => value + 1);
+			}}>重试图片</button>
+		</div>
+	);
 	return (
 		<button
 			type="button"
@@ -61,7 +74,8 @@ function AssetThumb({
 			onClick={() => onOpen(image)}
 		>
 			<AuthImage
-				alt={image.alt || image.title}
+				key={attempt}
+				alt={image.alt || image.title || ""}
 				src={scenarioImageSrc(image.url)}
 				onStatus={setStatus}
 			/>
@@ -71,43 +85,47 @@ function AssetThumb({
 }
 
 /**
- * 台词 / 旁白 / 学生自己的话。
+ * 对话流里的一条：学生自己的话、角色台词、旁白、以及**引擎直出**的系统消息。
  *
- * 旁白（`role === "scene"`）走字幕条：**没有头像、单列铺满**（样式见
- * `scenario.css` 的 `.sc-line[data-role="scene"]`；少了那条规则，唯一的子元素会落进
- * 头像那一列，中文每行只剩一个字）。
- * 角色台词走"头像 + 身份小字 + 正文"三层：身份名是次级小字，颜色只落在头像上
- * （说话人分色因此不会牺牲正文对比度）。
- * 学生自己（`role === "student"`）**右对齐**、只靠 1px 边与底色跟旁白/台词分层——
- * 不加头像、不写"你"：他就是这一侧的人，不需要再自我介绍。
- * `pending`（前端标记，后端不返回）= 学生刚提交、权威视图还没到的那一句：**同一个结构与 class**，
- * 只多一个极轻的待定态（见 `scenario.css`），不加"发送中…"这类世界里不存在的话。
+ * - 学生（`role === "student"`）：右对齐，标签是**可读文字**「对 2 床患者 · 行动」——
+ *   对象与"尝试/说话"都读得出来，不靠图标；提交中的那条带极轻的待定态，且不写成
+ *   "已完成"（`docs/23` §7.4）。同一结构与 class，只多一个 `data-pending`。
+ * - 旁白（`role === "scene"`）：字幕条，无头像。
+ * - 角色台词：头像 + 身份小字 + 正文；临时角色显式标注身份。
+ * - 系统（`role === "system"`）：被阻止／未建模由**引擎直出**，因此一定出现在这里；
+ *   它们带可读标签，不伪装成角色的判断，也不当作临床错误（§7.6）。
  */
 export function ScenarioLine({
 	message,
 	view,
+	highlight = false,
 }: {
 	message: ScenarioMessage;
 	view: ScenarioView;
+	highlight?: boolean;
 }) {
+	const pending = isPendingPlaceholder(message);
+	const sources = message.sources ?? [];
+	const source = sources.length > 0 ? sources.map(sourceLabel).join("、") : null;
+
 	if (message.role === "student") {
-		// 声明（说话 / 行动）只体现在**形态**上：一个极小的引号或手，不写"你说：""执行："这类平台口吻。
-		const declaration = message.declaration ?? null;
+		const label = studentLineLabel(message, view);
 		return (
 			<div
 				className="sc-line"
 				data-role="student"
-				data-declaration={declaration ?? undefined}
-				data-pending={message.pending === true ? "true" : undefined}
+				data-declaration={message.declaration ?? undefined}
+				data-pending={pending ? "true" : undefined}
+				data-highlight={highlight ? "true" : undefined}
 			>
 				<div className="sc-line-main">
-					{declaration !== null && (
-						<span className="sc-decl" aria-hidden="true">
-							{declaration === "say" ? (
-								<IconQuote size={12} />
-							) : (
-								<IconHandGrab size={12} />
-							)}
+					{label !== null && (
+						<span className="sc-decl">
+							{message.declaration === "act" || message.kind === "action"
+								? <IconHandGrab size={14} aria-hidden="true" />
+								: <IconQuote size={14} aria-hidden="true" />}
+							{label}
+							{pending && <span className="sc-decl-note"> · 待提交</span>}
 						</span>
 					)}
 					<div className="sc-line-text">{message.text}</div>
@@ -115,21 +133,48 @@ export function ScenarioLine({
 			</div>
 		);
 	}
-	if (message.role === "scene") {
+
+	if (message.role === "system") {
 		return (
-			<div className="sc-line" data-role="scene">
+			<div
+				className="sc-line"
+				data-role="system"
+				data-kind={message.kind}
+				data-highlight={highlight ? "true" : undefined}
+			>
 				<div className="sc-line-main">
-					<div className="sc-subtitle">{message.text}</div>
+					<span className="sc-line-who">
+						{messageKindLabel(message.kind)}
+					</span>
+					<div className="sc-line-text">{message.text}</div>
 				</div>
 			</div>
 		);
 	}
+
+	if (message.role === "scene") {
+		return (
+			<div
+				className="sc-line"
+				data-role="scene"
+				data-kind={message.kind}
+				data-highlight={highlight ? "true" : undefined}
+			>
+				<div className="sc-line-main">
+					<span className="sc-line-who">{messageKindLabel(message.kind)}</span>
+					<div className="sc-subtitle">{message.text}</div>
+					{source !== null && <span className="sc-line-source">来源：{source}</span>}
+				</div>
+			</div>
+		);
+	}
+
 	// 身份名优先用后端给的 `actor_role`：临时角色（走廊护工/广播/电话另一头）**没有 actor id**，
 	// 只有 DM 写的显示名；声明角色回退到名册 role，再回退到 id。都取不到就不署名——
 	// 名册里没有的名字不该由前端编一个（"某个声音"是平台口吻，不是世界里的话）。
 	const role =
 		message.actor_role ||
-		view.actors.find((actor) => actor.id === message.actor)?.role ||
+		(view.actors ?? []).find((actor) => actor.id === message.actor)?.role ||
 		message.actor ||
 		"";
 	const avatar = avatarFor(
@@ -141,6 +186,7 @@ export function ScenarioLine({
 			className="sc-line"
 			data-role="actor"
 			data-ephemeral={message.ephemeral === true}
+			data-highlight={highlight ? "true" : undefined}
 			style={{ "--sc-speaker": avatar.color } as CSSProperties}
 		>
 			<span className="sc-avatar">{avatar.initials}</span>
@@ -148,9 +194,13 @@ export function ScenarioLine({
 				{role !== "" && (
 					<div className="sc-line-who">
 						<span className="sc-speaker-name">{role}</span>
+						{message.ephemeral === true && (
+							<span className="sc-actor-hint">临时出现</span>
+						)}
 					</div>
 				)}
 				<div className="sc-line-text">{message.text}</div>
+				{source !== null && <span className="sc-line-source">来源：{source}</span>}
 			</div>
 		</div>
 	);
@@ -167,7 +217,7 @@ export function ScenarioLine({
  * 学生看到的是作者给这个 slot 起的名字（`label`）。
  */
 export function ScenarioHud({ view }: { view: ScenarioView }) {
-	const slots = view.hud.filter((slot) => slot.source === "state");
+	const slots = (view.hud ?? []).filter((slot) => slot.source === "state");
 	if (slots.length === 0) return null;
 	return (
 		<div className="sc-hud">
@@ -187,9 +237,11 @@ export function ScenarioHud({ view }: { view: ScenarioView }) {
 
 interface ScenarioStageProps {
 	view: ScenarioView;
-	/** 这一回合正在流式生成：台词流末尾给一个细进度标记（静态，不遮内容、不抖布局）。 */
-	streaming?: boolean;
-	/** 气泡流末尾的插槽：DM 此刻给的选项条（由页面传入，随消息一起滚动）。 */
+	/** 提交中的**真实**阶段名（后端 `phase` 枚举）；空闲时为 `null`。 */
+	phase?: string | null;
+	/** 还没有权威身份的学生消息（提交中）：与权威消息同一结构，按稳定 id 接替。 */
+	pending?: PendingStudentLine | null;
+	/** 气泡流末尾的插槽（由页面传入，随消息一起滚动）。 */
 	optionSlot?: ReactNode;
 	/** 是否在场景带那一行里续上"手边有什么"。由 pack 声明的 panels 决定。 */
 	showResources?: boolean;
@@ -200,6 +252,10 @@ interface ScenarioStageProps {
 	 *   这里只补"看得见、碰不着"的人（`inaccessible`），免得他们从界面上消失。
 	 */
 	actorStrip?: "all" | "unaddressable";
+	/** 时间**确实前进**了的那个时间单位：轻量高亮它的消息（纯交流不推进时间，也就没有变化可突出）。 */
+	highlightTurn?: number | null;
+	/** 资料/设备条目上的时间单位回到对话流（变化可追溯到来源时间点）。 */
+	onLocateTurn?: (turn: number) => void;
 }
 
 /** 手边有 >4 样东西就截断（全量在 `title` 里）：场景那一行是陈述，不是清单。 */
@@ -213,44 +269,54 @@ function resourceLine(resources: string[]): string {
 }
 
 /**
- * 场景画面区：**图带 + 字幕/台词 + 在场者 + 资源缩略图**。
+ * 场景画面区：**图带 + 按时间单位分段的对话流 + 在场者 + 设备**。
+ *
+ * 对话流按**时间单位**分段（不是最近 N 条）：同一时间单位内的多条消息属于同一个时间点，
+ * 学生向上回看时正在读的那一段不会被新回应挤掉；每段带定位标记，资料栏里的时间点可以定位回来
+ * （`docs/23` §7.5；`turn` 是情境时间单位，不是提交次数）。
  *
  * 图是固定高度的一条图带，文字在它**下面**的普通表面上：文字因此始终压在主题底色上，
- * 亮/暗两套主题都自然（不需要把整块画面染黑）。没有图就**没有图带**：不占位、不造假图。
- * 地点/时间/手边有什么写在场景带那一行里（一句事实陈述），不另开一行挂名词。
+ * 亮/暗两套主题都自然。没有图就**没有图带**：不占位、不造假图；**已声明但加载失败**的图
+ * 给出失败说明与重试，不把技术故障说成"场景里没有这张图"（§7.5）。
  */
 export default function ScenarioStage({
 	view,
-	streaming = false,
+	phase = null,
+	pending = null,
 	optionSlot,
 	showResources = false,
 	actorStrip = "all",
+	highlightTurn = null,
+	onLocateTurn,
 }: ScenarioStageProps) {
 	const images = view.images ?? [];
 	const mainImage = images[0];
 	const extraImages = images.slice(1);
 	const assets = view.assets ?? [];
-	// 画面区只保留最近几个 beat：更早的内容在经历时间线里，不在这里堆成聊天记录
-	const beats = view.messages.slice(-5);
+	const turns = groupTurns(view.messages);
+	const pendingLine = pending === null ? null : pendingMessage(pending, view);
 	// 学生控制台里，可搭话的人已经是输入条旁的 chip：这里只列**没进 chip 的人**（看得见、碰不着）。
+	const allActors = view.actors ?? [];
 	const listedActors =
 		actorStrip === "all"
-			? view.actors
-			: view.actors.filter((actor) => !presenceInteractive(actor.presence));
+			? allActors
+			: allActors.filter((actor) => !presenceInteractive(actor.presence));
 
 	// 新消息到达时自动滚到底；学生自己向上翻阅时**不抢滚动**（回到底部才恢复跟随）。
 	const linesRef = useRef<HTMLDivElement>(null);
 	const pinnedRef = useRef(true);
-	const beatSignal = `${view.messages.length}|${view.session.turn}|${optionSlot ? 1 : 0}`;
+	const [newResponse, setNewResponse] = useState(false);
+	// 接续只按稳定身份：消息 id 与待定请求身份，不按文案或猜测时间点去重。
+	const beatSignal = `${(view.messages ?? []).length}|${view.session.turn}|${pending?.requestId ?? ""}|${optionSlot ? 1 : 0}`;
 	useEffect(() => {
 		const el = linesRef.current;
 		if (el && pinnedRef.current) el.scrollTop = el.scrollHeight;
+		else if (el) setNewResponse(true);
 	}, [beatSignal]);
 
 	/**
-	 * 对话流这一块的**盒子变高变矮也要重新钉底**：回合之间的重排（缩略图落位、字体换装、
+	 * 对话流这一块的**盒子变高变矮也要重新钉底**：分段之间的重排（缩略图落位、字体换装、
 	 * 选项条折行、窄屏收薄设备卡）都会改它的可用高度，而 `beatSignal` 不一定会变。
-	 * 少了这一条，最后一行（常常是刚给的那几个选项）会有一截留在框外——看得见、点不全。
 	 */
 	useEffect(() => {
 		const el = linesRef.current;
@@ -265,19 +331,20 @@ export default function ScenarioStage({
 	const handleLinesScroll = (event: UIEvent<HTMLDivElement>) => {
 		const el = event.currentTarget;
 		pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight <= 48;
+		if (pinnedRef.current) setNewResponse(false);
 	};
 
 	const [mainImageFailed, setMainImageFailed] = useState(false);
+	const [mainImageAttempt, setMainImageAttempt] = useState(0);
 	const devices = view.devices ?? [];
 	const withImage = mainImage !== undefined && !mainImageFailed;
 	const place = view.situation.place;
 	const timeHint = view.situation.time_hint;
-	const resources = view.situation.resources;
+	const resources = view.situation.resources ?? [];
 	const resourcesLine =
 		showResources && resources.length > 0 ? resourceLine(resources) : null;
 
 	// 场景带那一行是**一句事实陈述**：地点 · 时间 · 手边有什么。
-	// 资源不再是对话流下缘一串没头没脑的名词——它属于"场景"，就写在场景那一行里。
 	const stageHead = (
 		<div className="sc-stage-head" data-plain={withImage ? undefined : "true"}>
 			<span className="sc-stage-place">{place}</span>
@@ -309,6 +376,7 @@ export default function ScenarioStage({
 				{withImage ? (
 					<div className="sc-stage-visual">
 						<AuthImage
+							key={`${mainImage.url}-${mainImageAttempt}`}
 							alt={mainImage.alt || mainImage.title}
 							src={scenarioImageSrc(mainImage.url)}
 							onStatus={(status) => setMainImageFailed(status === "error")}
@@ -318,6 +386,15 @@ export default function ScenarioStage({
 					</div>
 				) : (
 					stageHead
+				)}
+				{mainImage && mainImageFailed && (
+					<div className="sc-image-error" role="status">
+						<span>{mainImage.title}：图片加载失败，并非场景中没有此图片。</span>
+						<button type="button" className="sc-btn" onClick={() => {
+							setMainImageFailed(false);
+							setMainImageAttempt((value) => value + 1);
+						}}>重试图片</button>
+					</div>
 				)}
 
 				<div className="sc-stage-body">
@@ -342,25 +419,48 @@ export default function ScenarioStage({
 					<ScenarioHud view={view} />
 
 					<div className="sc-lines" ref={linesRef} onScroll={handleLinesScroll}>
-						{beats.map((message, index) => (
-							<ScenarioLine
-								key={`${message.turn ?? "x"}-${index}-${message.text.slice(0, 8)}`}
-								message={message}
-								view={view}
-							/>
+						{turns.map((group) => (
+							<div
+								className="sc-turn"
+								data-turn={group.turn}
+								id={`sc-turn-${group.turn}`}
+								key={group.turn}
+							>
+								<div className="sc-turn-mark">
+									<span>时间单位 {group.turn}</span>
+								</div>
+								{group.messages.map((message) => (
+									<ScenarioLine
+										key={message.id}
+										message={message}
+										view={view}
+										highlight={highlightTurn === group.turn}
+									/>
+								))}
+							</div>
 						))}
-						{streaming && (
+						{pendingLine !== null && (
+							<div className="sc-turn" data-turn={pendingLine.turn} data-pending="true">
+								<ScenarioLine message={pendingLine} view={view} />
+							</div>
+						)}
+						{phase !== null && (
 							<div className="sc-streaming" role="status">
 								<span className="sc-streaming-dot" aria-hidden="true" />
-								<span className="sc-streaming-text">正在生成…</span>
+								<span className="sc-streaming-text">{phaseText(phase)}</span>
 							</div>
 						)}
 						{optionSlot}
 					</div>
+					{newResponse && <button type="button" className="sc-btn sc-new-response" onClick={() => {
+						const el = linesRef.current;
+						if (el) el.scrollTop = el.scrollHeight;
+						pinnedRef.current = true;
+						setNewResponse(false);
+					}}>有新回应 · 回到最新</button>}
 				</div>
 
-				{/* 在场者条：只读列出**没进输入条 chip 的人**（学生控制台）或全列（回放）。
-				    可搭话的人在输入条旁选；这里出现的人就是"看得见、此刻说不上话"的那些。 */}
+				{/* 在场者条：只读列出**没进输入条 chip 的人**（学生控制台）或全列（回放）。 */}
 				{listedActors.length > 0 && (
 					<div className="sc-actors">
 						{listedActors.map((actor) => {
@@ -384,28 +484,18 @@ export default function ScenarioStage({
 				{extraImages.length > 0 && (
 					<div className="sc-assets">
 						{extraImages.map((image, index) => (
-							<button
+							<AssetThumb
 								key={`${image.asset_id}-${index}`}
-								type="button"
-								className="sc-asset"
-								onClick={() => openImage(image)}
-							>
-								<AuthImage
-									alt={image.alt || image.title}
-									src={scenarioImageSrc(image.url)}
-								/>
-								<span className="sc-asset-caption">
-									{image.title || image.asset_id}
-								</span>
-							</button>
+								image={image}
+								label={image.title || image.asset_id}
+								onOpen={openImage}
+							/>
 						))}
 					</div>
 				)}
 			</section>
 
-			{/* 设备是处境的一部分：紧贴画面（桌面与画面并列，窄屏折成一行紧凑读数）。
-			    `devices` 为空时 DevicePanel 自己返回 null —— 不占位、不留空档。 */}
-			<DevicePanel devices={devices} />
+			<DevicePanel devices={devices} onLocateTurn={onLocateTurn} />
 		</div>
 	);
 }

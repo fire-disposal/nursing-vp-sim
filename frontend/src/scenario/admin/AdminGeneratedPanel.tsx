@@ -1,4 +1,5 @@
 import {
+	Alert,
 	Badge,
 	Button,
 	Code,
@@ -12,6 +13,7 @@ import {
 	Text,
 	TextInput,
 } from "@mantine/core";
+import { IconInfoCircle } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { queryKeys } from "@/api/query-keys";
@@ -72,6 +74,11 @@ function GeneratedThumb({
 /**
  * 生成物：**某个病例**运行期由 DM 生成的图片（病例二级界面的一块，与 资源 同级）。
  *
+ * ── 这份面板只有历史 ──────────────────────────────────────────────────
+ * 新机制**演出阶段不再请求生成图片**（docs/23）：这套界面不会再长出新条目，
+ * 所以这里没有任何"生成 / 重新生成"入口，只有浏览（分页、按会话筛、预览）与删除。
+ * 这里的删除也不能说成"腾出空间再生成一张"——删掉就是删掉。
+ *
  * 与「资源」的分工：资源是**作者准备的**（包 JSON 声明 + 管理侧上传）；
  * 生成物是**运行期长出来的**（哪个学生、哪次会话、什么 prompt 生成的），只增不减地留痕，
  * 所以这里按会话/病例筛、可以按图删单条，但**不提供编辑**。
@@ -84,7 +91,11 @@ export default function AdminGeneratedPanel({
 	onOpenSession,
 }: {
 	pack: ScenarioAdminPack;
-	/** 点会话 id 跳到这个病例的「会话」块并把那一次展开（由工作区切块）。 */
+	/**
+	 * 点会话 id 跳到这个病例的「会话」块并把那一次展开（由工作区切块）。
+	 * 调用方**没有**「会话」块权限时传 `undefined`：面板就只显示会话号，不给这个入口
+	 * （否则那一下会跳到一个用户无权看的块，落回别的块，等于骗了一次点击）。
+	 */
 	onOpenSession?: (sessionId: number) => void;
 }) {
 	const [page, setPage] = useState(1);
@@ -142,7 +153,7 @@ export default function AdminGeneratedPanel({
 	const remove = async (item: ScenarioGeneratedAsset) => {
 		const ok = await confirm({
 			title: `删除生成物 #${item.id}？`,
-			message: `这次会话（#${item.session_id}）里由 DM 生成的图片会被永久删除：${
+			message: `这次会话（#${item.session_id}）里由 DM 生成的图片会被永久删除（删掉就是删掉：新机制不再生成图片，不会再长出一张）：${
 				item.prompt.slice(0, 80) || "—"
 			}`,
 			confirmLabel: "确认删除",
@@ -160,6 +171,10 @@ export default function AdminGeneratedPanel({
 
 	return (
 		<Stack gap="md">
+			<Alert color="gray" variant="light" icon={<IconInfoCircle size={16} />}>
+				历史生成物可查看与删除；新机制不再生成图片（演出阶段不再请求生成）。
+			</Alert>
+
 			<Group align="flex-end" gap="sm" wrap="wrap">
 				<TextInput
 					label="按会话筛选"
@@ -228,14 +243,19 @@ export default function AdminGeneratedPanel({
 											/>
 										</Table.Td>
 										<Table.Td>
-											<Button
-												size="compact-xs"
-												variant="subtle"
-												disabled={!onOpenSession}
-												onClick={() => onOpenSession?.(item.session_id)}
-											>
-												#{item.session_id}
-											</Button>
+											{onOpenSession ? (
+												<Button
+													size="compact-xs"
+													variant="subtle"
+													onClick={() =>
+														onOpenSession(item.session_id)
+													}
+												>
+													#{item.session_id}
+												</Button>
+											) : (
+												<Text size="sm">#{item.session_id}</Text>
+											)}
 											<Text size="xs" c="dimmed">
 												{item.pack_key} · rev {item.pack_revision_id}
 											</Text>

@@ -18,15 +18,20 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
  * 概览 —— 这份病例**声明了什么**（作者视角的一页事实，不是学生页的摘要）。
  *
  * 数据全部来自 `GET /scenario/admin/packs` 的 `overview` 投影（最新修订）：
- * 角色 / 场景 / 在场者 / 锚点声明 / 各栏规模。DM 侧的真相字段（`truth`、`hidden_from_player`、
- * actor 的 knowledge）**一个都不在这里**——管理界面要的是"作者声明了什么"，不是"患者藏着什么"，
- * 少一处副本就少一处泄漏面。
+ * 角色 / 场景 / 在场者 / **教学关注点声明** / 各栏规模。DM 侧的真相字段（`truth`、
+ * `hidden_from_player`、actor 的 knowledge）**一个都不在这里**——管理界面要的是"作者声明了什么"，
+ * 不是"患者藏着什么"，少一处副本就少一处泄漏面。
  *
  * 状态在这里只**显示**（改状态是「修订」那一块的事）：同一个事实不提供两个写入口。
  */
 export default function AdminCaseOverviewPanel({ pack }: { pack: ScenarioAdminPack }) {
-	const overview = pack.overview;
-	const uploaded = pack.assets.filter((asset) => asset.uploaded).length;
+	// `overview` 与它的集合字段在生成物里都是可选的：缺就当"没有声明"渲染，不当作空对象硬读。
+	const overview = pack.overview ?? null;
+	const assets = pack.assets ?? [];
+	const resources = overview?.resources ?? [];
+	const actors = overview?.actors ?? [];
+	const teachingFocus = overview?.teaching_focus ?? [];
+	const uploaded = assets.filter((asset) => asset.uploaded).length;
 
 	return (
 		<Stack gap="md">
@@ -57,9 +62,7 @@ export default function AdminCaseOverviewPanel({ pack }: { pack: ScenarioAdminPa
 								{overview.time_hint !== "" && ` · ${overview.time_hint}`}
 							</Field>
 							<Field label="手边有什么">
-								{overview.resources.length === 0
-									? "—"
-									: overview.resources.join("、")}
+								{resources.length === 0 ? "—" : resources.join("、")}
 							</Field>
 							<Field label="当前修订">
 								#{pack.revision_no ?? "—"}（id {pack.revision_id ?? "—"}）
@@ -87,16 +90,16 @@ export default function AdminCaseOverviewPanel({ pack }: { pack: ScenarioAdminPa
 							</Field>
 						</SimpleGrid>
 						<Text size="xs" c="dimmed" mt="xs">
-							资源：{pack.assets.length} 张，已上传 {uploaded} 张
-							{pack.assets.length > uploaded && `，缺 ${pack.assets.length - uploaded} 张字节`}
+							资源：{assets.length} 张，已上传 {uploaded} 张
+							{assets.length > uploaded && `，缺 ${assets.length - uploaded} 张字节`}
 						</Text>
 					</Paper>
 
 					<Paper withBorder p="md">
 						<Text fw={600} mb={6}>
-							在场者（{overview.actors.length}）
+							在场者（{actors.length}）
 						</Text>
-						{overview.actors.length === 0 ? (
+						{actors.length === 0 ? (
 							<Text size="sm" c="dimmed">
 								这份病例没有声明在场者。
 							</Text>
@@ -110,7 +113,7 @@ export default function AdminCaseOverviewPanel({ pack }: { pack: ScenarioAdminPa
 									</Table.Tr>
 								</Table.Thead>
 								<Table.Tbody>
-									{overview.actors.map((actor) => (
+									{actors.map((actor) => (
 										<Table.Tr key={actor.id}>
 											<Table.Td>
 												<Code>{actor.id}</Code>
@@ -133,32 +136,32 @@ export default function AdminCaseOverviewPanel({ pack }: { pack: ScenarioAdminPa
 
 					<Paper withBorder p="md">
 						<Text fw={600} mb={6}>
-							叙事锚点（{overview.anchors.length}）
+							教学关注点（{teachingFocus.length}）
 						</Text>
-						{overview.anchors.length === 0 ? (
+						<Text size="xs" c="dimmed" mb={6}>
+							作者希望学生遇到的判断问题（只给 DM 与教师看，不是给学生的提示清单）；
+							「已处理」只代表本包观察到了处理证据，不等于能力达标。
+						</Text>
+						{teachingFocus.length === 0 ? (
 							<Text size="sm" c="dimmed">
-								没有声明锚点：这份病例不启用编排，DM 按常规回合推进。
+								没有声明教学关注点：这份病例不预设判断问题，DM 按常规时间推进。
 							</Text>
 						) : (
 							<Table verticalSpacing="xs">
 								<Table.Thead>
 									<Table.Tr>
-										<Table.Th>阶段</Table.Th>
 										<Table.Th>id</Table.Th>
-										<Table.Th>教学意图（只给 DM 与教师看）</Table.Th>
+										<Table.Th>教学意图</Table.Th>
 									</Table.Tr>
 								</Table.Thead>
 								<Table.Tbody>
-									{overview.anchors.map((anchor) => (
-										<Table.Tr key={anchor.id}>
+									{teachingFocus.map((focus) => (
+										<Table.Tr key={focus.id}>
 											<Table.Td>
-												<Badge variant="light">{anchor.stage}</Badge>
+												<Code>{focus.id}</Code>
 											</Table.Td>
 											<Table.Td>
-												<Code>{anchor.id}</Code>
-											</Table.Td>
-											<Table.Td>
-												<Text size="xs">{anchor.goal}</Text>
+												<Text size="xs">{focus.intent}</Text>
 											</Table.Td>
 										</Table.Tr>
 									))}

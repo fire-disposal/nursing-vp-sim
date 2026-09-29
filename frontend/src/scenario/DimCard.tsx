@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ScenarioDim } from "@/api/scenario";
 
 /** 维度读数：数值缺失就是缺失（后端会同时给出原因，不补零、不猜）。 */
-function dimValue(value: unknown): string {
+function dimValue(value: number | null | undefined): string {
 	if (value === null || value === undefined) return "—";
 	return String(value);
 }
@@ -61,7 +61,10 @@ export function ScenarioProgress({ dims }: { dims: ScenarioDim[] }) {
 		(dim) => dim.unit === "次" && typeof dim.value === "number",
 	);
 	if (ratio === undefined && count === undefined) return null;
-	const fraction = ratio === undefined ? 0 : Math.min(1, Math.max(0, ratio.value as number));
+	// 比例读数缺失时按 0 呈现（条本身还给"起点标记"，不假装已经推进）；
+	// `count` 是次数（单位「次」）；时间单位数不会在这里被写成真实分钟。
+	const fraction =
+		ratio === undefined ? 0 : Math.min(1, Math.max(0, ratio.value ?? 0));
 
 	return (
 		<section

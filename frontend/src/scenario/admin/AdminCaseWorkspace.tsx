@@ -84,6 +84,8 @@ export default function AdminCaseWorkspace({
 	const blocks = visibleCaseBlocks(permissions);
 	const current = blocks.includes(block) ? block : (blocks[0] ?? null);
 	const reviewed = pack.state === "reviewed";
+	// 生成物里 `assets` 是可选的：缺就是"这份病例没声明资源"，不当作空数组之外的别的东西。
+	const assets = pack.assets ?? [];
 
 	return (
 		<>
@@ -104,7 +106,7 @@ export default function AdminCaseWorkspace({
 					<Code>{pack.key}</Code>
 					<Text size="xs" c="dimmed">
 						修订 #{pack.revision_no ?? "—"} · {pack.sessions} 次会话 · 资源{" "}
-						{pack.assets.filter((asset) => asset.uploaded).length}/{pack.assets.length}
+						{assets.filter((asset) => asset.uploaded).length}/{assets.length}
 					</Text>
 				</Group>
 				{pack.one_line !== "" && (
@@ -134,7 +136,14 @@ export default function AdminCaseWorkspace({
 				{current === "revisions" && <AdminCaseRevisionsPanel pack={pack} />}
 				{current === "assets" && <AdminAssetsPanel pack={pack} />}
 				{current === "generated" && (
-					<AdminGeneratedPanel pack={pack} onOpenSession={onOpenSession} />
+					// 「会话」块（stats_view）不可见时不传跳转回调：生成物面板就只显示会话号，
+					// 不给一个点了会跳到无权查看的块的按钮。
+					<AdminGeneratedPanel
+						pack={pack}
+						onOpenSession={
+							blocks.includes("sessions") ? onOpenSession : undefined
+						}
+					/>
 				)}
 				{current === "sessions" && (
 					<AdminSessionsPanel

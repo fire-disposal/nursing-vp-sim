@@ -57,6 +57,8 @@ export default function AdminAssetsPanel({ pack }: { pack: ScenarioAdminPack }) 
 	const [previewNonce, setPreviewNonce] = useState(0);
 	const { confirm } = useConfirm();
 	const queryClient = useQueryClient();
+	/** 声明清单（后端字段可选：没有就是空清单，不是"未知"）。 */
+	const assets = pack.assets ?? [];
 
 	const invalidate = () =>
 		queryClient.invalidateQueries({ queryKey: queryKeys.scenario.admin.all });
@@ -65,8 +67,8 @@ export default function AdminAssetsPanel({ pack }: { pack: ScenarioAdminPack }) 
 		mutationFn: (payload: ScenarioAssetUploadInput) =>
 			uploadAdminScenarioAsset(pack.key, payload),
 		onSuccess: (data) => {
-			toast.success(`${data.asset.id}：图片已保存`, {
-				description: `已追加修订 #${data.revision_no}（${formatBytes(data.asset.file_size)}）`,
+			toast.success(`${data.asset.id}：图片已保存（${formatBytes(data.asset.file_size)}）`, {
+				description: `上传即追加修订 #${data.revision_no}：声明与字节一起版本化，已在跑的会话仍用它们开始时的修订。`,
 			});
 			setAssetId("");
 			setTitle("");
@@ -82,8 +84,10 @@ export default function AdminAssetsPanel({ pack }: { pack: ScenarioAdminPack }) 
 
 	const deleteMutation = useMutation({
 		mutationFn: (id: string) => deleteAdminScenarioAsset(pack.key, id),
-		onSuccess: (_data, id) => {
-			toast.success(`${id}：已撤下`);
+		onSuccess: (data, id) => {
+			toast.success(`${id}：已撤下`, {
+				description: `声明从新修订里移除：已追加修订 #${data.revision_no}。`,
+			});
 			setPreview((current) => (current?.id === id ? null : current));
 			invalidate();
 		},
@@ -174,7 +178,7 @@ export default function AdminAssetsPanel({ pack }: { pack: ScenarioAdminPack }) 
 				</Group>
 			</Paper>
 
-			{pack.assets.length === 0 ? (
+			{assets.length === 0 ? (
 				<Text size="sm" c="dimmed">
 					这个病例没有声明任何资源。
 				</Text>
@@ -191,7 +195,7 @@ export default function AdminAssetsPanel({ pack }: { pack: ScenarioAdminPack }) 
 							</Table.Tr>
 						</Table.Thead>
 						<Table.Tbody>
-							{pack.assets.map((asset) => (
+							{assets.map((asset) => (
 								<Table.Tr key={asset.id}>
 									<Table.Td>
 										<Text fw={600}>{asset.title || asset.id}</Text>

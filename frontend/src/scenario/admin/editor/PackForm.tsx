@@ -2,7 +2,7 @@
  * 场景编辑器的**表单页签**：只暴露必须由人决定的字段，按 pack 结构分节。
  *
  * 取向（docs/22 P0-3）：
- * - 列表字段（线索/在场者/动作/事实/判据/维度/锚点/设备）一律可增删排序；
+ * - 列表字段（线索/在场者/动作/事实/判据/维度/教学关注点/设备）一律可增删排序；
  * - 其余字段**保持原值**、折叠在一处（作者看不到就等于不存在），要改它们去「JSON 原始」页签；
  * - 节内的校验问题来自后端（`POST .../validate`），这里只**归位**不重算——
  *   路径映射是 `sectionForPath`，节标题上的红字与顶部摘要指向同一处。
@@ -34,7 +34,7 @@ export const PACK_SECTIONS: { id: string; label: string; prefixes: string[] }[] 
 	{ id: "affordances", label: "可做动作", prefixes: ["affordances"] },
 	{ id: "cues", label: "线索与事实", prefixes: ["setting.cues", "facts"] },
 	{ id: "rubric", label: "判读", prefixes: ["rubric", "dims"] },
-	{ id: "anchors", label: "锚点", prefixes: ["anchors"] },
+	{ id: "teaching_focus", label: "教学关注点", prefixes: ["teaching_focus"] },
 	{ id: "presentation", label: "呈现", prefixes: ["presentation", "assets", "image_generation", "failure"] },
 ];
 
@@ -84,7 +84,6 @@ const ADVANCED_KEYS = [
 	"hidden_from_player",
 	"failure",
 	"failure_when",
-	"anchors",
 	"presentation",
 ];
 
@@ -485,7 +484,7 @@ export default function PackForm({
 			<Section
 				id="rubric"
 				title="判读"
-				hint="维度（聚合口径）与判据（规则 + 三档锚点文本 + 权重）。判据的参数（引用哪些动作）在「JSON 原始」页签里改。"
+				hint="维度（聚合口径）与判据（规则 + 三档判读文本 + 权重）。判据的参数（引用哪些动作）在「JSON 原始」页签里改。"
 				issues={issuesOf("rubric")}
 			>
 				<Stack gap="lg">
@@ -579,7 +578,7 @@ export default function PackForm({
 										<Textarea
 											key={anchor}
 											label={
-												anchor === "strong" ? "锚点 · 强（做对了）" : anchor === "adequate" ? "锚点 · 合格" : "锚点 · 漏了"
+												anchor === "strong" ? "判读 · 强（做对了）" : anchor === "adequate" ? "判读 · 合格" : "判读 · 漏了"
 											}
 											autosize
 											minRows={2}
@@ -597,54 +596,35 @@ export default function PackForm({
 			</Section>
 
 			<Section
-				id="anchors"
-				title="锚点"
-				hint="推进路上的关键节点：世界必须呈现的信号（cue）与教学意图（goal）。不声明锚点 = 这个病例不启用编排。"
-				issues={issuesOf("anchors")}
+				id="teaching_focus"
+				title="教学关注点"
+				hint="作者希望学生遇到的判断问题（intent），以及「是否值得关注 / 是否已被处理」的观察条件。不推进世界、不解锁动作、不分阶段；relevant_when / addressed_when / evidence_refs（条件与回看定位）在「JSON 原始」页签里改。"
+				issues={issuesOf("teaching_focus")}
 			>
 				<ListEditor
-					items={listAt<ScenarioPackValue>(doc, "anchors")}
-					onChange={(value) => onChange(setIn(doc, ["anchors"], value))}
-					create={() => ({ id: "a_new", stage: "", goal: "", cue: "", deadline_turns: 3 })}
-					addLabel="添加锚点"
-					emptyText="没有声明锚点。"
-					render={(_anchor, index) => (
+					items={listAt<ScenarioPackValue>(doc, "teaching_focus")}
+					onChange={(value) => onChange(setIn(doc, ["teaching_focus"], value))}
+					create={() => ({ id: "focus_new", intent: "", relevant_when: null, addressed_when: null, evidence_refs: [] })}
+					addLabel="添加关注点"
+					emptyText="没有声明教学关注点。"
+					render={(_focus, index) => (
 						<>
-							<Group grow align="flex-start">
-								<TextInput
-									label="id"
-									value={textAt(doc, "anchors", index, "id")}
-									onChange={(event) => onChange(setIn(doc, ["anchors", index, "id"], event.currentTarget.value))}
-								/>
-								<TextInput
-									label="阶段"
-									value={textAt(doc, "anchors", index, "stage")}
-									onChange={(event) => onChange(setIn(doc, ["anchors", index, "stage"], event.currentTarget.value))}
-								/>
-								<NumberInput
-									label="回合预算"
-									description="超过 N 回合未达成 → 引擎催办"
-									min={0}
-									value={numberAt(doc, ["anchors", index, "deadline_turns"], 3)}
-									onChange={(value) =>
-										onChange(setIn(doc, ["anchors", index, "deadline_turns"], typeof value === "number" ? value : 0))
-									}
-								/>
-							</Group>
+							<TextInput
+								label="id"
+								value={textAt(doc, "teaching_focus", index, "id")}
+								onChange={(event) =>
+									onChange(setIn(doc, ["teaching_focus", index, "id"], event.currentTarget.value))
+								}
+							/>
 							<Textarea
-								label="教学意图（goal）"
+								label="教学意图（intent）"
 								description="只给 DM 与教师回放看，学生看不到"
 								autosize
 								minRows={2}
-								value={textAt(doc, "anchors", index, "goal")}
-								onChange={(event) => onChange(setIn(doc, ["anchors", index, "goal"], event.currentTarget.value))}
-							/>
-							<Textarea
-								label="世界必须呈现的信号（cue）"
-								autosize
-								minRows={2}
-								value={textAt(doc, "anchors", index, "cue")}
-								onChange={(event) => onChange(setIn(doc, ["anchors", index, "cue"], event.currentTarget.value))}
+								value={textAt(doc, "teaching_focus", index, "intent")}
+								onChange={(event) =>
+									onChange(setIn(doc, ["teaching_focus", index, "intent"], event.currentTarget.value))
+								}
 							/>
 						</>
 					)}

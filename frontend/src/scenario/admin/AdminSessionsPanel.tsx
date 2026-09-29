@@ -17,6 +17,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { queryKeys } from "@/api/query-keys";
 import {
+	type ScenarioAdminSessionDetail,
 	getAdminScenarioSession,
 	listAdminScenarioPacks,
 	listAdminScenarioSessions,
@@ -26,7 +27,7 @@ import ScenarioReportView from "../ScenarioReportView";
 import ScenarioSidePanel from "../ScenarioSidePanel";
 import ScenarioStage, { ScenarioLine } from "../ScenarioStage";
 import { sessionStatusLabel, summaryText } from "../sessions";
-import AdminAnchorsPanel from "./AdminAnchorsPanel";
+import AdminFocusPanel from "./AdminFocusPanel";
 
 const STATUS_OPTIONS = [
 	{ value: "active", label: "进行中" },
@@ -35,11 +36,22 @@ const STATUS_OPTIONS = [
 
 const PAGE_SIZE = 50;
 
+/** 结算结局（`ScenarioOutcome.status`）；未知取值原样显示，不假装认识。 */
+const OUTCOME_STATUS: Record<string, string> = {
+	lost: "不可逆结局",
+	ended_by_student: "学生主动结束",
+	cutover: "切换时封存",
+};
+
 /**
- * 会话：列表（可按病例 / 状态筛选）+ 单次回放（学生视图 + 报告 + **诊断问题** + 事件流）。
+ * 会话：列表（可按病例 / 状态筛选）+ 单次回放（学生视图 + 报告 / 旧报告留档 + **教学关注点
+ * 投影与逐请求来源回放** + **诊断问题** + 事件流）。
  *
  * 这里是**唯一**能看到原始诊断串的地方（`dm_parse:*`、`leaked_fact_term:*`…）：
- * 学生侧只会看到一句"本回合由系统保底生成"。回放视图不可交互（不给在场者按钮）。
+ * 学生侧只会看到一句"这一段由系统保底生成"。回放视图不可交互（不给在场者按钮）。
+ *
+ * 报告三态不合并：新形状（`report`）/ 切换前的旧报告原样留档（`legacy_report`，若后端给）/
+ * 未结算——旧报告绝不被改写成新形状或重新判读。
  *
  * 两种用法，同一个组件：
  * - **病例工作区**（`lockPack`）：病例由工作区头部给定，**没有病例选择器**——同一个病例不
@@ -95,6 +107,25 @@ export default function AdminSessionsPanel({
 	const packs = packsQuery.data ?? [];
 	const rows = listQuery.data?.items ?? [];
 	const detail = detailQuery.data ?? null;
+	// 生成物里 `problems` / `events` / `view.messages` 都是可选字段：用空数组兜住，
+	// 界面按"没有"渲染，不把 undefined 当 0，也不交给下游去猜。
+	const problems = detail?.problems ?? [];
+	const events = detail?.events ?? [];
+	const messages = detail?.view.messages ?? [];
+	/**
+	 * `legacy_report` **不**在后端管理回放的模型里（`api_models.ScenarioAdminSessionDetail`
+	 * 只有 `report`；`router._split_report` 把切换前的旧报告整份丢掉，只有学生侧
+	 * `ScenarioSessionState` 与 `/admin/archives/{id}` 会带 `legacy_report`）。这里按"可能出现"
+	 * 读：真有旧报告就**原样**只读留档（不翻译成新形状、不重新判读），没有就落到「未结算」。
+	 */
+	const legacyReport =
+		(
+			detail as
+				| (ScenarioAdminSessionDetail & {
+						legacy_report?: Record<string, unknown> | null;
+					})
+				| null
+		)?.legacy_report ?? null;
 	const total = listQuery.data?.total ?? 0;
 	const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -160,9 +191,9 @@ export default function AdminSessionsPanel({
 								{/* 病例锁定时这一列每一行都是同一个病例：不占位置、不重复十遍 */}
 								{!lockPack && <Table.Th>病例</Table.Th>}
 								<Table.Th>状态</Table.Th>
-								<Table.Th>回合</Table.Th>
+								<Table.Th>时间单位</Table.Th>
 								<Table.Th>结局</Table.Th>
-								<Table.Th>锚点</Table.Th>
+								<Table.Th>判读档位</Table.Th>
 								<Table.Th>更新</Table.Th>
 								<Table.Th>操作</Table.Th>
 							</Table.Tr>
@@ -199,7 +230,7 @@ export default function AdminSessionsPanel({
 										)}
 									</Table.Td>
 									<Table.Td>
-										<Text size="xs">{summaryText(row.summary) || "—"}</Text>
+										<Text size="xs">{summaryText(row.summary ?? null) || "—"}</Text>
 									</Table.Td>
 									<Table.Td>
 										<Text size="xs">
@@ -276,20 +307,20 @@ export default function AdminSessionsPanel({
 								variant="light"
 								icon={<IconAlertTriangle size={16} />}
 							>
-								诊断信息仅维护者可见：下面是每回合的问题清单（学生侧看不到这些原始串）。
+								诊断信息仅维护者可见：下面是每次请求的问题清单（学生侧看不到这些原始串）。
 							</Alert>
 
 							<div>
 								<Text size="sm" fw={600} mb={4}>
-									问题清单（{detail.problems.length}）
+									问题清单（{problems.length}）
 								</Text>
-								{detail.problems.length === 0 ? (
+								{problems.length === 0 ? (
 									<Text size="xs" c="dimmed">
 										这次会话没有诊断问题。
 									</Text>
 								) : (
 									<Stack gap={4}>
-										{detail.problems.map((problem, index) => (
+										{problems.map((problem, index) => (
 											<Code key={`${index}-${problem}`} block>
 												{problem}
 											</Code>
@@ -299,7 +330,25 @@ export default function AdminSessionsPanel({
 							</div>
 
 							{detail.report ? (
-								<div className="sc-root" data-lost={detail.report.lost}>
+								<div className="sc-root" data-lost={detail.report.outcome.lost}>
+									<Group
+										justify="space-between"
+										align="baseline"
+										mb={6}
+										gap="xs"
+										wrap="wrap"
+									>
+										<Text size="sm" fw={600}>
+											结算（新机制）
+										</Text>
+										<Text size="xs" c="dimmed">
+											{OUTCOME_STATUS[detail.report.outcome.status] ??
+												detail.report.outcome.status}
+											{" · "}共 {detail.report.outcome.turn} 个时间单位
+											{detail.report.outcome.reason !== "" &&
+												` · ${detail.report.outcome.reason}`}
+										</Text>
+									</Group>
 									<ScenarioReportView
 										report={detail.report}
 										view={detail.view}
@@ -307,9 +356,19 @@ export default function AdminSessionsPanel({
 										showWeights
 									/>
 								</div>
+							) : legacyReport !== null ? (
+								<Stack gap="xs">
+									<Text size="sm" fw={600}>
+										切换前的原始报告（只读留档）
+									</Text>
+									<Text size="xs" c="dimmed">
+										这是机制切换前写下的报告原文：原样展示，不翻译成新形状、不重新判读、不改写。
+									</Text>
+									<Code block>{JSON.stringify(legacyReport, null, 2)}</Code>
+								</Stack>
 							) : (
 								<Text size="sm" c="dimmed">
-									这次会话还没有结算，所以没有报告——下面是它此刻的视图。
+									这次会话未结算：没有报告，也没有切换前的报告留档——下面是它此刻的视图。
 								</Text>
 							)}
 
@@ -326,16 +385,16 @@ export default function AdminSessionsPanel({
 										>
 											<div className="sc-panel-head">
 												<span>全部台词</span>
-												<span>{detail.view.messages.length} 条</span>
+												<span>{messages.length} 条</span>
 											</div>
 											<div className="sc-panel-body">
-												{detail.view.messages.length === 0 ? (
+												{messages.length === 0 ? (
 													<div className="sc-empty">
 														这次会话还没有台词。
 													</div>
 												) : (
 													<div className="sc-lines sc-lines-full">
-														{detail.view.messages.map((message, index) => (
+														{messages.map((message, index) => (
 															<ScenarioLine
 																key={`${message.turn ?? "x"}-${index}-${message.text.slice(0, 8)}`}
 																message={message}
@@ -351,14 +410,14 @@ export default function AdminSessionsPanel({
 								</div>
 							</div>
 
-							<AdminAnchorsPanel anchors={detail.anchors} />
+							<AdminFocusPanel focus={detail.focus} turns={detail.turns} />
 
 							<div>
 								<Text size="sm" fw={600} mb={4}>
-									事件流（{detail.events.length}）
+									事件流（{events.length}）
 								</Text>
 								<Stack gap={6}>
-									{detail.events.map((event, index) => (
+									{events.map((event, index) => (
 										<details key={`${index}-${event.kind}`}>
 											<summary>
 												{index + 1}. {event.kind}
