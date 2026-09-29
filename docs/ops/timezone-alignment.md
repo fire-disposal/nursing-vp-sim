@@ -93,4 +93,4 @@ SELECT id, created_at, created_at AT TIME ZONE 'Asia/Shanghai' AS as_shanghai FR
 ## 六、仍留（非阻塞）
 
 - 历史大表迁移若需更长锁：在单条迁移里自行 `SET lock_timeout`（当前默认 10s 已够用）。
-- 其它非时间类的审计/UI 待办见 `docs/review/refactor-plan-2026-09-26.md` §0.1。
+- 其它非时间类的审计/UI 待办见 `docs/review/refactor-plan-2026-09-26.md` 

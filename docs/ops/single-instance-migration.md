@@ -137,11 +137,11 @@ docker image prune -a --filter "until=168h"
 
 - `AGENTS.md`：部署段落在单实例收敛时改为「单实例 + `production` 环境审批」，2026-09-14 再按实际机制改写
   （`production` 未配 Required reviewers → tag 推送即发版，无审批步骤）
-- `docs/09-operations.md`：删除 staging 段落（流水线表、发布流程、回滚、环境参数、端口、容器名、日志与备份命令）
-- `docs/09-operations.md` 的「Docker 容器资源上限」条目：已改为「已配置」（compose `mem_limit`）
+- `docs/operations.md`：删除 staging 段落（流水线表、发布流程、回滚、环境参数、端口、容器名、日志与备份命令）
+- `docs/operations.md` 的「Docker 容器资源上限」条目：已改为「已配置」（compose `mem_limit`）
 - `.github/workflows/archive/README.md`：记录归档原因、恢复方式，以及 `deploy/docker-compose.staging.yml` 的删除
   （2026-09-18：整个 `archive/` 已删除 —— GitHub 本就不加载子目录，留着只是陈旧通知步骤的来源）
- - 其余同步：`README.md` / `docs/00-dev-onboarding.md` / `docs/01-architecture.md` / `docs/03-database.md` /
+ - 其余同步：`README.md` / `docs/onboarding.md` / `docs/architecture.md` / `docs/database.md` /
   `CONTRIBUTING.md` / `AGENTS.md`（诊断端口）/ `docs/16-v2-maintainable-monolith-objectives.md` /
   `docs/ops/*` 运维手册（backup-restore、server-recovery、llm/tts-troubleshooting、incident 记录）
 - 死配置与脚本：删除 `deploy/docker-compose.staging.yml`；`rollback.sh` / `db-backup.sh` / `db-restore.sh`
@@ -201,6 +201,6 @@ P0–P4 已完成，剩余动作全部需要正式服 / 仓库设置权限，**�
 
 **遗留改进（未做）**
 - 证书续期缺**校验与告警**：建议服务器级加 `certs.yaml`（cert → domains → vhost → webroot）+ `cert-check`（校验 SAN 与实际 vhost/webroot 一致、<14 天且续期不可行即告警），并接进 `/opt/server-ops/monitor` 的钉钉通道；所有证书统一挂 `--deploy-hook "systemctl reload nginx"`。
-- **域名退役清单**（本次即违反）：删 vhost ＋ 从所有证书 SAN 移除 ＋ 从 renewal `webroot_map` 移除。此三条应写入 `docs/09-operations.md`。
+- **域名退役清单**（本次即违反）：删 vhost ＋ 从所有证书 SAN 移除 ＋ 从 renewal `webroot_map` 移除。此三条应写入 `docs/operations.md`。
 - 注意 `nginx -t` 失败时 `nginx -s reload` 会静默保留旧配置（软失败）。`deploy.yml` 的 nginx 下发已改为
   「暂存 → 备份 → 安装 → `nginx -t` → reload，任一步失败即恢复原配置并以非零退出」，人工操作也应按同一顺序。

@@ -1,85 +1,19 @@
-# 项目文档
+# 文档
 
-> 文档只留四类：**能约束代码/测试的契约**、**运维步骤**、**一屏内的决策记录**、**参考实现清单**（只列来源与取舍）。其余写进 `git log` 或代码注释。
+**只写代码里看不到的事实**：运维步骤、外部约束、决策与理由、跨系统契约。
+不要复述代码结构、字段、行为——读代码就有；**过时的复述比没有更糟**。
 
-## 当前方向与实施入口
+| 文件 | 内容 |
+|---|---|
+| [onboarding.md](onboarding.md) | 环境搭建、提交格式、测试、发版流程 |
+| [architecture.md](architecture.md) | 技术栈、目录边界、浏览器下限 |
+| [database.md](database.md) | 迁移规则（`ddl/` 与 `data/` 目录约定）、备份 |
+| [llm.md](llm.md) | 模型档位与用途映射、成本与降级口径 |
+| [operations.md](operations.md) | 部署、备份、监控、应急预案 |
+| [scenario.md](scenario.md) | 情境训练：内容在库里、时间语义、DM 权限待定 |
+| [ops/](ops/) | 排障与运维速查：诊断契约、语音/LLM 排障、事故复盘 |
+| [calibration/](calibration/) | 判例与校准资产（研究用） |
+| [CHANGELOG.md](CHANGELOG.md) | 历史 |
 
-- **[19-训练上下文收敛与 U0 固定版本计划](19-training-experience-next-generation-plan.md)**：老问诊轨的当前实施计划；C0 上下文运行时收敛**已完成**（删除无消费者抽象、装配合一、策略身份覆盖算法版本），下一步是患者自然度、任务衔接、研究配置与候选冻结。U0 后才按真实需求评估不可变上下文发布和固定 A/B 分流；情境实验轨另以 23 为实施入口。
-- **[18-临床推理模块去向](18-clinical-reasoning-disposition.md)**：独立实验面与仅作者面 workflow 保留、冻结扩展、退出正式训练交付承诺；不是删代码或开放第二工作流。**运行期暴露已于 2026-09-28 关闭**（登录页入口移除、前端 `/simulation` 与后端 `/api/simulations` 注册注释下线，模块代码保留）。
-- **[评分校准工作区](calibration/README.md)**：历史校准资产与判例规则；缺少教师判例和签字阈值只阻塞能力等第，不阻塞 U0 可用性评价。
-- **[下一阶段方向：把"问诊练习"变成"会变的情境"](ideas/next-phase-directions-2026-09-27.md)**：在场 / 时间 / 后果三条主线，六个方向各自的 demo 形态与最小切片，以及已有燃料（流式 TTS、情绪状态、可变的场景、教材索引、发布器骨架）。原型阶段以体验与展示价值优先。
-- **[23-情境机制重设计](23-scenario-mechanism-redesign.md)**：**情境实验轨当前实施入口（已实施，2026-09-29；切换与运维见 [ops/scenario-training.md](ops/scenario-training.md)）**。以有价值的教学交互而非考核成熟度为目标；统一“解析→结算→演出→提交”，删除重复读工具与锚点任务机，保留多角色／行动后果／声明式场景；包含训练 UX/UI、接口边界、历史归档、切换步骤与五场景真实验收。老轨继续承载常规测试，不受本轮改造影响。
-- 历史 W0–W6 已完成代码侧交付：锚点送达、原始精度与溯源、等第政策、可比性分组、可信链路、病例蓝图与迁移变式、响应性互动、复盘—重练—迁移闭环均已有回归与实际验收。当前不再继续扩建该批；能力等第仍因教师校准未完成而关闭。
-
-## 核心文档
-
-| 文档 | 说明 |
-|------|------|
-| **[00-开发入门](00-dev-onboarding.md)** | 环境搭建 · 提交规范 · 发版流程 · 测试 |
-| [01-系统架构](01-architecture.md) | 技术栈 · **浏览器下限与垫片** · 项目结构 · 布局系统 · 数据流 |
-| [03-数据库设计](03-database.md) | 表结构 · 字段 · 索引 · 迁移规则 |
-| [05-LLM 与评分](05-llm-design.md) | 当前代码入口 · 评分数据流与量尺 · 已知校准缺口（不是教学有效性声明） |
-| [09-运维指南](09-operations.md) | 部署 · 备份 · 监控 · 应急预案 |
-| [11-后端组织结构收敛](11-backend-organization-plan.md) | 可导航单体定案 · 目录职责 · 训练域边界 |
-| **[15-训练协约](15-workflow-activity-contract.md)** | Workflow/Activity、病例版本、成员与受众、上下文装配（当前实现基线） |
-| **[16-可维护单体约束](16-v2-maintainable-monolith-objectives.md)** | 持久架构边界与技术栈取舍；不再维护发布切片 |
-| [17-训练域身份与状态概念契约](17-training-identity-and-state-contract.md) | 身份/形状/并发/快照/运行态的命名权威 · 已发现冲突与处置 · 命名规则 |
-| [20-情境训练：场景单元与 DM 交互设计](20-situational-training-design.md) | 初版设计与实施记录；保留独立实验轨、场景与能力背景，冲突机制以 23 为准 |
-| [21-DM 运行环境](21-dm-operating-environment.md) | 历史 agent／工具／锚点方案及实施记录；不再作为下一轮机制设计入口 |
-| [22-下一阶段优化规划](22-next-phase-plan.md) | 上一轮体验补齐与编辑器计划；情境机制与实施顺序已由 23 覆盖，语音／导出等不是本轮前置 |
-| **[23-情境机制重设计](23-scenario-mechanism-redesign.md)** | 当前设计契约（已实施）· DM／引擎／场景职责 · 唯一回合管线 · 机制删减 · 训练 UX/UI · API／事件 · 历史切换 · 创新验证 |
-| **[评分校准工作区](calibration/README.md)** | 判例集格式与入选规则 · 教师流程 · 预先登记阈值模板 · 能力等第启用阻塞（不阻塞 U0） |
-| [CONTRIBUTING.md](../CONTRIBUTING.md) | 分支模型 · PR 规范 · 冲突处理 |
-| [UI 视觉审计（2026-09-28）](review/ui-visual-audit-2026-09-28.md) | 生产实测的跨页视觉问题（圆角/滚动/字号刻度/作者态元数据）· 情境会话页 P0 塌陷 · 主题级圆角决策待定 |
-
-## 项目演进
-
-| 文档 | 说明 |
-|------|------|
-| [CHANGELOG.md](CHANGELOG.md) | 项目里程碑汇总（按功能领域非时间线） |
-
-## 评审与审计
-
-| 文档 | 说明 |
-|------|------|
-| [技术债合并清单（2026-09-14）](review/tech-debt-audit-2026-09-14.md) | 9 份只读审计报告合并；`path:line` 锚点、严重度与闭环成本口径的来源 |
-| [UI 审计清单（2026-09-26）](review/ui-audit-2026-09-26.md) | 线上全路由实测（双角色、双视口、浅/深色）+ 静态代码审计；含探针数值、已核实无问题清单与修复批次 |
-| [UI 改善记录（2026-09-26 起）](review/ui-improvement-plan-2026-09-26.md) | 已完成改动与条件维护清单；保留查询范式（§6.4），不是下一批次产品路线 |
-| [审计日志与 RBAC 分析（2026-09-26）](review/audit-log-and-rbac-analysis-2026-09-26.md) | 只读调查：审计落点现状、RB-1…RB-9 风险条目、A1–A6 切片草案（含 `path:line` 证据） |
-| [功能优化与重构记录（2026-09-26）](review/refactor-plan-2026-09-26.md) | 历史改动与维护约束；当前训练工作以 19 为准 |
-| [训练体验调查（2026-09-27）](review/training-experience-analysis-2026-09-27.md) | W0–W6 实施前的历史发现与证据；当前剩余工作和优先级以 19 为准 |
-| [训练深化批次验收记录（2026-09-27）](review/training-deepening-verification-2026-09-27.md) | 历史 W0–W6 的**实际**执行结果（含真实 LLM 端到端、迁移链路、终态不落库 P0 的根因与回归），以及未执行项与用户可复制的走查命令 |
-| [缺陷清单](review/defect-list.md) · [发布检查表](review/release-checklist.md) | 历史登记与发布前核对 |
-
-## 运维速查手册
-
-| 文档 | 说明 |
-|------|------|
-| [TTS / 语音排障](ops/tts-troubleshooting.md) | 语音播报异常、ASR 识别失败的逐层排查 |
-| [服务器故障恢复](ops/server-recovery.md) | 容器 unhealthy、磁盘满、内存不足的应急操作 |
-| [LLM 调用排查](ops/llm-troubleshooting.md) | LLM 无响应、评分失败、成本异常诊断 |
-| [数据库备份恢复](ops/backup-restore.md) | 手动备份/恢复/跨环境数据同步命令 |
-| [诊断端点与指标](ops/diagnostics.md) | `/api/diagnose` 各块（健康/LLM/评分/语音/作业队列/告警）的字段契约与消费方 |
-| [情境训练上线与接收测试](ops/scenario-training.md) | 正式特性的入口/权限、kill switch、观察面、回滚与接收测试清单 |
-| [审计日志保留与归档](ops/audit-log-retention.md) | 12 个月保留 + 按月「导出→校验→受控删月」规程；只追加不变式与触发器例外 |
-| [时区对齐](ops/timezone-alignment.md) | timestamptz 迁移后的线上只读定位 SQL、修正步骤、锁/重写注意 |
-| [单实例迁移](ops/single-instance-migration.md) | 双栈收敛为单实例的过程、`test.` 域退役与运维依赖 |
-| [事故报告 2026-07-26](ops/incident-2026-07-26-timeout.md) | 评分超时事故复盘 |
-| [事故报告 2026-09-26](ops/incident-2026-09-26-deploy-silent-truncation.md) | 部署脚本被 stdin 吞掉 → 静默「成功」（迁移跑了、服务未切换） |
-| [反馈核查清单](ops/feedback-checklist-20260727.md) | 2026-07-27 用户反馈回复与测试方法 |
-
-## 设计文档（历史归档）
-
-设计规格存放在 `superpowers/specs/`，按日期命名。包含架构重构、插件系统、训练引擎、情感系统、UI 重设计、打分优化等历史设计快照，供回溯参考。
-
-## 点子草稿（未实现/论证中）
-
-存放在 [ideas/](ideas/README.md)。未实现或论证中的想法、可行性调研，**无决策约束力**；被采纳时转正为正式编号文档。
-
-| 文档 | 状态 | 要点 |
-|------|------|------|
-| [电话式纯语音采集可行性](ideas/voice-call-feasibility.md) | 论证文档（非决策） | 半双工对讲机 MVP；PSTN 明确不做 |
-| [下一阶段方向](ideas/next-phase-directions-2026-09-27.md) | 方向（已采纳） | 在场 / 时间 / 后果；六个方向的最小切片 |
-| [参考实现](ideas/reference-implementations.md) | 参考清单 | 同类系统与标准：偷什么 / 别碰什么（SillyTavern、MedBiquitous VP、xAPI、drama manager…） |
-
-
+历史设计文档已于 2026-09-29 删除（编号 11–23、`superpowers/`、`ideas/`、`review/`）：
+它们只被 AI 读过，且让后续每个进场者先把自己绑在旧契约上。原文在 git 历史里可查。

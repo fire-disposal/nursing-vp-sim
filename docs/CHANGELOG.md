@@ -289,7 +289,7 @@
 
 ### 情境训练 · 叙事锚点：DM 的任务列表（2026-09-28，引擎侧）
 
-**取向**：动词表不重要，重要的是给 DM 一个**类 agent 的内部操作环境**；锚点就是这个环境里它的**任务列表**——机制形状照 `todo` 工具（显式状态机 / 单一活动项 / blocked 带原因 / 失败注入提醒）。契约见 [docs/21 §4.0](21-dm-operating-environment.md)。
+**取向**：动词表不重要，重要的是给 DM 一个**类 agent 的内部操作环境**；锚点就是这个环境里它的**任务列表**——机制形状照 `todo` 工具（显式状态机 / 单一活动项 / blocked 带原因 / 失败注入提醒）。契约见 [docs/scenario.md](21-dm-operating-environment.md)。
 
 - **声明**：`ScenarioPack.anchors`（`NarrativeAnchor`：`id / stage / goal / cue / requires / unlocks / blocked_by / deadline_turns`），可选段——**不声明的病例一切照旧**（提示词逐字节不变，测试用字符面量守卫）。
   加载期校验沿用既有检查器风格：id 唯一、`cue` 非空、`deadline_turns >= 0`、`requires`/`blocked_by`/`unlocks` 只能引用**已登记**的事实键与 affordance id（与 `effects` 同一套注册表，不新造判据语言）。
@@ -332,7 +332,7 @@
 **文案（diegetic only）** 学生面清除系统/作者口吻与占位说明：`（看不到）`「不在视野」「临时」
 「独立实体」「AI 生成」「该图已被清理」「你扮演：」会话状态裸值、`修订 N`、`experimental`、
 作者自述段落、空态解释句等；病例包 `packs/*.json` 里泄漏的作者备忘（`病房环境（占位图，待内容作者替换）`
-等）与 `nudges` 教学口吻一并改写（包内容改动经重新装包生效）。规范落档：docs/20 §十四。
+等）与 `nudges` 教学口吻一并改写（包内容改动经重新装包生效）。规范落档：docs/scenario.md十四。
 
 **已知未决（留给下一批）** ①自由文本动作在引擎里**不带 `affordance_id`**（`router.py:230` 只取
 请求字段），于是判读的 `ACTION_USED` 系列子句与白板「已处置」看不到它们；建议让 DM 的结构化
@@ -379,7 +379,7 @@ worker 阶段 session 已关闭 → `DetachedInstanceError`，评分静默不入
 ### 运行时写入收敛（一个事实，一个 owner）
 
 - **`runtime_state` 单一写入契约**：新增 `modules/training/session/state.patch_runtime_state`（行锁 → `populate_existing` 重读 → 只改本键，`remove` 只删本键），对话修正计数、会话终结原因、评分重评快照全部改走它。此前这些写入都是「读已加载实例 → 整列回写」，而对话回合的事务 A 与 LLM 调用之间隔几十秒 —— 期间工具命令写入的 `exam_results`（学生查体结果）会被随后的整列回写静默抹掉（审计 PIP-15）。新增 `tests/training/test_runtime_state_contract.py` 守住四条不变式（其余键保留 / 以库内现值为基准 / 整键覆盖 / remove 只删本键），并用「旧写法丢 exam_results、新写法保留」的对照实验确认回归覆盖成立
-- **传输边界写死**：工具/活动状态只由 HTTP 命令面 `POST /api/training/{id}/tools` 写（`router/tools.py` 不再自称「旧协议适配层」）；对话回合只由 SSE 命令写；WS（`router/ws.py`）只推送评分/心跳事件，服务端不在该通道落任何业务行。前端相应删除无消费者的残余：`useToolBridge` 的空订阅、`training-ws:reconnected` 广播（全仓无监听者）、离线客户端命令队列（工具已走 HTTP，队列里只有被丢掉的 ping）与 `TrainingWS.send` 公开 API；`useToolBridge` / `useTrainingWS` / `api/sse.ts` / `docs/01-architecture.md` 的注释与文档改为描述真实边界
+- **传输边界写死**：工具/活动状态只由 HTTP 命令面 `POST /api/training/{id}/tools` 写（`router/tools.py` 不再自称「旧协议适配层」）；对话回合只由 SSE 命令写；WS（`router/ws.py`）只推送评分/心跳事件，服务端不在该通道落任何业务行。前端相应删除无消费者的残余：`useToolBridge` 的空订阅、`training-ws:reconnected` 广播（全仓无监听者）、离线客户端命令队列（工具已走 HTTP，队列里只有被丢掉的 ping）与 `TrainingWS.send` 公开 API；`useToolBridge` / `useTrainingWS` / `api/sse.ts` / `docs/architecture.md` 的注释与文档改为描述真实边界
 
 ### 临床判断训练病例作者面（临床推理 Slice 1）
 
@@ -399,7 +399,7 @@ worker 阶段 session 已关闭 → `DetachedInstanceError`，评分静默不入
 
 - **块本身**：`jobs`（db/now）给出各 kind 的状态计数、最老 pending 等待秒数、过期租约数。`SCORING_EXECUTION=job`
   时评分不走进程内 `TaskQueue`，`metrics.queue.task_queue` 恒为 0 —— 队列是否在跑、是否堆积此前在运维面
-  **不可见**。顶层键 15 → 16，块表与 job 模式口径同步进 `docs/ops/diagnostics.md`、`docs/09-operations.md`
+  **不可见**。顶层键 15 → 16，块表与 job 模式口径同步进 `docs/ops/diagnostics.md`、`docs/operations.md`
   与 `skill://ops-interfaces`；契约由顶层键集断言 + 部署冒烟（断言 `jobs.by_kind` 存在，防"旧代码在跑却判成功"）守卫。
 - **管理面**：admin 看板新增作业队列卡片（无数据 / 旧后端缺块均显式降级，不静默空白）。
 - **接口定位**：`/api/diagnose` 与 `/api/feedback/bot` 明确为**按需调用入口**，刻意不配周期性消费者或调度器；
@@ -730,7 +730,7 @@ worker 阶段 session 已关闭 → `DetachedInstanceError`，评分静默不入
 ### 情境训练 · 教师回放的锚点面板 + 经历列表同名折叠（2026-09-28）
 
 **取向**：锚点机制已经在管事情（注入 / 催办 / 提案裁决），但只有引擎自己看得见——教师拿到一次会话，
-除了逐字读事件流没有别的办法回答"它到底推到哪一步、卡在哪、催了几次"。这一片把 docs/21 §五 的投影补齐
+除了逐字读事件流没有别的办法回答"它到底推到哪一步、卡在哪、催了几次"。这一片把 docs/scenario.md五 的投影补齐
 （学生只看到世界，**教师回放看得到锚点面板**），另附一个学生入口的小件。
 
 **后端（additive，最小）** `GET /api/scenario/admin/sessions/{id}` 新增 `anchors` 块，既有键一个不动：

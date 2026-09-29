@@ -65,7 +65,7 @@ React/Mantine/懒加载 chunk 执行。新增依赖若引入新的内置 API（�
 | **Sidebar (AppShell/Layout)** | Dashboard、Practice选择、QA、统计、历史、管理后台 | 响应式侧边栏 + 主内容区 |
 | **TrainingEngine 全屏** | 训练对话页 | 全屏训练界面 + 插件面板 (患者信息、问诊进度、体格检查、护理记录等) |
 
-训练能力以 **Workflow / Activity 两层协约**承载（决策见 `docs/15-workflow-activity-contract.md`）：
+训练能力以 **Workflow / Activity 两层协约**承载：
 后端 `modules/training/activities.py` 是唯一登记表，`modules/training/manifest.py` 解析出会话 manifest
 （`activities[].availability`、`artifacts`、`completion.eligible/conditions/blockers`、`actions[].enabled`）；
 前端只消费 manifest，`components/training/workspace/renderers.ts` 是一张**纯映射**（`ui.renderer → 组件`），

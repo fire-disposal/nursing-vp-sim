@@ -12,7 +12,7 @@
 | `backend/modules/training/scoring/judging_set.py` | **可执行**的入选规则（哪些记录没资格当判例）与必须覆盖的边界类型 |
 | `backend/modules/training/scoring/grade_policy.py` | 等第政策身份、数值分层阈值、未校准时能力等第恒为空 |
 | [docs/19](../19-training-experience-next-generation-plan.md) | 当前 C0/U0 计划及 U0 后实验边界；不再把校准列为 U0 前置 |
-| [docs/05](../05-llm-design.md) | 当前评分数据流与量尺（实现说明，不是教学有效性声明） |
+| [docs/05](../llm.md) | 当前评分数据流与量尺（实现说明，不是教学有效性声明） |
 
 校准**不是**“把分数调高”或“让优秀比例达标”：它要回答的是“这些证据与这条量尺能不能支撑我们说学生
 做到了/没做到”。这属于能力等第与评分效度边界，不属于 U0 系统可用性结果。
@@ -104,7 +104,7 @@
 
 `rubric.json` 的 `version` 是**人工维护的规则版本号**；改动锚点或量尺（`raw_scale`、条目集合、
 分母）时**必须同时升版本**，不允许在同一个 `id@version` 下改规则后继续发布 —— 历史分正是因此
-无法互相比较（见 [05](../05-llm-design.md) §三）。
+无法互相比较（见 [05](../llm.md) §三）。
 
 新记录的 `scores.score_meta.rubric_content_id`（`{id}@{内容摘要}`）用于**事后识别**"同一个版本号下
 规则是否变过"，它是审计线索，不是允许改动的许可。判例集与留出集必须记录各自的 `rubric_content_id`
