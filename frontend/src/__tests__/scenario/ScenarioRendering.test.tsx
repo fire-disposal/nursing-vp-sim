@@ -256,39 +256,7 @@ describe("场景画面区：本段变化的高亮", () => {
 	});
 });
 
-describe("场景画面区：读数与阶段", () => {
-	it("只留仪器读数（state）；没有值显示「—」，内部 ref 不进学生面", () => {
-		const { rerender } = render(
-			<ScenarioStage
-				view={makeView({
-					hud: [
-						{ slot: "血氧", source: "state", label: "血氧", value: 89, ref: "vitals.spo2" },
-						{ slot: "体温", source: "state", label: "体温", value: null, ref: "vitals.temp" },
-						{ slot: "线索", source: "cue", items: ["患者呼吸费力"] },
-						{ slot: "在场", source: "actor", items: ["2 床患者"] },
-					],
-				})}
-			/>,
-		);
-
-		const hud = document.querySelector(".sc-hud") as HTMLElement;
-		expect(hud).not.toBeNull();
-		expect(hud.querySelectorAll(".sc-hud-slot")).toHaveLength(2);
-		expect(hud.querySelector('[data-source="cue"]')).toBeNull();
-		expect(hud.querySelector('[data-source="actor"]')).toBeNull();
-		expect(within(hud).getByText("89")).toBeInTheDocument();
-		expect(within(hud).getByText("—")).toBeInTheDocument();
-		for (const ref of ["vitals.spo2", "vitals.temp"]) {
-			expect(document.body.textContent).not.toContain(ref);
-		}
-
-		// 一个 state slot 都没有：整块不渲染（不留空壳）
-		rerender(
-			<ScenarioStage view={makeView({ hud: [{ slot: "线索", source: "cue", items: ["x"] }] })} />,
-		);
-		expect(document.querySelector(".sc-hud")).toBeNull();
-	});
-
+describe("场景画面区：阶段", () => {
 	it("忙碌时给真实阶段文案；空闲时没有忙碌条", () => {
 		const { rerender } = render(<ScenarioStage view={makeView()} phase="delivering" />);
 		expect(screen.getByRole("status")).toHaveTextContent("正在生成回应");

@@ -110,7 +110,7 @@ function pack(
 			actors: [{ id: "patient", role: "患者", presence: "on_site" }],
 			cues: 6,
 			affordances: 8,
-			reactions: 5,
+			devices: 2,
 			facts: 3,
 			criteria: 5,
 			criteria_weight: 100,

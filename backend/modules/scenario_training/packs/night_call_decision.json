@@ -60,16 +60,6 @@
       "style": "报数干脆、随时准备执行；你反复问同一件事她会直接说「我刚报过了」",
       "goals": [
         "尽快拿到明确医嘱"
-      ],
-      "dm_writable": [
-        {
-          "key": "nurse.patience",
-          "kind": "int",
-          "lo": 0,
-          "hi": 5,
-          "max_delta": 1,
-          "meaning": "电话那头护士还愿意为你重复核对的耐心"
-        }
       ]
     },
     {
@@ -103,6 +93,20 @@
     "scene.plan_set": false,
     "scene.consultant_in": false,
     "nurse.patience": 3
+  },
+  "state_bounds": {
+    "scene.bp_sys": {
+      "lo": 40,
+      "hi": 300
+    },
+    "scene.lactate": {
+      "lo": 0,
+      "hi": 30
+    },
+    "nurse.patience": {
+      "lo": 0,
+      "hi": 5
+    }
   },
   "truth": [
     "这是外科急腹症合并早期循环不稳，需要尽快确诊并升级到外科",
@@ -304,141 +308,6 @@
       }
     }
   ],
-  "reactions": [
-    {
-      "id": "r_results_back",
-      "when": {
-        "all": [
-          {
-            "kind": "action_used",
-            "affordance_id": "order_tests"
-          }
-        ]
-      },
-      "by": "nurse",
-      "does": "say",
-      "intent": "她很快回报化验与超声结果，并问「要不要叫外科」",
-      "once": true
-    },
-    {
-      "id": "r_hold_cost",
-      "when": {
-        "all": [
-          {
-            "kind": "action_used",
-            "affordance_id": "hold_observation"
-          }
-        ]
-      },
-      "by": "nurse",
-      "does": "escalate",
-      "intent": "电话那头沉默了两秒：「……那我先看着，早上交班再说。」随后报警声变密，她说血压又掉了",
-      "effects": [
-        {
-          "target": "scene",
-          "key": "bp_sys",
-          "op": "decr",
-          "value": 4
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "r_nurse_pressed",
-      "when": {
-        "all": [
-          {
-            "kind": "turns_without_action",
-            "affordance_id": "order_tests",
-            "turns": 3
-          }
-        ]
-      },
-      "by": "nurse",
-      "does": "escalate",
-      "intent": "她声音更急了：「医生？血压又掉了，我先补着液，你快点定。」",
-      "effects": [
-        {
-          "target": "scene",
-          "key": "bp_sys",
-          "op": "decr",
-          "value": 4
-        }
-      ],
-      "once": false
-    },
-    {
-      "id": "r_consultant_in",
-      "when": {
-        "all": [
-          {
-            "kind": "state_cmp",
-            "key": "scene.consultant_in",
-            "op": "==",
-            "value": true
-          }
-        ]
-      },
-      "by": "consultant",
-      "does": "say",
-      "intent": "二线在电话里要你把数据与判断讲清楚，并问「你要我做什么」",
-      "once": false
-    },
-    {
-      "id": "r_repeat_data",
-      "when": {
-        "all": [
-          {
-            "kind": "action_count_gte",
-            "affordance_id": "ask_vitals",
-            "count": 2
-          }
-        ]
-      },
-      "by": "nurse",
-      "does": "say",
-      "intent": "她直接说：「这些我刚报过了，你先告诉我要做什么。」",
-      "effects": [
-        {
-          "target": "nurse",
-          "key": "patience",
-          "op": "decr",
-          "value": 1
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "r_nurse_relays_patient",
-      "when": {
-        "all": [
-          {
-            "kind": "action_used",
-            "affordance_id": "ask_abdomen"
-          }
-        ]
-      },
-      "by": "nurse",
-      "does": "say",
-      "intent": "护士把听筒往病人那边递了一下：「他跟你说一句——」病人在背景里含混地说「疼，从半夜就开始疼，一阵一阵的」",
-      "once": true
-    },
-    {
-      "id": "r_nurse_reports_again",
-      "when": {
-        "all": [
-          {
-            "kind": "turn_gte",
-            "count": 3
-          }
-        ]
-      },
-      "by": "nurse",
-      "does": "say",
-      "intent": "她主动补充：皮肤还是湿冷的，刚才把被子掀开的时候他打了个寒战",
-      "once": true
-    }
-  ],
   "facts": [
     {
       "id": "f_vitals",
@@ -497,103 +366,6 @@
         "ask_urine"
       ]
     }
-  ],
-  "dims": [
-    {
-      "id": "d_observation",
-      "label": "信息完整度",
-      "agg": "coverage",
-      "source": "facts",
-      "params": {}
-    },
-    {
-      "id": "d_actions",
-      "label": "医嘱数",
-      "agg": "count",
-      "source": "actions",
-      "params": {}
-    },
-    {
-      "id": "d_next_test",
-      "label": "拿到关键检查的延迟",
-      "agg": "latency",
-      "source": "actions",
-      "params": {
-        "affordances": [
-          "order_tests"
-        ]
-      }
-    },
-    {
-      "id": "d_bp",
-      "label": "血压变化",
-      "agg": "slope",
-      "source": "state",
-      "params": {
-        "key": "scene.bp_sys"
-      }
-    }
-  ],
-  "presentation": {
-    "hud": [
-      {
-        "slot": "现场线索",
-        "source": "cue"
-      },
-      {
-        "slot": "可做动作",
-        "source": "affordance"
-      }
-    ],
-    "panels": [
-      "timeline",
-      "coverage"
-    ],
-    "devices": [
-      {
-        "id": "duty_phone",
-        "kind": "phone",
-        "title": "值班手机",
-        "channels": [
-          {
-            "ref": "scene.lactate",
-            "label": "乳酸",
-            "unit": "mmol/L",
-            "decimals": 1,
-            "visible_when": {
-              "all": [
-                {
-                  "kind": "action_used",
-                  "affordance_id": "order_tests"
-                }
-              ]
-            }
-          }
-        ]
-      }
-    ],
-    "board": [
-      {
-        "id": "board_heard",
-        "title": "电话里听到的",
-        "source": "cue"
-      },
-      {
-        "id": "board_confirmed",
-        "title": "已确认的",
-        "source": "fact"
-      },
-      {
-        "id": "board_done",
-        "title": "已下医嘱",
-        "source": "action"
-      }
-    ]
-  },
-  "failure": "recoverable",
-  "hidden_from_player": [
-    "患者不在你的视野内",
-    "你只能通过电话决策"
   ],
   "rubric": [
     {
@@ -690,5 +462,34 @@
       "weight": 15
     }
   ],
-  "teaching_focus": []
+  "presentation": {
+    "devices": [
+      {
+        "id": "duty_phone",
+        "kind": "phone",
+        "title": "值班手机",
+        "channels": [
+          {
+            "ref": "scene.lactate",
+            "label": "乳酸",
+            "unit": "mmol/L",
+            "decimals": 1,
+            "visible_when": {
+              "all": [
+                {
+                  "kind": "action_used",
+                  "affordance_id": "order_tests"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "failure": "recoverable",
+  "hidden_from_player": [
+    "患者不在你的视野内",
+    "你只能通过电话决策"
+  ]
 }

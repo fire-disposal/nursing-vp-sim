@@ -1693,7 +1693,7 @@ export interface paths {
         put?: never;
         /**
          * Submit Turn Route
-         * @description 学生做一件事 → 世界回应 → 返回权威视图（**解析 → 结算 → 演出 → 原子提交**）。
+         * @description 学生做一件事 → 世界回应 → 返回权威视图（**结算 → 模型循环 → 原子提交**）。
          */
         post: operations["submit_turn_route_api_scenario_sessions__session_id__turns_post"];
         delete?: never;
@@ -2034,7 +2034,7 @@ export interface paths {
         };
         /**
          * Admin Session Detail
-         * @description 管理侧：单次会话的完整回放（视图 + 报告 + 每回合解析/结算/交付 + 关注点投影）。
+         * @description 管理侧：单次会话的完整回放（视图 + 报告 + 每回合结算/工具账/交付）。
          *
          *     视图按**这一局自带的内容快照**回放：病例今天被改成什么样都不影响历史回放。
          */
@@ -2056,7 +2056,7 @@ export interface paths {
         };
         /**
          * Admin Stats
-         * @description 管理侧：按包汇总（会话数、结算数、不可逆结局数、关注点处理比例）。试跑默认排除。
+         * @description 管理侧：按包汇总（会话数、结算数、不可逆结局数、被工具层拒掉的调用数）。试跑默认排除。
          */
         get: operations["admin_stats_api_scenario_admin_stats_get"];
         put?: never;
@@ -2790,7 +2790,7 @@ export interface components {
             key: string;
             /**
              * Op
-             * @default
+             * @default set
              */
             op: string;
             /** Value */
@@ -3083,7 +3083,49 @@ export interface components {
          * @description 一次尝试在世界里的归宿。
          * @enum {string}
          */
-        AttemptOutcome: "speech" | "performed" | "blocked" | "unmodeled" | "clarification" | "hint";
+        AttemptOutcome: "clarification" | "speech" | "performed" | "blocked" | "unmodeled" | "hint";
+        /**
+         * AuditLogItem
+         * @description 一条审计日志（append-only，字段多为可空的历史快照）。
+         */
+        AuditLogItem: {
+            /** Id */
+            id: number;
+            /** Created At */
+            created_at: string | null;
+            /** Actor Id */
+            actor_id: number | null;
+            /** Actor Username */
+            actor_username: string | null;
+            /** Actor Display Name */
+            actor_display_name: string | null;
+            /** Actor Role */
+            actor_role: string | null;
+            /** Action */
+            action: string;
+            /** Target Type */
+            target_type: string;
+            /** Target Id */
+            target_id: string | null;
+            /** Target Label */
+            target_label: string | null;
+            /** Outcome */
+            outcome: string;
+            /** Payload */
+            payload: {
+                [key: string]: unknown;
+            };
+            /** Error Detail */
+            error_detail: string | null;
+            /** Request Id */
+            request_id: string | null;
+            /** Ip */
+            ip: string | null;
+            /** Request Method */
+            request_method: string | null;
+            /** Request Path */
+            request_path: string | null;
+        };
         /** BatchCreateResult */
         BatchCreateResult: {
             /** Created */
@@ -3778,7 +3820,7 @@ export interface components {
         };
         /**
          * DeliveryMessage
-         * @description 演出输出的一条消息：环境叙述（`speaker=None`）或角色台词（`speaker=<actor id>`）。
+         * @description 交付的一条消息：环境叙述（`speaker=None`）或角色台词（`speaker=<actor id>`）。
          */
         DeliveryMessage: {
             /** Speaker */
@@ -3793,10 +3835,11 @@ export interface components {
              * @default false
              */
             ephemeral: boolean;
-            /** Text */
+            /**
+             * Text
+             * @default
+             */
             text: string;
-            /** Sources */
-            sources?: string[];
         };
         /**
          * EndTrainingRequest
@@ -3999,31 +4042,6 @@ export interface components {
              */
             created_at: string;
         };
-        /**
-         * FocusState
-         * @description 教学关注点**此刻**的投影：相关 / 已处理（只是本包观察条件成立，不等于能力达标）。
-         */
-        FocusState: {
-            /** Id */
-            id: string;
-            /**
-             * Intent
-             * @default
-             */
-            intent: string;
-            /**
-             * Relevant
-             * @default false
-             */
-            relevant: boolean;
-            /**
-             * Addressed
-             * @default false
-             */
-            addressed: boolean;
-            /** Evidence Refs */
-            evidence_refs?: string[];
-        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -4200,20 +4218,15 @@ export interface components {
             created_at: string;
         };
         /**
-         * ModelsUsed
-         * @description 本回合实际花掉的模型调用数（两阶段成本口径，进事件与判定）。
+         * ModelCalls
+         * @description 本回合花掉的模型调用数（工具循环的轮数，**一个循环、一个计数**）。
          */
-        ModelsUsed: {
+        ModelCalls: {
             /**
-             * Parse
+             * Calls
              * @default 0
              */
-            parse: number;
-            /**
-             * Delivery
-             * @default 0
-             */
-            delivery: number;
+            calls: number;
         };
         /** OkResponse */
         OkResponse: {
@@ -4229,6 +4242,17 @@ export interface components {
         PaginatedResponse_AssignmentListItem_: {
             /** Items */
             items: components["schemas"]["AssignmentListItem"][];
+            /** Total */
+            total: number;
+            /** Offset */
+            offset: number;
+            /** Limit */
+            limit: number;
+        };
+        /** PaginatedResponse[AuditLogItem] */
+        PaginatedResponse_AuditLogItem_: {
+            /** Items */
+            items: components["schemas"]["AuditLogItem"][];
             /** Total */
             total: number;
             /** Offset */
@@ -4843,41 +4867,43 @@ export interface components {
         };
         /**
          * ResolvedTurn
-         * @description 结算阶段的产物：世界这一回合**确定性地**发生了什么（内部模型，不直接给学生）。
+         * @description **平台确定性地**结算的产物：世界这一回合发生了什么（内部模型，不直接给学生）。
          */
         ResolvedTurn: {
-            /** Request Id */
+            /**
+             * Request Id
+             * @default
+             */
             request_id: string;
-            /** Base Seq */
+            /**
+             * Base Seq
+             * @default 0
+             */
             base_seq: number;
-            /** Turn */
+            /**
+             * Turn
+             * @default 0
+             */
             turn: number;
             /**
              * Time Cost
              * @default 0
              */
             time_cost: number;
+            /** @default speech */
             outcome: components["schemas"]["AttemptOutcome"];
             /**
              * Block Reason
              * @default
              */
             block_reason: string;
-            action: components["schemas"]["ActionEcho"];
+            action?: components["schemas"]["ActionEcho"];
             /** Effects */
             effects?: components["schemas"]["AppliedEffect"][];
             /** Reveals */
             reveals?: string[];
-            /** Reactions */
-            reactions?: string[];
-            /** Social */
-            social?: components["schemas"]["AppliedEffect"][];
-            /** Visible Events */
-            visible_events?: components["schemas"]["VisibleEvent"][];
             /** Facts */
             facts?: string[];
-            /** Focus */
-            focus?: components["schemas"]["FocusState"][];
             /** Problems */
             problems?: string[];
         };
@@ -5004,42 +5030,6 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** ScenarioAdminFocusState */
-        ScenarioAdminFocusState: {
-            /** Id */
-            id: string;
-            /**
-             * Intent
-             * @default
-             */
-            intent: string;
-            /**
-             * Relevant
-             * @default false
-             */
-            relevant: boolean;
-            /**
-             * Addressed
-             * @default false
-             */
-            addressed: boolean;
-            /** Evidence Refs */
-            evidence_refs?: string[];
-        };
-        /** ScenarioAdminFocusSummary */
-        ScenarioAdminFocusSummary: {
-            /** Id */
-            id: string;
-            /** Intent */
-            intent: string;
-        };
-        /** ScenarioAdminFocusTurn */
-        ScenarioAdminFocusTurn: {
-            /** Turn */
-            turn: number;
-            /** States */
-            states?: components["schemas"]["ScenarioAdminFocusState"][];
-        };
         /** ScenarioAdminOverview */
         ScenarioAdminOverview: {
             /** Player Role */
@@ -5055,8 +5045,6 @@ export interface components {
             resources?: string[];
             /** Actors */
             actors?: components["schemas"]["ScenarioAdminActor"][];
-            /** Teaching Focus */
-            teaching_focus?: components["schemas"]["ScenarioAdminFocusSummary"][];
             /**
              * Cues
              * @default 0
@@ -5068,10 +5056,10 @@ export interface components {
              */
             affordances: number;
             /**
-             * Reactions
+             * Devices
              * @default 0
              */
-            reactions: number;
+            devices: number;
             /**
              * Facts
              * @default 0
@@ -5150,8 +5138,6 @@ export interface components {
             report?: components["schemas"]["ScenarioReport"] | null;
             /** Problems */
             problems?: string[];
-            /** Focus */
-            focus?: components["schemas"]["ScenarioAdminFocusTurn"][];
             /** Turns */
             turns?: components["schemas"]["ScenarioAdminTurnReplay"][];
             /**
@@ -5227,12 +5213,18 @@ export interface components {
              * @default 0
              */
             lost: number;
-            /** Focus Address Ratio */
-            focus_address_ratio?: number | null;
+            /**
+             * Tool Rejections
+             * @default 0
+             */
+            tool_rejections: number;
         };
         /**
          * ScenarioAdminTurnReplay
-         * @description 一个已提交回合的「解析 → 结算 → 交付」来源回放（**不是**模型的思考过程）。
+         * @description 一个已提交回合的「结算 → 模型循环 → 交付」来源回放（**不是**模型的思考过程）。
+         *
+         *     `tools` 是模型每一次工具调用的账（含被拒的那些与原因）；`notes` 是模型写给自己的备忘
+         *     （学生看不到）。
          */
         ScenarioAdminTurnReplay: {
             /** Seq */
@@ -5250,12 +5242,16 @@ export interface components {
              */
             kind: string;
             input: components["schemas"]["TurnInput"];
-            /** Intent */
-            intent?: {
-                [key: string]: unknown;
-            } | null;
             resolved?: components["schemas"]["ResolvedTurn"] | null;
             delivery?: components["schemas"]["SceneDelivery"] | null;
+            /** Tools */
+            tools?: components["schemas"]["ToolStep"][];
+            /** Tool Rejections */
+            tool_rejections?: {
+                [key: string]: number;
+            };
+            /** Notes */
+            notes?: string[];
             /**
              * Outcome
              * @default
@@ -5265,7 +5261,7 @@ export interface components {
             block_reason?: string | null;
             /** Problems */
             problems?: string[];
-            models?: components["schemas"]["ModelsUsed"];
+            models?: components["schemas"]["ModelCalls"] | null;
         };
         /** ScenarioAffordance */
         ScenarioAffordance: {
@@ -5948,7 +5944,7 @@ export interface components {
              * Phase
              * @enum {string}
              */
-            phase: "receiving" | "parsing" | "resolving" | "delivering" | "validating" | "committing";
+            phase: "receiving" | "resolving" | "delivering" | "committing";
         };
         /** ScenarioTimelineEntry */
         ScenarioTimelineEntry: {
@@ -6092,17 +6088,11 @@ export interface components {
         };
         /**
          * SceneDelivery
-         * @description 演出阶段的输出。**没有** effects / reveals / facts / notes / 委派字段（docs/scenario.md）。
+         * @description 本回合的最终交付（学生看到的话）。由模型循环产出，平台逐条校验后收下。
          */
         SceneDelivery: {
             /** Messages */
             messages?: components["schemas"]["DeliveryMessage"][];
-            /** Hints */
-            hints?: string[];
-            /** Assets */
-            assets?: string[];
-            /** Highlights */
-            highlights?: string[];
         };
         /** ScoreItem */
         ScoreItem: {
@@ -6844,6 +6834,37 @@ export interface components {
             /** Revision */
             revision: number;
         };
+        /**
+         * ToolStep
+         * @description 模型在环境里做的一件事（**记账**，不是思考过程）。
+         *
+         *     `ok=False` 时 `reason` 是机器可读的拒绝原因（`key_unregistered` / `out_of_range` /
+         *     `image_gated` / `text_leak` …），`detail` 是给模型看的那句话——两者都进事件载荷，
+         *     /api/diagnose 与教师回放按 `reason` 计数。
+         */
+        ToolStep: {
+            /** Tool */
+            tool: string;
+            /** Args */
+            args?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Ok
+             * @default true
+             */
+            ok: boolean;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+        };
         /** TrainingNotificationItem */
         TrainingNotificationItem: {
             /** Id */
@@ -7114,11 +7135,12 @@ export interface components {
         };
         /**
          * TurnInput
-         * @description 学生这次请求的输入回声（请求原文，供结算、演出与教师回放读同一份）。
+         * @description 学生这次请求的输入回声（请求原文，供结算、交付与教师回放读同一份）。
          */
         TurnInput: {
             /**
              * Kind
+             * @default speech
              * @enum {string}
              */
             kind: "speech" | "action" | "hint";
@@ -7244,32 +7266,6 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
-        };
-        /**
-         * VisibleEvent
-         * @description 本回合**已经发生且学生可见**的一件事（演出的唯一素材来源）。
-         */
-        VisibleEvent: {
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "action" | "effect" | "reveal" | "reaction" | "social" | "notice" | "image" | "blocked" | "unmodeled";
-            /**
-             * Ref
-             * @default
-             */
-            ref: string;
-            /**
-             * Text
-             * @default
-             */
-            text: string;
-            /**
-             * Turn
-             * @default 0
-             */
-            turn: number;
         };
         /** VoiceConfigResponse */
         VoiceConfigResponse: {
@@ -7483,7 +7479,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PaginatedResponse_AuditLogItem_"];
                 };
             };
             /** @description Validation Error */

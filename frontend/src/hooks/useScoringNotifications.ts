@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "@/components/Toast";
-import { notifyProgress } from "@/engine";
+import { notifyProgress } from "@/engine/ScoreManager";
 import { useTrainingWS } from "@/hooks/useTrainingWS";
 import { queryKeys } from "@/api/query-keys";
 

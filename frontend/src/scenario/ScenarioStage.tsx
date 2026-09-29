@@ -27,6 +27,7 @@ import {
 	phaseText,
 	sourceLabel,
 	studentLineLabel,
+	turnAnchorId,
 	type PendingStudentLine,
 } from "./stream";
 
@@ -202,35 +203,6 @@ export function ScenarioLine({
 				<div className="sc-line-text">{message.text}</div>
 				{source !== null && <span className="sc-line-source">来源：{source}</span>}
 			</div>
-		</div>
-	);
-}
-
-/**
- * 读数 HUD：只保留 pack 声明里的**仪器读数**（`source === "state"`）——等宽数字、右对齐。
- *
- * 其余 source（`cue` / `actor` / `affordance`）是**同一事实的第二处**：现场线索与"你注意到的"
- * 在白板上、在场者在在场者条上、"能做什么"是能力清单（默认视野里不该出现）。
- * 所以它们不再在读数区重复一遍；一个 `state` slot 都没有时整块不渲染（不留空壳）。
- *
- * 且**不显示 `ref`**：`scene.spo2` 这类内部字段名是 pack 作者与判读之间的事，
- * 学生看到的是作者给这个 slot 起的名字（`label`）。
- */
-export function ScenarioHud({ view }: { view: ScenarioView }) {
-	const slots = (view.hud ?? []).filter((slot) => slot.source === "state");
-	if (slots.length === 0) return null;
-	return (
-		<div className="sc-hud">
-			{slots.map((slot) => (
-				<div className="sc-hud-slot" data-source={slot.source} key={slot.slot}>
-					<div className="sc-hud-label">{slot.label ?? slot.slot}</div>
-					<div className="sc-hud-value">
-						{slot.value === null || slot.value === undefined
-							? "—"
-							: String(slot.value)}
-					</div>
-				</div>
-			))}
 		</div>
 	);
 }
@@ -416,14 +388,12 @@ export default function ScenarioStage({
 						<div className="sc-caption">{mainImage.caption}</div>
 					)}
 
-					<ScenarioHud view={view} />
-
 					<div className="sc-lines" ref={linesRef} onScroll={handleLinesScroll}>
 						{turns.map((group) => (
 							<div
 								className="sc-turn"
 								data-turn={group.turn}
-								id={`sc-turn-${group.turn}`}
+								id={turnAnchorId(group.turn)}
 								key={group.turn}
 							>
 								<div className="sc-turn-mark">

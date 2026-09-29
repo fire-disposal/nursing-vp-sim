@@ -13,21 +13,6 @@ function boardEntryCount(view: ScenarioView): number {
 }
 
 /**
- * 侧栏此刻**有哪些页签**（`["线索"]` / `["时间线"]` / 两个都有；都没有 = 空数组）。
- *
- * 判据只有这一处：页面据此决定要不要给「召唤」入口、入口怎么写名字——空面板不给按钮，
- * 也不留一个点开是空的抽屉。
- */
-export function sidePanelNames(view: ScenarioView): string[] {
-	const names: string[] = [];
-	if (view.board !== undefined && boardEntryCount(view) > 0) names.push("线索");
-	if (resolvePanels(view.panels).timeline && (view.timeline ?? []).length > 0) {
-		names.push("时间线");
-	}
-	return names;
-}
-
-/**
  * 侧栏：**一块卡片 + 两个页签（线索 / 时间线）**，两者共用同一个滚动空间。
  *
  * - 线索 = 只读事实区（后端 `view.board`）：线索与"你注意到的"**只出现在这里**，

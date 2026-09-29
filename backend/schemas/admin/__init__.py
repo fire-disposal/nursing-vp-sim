@@ -1,5 +1,6 @@
 """Admin schemas — re-exported from sub-modules for backward compatibility."""
 
+from schemas.admin.audit import AuditLogItem
 from schemas.admin.classes import (
     BulkAssignClassRequest,
     BulkAssignClassResult,
@@ -26,6 +27,7 @@ from schemas.admin.stats import (
 
 __all__ = [
     "AdminStats",
+    "AuditLogItem",
     "BulkAssignClassRequest",
     "BulkAssignClassResult",
     "ClassCreate",

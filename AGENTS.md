@@ -1,91 +1,63 @@
 # AGENTS.md
 
+## 本文件的修改规则
+
+**本文件只由用户修改。** 除非用户在**当轮对话里明确指示**增删改本文件的具体内容，**AI 一律不得修改
+AGENTS.md**——包括以"顺手优化""对齐取向""去重""整理"为由的修改。用户要求写入时，按原意写入，不做扩写。
+
 ## 项目取向（对所有 AI 生效）
 
-这是**实验性**训练系统：方向未定，价值在"能不能做出让人产生真实判断体验的东西"。
+这是**实验性**训练系统，使命是"把新功能拿给人试"。方向未定，价值在"能不能做出让人产生真实判断体验的东西"。
 
-- 默认动作：**先做出来跑一遍，再看要不要设限**。没有实测证据时，禁止新增门禁、兼容层、
-  回滚装置、抽象层或"以防万一"的校验。
-- 取舍偏好：**删机制 > 加机制；给模型/作者自由 > 加约束；把一个场景做透 > 先立通用框架**。
-- 文档只写代码里看不到的事实（运维、外部约束、决策与理由），**不复述代码结构**。
-  历史设计文档（编号 11–23、`superpowers/`、`ideas/`、`review/`）已于 2026-09-29 删除，
-  别再引用它们；原文在 git 历史里。
-- 真红线只有三条：① 不写老问诊轨的业务数据与研究数据；② 未经用户明确要求不动生产数据与部署；
+- **默认动作**：先做出来跑一遍，再看要不要设限。没有实测证据时，禁止新增门禁、兼容层、回滚装置、
+  抽象层或"以防万一"的校验。**验收只做不花钱的自检**：类型检查、浏览器实操、迁移往返；
+  **不要跑 LLM 演练**——那是**自检行为本身**在烧 token 的活，预算与 token 该花在系统运行上，不花在 AI 自检上。
+- **取舍偏好**：删机制 > 加机制；给模型/作者自由 > 加约束；把一个场景做透 > 先立通用框架。
+- **替代必须彻底**：被替代的机制**同批删除**——不留双轨、兼容 shim、"暂时保留"的别名或降级路径；
+  旧概念（字段、事件种类、端点、配置、文档）从代码里消失，而不是并存。
+- **一个概念一处实现**：同一事实不写两遍（含"声明与推导并存"）、同一映射不抄三份、不留零消费者字段；
+  名字与行为一致；错误路径要诚实（不许把内部错误伪装成可重试）。
+- **现阶段熵优先**：允许行为变化（含放宽）；**不要求重构前后逐字等价，也不为一次重构写变异/对照台架**
+  （实测教训：为删 22 行代码造 131,939 个反例 = 负收益）。
+- **责任边界**：我们**只**对 **系统稳定**（不崩、不丢数据、不泄漏、不拖慢）与 **代码质量** 负责；
+  **不对功能特性本身的业务合理性负责**（判读是否校准、权重是否合理、病例是否教学有效、场景是否符合
+  临床规范由领域的人判断）。不要因为"教学上还没被验证"拦住发布，不要替领域做审批门，不要把这类判断
+  写成代码或文档里的门禁。
+- **文档只写代码里看不到的事实**（运维、外部约束、决策与理由），不复述代码结构；过时的复述比没有更糟。
+- **真红线只有三条**：① 不写老问诊轨的业务数据与研究数据；② 未经用户明确要求不动生产数据与部署；
   ③ 不外泄密钥/token。
-- **替代必须彻底**：新设计上线时，被替代的机制**同批删除**——不留双轨、不留兼容 shim、
-  不留"暂时保留"的别名或降级路径；旧概念（字段、事件种类、端点、配置、文档）从代码里消失，
-  而不是并存。
-- **一个概念一处实现**：同一事实不写两遍（含"声明与推导并存"）、同一映射不抄三份、
-  不留零消费者字段；名字与行为一致；错误路径要诚实（不许把内部错误伪装成可重试）。
-- **半成品不落地**：一批改动要么全绿（类型检查 + 测试）再提交，要么不提交；
-  不把"以后再说"挂在主干上。
-- 交付标准照旧：能跑、有实测证据、不留垃圾。
+- 交付标准：能跑、有实测证据、不留垃圾。
 
-> **Agent 初始化**：用 `git rev-parse --git-dir` 确认在仓库内，`git config core.hooksPath` 确认为 `.husky/_`。失效时执行 `pnpm install`。**禁止 `npx husky`**。
+## 初始化与提交
 
-## Husky 钩子链
+- `git config core.hooksPath` 应为 `.husky/_`；失效时 `pnpm install`（**禁止 `npx husky`**）。
+- 提交格式 `<emoji> <type>: <description>`（`pnpm run check` 驳回时会打印 emoji 表）。
+- 钩子链细节（commit-msg / pre-commit / pre-push 各跑什么）见 `CONTRIBUTING.md`。
+- **自己起的服务必须有界**：启动时带 **ready 探针**（端口优先；地址统一用 `localhost`——`vite` 默认绑 `[::1]`、
+  `uvicorn` 绑 `127.0.0.1`，**打错地址族会永远不 ready 而干等**）并设超时（≤60s，到点停手报告，不无限等）；
+  对自起服务的所有 HTTP 调用都带 `--max-time`；**禁止 `sleep`/轮询等待**，只靠工具自身的回执；
+  用完即 kill，长驻服务用唯一名字，先查 `proc://` 复用或清理，不要再起第二个。
 
-```
-git commit → commit-msg: 格式校验 (validate-commit.js)
-           → pre-commit: migration 目录检查 + ruff + lint-staged (biome + tsc)
-git push   → pre-push: tag 格式 + alembic roundtrip（无 psql 时跳过，绝不 fallback 到 .env 库）+ 迁移链完整性
-```
+## 发布（单实例）
 
-提交格式：`<emoji> <type>: <description>`（详见 `pnpm run check` 驳回时打印的 emoji 表）。
+- **唯一部署目标 `iomt.205716.xyz`**；`test.205716.xyz` 已退役为 301，**不存在可自主部署的测试服**。
+- 发布路径：推 `master` → `pnpm run tag`（`auto-tag.mjs --push`：构建 + 推 master + tag）→ tag 触发
+  `deploy.yml`。`production` 环境**未配 Required reviewers**，因此 **tag 推送即发版，无人工审批**。
+- 回滚：`rollback.yml`（workflow_dispatch）或 `bash deploy/rollback.sh --env prod --yes <版本>`。
 
-## 发布与部署（单实例）
+## 常用命令与规矩
 
-- **唯一部署目标 `iomt.205716.xyz`**：双栈已收敛为单实例，`test.205716.xyz` 退役为 301（见 `docs/ops/single-instance-migration.md`），不存在"可自主部署的测试服"。
-- **发布路径**：完成代码与验证 → 推送 master → `pnpm run tag`（`auto-tag.mjs --push`：构建 + 推 master + tag）→ tag 触发 `deploy.yml` 部署。
-- **`production` 环境当前未配置 Required reviewers**，因此 tag 推送即发版，**没有人工审批步骤**。要恢复闸门，在仓库 Settings → Environments → `production` 加 Required reviewers；届时 `deploy.yml` / `rollback.yml` 会等待批准。
-- 回滚：`rollback.yml`（`workflow_dispatch`）或 `bash deploy/rollback.sh --env prod --yes <版本>`。
-
-## 诊断端点 `/api/diagnose`
-
-运维监控统一入口。Agent 故障诊断、日报脚本的数据源。token 鉴权。
-
-```
-GET /api/diagnose?token=<DIAGNOSE_TOKEN>
-```
-
-返回：版本、健康、LLM/评分/语音/TTS 统计、错误日志、告警列表。`summary.status` = `healthy` | `degraded`。
-
-Token 在 `.env` 的 `DIAGNOSE_TOKEN`。未设置 → 404，错误 → 403。
-
-```bash
-# 快速检查
-curl -s "http://127.0.0.1:9001/api/diagnose?token=$TOKEN" | python3 -m json.tool | head -20
-# 只看告警
-curl -s "...token=$TOKEN" | python3 -c "import sys,json; print(json.load(sys.stdin)['alerts'])"
-```
-
-## 反馈 Bot API `/api/feedback/bot`
-
-外部 AI 自动拉取反馈、分析、标记。通过 `?token=<FEEDBACK_BOT_TOKEN>` query param 鉴权（`.env`）。
-
-```
-GET  /api/feedback/bot?token=xxx&limit=50&include_fixed=false   # 读反馈（默认排除已修复）
-PATCH /api/feedback/bot/{id}?token=xxx                            # 标记 auto_fix_attempted
-PUT   /api/feedback/bot/{id}/reply?token=xxx&overwrite=false      # 直写开发者回复（body: {"reply": "..."}，署名 FEEDBACK_BOT_NAME 默认「系统助手」，已回复默认 409 防覆盖人工回复）
-```
-
-| 参数 | 说明 |
-|------|------|
-| `since` | ISO 时间过滤 |
-| `version` | 版本号精确过滤 |
-| `tag` | bug/feature/experience/content/ui/other |
-| `replied` | true=已回复, false=未回复 |
-| `include_fixed` | 默认 false，排除已尝试修复的 |
-
-返回字段：`id`, `rating`(1-5), `tag`, `content`, `version`, `developer_reply`, `auto_fix_attempted`, `created_at`。
-
-## 其他
-
-| 主题 | 位置 |
-|------|------|
-| Tag/部署/CI | **发布请用 `pnpm run tag`**（`auto-tag.mjs --push`：自动算当天 `vYYYY.MM.DD-N` 序号，脏树/冗余门，推送 master+tag）；只建不推用 `pnpm run tag:local`；手动 `git tag` 亦可但需自算序号，pre-push 会校验格式/日期/序号。tag 触发 `deploy.yml`（单实例，tag 推送即发版；`production` 未配 Required reviewers 时无审批步骤）；工作流目录只留 4 个活文件（backup-audit / commit-format / deploy / rollback），旧 staging/piops 流水线已从仓库移除 |
+| 主题 | 约定 |
+|---|---|
 | Python | `cd backend && uv run <cmd>` |
-| 测试 | `pnpm test:backend`（纯逻辑，无库约 4s；数据库相关测试已移除） |
-| 迁移 | `ddl/` 禁 `op.execute()`；`data/` 需 `# Manual override reason: data_only` |
+| 测试 | `pnpm test:backend`（纯逻辑，无库约 4s） |
+| 迁移 | `ddl/` 禁 `op.execute()`；数据操作放 `data/` 并加 `# Manual override reason: data_only` |
 | API 类型 | `pnpm run api:update` 重新生成，禁止手改 `.gen.ts` |
-| 完整文档 | `docs/README.md` |
+| 文档 | 入口 `docs/README.md`（只写代码里看不到的事实） |
+
+## 接口入口
+
+- **诊断**：`GET /api/diagnose?token=$DIAGNOSE_TOKEN`（未配置 token → 404，错误 → 403）。
+  字段契约与消费方清单见 skill `ops-interfaces` 与 `docs/ops/diagnostics.md`。
+- **反馈 Bot**：`GET /api/feedback/bot`、`PATCH /api/feedback/bot/{id}`、`PUT /api/feedback/bot/{id}/reply`，
+  一律带 `?token=$FEEDBACK_BOT_TOKEN`。参数与返回字段表见 skill `ops-interfaces`。

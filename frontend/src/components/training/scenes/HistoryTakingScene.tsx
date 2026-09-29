@@ -1,7 +1,7 @@
 import { Box, Stack, Text } from "@mantine/core";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { ActivityRail } from "@/components/training/workspace/ActivityRail";
-import { TrainingEngine } from "@/engine";
+import { TrainingEngine } from "@/engine/TrainingEngine";
 
 export default function HistoryTakingScene({ recordId }: { recordId: string }) {
   return (

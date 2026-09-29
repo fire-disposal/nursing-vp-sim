@@ -69,7 +69,7 @@ curl -s "https://iomt.205716.xyz/api/diagnose?token=$DIAGNOSE_TOKEN" | python3 -
 | `requests_24h` / `time_cost_24h` / `model_calls_24h` | 都只取 `turn_committed`（已提交业务回合）；`time_cost_24h` 是推进的**情境时间单位总和** |
 | `avg_time_cost_per_request_24h` / `avg_model_calls_per_request_24h` | 分子分母同群体同窗口；0 请求时为 `null` |
 | `clarifications_24h` / `hints_24h` | 澄清与求提示次数（都不推进时间） |
-| `llm_failures_24h` | 情境两阶段（`st_intent`/`st_dm`）窗口内非成功的调用数 |
+| `llm_failures_24h` | 情境 agent 运行时（`st_dm`）窗口内非成功的调用数 |
 | `rate_limited_24h` | 限流命中（`audit_logs` 里 `scenario.rate_limited`） |
 
 已删除、不要再出现在看板里的字段：`dm_steps_24h`、`dm_avg_steps_24h`、`fallbacks_24h`、

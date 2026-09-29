@@ -7,7 +7,7 @@
 - 类型从这些模型生成（`pnpm run api:update`），**禁止手改** `api-types.gen.ts`。
 
 命名：对外模型一律 `Scenario*` 前缀（前端既有别名可逐一对上）；纯词汇表（`TargetRef`、
-`IntentResolution`、`ResolvedTurn`、`SceneDelivery`…）留在 `turns.py`，生成名就是它本身。
+`ResolvedTurn`、`SceneDelivery`、`ToolStep`…）留在 `turns.py`，生成名就是它本身。
 """
 
 from __future__ import annotations
@@ -23,10 +23,11 @@ from .turns import (
     MessageKind,
     MessageOrigin,
     MessageRole,
-    ModelsUsed,
+    ModelCalls,
     ResolvedTurn,
     SceneDelivery,
     TargetRef,
+    ToolStep,
     TurnInput,
     TurnPhase,
 )
@@ -401,21 +402,15 @@ class ScenarioAdminActor(BaseModel):
     presence: str
 
 
-class ScenarioAdminFocusSummary(BaseModel):
-    id: str
-    intent: str
-
-
 class ScenarioAdminOverview(BaseModel):
     player_role: str
     place: str
     time_hint: str = ""
     resources: list[str] = Field(default_factory=list)
     actors: list[ScenarioAdminActor] = Field(default_factory=list)
-    teaching_focus: list[ScenarioAdminFocusSummary] = Field(default_factory=list)
     cues: int = 0
     affordances: int = 0
-    reactions: int = 0
+    devices: int = 0
     facts: int = 0
     criteria: int = 0
     criteria_weight: int = 0
@@ -514,34 +509,27 @@ class ScenarioPackContentRequest(BaseModel):
 # --------------------------------------------------------------------------- #
 
 
-class ScenarioAdminFocusState(BaseModel):
-    id: str
-    intent: str = ""
-    relevant: bool = False
-    addressed: bool = False
-    evidence_refs: list[str] = Field(default_factory=list)
-
-
-class ScenarioAdminFocusTurn(BaseModel):
-    turn: int
-    states: list[ScenarioAdminFocusState] = Field(default_factory=list)
-
-
 class ScenarioAdminTurnReplay(BaseModel):
-    """一个已提交回合的「解析 → 结算 → 交付」来源回放（**不是**模型的思考过程）。"""
+    """一个已提交回合的「结算 → 模型循环 → 交付」来源回放（**不是**模型的思考过程）。
+
+    `tools` 是模型每一次工具调用的账（含被拒的那些与原因）；`notes` 是模型写给自己的备忘
+    （学生看不到）。
+    """
 
     seq: int
     turn: int
     request_id: str = ""
     kind: str = ""
     input: TurnInput
-    intent: dict[str, Any] | None = None
     resolved: ResolvedTurn | None = None
     delivery: SceneDelivery | None = None
+    tools: list[ToolStep] = Field(default_factory=list)
+    tool_rejections: dict[str, int] = Field(default_factory=dict)
+    notes: list[str] = Field(default_factory=list)
     outcome: str = ""
     block_reason: str | None = None
     problems: list[str] = Field(default_factory=list)
-    models: ModelsUsed = Field(default_factory=ModelsUsed)
+    models: ModelCalls | None = None
 
 
 class ScenarioAdminEvent(BaseModel):
@@ -563,7 +551,6 @@ class ScenarioAdminSessionDetail(BaseModel):
     view: ScenarioView
     report: ScenarioReport | None = None
     problems: list[str] = Field(default_factory=list)
-    focus: list[ScenarioAdminFocusTurn] = Field(default_factory=list)
     turns: list[ScenarioAdminTurnReplay] = Field(default_factory=list)
     event_count: int = 0
     events: list[ScenarioAdminEvent] = Field(default_factory=list)
@@ -575,7 +562,7 @@ class ScenarioAdminStatsBucket(BaseModel):
     sessions: int = 0
     completed: int = 0
     lost: int = 0
-    focus_address_ratio: float | None = None  # 已处理关注点 / 相关关注点（无关注点 = null）
+    tool_rejections: int = 0  # 被工具层拒掉的调用数（模型越界/闸门命中，按回合累计）
 
 
 class ScenarioAdminStats(BaseModel):

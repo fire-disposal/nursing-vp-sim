@@ -26,7 +26,7 @@ import ScenarioReportView from "../ScenarioReportView";
 import ScenarioSidePanel from "../ScenarioSidePanel";
 import ScenarioStage, { ScenarioLine } from "../ScenarioStage";
 import { sessionStatusLabel, summaryText } from "../sessions";
-import AdminFocusPanel from "./AdminFocusPanel";
+import AdminTurnReplayPanel from "./AdminTurnReplayPanel";
 
 const STATUS_OPTIONS = [
 	{ value: "active", label: "进行中" },
@@ -376,7 +376,7 @@ export default function AdminSessionsPanel({
 								</div>
 							</div>
 
-							<AdminFocusPanel focus={detail.focus} turns={detail.turns} />
+							<AdminTurnReplayPanel turns={detail.turns} />
 
 							<div>
 								<Text size="sm" fw={600} mb={4}>

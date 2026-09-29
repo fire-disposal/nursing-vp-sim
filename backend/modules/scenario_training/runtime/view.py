@@ -1,11 +1,18 @@
 """视图投影：把世界投影成**学生可见**的东西。
 
-防泄漏是硬要求：`truth`、`hidden_from_player`、未揭示的线索、未被 HUD 声明的状态键、
-教学关注点与任何拒绝原因**一律不进视图**（docs/scenario.md）。
+防泄漏是硬要求：`truth`、`hidden_from_player`、未揭示的线索、没挂在设备上的数值、
+判据与任何拒绝原因**一律不进视图**。
 
 消息用**稳定 id**（`m<事件序号><类别><序号>`）标识：客户端按 id 接续与去重，
 **不按文案、不猜回合**。排序按「回合 → 回合内因果序」，因此"学生尝试 → 世界回应 → 可见变化"
 不会被裁散；后端不再只给最近 5 条。
+
+呈现面（`hud` / `board` / `panels` / `dims`）都由**平台推导**，不由作者声明：
+- `board`：已揭示线索 / 已确认事实 / 已处置动作（`runtime/board.py`）；
+- `devices`：读数**只**在这里出现（数值归设备面板）；
+- `panels`：按"这一局有没有可看的东西"给开关（时间线恒开）；
+- `dims`：经历量化的通用三件套（动作数 / 必采事实覆盖 / 情境时间）；
+- `hud`：不再有作者声明的槽位（读数归设备面板），平台给空表——线协议字段保留。
 """
 
 from __future__ import annotations
@@ -15,7 +22,6 @@ from typing import Any, cast
 from ..api_models import (
     ScenarioActor,
     ScenarioAsset,
-    ScenarioHudSlot,
     ScenarioImage,
     ScenarioMessage,
     ScenarioSituation,
@@ -28,30 +34,10 @@ from ..schema import ScenarioPack
 from ..turns import MessageKind, MessageOrigin, TargetRef
 from .board import build_board
 from .devices import build_devices
-from .world import World, is_lost, student_declaration, trigger_holds, visible_affordances
+from .world import World, effective_presence, facts_observed, is_lost, student_declaration, visible_affordances
 
 #: 回合内因果序（同回合的消息按它排）：学生 → 引擎直出 → 旁白 → 台词 → 澄清 → 提示。
 _RANK = {"student": 0, "system": 1, "scene": 2, "actor": 3, "clarification": 4, "hint": 5}
-
-
-def _hud(pack: ScenarioPack, world: World) -> list[ScenarioHudSlot]:
-    slots: list[ScenarioHudSlot] = []
-    for item in pack.presentation.hud:
-        if item.visible_when is not None and not trigger_holds(pack, world, item.visible_when):
-            continue  # 条件未满足 → 这一读数此刻不该出现；不写门控 = 一直在
-        entry = ScenarioHudSlot(slot=item.slot, source=item.source)
-        if item.source == "state" and item.ref:
-            entry.label = item.slot
-            entry.value = world.state.get(item.ref)
-            entry.ref = item.ref
-        elif item.source == "cue":
-            entry.items = [text for _, text in pack.cue_items(world.revealed)]
-        elif item.source == "actor":
-            entry.items = [actor.role for actor in pack.actors if actor.presence.value == "on_site"]
-        elif item.source == "affordance":
-            entry.count = len(visible_affordances(pack, world))
-        slots.append(entry)
-    return slots
 
 
 def _asset_url(pack_key: str | None, asset_id: str) -> str | None:
@@ -74,7 +60,7 @@ def _images(pack: ScenarioPack, world: World, pack_key: str | None) -> list[Scen
     out: list[ScenarioImage] = []
     for image in world.images:
         asset_id = str(image.get("asset_id", ""))
-        asset = next((item for item in pack.assets if item.id == asset_id), None)
+        asset = pack.asset(asset_id)
         out.append(
             ScenarioImage(
                 asset_id=asset_id,
@@ -329,19 +315,18 @@ def _timeline(pack: ScenarioPack, world: World) -> list[ScenarioTimelineEntry]:
     entries: list[ScenarioTimelineEntry] = [
         ScenarioTimelineEntry(turn=action.turn, kind="student", label=action.label(pack)) for action in world.actions
     ]
-    for index, reaction_id in enumerate(world.fired):
-        reaction = next((item for item in pack.reactions if item.id == reaction_id), None)
-        if reaction is not None:
-            entries.append(
-                ScenarioTimelineEntry(
-                    turn=world.fired_turns.get(reaction_id, index),
-                    kind="world",
-                    label=reaction.intent,
-                    by=reaction.by,
-                )
-            )
     entries.sort(key=lambda item: item.turn)
     return entries
+
+
+def _panels(pack: ScenarioPack, world: World, dims: list[dict[str, Any]]) -> list[str]:
+    """呈现面板开关：按"这一局有没有可看的东西"推导（时间线恒开）。"""
+    panels = ["timeline"]
+    if dims:
+        panels.append("emotion")
+    if world.revealed or facts_observed(pack, world):
+        panels.append("coverage")
+    return panels
 
 
 def build_view(
@@ -355,7 +340,7 @@ def build_view(
     dims: list[dict[str, Any]] | None = None,
     trial: bool = False,
 ) -> ScenarioView:
-    """学生可见的完整视图（**不含** problems / 教学关注点 / 隐藏事实）。"""
+    """学生可见的完整视图（**不含** problems / 判据 / 隐藏事实）。"""
     affordances = [
         {
             "id": affordance.id,
@@ -378,14 +363,15 @@ def build_view(
         ScenarioActor(
             id=actor.id,
             role=actor.role,
-            presence=actor.presence.value,
-            present=actor.presence.value == "on_site",
-            contactable=actor.presence.value != "inaccessible",
+            presence=effective_presence(pack, world, actor.id).value,
+            present=effective_presence(pack, world, actor.id).value == "on_site",
+            contactable=effective_presence(pack, world, actor.id).value != "inaccessible",
         )
         for actor in pack.actors
     ]
     from ..api_models import ScenarioAffordance, ScenarioDim
 
+    dim_rows = list(dims or [])
     return ScenarioView(
         session=ScenarioViewSession(
             id=session_id,
@@ -406,18 +392,21 @@ def build_view(
             time_hint=pack.setting.time_hint,
             resources=list(pack.setting.resources),
             visible_cues=[text for _, text in pack.cue_items(world.revealed)],
-            noticed=list(world.ad_hoc_cues),
+            noticed=[],
         ),
         actors=actors,
-        hud=_hud(pack, world),
+        hud=[],
         messages=_messages(pack, world),
         affordances=[ScenarioAffordance.model_validate(item) for item in affordances],
         free_input=True,
         timeline=_timeline(pack, world),
-        dims=[ScenarioDim.model_validate(item) for item in (dims or [])],
+        dims=[ScenarioDim.model_validate(item) for item in dim_rows],
         assets=_assets(pack, pack_key),
         images=_images(pack, world, pack_key),
         board=build_board(pack, world),
         devices=build_devices(pack, world),
-        panels=[panel.value for panel in pack.presentation.panels],
+        panels=_panels(pack, world, dim_rows),
     )
+
+
+__all__ = ["build_view"]

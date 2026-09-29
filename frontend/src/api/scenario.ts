@@ -12,7 +12,6 @@ export type ScenarioMessage = Schemas["ScenarioMessage"];
 export type ScenarioTarget = Schemas["TargetRef"];
 export type ScenarioAffordance = Schemas["ScenarioAffordance"];
 export type ScenarioActor = Schemas["ScenarioActor"];
-export type ScenarioHudSlot = Schemas["ScenarioHudSlot"];
 export type ScenarioSituation = Schemas["ScenarioSituation"];
 export type ScenarioTimelineEntry = Schemas["ScenarioTimelineEntry"];
 export type ScenarioDim = Schemas["ScenarioDim"];
@@ -63,7 +62,6 @@ export interface ScenarioAdminAssetDeleteResult {
 export type ScenarioAdminEvent = Schemas["ScenarioAdminEvent"];
 export type ScenarioAdminSessionList = Schemas["ScenarioAdminSessionList"];
 export type ScenarioAdminSessionDetail = Schemas["ScenarioAdminSessionDetail"];
-export type ScenarioAdminFocusTurn = Schemas["ScenarioAdminFocusTurn"];
 export type ScenarioAdminTurnReplay = Schemas["ScenarioAdminTurnReplay"];
 export type ScenarioAdminStatsBucket = Schemas["ScenarioAdminStatsBucket"];
 export type ScenarioAdminStats = Schemas["ScenarioAdminStats"];

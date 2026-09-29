@@ -24,6 +24,7 @@ from core.audit import (
 from core.config import BATCH_USER_LIMIT, MAX_EXPORT_ROWS
 from core.deps import DbSession
 from core.exceptions import AuthError, NotFoundError, ValidationError
+from core.pagination import paginate
 from core.security import hash_password, load_role_permissions, require_permission
 from core.unit_of_work import unit_of_work
 from infra.exporter import ColumnDef, ExportAudit, export_response
@@ -699,18 +700,15 @@ class UserService:
         return q
 
     def list_filtered(self, filters: UserFilters, *, offset: int, limit: int) -> tuple[int, list[User]]:
-        q = self._filtered_query(filters)
-        total = q.count()
-        users = (
-            q.options(
+        q = (
+            self._filtered_query(filters)
+            .options(
                 joinedload(User.role),
                 selectinload(User.memberships).joinedload(ClassMembership.class_),
             )
             .order_by(User.created_at.desc())
-            .offset(offset)
-            .limit(limit)
-            .all()
         )
+        users, total = paginate(q, offset, limit)
         return total, users
 
     def record_count(self, user_id: int) -> int:

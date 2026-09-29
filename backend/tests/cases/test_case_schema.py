@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from typing import get_args
 
 import pytest
 from pydantic import ValidationError
@@ -122,3 +123,16 @@ def test_strict_round_trip_preserves_nested_quiz_unknown_keys():
     out = validate_case_data(data, strict=True)
 
     assert out["activities"] == data["activities"]
+
+
+def test_vitals_age_group_closed_set_matches_exam_rules():
+    """体征参考人群闭集只有一处声明（``VitalsAgeGroup``）—— 查体规则的年龄表必须与它一致。
+
+    查体规则按 ``_AGE_DEFAULTS`` 的键解析 ``vitals_age_group``：两边漂移时，运行期支持的
+    人群会变成发布门禁拒绝的取值（作者写得出、发不出去），或者反之（发得出去、运行期静默
+    回落成人范围，学生看到错误的"低于/高于参考范围"）。
+    """
+    from modules.training.tools.physical_exam_rules import _AGE_DEFAULTS
+    from schemas.case_schema import VitalsAgeGroup
+
+    assert tuple(_AGE_DEFAULTS) == get_args(VitalsAgeGroup)

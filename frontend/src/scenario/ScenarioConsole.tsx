@@ -13,7 +13,7 @@ import ScenarioReportView from "./ScenarioReportView";
 import ScenarioSidePanel from "./ScenarioSidePanel";
 import ScenarioStage from "./ScenarioStage";
 import { sessionRowMeta } from "./sessions";
-import type { PendingStudentLine } from "./stream";
+import { turnAnchorId, type PendingStudentLine } from "./stream";
 import "./scenario.css";
 
 const EMPTY_INTENT: ScenarioIntent = { kind: "speech", target: null };
@@ -281,7 +281,7 @@ export default function ScenarioConsole() {
 	const closeSide = () => { setSideOpen(false); sideToggleRef.current?.focus(); };
 	/** 资料栏里的时间单位回到对话流那一段（变化可追溯到来源时间点）。 */
 	const locateTurn = (turn: number) => {
-		document.getElementById(`sc-turn-${turn}`)?.scrollIntoView({ block: "start" });
+		document.getElementById(turnAnchorId(turn))?.scrollIntoView({ block: "start" });
 	};
 	if (isScenarioUnavailable(packsQuery.error)) return <div className="sc-root"><div className="sc-gate">情境训练当前未开启</div></div>;
 	if (view && report !== null && reportOpen) return <div className="sc-root" data-view="report"><ScenarioReportView report={report} view={view} actions={<><button type="button" className="sc-btn" onClick={() => setReportOpen(false)}>回看对话</button><button type="button" className="sc-btn" onClick={() => { const pack = packsQuery.data?.find((item) => item.key === view.pack.key); if (pack) void start(pack); }} disabled={busy}>再练一次</button><button type="button" className="sc-btn" onClick={leave}>返回场景列表</button></>} /></div>;

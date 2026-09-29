@@ -3,12 +3,16 @@
 本模块是「情境训练」实验特性的一部分，与 `modules/training/**` 完全隔离：
 只允许依赖标准库、三方库、`infra/**`、`modules.auth` 与自身（见 tests/scenario_training）。
 
-词汇表（实用主义定稿，docs/scenario.md六）：
+**这份声明是材料，不是脚本**（docs/scenario.md）：病例只说清"现场有什么、谁能做什么、
+什么算采集到了、什么算做错了"，世界怎么回应由模型在**工具循环**里演绎（`dm/agent.py`）。
+因此这里没有反应表、没有教学关注点、没有呈现面板声明——那些是上一代「声明式规则表」的产物。
+
+词汇表：
 - **动作类型（封闭 6 种）**：ask / observe / measure / act / document / summon
 - **效果操作（封闭 3 种）**：set / incr / decr —— 只能改本 pack 自己登记的状态键
-- **触发子句（封闭 7 种）**：动作与状态谓词，由**动作**驱动，不由墙钟驱动
-- **决策点规则（封闭 5 种）**：判读挂在规则上，规则可复算
-- **呈现原语（封闭）**：由前端按 type 通用渲染，本文件只声明数据形态
+- **触发子句（封闭 4 种）**：只服务 `visible_when` 与 `failure_when` 这几处**确定性门控**
+- **决策点规则（封闭 6 种）**：判读挂在规则上，规则可复算
+- **设备通道**：数值由平台从事件流算，不由模型编
 
 包只声明**观察**，不含分数。
 """
@@ -50,7 +54,7 @@ class EffectOp(StrEnum):
 # 依据实测（2026-09-27，57 次真实 DM 调用）：op 的分布是
 #   set 58 / add 17 / incr 4 / decr 4 / sub 1 / delta 1
 # ——即 **`add` 是 DM 的第二常用写法**，其余字段名与 options.type 全部与契约一致（无偏差、无非法 JSON）。
-# 结论：平台适配 DM 的既有习惯（用户裁定），只在这里做等价归一，不改契约、不让 DM 迁就枚举。
+# 结论：平台适配作者的既有习惯，只在这里做等价归一，不改契约、不让作者迁就枚举。
 _OP_ALIASES: dict[str, EffectOp] = {
     "set": EffectOp.SET,
     "=": EffectOp.SET,
@@ -70,19 +74,18 @@ _OP_ALIASES: dict[str, EffectOp] = {
 
 
 class ClauseKind(StrEnum):
-    """触发子句的封闭集合（全部 AND 组合，可选窗口）。
+    """触发子句的封闭集合（全部 AND 组合）。
 
-    `TURN_GTE` / `TURNS_WITHOUT_ACTION` 里的"回合"= **情境时间单位累计值**（`World.turn`），
-    不是学生请求次数、也不是消息条数：说话与观察不让它增加。
+    只保留**确定性门控**真正要用的四种：`visible_when`（动作/设备随需求出现）与
+    `failure_when`（不可逆失败条件）。计数型与时间型子句（`action_count_gte` /
+    `turns_without_action` / `turn_gte`）只服务已删除的反应表，一并删除：世界的**回应**
+    现在由模型演绎，**门控**不该由模型决定——这两件事各有唯一去处。
     """
 
     ACTION_USED = "action_used"  # 学生用过某 affordance
-    ACTION_COUNT_GTE = "action_count_gte"  # 某 affordance 累计使用 ≥ n
-    TURNS_WITHOUT_ACTION = "turns_without_action"  # 连续 n 个时间单位未用某 affordance
     CUE_REVEALED = "cue_revealed"  # 某线索已被揭示
     STATE_CMP = "state_cmp"  # 状态键比较（<, <=, ==, >=, >）
     FACT_DECLARED = "fact_declared"  # 某事实已被学生采集到
-    TURN_GTE = "turn_gte"  # 累计时间单位 ≥ n（说话/观察不增加）
 
 
 class JudgeRuleKind(StrEnum):
@@ -120,19 +123,6 @@ class Anchor(StrEnum):
     MISSED = "missed"
 
 
-class DimAgg(StrEnum):
-    COVERAGE = "coverage"
-    SLOPE = "slope"
-    LATENCY = "latency"
-    COUNT = "count"
-
-
-class PanelType(StrEnum):
-    TIMELINE = "timeline"
-    EMOTION = "emotion"
-    COVERAGE = "coverage"
-
-
 # --------------------------------------------------------------------------- #
 # 动作与效果
 # --------------------------------------------------------------------------- #
@@ -159,7 +149,7 @@ class TargetRef(BaseModel):
 
 
 class Effect(BaseModel):
-    """动作或反应对处境的影响。`target` 是 actor id 或 `scene`。"""
+    """动作对处境的确定性影响。`target` 是 actor id 或 `scene`。"""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -171,7 +161,7 @@ class Effect(BaseModel):
     @field_validator("op", mode="before")
     @classmethod
     def _normalize_op(cls, raw: Any) -> Any:
-        """容忍 DM 的自然写法（add/sub/+=/…）——少一次因枚举失败而白花的重试。"""
+        """容忍作者的自然写法（add/sub/+=/…）。"""
         if isinstance(raw, str):
             alias = _OP_ALIASES.get(raw.strip().lower())
             if alias is not None:
@@ -201,12 +191,10 @@ class Clause(BaseModel):
     key: str | None = None
     op: Literal["<", "<=", "==", ">=", ">"] | None = None
     value: Any = None
-    count: int | None = None
-    turns: int | None = None
 
 
 class Trigger(BaseModel):
-    """触发条件 = 全部子句 AND。空触发视为「每次动作后都检查」。"""
+    """触发条件 = 全部子句 AND。空触发视为「永远成立」。"""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -214,7 +202,11 @@ class Trigger(BaseModel):
 
 
 class Affordance(BaseModel):
-    """学生可做的事。类型封闭，参数与文案开放。"""
+    """学生可做的事。类型封闭，参数与文案开放。
+
+    `effects` / `reveals` 是**确定性**的部分：学生点下去就一定发生，不交给模型（判据、回放与
+    时间尺都靠它可复算）。模型只负责"世界怎么回应"。
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -232,8 +224,7 @@ class Affordance(BaseModel):
     # **消耗多少情境时间单位**（`turn` = 时间单位累计值，不是请求次数）：
     # 0 = 瞬时（说话/观察/测量——信息获取理所当然，不消耗时间）；正数 = 这次尝试占用的时间。
     # 「刻意等待」也用它表达：作者声明一个 `time_cost > 0` 的动作（例如「等化验回报」「静观十分钟」），
-    # 其 reveals/effects/反应按时间单位结算——不引入定时器、不碰墙钟、不新增动作类型。
-    # 默认 0（旧 v3 修订不带这个键也照样读得出来）。
+    # 其 reveals/effects 按时间单位结算——不引入定时器、不碰墙钟、不新增动作类型。
     time_cost: int = Field(default=0, ge=0, le=60)
     # 二次确认（危险动作）
     confirm: bool = False
@@ -244,45 +235,19 @@ class Affordance(BaseModel):
     free_input: bool = True
 
 
-class Reaction(BaseModel):
-    """由动作/状态谓词触发的事件（**不由墙钟触发**）。"""
-
-    model_config = ConfigDict(extra="forbid")
-
-    id: str
-    when: Trigger
-    by: str  # actor id
-    does: Literal["say", "do", "withhold", "leave", "escalate"]
-    intent: str
-    effects: list[Effect] = Field(default_factory=list)
-    reveals: list[str] = Field(default_factory=list)
-    once: bool = True  # 默认只触发一次
-
-
 # --------------------------------------------------------------------------- #
 # 处境：在场者与场景
 # --------------------------------------------------------------------------- #
 
 
-class DmWritableKey(BaseModel):
-    """包允许 DM **提议**改动的人物状态键（docs/scenario.md）。
+class Actor(BaseModel):
+    """场景里的一个人物。
 
-    默认没有 DM 可写状态。只用于「跨回合确实需要影响的人物关系」——信任、舒适、配合一类；
-    **数值、测量结果、风险结局、设备状态与动作完成状态永远不在这个写集**。
-    平台在结算前验证：键属于该 actor、类型吻合、在 `lo`/`hi` 内、单次变化不超过 `max_delta`。
+    `knowledge` 是**信息隔离**的声明：这个人物知道什么。模型可以用 `actor_knows(id)` 查它，
+    工具层也据它判断"这句话他有没有资格说"。人物进出本场由模型的 `actor_enter/leave` 表达
+    （`presence` 是作者给的上限：`inaccessible` 的人进不了场）。
     """
 
-    model_config = ConfigDict(extra="forbid")
-
-    key: str  # 本 actor 的短键（自动补 `<actor>.` 前缀）或完整 `<actor>.<key>`
-    kind: Literal["int", "bool"] = "int"
-    lo: float | None = None
-    hi: float | None = None
-    max_delta: float | None = None  # 单次提议的绝对值上限（int 才有意义）
-    meaning: str = ""  # 语义说明：这条状态在人物关系里意味着什么
-
-
-class Actor(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str
@@ -292,12 +257,10 @@ class Actor(BaseModel):
     style: str = ""
     goals: list[str] = Field(default_factory=list)
     demand: Demand = Demand.NEUTRAL
-    # DM 可提议改动的人物状态键（默认空 = 完全不可写）；见 `DmWritableKey`
-    dm_writable: list[DmWritableKey] = Field(default_factory=list)
 
 
 class Cue(BaseModel):
-    """可见线索。由**动作的 `reveals`**或触发式反应揭示——线索本身不声明来源。"""
+    """可见线索。由**动作的 `reveals`**或模型的 `cue_reveal` 揭示——线索本身不声明来源。"""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -307,9 +270,10 @@ class Cue(BaseModel):
 
 
 class Asset(BaseModel):
-    """场景资源包内的预定义资源（由**场景准备者**预先准备，DM 按需展示）。
+    """场景资源包内的预定义资源（由**场景准备者**预先准备，按需展示）。
 
-    领域中立：平台只知道"有一张图、什么时候值得展示"，不知道图里是什么。
+    `reveal_with`（可选，any-of）：声明了它，就必须等其中**至少一条线索被揭示**之后才允许
+    `present_image`。提前发 → 拒绝这一次调用并记账（拒绝计数进事件载荷），**不整条回合判死**。
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -319,6 +283,7 @@ class Asset(BaseModel):
     path: str = ""  # 仓库播种来源：assets/<pack_key>/<path>（可留空，由管理侧上传字节）
     title: str = ""
     alt: str = ""  # 无障碍与"看不到图也能用"
+    reveal_with: list[str] = Field(default_factory=list)
 
 
 class Setting(BaseModel):
@@ -339,28 +304,6 @@ class Player(BaseModel):
 
 
 # --------------------------------------------------------------------------- #
-# 教学关注点（取代叙事锚点任务机，docs/scenario.md）
-# --------------------------------------------------------------------------- #
-
-
-class TeachingFocus(BaseModel):
-    """作者希望学生遇到的**判断问题**，以及"是否值得关注 / 是否已被处理"的观察条件。
-
-    没有推进权、不解锁世界、不排序：多个关注点可以同时相关、同时未被处理。
-    `addressed_when` 只表示**本包的观察条件成立**（已有事实/已执行动作提供了处理证据），
-    不等于学生能力达标。
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    id: str
-    intent: str  # 作者写给自己与 DM 的教学意图（学生看不到）
-    relevant_when: Trigger | None = None  # 省略 = 当前处境下始终相关
-    addressed_when: Trigger | None = None
-    evidence_refs: list[str] = Field(default_factory=list)  # 回看定位用；不是学生提示清单
-
-
-# --------------------------------------------------------------------------- #
 # 判读：只声明观察
 # --------------------------------------------------------------------------- #
 
@@ -369,12 +312,12 @@ class FactSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str
-    intent: str  # 意图描述（给抽取用；**不得出现在按钮文案里**）
+    intent: str  # 意图描述（**不得出现在按钮文案里**）
     kind: FactKind = FactKind.REPORTED
     critical: bool = False
-    # 作者显式声明的禁用词：按钮/选项文案中出现即视为泄底（§十三 验收句 2）
+    # 作者显式声明的禁用词：按钮/选项文案中出现即视为泄底
     banned_phrases: list[str] = Field(default_factory=list)
-    # 该事实"被采集到"的可观测判据（判读只读世界事实，不读 DM 的自述）：
+    # 该事实"被采集到"的可观测判据（判读只读世界事实，不读模型的自述）：
     # 揭示过其中任一线索，或使用过其中任一动作，即视为已采集。
     cue_ids: list[str] = Field(default_factory=list)
     affordance_ids: list[str] = Field(default_factory=list)
@@ -391,7 +334,7 @@ class Criterion(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str
-    title: str  # 一句话说清这条在评什么（进报告，不进 DM 提示词）
+    title: str  # 一句话说清这条在评什么（进报告，不进模型提示词）
     rule: JudgeRuleKind
     params: dict[str, Any] = Field(default_factory=dict)
     anchors: dict[Anchor, str]
@@ -401,62 +344,21 @@ class Criterion(BaseModel):
     )
 
 
-class DimSpec(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+class StateBound(BaseModel):
+    """数值状态键的**写边界**：模型的 `world_set` 超出即拒（`out_of_range`）。
 
-    id: str
-    label: str
-    agg: DimAgg
-    source: Literal["facts", "actions", "state"] = "actions"
-    # 维度参数（领域中立）：latency 用 affordances；slope 用 key；coverage 可留空
-    params: dict[str, Any] = Field(default_factory=dict)
-
-
-# --------------------------------------------------------------------------- #
-# 呈现
-# --------------------------------------------------------------------------- #
-
-
-class HudSlot(BaseModel):
-    """HUD 槽位：**声明潜力，条件决定出现**。
-
-    `visible_when` 为空 = 一直可见（例如病房里本就摆着的监护仪读数）；
-    写了触发器则由条件决定——学生的动作、已揭示的线索、状态阈值等（复用同一套封闭触发词汇）。
-    "信息按需具现"：做过那件事、信息才出现，而不是焊死在界面上。
-
-    **作者规矩**：属于"应被发现的证据"的数值槽位（`source="state"`）必须自己写 `visible_when`
-    （通常用承载这次读数的线索，例如 `{cue_revealed: c_bp_high}`）——平台不替作者判断哪些
-    开局可见，也不会把 `state_keys` 的初始值当成"已经量到"。`visible_when` 为空就表示
-    作者确实要求它一开始就在界面上。
+    只有作者声明了边界的键才有上限/下限；没声明就只能被类型校验拦住。
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    slot: str
-    source: Literal["cue", "state", "actor", "affordance"]
-    ref: str | None = None
-    visible_when: Trigger | None = None
+    lo: float | None = None
+    hi: float | None = None
 
 
-class BoardSection(BaseModel):
-    """线索板的一个版块（只读投影；学生不能直接编辑）。
-
-    来源是**封闭词汇**：`cue`（已揭示的现场线索）、`state`（读数，随需求出现）、
-    `noticed`（本回合引擎登记、已可见的现场细节）、`fact`（已确认的事实 + 证据）、
-    `action`（已处置）。DM 不再写白板（docs/scenario.md）：没有 `note` 来源。
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    id: str
-    title: str
-    source: Literal["cue", "state", "noticed", "fact", "action"]
-    refs: list[str] = Field(default_factory=list)  # source=state 时指定要显示的键
-    labels: dict[str, str] = Field(default_factory=dict)  # 键 → 人话标签（不暴露内部名）
-    visible_when: Trigger | None = None
-
-    def label_for(self, ref: str) -> str:
-        return self.labels.get(ref) or ref.rsplit(".", maxsplit=1)[-1]
+# --------------------------------------------------------------------------- #
+# 呈现：设备
+# --------------------------------------------------------------------------- #
 
 
 class DeviceChannel(BaseModel):
@@ -477,8 +379,9 @@ class DeviceChannel(BaseModel):
 class Device(BaseModel):
     """**设备面**：场景里的一台设备（监护仪 / 值班电话 / 输液泵…）。
 
-    与白板同级、互补：设备展示**实时读数**，白板展示**已确立的事**。
-    通则：**同一读数优先由设备展示，白板自动让位**（不重复出现）。
+    读数只在这里展示（"读数归设备面板"）：凡是要让学生看见的数值，作者都必须声明成设备通道，
+    否则它只存在于引擎内部。设备/通道的 `visible_when` 是**确定性门控**；模型另外可以用
+    `present_monitor(device_id)` 把一台设备主动摆到学生面前（两者取并集）。
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -494,10 +397,7 @@ class Device(BaseModel):
 class Presentation(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    hud: list[HudSlot] = Field(default_factory=list)
-    board: list[BoardSection] = Field(default_factory=list)
     devices: list[Device] = Field(default_factory=list)
-    panels: list[PanelType] = Field(default_factory=list)
 
 
 # --------------------------------------------------------------------------- #
@@ -518,22 +418,19 @@ class ScenarioPack(BaseModel):
     setting: Setting
     actors: list[Actor]
     state_keys: dict[str, Any] = Field(default_factory=dict)  # <target>.<key> -> 初值
-    # 仅 DM 的**解析阶段**可见的真相（学生不可见；演出阶段拿不到它，见 docs/scenario.md）
+    # 数值键的写边界（模型 `world_set` 用）；布尔/字符串键只做类型校验
+    state_bounds: dict[str, StateBound] = Field(default_factory=dict)
+    # 现场真相（学生不可见；模型演绎世界时要有一份自洽的事实）
     truth: list[str] = Field(default_factory=list)
 
     affordances: list[Affordance]
-    reactions: list[Reaction] = Field(default_factory=list)
 
     facts: list[FactSpec] = Field(default_factory=list)
     rubric: list[Criterion] = Field(default_factory=list)  # 每个场景自己写的判据（含权重）
-    dims: list[DimSpec] = Field(default_factory=list)
 
     presentation: Presentation = Field(default_factory=Presentation)
 
-    # 教学关注点：作者希望学生遇到的判断问题（只给 DM 与教师回放看；不推进世界、不解锁动作）
-    teaching_focus: list[TeachingFocus] = Field(default_factory=list)
-
-    # 场景资源包内可展示的预定义资源（图片）；DM 只能引用这里声明过的 id
+    # 场景资源包内可展示的预定义资源（图片）；只有这里声明过的 id 能被 `present_image` 展示
     assets: list[Asset] = Field(default_factory=list)
 
     failure: Literal["recoverable", "irreversible"] = "recoverable"
@@ -555,8 +452,8 @@ class ScenarioPack(BaseModel):
     def cue(self, cue_id: str) -> Cue | None:
         return next((c for c in self.setting.cues if c.id == cue_id), None)
 
-    def focus(self, focus_id: str) -> TeachingFocus | None:
-        return next((f for f in self.teaching_focus if f.id == focus_id), None)
+    def asset(self, asset_id: str) -> Asset | None:
+        return next((a for a in self.assets if a.id == asset_id), None)
 
     def cue_items(self, cue_ids: Iterable[str]) -> list[tuple[str, str]]:
         """(线索 id, 文本) 列表，跳过未知线索。"""

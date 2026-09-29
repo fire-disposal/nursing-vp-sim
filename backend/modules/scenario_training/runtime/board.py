@@ -1,8 +1,8 @@
-"""线索板（白板）：**只读、按需具现**的事实区。
+"""线索板（只读、按需具现的事实区）：**平台从世界推导**，作者不声明版块。
 
-来源只有两类（docs/scenario.md：**DM 不再写白板**）：
-- `pack`：作者写好的内容（已揭示线索的文本；已采集事实的意图文本）；
-- `world`：平台从事件流推导（读数、已处置动作、已可见的现场细节）。
+三个版块固定：现场看到的（已揭示线索）、已确认的（已采集事实 + 证据）、已处置（用过的声明动作）。
+**读数不在这里**：数值只由设备面板展示（"读数归设备面板"），所以没有 `state` 来源、也没有
+"同一读数出现两次"的问题。
 
 每条带 `turn`（最近更新回合，供"点回去看来源"）；单行限长、去重、限量。
 """
@@ -10,12 +10,15 @@
 from __future__ import annotations
 
 from ..api_models import ScenarioBoard, ScenarioBoardEntry, ScenarioBoardSection
-from ..schema import BoardSection, ScenarioPack
-from .devices import device_refs
-from .world import World, facts_observed, trigger_holds
+from ..schema import ScenarioPack
+from .world import World, facts_observed
 
 LINE_LIMIT = 48  # 单条上限（超出截断，不换行）
 MAX_ENTRIES = 20  # 每版块上限
+
+SCENE_TITLE = "现场看到的"
+FACT_TITLE = "已确认的"
+ACTION_TITLE = "已处置"
 
 
 def _clean(text: object, limit: int = LINE_LIMIT) -> str:
@@ -39,46 +42,11 @@ def _cue_entries(pack: ScenarioPack, world: World) -> list[ScenarioBoardEntry]:
     ]
 
 
-def _state_entries(section: BoardSection, world: World, skip: set[str]) -> list[ScenarioBoardEntry]:
-    out: list[ScenarioBoardEntry] = []
-    for ref in section.refs:
-        if ref in skip or ref not in world.state:
-            continue  # 监护仪已展示的读数，白板让位（同一读数不出现两次）
-        turns = world.state_turns.get(ref, [])
-        out.append(
-            ScenarioBoardEntry(
-                id=f"state:{ref}",
-                kind="state",
-                text=_clean(f"{section.label_for(ref)} {world.state[ref]}"),
-                source="world",
-                ref=f"effect:{ref}",
-                value=world.state[ref],
-                turn=turns[-1] if turns else None,
-            )
-        )
-    return out
-
-
-def _noticed_entries(world: World) -> list[ScenarioBoardEntry]:
-    return [
-        ScenarioBoardEntry(
-            id=f"noticed:{index}",
-            kind="noticed",
-            text=_clean(text, 40),
-            source="world",
-            ref="",
-            turn=world.noticed_turns.get(text),
-        )
-        for index, text in enumerate(world.ad_hoc_cues)
-    ]
-
-
 def _fact_entries(pack: ScenarioPack, world: World) -> list[ScenarioBoardEntry]:
     """已确认的事实：**证据先于结论**——判据是线索已揭示或动作已用过（`facts_observed`）。
 
     文本取作者写在 `FactSpec.intent` 里的那句话；它只在这条事实的观察条件成立后才出现，
-    因此白板上的「已确认」始终有对应证据（`evidence` 列出那些线索/动作）。DM 不声明事实，
-    板上不会出现一句没有证据的「已确认」。
+    因此白板上的「已确认」始终有对应证据（`evidence` 列出那些线索/动作）。
     """
     observed = facts_observed(pack, world)
     out: list[ScenarioBoardEntry] = []
@@ -143,34 +111,23 @@ def _dedupe(entries: list[ScenarioBoardEntry]) -> list[ScenarioBoardEntry]:
 
 
 def build_board(pack: ScenarioPack, world: World) -> ScenarioBoard:
-    """投影出线索板：版块 → 条目（稳定 id、单行、去重、限量）。"""
-    on_device = device_refs(pack)  # 读数优先由设备展示，白板让位
+    """投影出线索板：三个固定版块 → 条目（稳定 id、单行、去重、限量）。空的版块不渲染。"""
     sections: list[ScenarioBoardSection] = []
-    for section in pack.presentation.board:
-        if section.visible_when is not None and not trigger_holds(pack, world, section.visible_when):
-            continue  # 版块也按需求出现；不写门控 = 一直在
-        if section.source == "cue":
-            entries = _cue_entries(pack, world)
-        elif section.source == "state":
-            entries = _state_entries(section, world, on_device)
-        elif section.source == "noticed":
-            entries = _noticed_entries(world)
-        elif section.source == "fact":
-            entries = _fact_entries(pack, world)
-        else:
-            entries = _action_entries(pack, world)
-        entries = _dedupe(entries)
-        if section.source == "noticed" and not entries:
-            # 新机制里 DM 不再登记"即兴细节"（docs/scenario.md）：这个版块在新会话里没有生产者，
-            # 不渲染一个永远空着的版块（旧会话折入的历史条目照常显示）。
-            continue
+    for section_id, title, source, entries in (
+        ("board_scene", SCENE_TITLE, "cue", _cue_entries(pack, world)),
+        ("board_confirmed", FACT_TITLE, "fact", _fact_entries(pack, world)),
+        ("board_done", ACTION_TITLE, "action", _action_entries(pack, world)),
+    ):
+        cleaned = _dedupe(entries)
+        if not cleaned:
+            continue  # 还没有内容就不占位
         sections.append(
             ScenarioBoardSection(
-                id=section.id,
-                title=section.title,
-                source=section.source,
-                entries=entries[:MAX_ENTRIES],
-                more=max(0, len(entries) - MAX_ENTRIES),
+                id=section_id,
+                title=title,
+                source=source,
+                entries=cleaned[:MAX_ENTRIES],
+                more=max(0, len(cleaned) - MAX_ENTRIES),
             )
         )
     return ScenarioBoard(

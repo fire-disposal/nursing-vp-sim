@@ -4,17 +4,13 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@/__tests__/render";
 import type {
-	ScenarioAdminFocusTurn,
 	ScenarioAdminPack,
 	ScenarioAdminSessionDetail,
 	ScenarioAdminSessionRow,
-	ScenarioAdminStatsBucket,
-	ScenarioAdminTurnReplay,
 	ScenarioView,
 } from "@/api/scenario";
 import AdminAssetsPanel from "@/scenario/admin/AdminAssetsPanel";
 import AdminCaseOverviewPanel from "@/scenario/admin/AdminCaseOverviewPanel";
-import AdminFocusPanel from "@/scenario/admin/AdminFocusPanel";
 import AdminSessionsPanel from "@/scenario/admin/AdminSessionsPanel";
 import AdminStatsPanel from "@/scenario/admin/AdminStatsPanel";
 import ScenarioStage from "@/scenario/ScenarioStage";
@@ -81,11 +77,9 @@ function pack(): ScenarioAdminPack {
 			time_hint: "凌晨 02:10",
 			resources: ["床旁吸引器", "氧气装置"],
 			actors: [{ id: "patient", role: "患者", presence: "on_site" }],
-			// 教学关注点声明：作者视角只有 id + 意图
-			teaching_focus: [{ id: "f_assess", intent: "先核对呼吸音再决定吸痰" }],
 			cues: 6,
 			affordances: 8,
-			reactions: 5,
+			devices: 2,
 			facts: 3,
 			criteria: 5,
 			criteria_weight: 100,
@@ -132,180 +126,12 @@ function sessionDetail(
 		view: makeView(),
 		report: null,
 		problems: [],
-		focus: [],
 		turns: [],
 		event_count: 0,
 		events: [],
 		...overrides,
 	};
 }
-
-/** 教学关注点投影：一个时间单位有两条（相关且已处理 / 不相关未处理），开场那个还没投影。 */
-const FOCUS: ScenarioAdminFocusTurn[] = [
-	{ turn: 0, states: [] },
-	{
-		turn: 1,
-		states: [
-			{
-				id: "f_assess",
-				intent: "先核对呼吸音再决定吸痰",
-				relevant: true,
-				addressed: true,
-				evidence_refs: ["auscultate", "fact_breath_sound"],
-			},
-			{
-				id: "f_doc",
-				intent: "把处置写进护理记录",
-				relevant: false,
-				addressed: false,
-				evidence_refs: [],
-			},
-		],
-	},
-];
-
-/** 一条完整的「解析 → 结算 → 交付」记录：三个阶段与调用计数都有内容。 */
-const REPLAY: ScenarioAdminTurnReplay = {
-	seq: 3,
-	turn: 2,
-	request_id: "req-abc",
-	kind: "action",
-	input: {
-		kind: "action",
-		target: { kind: "actor", id: "patient" },
-		affordance_id: "suction",
-		selection: ["deep", "shallow"],
-		text: "我先吸引口咽部",
-	},
-	intent: { affordance_id: "suction", confidence: 0.8 },
-	resolved: {
-		request_id: "req-abc",
-		base_seq: 2,
-		turn: 2,
-		time_cost: 1,
-		outcome: "performed",
-		block_reason: "",
-		action: {
-			kind: "action",
-			affordance_id: "suction",
-			label: "吸痰",
-			target: { kind: "actor", id: "patient" },
-			text: "",
-			selection: [],
-			outcome: "performed",
-			block_reason: "",
-		},
-		effects: [
-			{
-				key: "vitals.spo2",
-				op: "set",
-				value: 89,
-				old: 92,
-				new: 89,
-				turn: 2,
-				source: "affordance:suction",
-			},
-		],
-		reveals: ["痰液黏稠"],
-		reactions: ["患者皱眉"],
-		social: [
-			{
-				key: "patient.mood",
-				op: "set",
-				old: "calm",
-				new: "distressed",
-				turn: 2,
-				source: "reaction",
-			},
-		],
-		problems: [],
-	},
-	delivery: {
-		messages: [
-			{
-				speaker: "2 床患者",
-				as_role: "",
-				ephemeral: false,
-				text: "……轻点。",
-				sources: ["pack:patient"],
-			},
-		],
-		hints: ["看一眼血氧"],
-		assets: ["a_room"],
-		highlights: ["血氧 89%"],
-	},
-	outcome: "performed",
-	block_reason: null,
-	problems: ["dm_parse: 解析器把意图退回一次"],
-	models: { parse: 2, delivery: 1 },
-};
-
-/** 只读的一次请求（澄清）：没有结算、没有交付，世界里什么都没变。 */
-const CLARIFICATION: ScenarioAdminTurnReplay = {
-	seq: 4,
-	turn: 2,
-	request_id: "req-clar",
-	kind: "speech",
-	input: { kind: "speech", text: "我该先做什么？", selection: [] },
-	intent: { action: "ask" },
-	resolved: null,
-	delivery: null,
-	outcome: "clarification",
-	block_reason: null,
-	problems: [],
-	// `models` 省略 = 后端没有记录调用次数（不是 0 次，也不是 null）
-};
-
-/** 世界挡住了这一次尝试：结算存在，但没有任何状态改动。 */
-const BLOCKED: ScenarioAdminTurnReplay = {
-	seq: 5,
-	turn: 3,
-	request_id: "req-blocked",
-	kind: "action",
-	input: {
-		kind: "action",
-		target: { kind: "actor", id: "patient" },
-		affordance_id: "suction",
-		selection: [],
-		text: "",
-	},
-	intent: { affordance_id: "suction" },
-	resolved: {
-		request_id: "req-blocked",
-		base_seq: 4,
-		turn: 3,
-		time_cost: 1,
-		outcome: "blocked",
-		block_reason: "target_unreachable",
-		action: {
-			kind: "action",
-			affordance_id: "suction",
-			label: "吸痰",
-			target: { kind: "actor", id: "patient" },
-			text: "",
-			selection: [],
-			outcome: "blocked",
-			block_reason: "target_unreachable",
-		},
-		effects: [],
-		reveals: [],
-		reactions: [],
-		social: [],
-		problems: [],
-	},
-	delivery: {
-		messages: [
-			{ speaker: "2 床患者", as_role: "", ephemeral: false, text: "……我喘不上气。", sources: [] },
-		],
-		hints: [],
-		assets: [],
-		highlights: [],
-	},
-	outcome: "blocked",
-	block_reason: "target_unreachable",
-	problems: [],
-	models: { parse: 1, delivery: 1 },
-};
 
 function renderWithProviders(ui: React.ReactElement) {
 	const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -366,173 +192,6 @@ describe("会话面板：服务端分页", () => {
 		// `pack_version` 是用这一局开始时那份内容的版本号：列表里如实写「版本 #3」
 		expect(screen.getByText(/版本 #3/)).toBeInTheDocument();
 		expect(document.body.textContent ?? "").not.toContain("修订");
-	});
-});
-
-describe("会话回放：教学关注点投影", () => {
-	it("一行一个关注点：id / 意图 / 相关 / 已处理 / 证据引用，且写明「已处理」不是能力达标", async () => {
-		const user = userEvent.setup();
-		renderWithProviders(<AdminFocusPanel focus={FOCUS} turns={[]} />);
-
-		const panel = screen.getByRole("region", { name: "教学关注点投影" });
-		// 这一块只说"本包看到了什么证据"，不许暗示学生达标
-		expect(
-			within(panel).getByText(/不等于学生能力达标/),
-		).toBeInTheDocument();
-		expect(within(panel).getByText(/没有推进权/)).toBeInTheDocument();
-
-		// 折叠着的时候投影不在 DOM 里
-		const turn = within(panel).getByRole("button", {
-			name: "时间单位 1 的教学关注点投影",
-		});
-		expect(within(panel).queryByText("f_assess")).toBeNull();
-
-		await user.click(turn);
-		expect(within(panel).getByText("f_assess")).toBeInTheDocument();
-		expect(within(panel).getByText("先核对呼吸音再决定吸痰")).toBeInTheDocument();
-		expect(within(panel).getByText("相关")).toBeInTheDocument();
-		expect(within(panel).getByText("已处理")).toBeInTheDocument();
-		expect(
-			within(panel).getByText("证据：auscultate、fact_breath_sound"),
-		).toBeInTheDocument();
-
-		// 另一个关注点没相关也没处理：如实写「不相关 / 未处理 / 证据：无」
-		expect(within(panel).getByText("f_doc")).toBeInTheDocument();
-		expect(within(panel).getByText("不相关")).toBeInTheDocument();
-		expect(within(panel).getByText("未处理")).toBeInTheDocument();
-		expect(within(panel).getByText("证据：无")).toBeInTheDocument();
-	});
-
-	it("这个时间单位没有关注点投影时，空态长在它自己身上（不冒充成没声明）", async () => {
-		const user = userEvent.setup();
-		renderWithProviders(<AdminFocusPanel focus={FOCUS} turns={[]} />);
-
-		const panel = screen.getByRole("region", { name: "教学关注点投影" });
-		const opener = within(panel).getByRole("button", {
-			name: "开场（时间 0） 的教学关注点投影",
-		});
-		expect(within(panel).getByText("0 个关注点")).toBeInTheDocument();
-
-		await user.click(opener);
-		expect(
-			within(panel).getByText("（这个时间单位没有关注点投影）"),
-		).toBeInTheDocument();
-		// 整包没声明关注点是另一回事
-		expect(within(panel).queryByText(/本包未声明教学关注点/)).toBeNull();
-	});
-
-	it("整包没声明关注点 / 还没有已提交请求：两处空态各说各的", () => {
-		renderWithProviders(<AdminFocusPanel focus={null} turns={null} />);
-
-		expect(screen.getByText("本包未声明教学关注点")).toBeInTheDocument();
-		expect(screen.getByText("还没有已提交请求")).toBeInTheDocument();
-	});
-});
-
-describe("会话回放：逐请求来源回放", () => {
-	it("输入回声 / 解析 / 结算 / 交付 / 请求结果：三个阶段与调用计数都如实摆出来", async () => {
-		const user = userEvent.setup();
-		renderWithProviders(<AdminFocusPanel focus={[]} turns={[REPLAY]} />);
-
-		const panel = screen.getByRole("region", { name: "逐请求来源回放" });
-		// 这是**记录下来的产物**，不是模型自述的思考过程
-		expect(within(panel).getByText(/记录下来的阶段产物/)).toBeInTheDocument();
-		expect(within(panel).getByText(/不是模型的思考过程/)).toBeInTheDocument();
-
-		const block = within(panel).getByRole("button", {
-			name: "时间单位 2 的解析 / 结算 / 交付回放",
-		});
-		expect(block).toHaveAccessibleName(/时间单位 2/);
-		expect(within(panel).getByText(/seq 3/)).toBeInTheDocument();
-		expect(within(panel).queryByText("我先吸引口咽部")).toBeNull();
-
-		await user.click(block);
-
-		// 输入：学生请求原文（kind / 目标 / 声明动作 / 选项 / 自由文本）
-		expect(within(panel).getByText("行动")).toBeInTheDocument();
-		expect(within(panel).getByText("actor:patient")).toBeInTheDocument();
-		expect(within(panel).getByText("suction")).toBeInTheDocument();
-		expect(within(panel).getByText("选项：deep、shallow")).toBeInTheDocument();
-		expect(within(panel).getByText("我先吸引口咽部")).toBeInTheDocument();
-
-		// 解析：模型产物，口径写得清清楚楚
-		expect(
-			within(panel).getByText("模型解析产物，不是思考过程"),
-		).toBeInTheDocument();
-		expect(within(panel).getByText(/"affordance_id": "suction"/)).toBeInTheDocument();
-
-		// 结算：动作 / 结果 / 效果旧→新 / 揭示 / 反应 / 人物状态
-		expect(within(panel).getByText("吸痰")).toBeInTheDocument();
-		expect(within(panel).getByText(/set vitals\.spo2：92 → 89/)).toBeInTheDocument();
-		expect(within(panel).getByText("揭示：痰液黏稠")).toBeInTheDocument();
-		expect(within(panel).getByText("反应：患者皱眉")).toBeInTheDocument();
-		expect(
-			within(panel).getByText(/patient.mood：calm → distressed/),
-		).toBeInTheDocument();
-
-		// 交付：谁说的 + 来源 + 提示／图片／高亮
-		expect(within(panel).getByText("……轻点。")).toBeInTheDocument();
-		expect(within(panel).getByText("来源：pack:patient")).toBeInTheDocument();
-		expect(within(panel).getByText("提示：看一眼血氧")).toBeInTheDocument();
-		expect(within(panel).getByText("图片：a_room")).toBeInTheDocument();
-		expect(within(panel).getByText("高亮：血氧 89%")).toBeInTheDocument();
-
-		// 请求结果：世界答复 / 阶段问题 / 模型调用计数
-		expect(within(panel).getByText("问题（1）")).toBeInTheDocument();
-		expect(
-			within(panel).getByText("dm_parse: 解析器把意图退回一次"),
-		).toBeInTheDocument();
-		expect(within(panel).getByText(/解析 2 次 · 交付 1 次/)).toBeInTheDocument();
-	});
-
-	it("没有结算记录的请求说清楚世界没变（澄清与求提示只读），不假装结算过", async () => {
-		const user = userEvent.setup();
-		renderWithProviders(<AdminFocusPanel focus={[]} turns={[CLARIFICATION]} />);
-
-		const block = screen.getByRole("button", {
-			name: "时间单位 2 的解析 / 结算 / 交付回放",
-		});
-		// 行头就把这一次的结果说清楚
-		expect(within(block).getByText("澄清（不结算）")).toBeInTheDocument();
-		await user.click(block);
-
-		expect(
-			screen.getByText(/没有结算记录：没有推进世界——澄清与求提示只读/),
-		).toBeInTheDocument();
-		expect(screen.queryByText("效果（旧 → 新）")).toBeNull();
-		expect(screen.getByText(/模型调用：未记录/)).toBeInTheDocument();
-		// 没有交付记录也说清楚，不拿空块冒充产出
-		expect(screen.getByText("（这一次请求没有交付记录）")).toBeInTheDocument();
-	});
-
-	it("受阻的请求：结算写「世界阻止」并给出受阻原因，且不假装有状态改动", async () => {
-		const user = userEvent.setup();
-		renderWithProviders(<AdminFocusPanel focus={[]} turns={[BLOCKED]} />);
-
-		const block = screen.getByRole("button", {
-			name: "时间单位 3 的解析 / 结算 / 交付回放",
-		});
-		expect(within(block).getByText("世界阻止")).toBeInTheDocument();
-		await user.click(block);
-
-		// 受阻原因在结算与请求结果两处都写出来（读的人不该拼信息）
-		expect(screen.getAllByText(/受阻原因：target_unreachable/)).toHaveLength(2);
-		expect(screen.getByText("（这一次请求没有状态改动）")).toBeInTheDocument();
-		expect(screen.getByText("揭示：无")).toBeInTheDocument();
-		expect(screen.getByText("反应：无")).toBeInTheDocument();
-		expect(screen.getByText(/解析 1 次 · 交付 1 次/)).toBeInTheDocument();
-	});
-
-	it("会话详情把这两块接上（细节里的 focus / turns 才是数据源）", async () => {
-		await openDetail(sessionDetail({ focus: FOCUS, turns: [REPLAY] }));
-
-		expect(
-			screen.getByRole("button", { name: "时间单位 1 的教学关注点投影" }),
-		).toBeInTheDocument();
-		expect(
-			screen.getByRole("button", { name: "时间单位 2 的解析 / 结算 / 交付回放" }),
-		).toBeInTheDocument();
-		expect(screen.getByText(/回放视图（只读）/)).toBeInTheDocument();
 	});
 });
 
@@ -606,27 +265,6 @@ describe("病例概览：声明了什么（不复制 DM 的真相）", () => {
 		expect(screen.queryByText(/上架于/)).toBeNull();
 	});
 
-	it("教学关注点声明成表：id + 意图，并写明「已处理」不等于能力达标", () => {
-		renderWithProviders(<AdminCaseOverviewPanel pack={pack()} />);
-
-		expect(screen.getByText("要练什么")).toBeInTheDocument();
-		expect(screen.getByRole("columnheader", { name: "教学关注点" })).toBeInTheDocument();
-		expect(screen.getByText("先核对呼吸音再决定吸痰")).toBeInTheDocument();
-		expect(screen.getByText(/不代表学生是否达标/)).toBeInTheDocument();
-		// 锚点任务机的东西不该回来
-		expect(screen.queryByText(/锚点/)).toBeNull();
-	});
-
-	it("没有声明关注点 → 说清楚这一包不预设判断问题", () => {
-		const bare = pack();
-		bare.overview = { ...bare.overview!, teaching_focus: [] };
-		renderWithProviders(<AdminCaseOverviewPanel pack={bare} />);
-
-		expect(
-			screen.getByText(/没有声明教学关注点：这份病例不预设判断问题/),
-		).toBeInTheDocument();
-	});
-
 	it("assets 可选：缺就是「没有声明图片」，不硬读", () => {
 		const bare = { ...pack(), assets: undefined };
 		renderWithProviders(<AdminCaseOverviewPanel pack={bare} />);
@@ -644,42 +282,7 @@ describe("病例概览：声明了什么（不复制 DM 的真相）", () => {
 	});
 });
 
-describe("统计：关注点处理比", () => {
-	function bucket(overrides: Partial<ScenarioAdminStatsBucket> = {}): ScenarioAdminStatsBucket {
-		return {
-			pack_key: PACK_KEY,
-			pack_title: "吸痰无效：血氧上不来",
-			sessions: 3,
-			completed: 2,
-			lost: 1,
-			focus_address_ratio: null,
-			...overrides,
-		};
-	}
-
-	it("没有关注点可算的病例写「—」（没有分母不是 0），有比值的按百分比读", async () => {
-		mocks.getAdminScenarioStats.mockResolvedValue({
-			packs: [
-				bucket(),
-				bucket({
-					pack_key: "two_beds",
-					pack_title: "两床同铃",
-					focus_address_ratio: 0.25,
-				}),
-			],
-		});
-		renderWithProviders(<AdminStatsPanel />);
-
-		const empty = await screen.findByRole("row", { name: /吸痰无效/ });
-		expect(within(empty).getAllByRole("cell")[4]).toHaveTextContent("—");
-		expect(within(empty).getAllByRole("cell")[4]).not.toHaveTextContent("0%");
-
-		const counted = screen.getByRole("row", { name: /两床同铃/ });
-		expect(within(counted).getAllByRole("cell")[4]).toHaveTextContent("25%");
-		// 这个比值是"本包看到了多少处理证据"，不是能力等第
-		expect(screen.getByText(/不是能力等第/)).toBeInTheDocument();
-	});
-
+describe("统计：按病例汇总", () => {
 	it("一个病例都没有会话时如实说没有可汇总的数据", async () => {
 		mocks.getAdminScenarioStats.mockResolvedValue({ packs: [] });
 		renderWithProviders(<AdminStatsPanel />);

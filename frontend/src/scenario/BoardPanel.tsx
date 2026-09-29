@@ -5,6 +5,7 @@ import type {
 	ScenarioBoardSection,
 } from "@/api/scenario";
 import { sourceLabel } from "./stream";
+import TurnLocator from "./TurnLocator";
 
 /**
  * 线索板（白板）——**只读、按需具现**的事实区。
@@ -31,28 +32,6 @@ const KIND_TITLE: Record<string, string> = {
 	fact: "已确认",
 	action: "已处置",
 };
-
-/** 时间点定位：页面给了 `onLocateTurn` 就是按钮，没给就是纯文本（信息一样在）。 */
-function TurnLocator({
-	turn,
-	onLocateTurn,
-}: {
-	turn: number;
-	onLocateTurn?: (turn: number) => void;
-}) {
-	if (onLocateTurn === undefined) {
-		return <span className="sc-locate">时间单位 {turn}</span>;
-	}
-	return (
-		<button
-			type="button"
-			className="sc-locate"
-			onClick={() => onLocateTurn(turn)}
-		>
-			时间单位 {turn}
-		</button>
-	);
-}
 
 function BoardEntry({
 	entry,

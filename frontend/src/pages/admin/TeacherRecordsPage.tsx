@@ -1,4 +1,5 @@
 import { APP_TIME_ZONE } from "@/utils/date";
+import { recordDurationMinutes } from "@/utils/duration";
 import { Badge, Button, Group, Paper, Select, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -30,13 +31,6 @@ type SortField = "start_time" | "score_total" | "duration" | null;
 type SortDir = "asc" | "desc";
 
 const LIMIT = 50;
-
-function durationMinutes(r: TrainingRecordBrief): number | null {
-	if (!r.end_time) return null;
-	return Math.round(
-		(new Date(r.end_time).getTime() - new Date(r.start_time).getTime()) / 60000,
-	);
-}
 
 export default function TeacherRecordsPage() {
 	const [searchParams, setSearchParams] = useSearchParams();
@@ -346,7 +340,7 @@ export default function TeacherRecordsPage() {
 								</Table.Thead>
 								<Table.Tbody>
 									{sortedRecords.map((r) => {
-										const durMins = durationMinutes(r);
+										const durMins = recordDurationMinutes(r);
 										return (
 											<Table.Tr key={r.id}>
 												<Table.Td style={{ whiteSpace: "nowrap" }}>{r.user_display_name}</Table.Td>

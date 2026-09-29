@@ -1,4 +1,5 @@
 import { APP_TIME_ZONE } from "@/utils/date";
+import { recordDurationMinutes } from "@/utils/duration";
 import RecordSubPageLayout from "@/components/shell/RecordSubPageLayout";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge, Box, Button, Group, Paper, Select, Stack, Text, UnstyledButton } from "@mantine/core";
@@ -23,14 +24,6 @@ import { DatePickerInput } from "@mantine/dates";
 type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
 
 const LIMIT = 50;
-
-/** Extract repeated field access. Returns minutes or null. */
-function recordDurMins(r: TrainingRecordBrief): number | null {
-	if (!r.end_time) return null;
-	return Math.round(
-		(new Date(r.end_time).getTime() - new Date(r.start_time).getTime()) / 60000,
-	);
-}
 
 /** Narrow status used in both mobile cards and desktop table. */
 type RecordStatus = "completed" | "in_progress" | "abandoned";
@@ -241,7 +234,7 @@ export default function History() {
 						<Box hiddenFrom="md" p="xs">
 							<Stack gap="xs">
 								{records.map((r) => {
-									const durMins = recordDurMins(r);
+									const durMins = recordDurationMinutes(r);
 									const status = recordStatus(r);
 									return (
 										<Paper key={r.id} p="sm" bg="var(--mantine-color-default-hover)">
@@ -374,7 +367,7 @@ export default function History() {
 								</Table.Thead>
 								<Table.Tbody>
 									{records.map((r) => {
-										const durMins = recordDurMins(r);
+										const durMins = recordDurationMinutes(r);
 										return (
 											<Table.Tr key={r.id} className="data-table-row">
 												<Table.Td style={{ fontWeight: 500 }}>{r.case_name}</Table.Td>

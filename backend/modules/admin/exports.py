@@ -1,7 +1,8 @@
 import io
 import logging
+from typing import Annotated
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload, selectinload
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from core.config import MAX_EXPORT_ROWS
 from core.deps import CurrentUser, DbSession
 from core.exceptions import AuthError, NotFoundError
+from core.security import require_permission
 from infra.exporter import ColumnDef, ExportAudit, export_response
 from models import Message, TrainingRecord, User
 from modules.training.manifest import experiment_label
@@ -16,15 +18,16 @@ from modules.training.scoring.grade_policy import SOURCE_LABELS, score_source
 
 log = logging.getLogger(__name__)
 
+# 全量导出（本仓最大的数据出口）用声明式权限，与其它端点同一写法：越权尝试会经
+# ``require_permission`` 落 ``access_denied`` 审计，服务层不再重复判。
+_Exporter = Annotated[User, Depends(require_permission("export_data"))]
+
 
 class RecordService:
     def __init__(self, db: Session):
         self.db = db
 
-    def get_records_for_export(self, current_user: User) -> tuple[list[TrainingRecord], dict[int, int]]:
-        if not current_user.has_permission("export_data"):
-            raise AuthError("权限不足", status_code=403)
-
+    def get_records_for_export(self) -> tuple[list[TrainingRecord], dict[int, int]]:
         query = self.db.query(TrainingRecord).options(
             selectinload(TrainingRecord.user),
             selectinload(TrainingRecord.case),
@@ -59,6 +62,9 @@ class RecordService:
         )
         if not record:
             raise NotFoundError("记录不存在")
+        # owner 例外（"导出自己的记录"）：``require_permission`` 只能表达"必须持有某权限"，
+        # 表达不了"权限 **或** 本人"，故本端点保留服务层检查——与本仓其它 owner-or-permission
+        # 端点（modules/feedback/router.py、modules/training/router/scoring.py）同一写法。
         if not current_user.has_permission("export_data") and record.user_id != current_user.id:
             raise AuthError("无权导出此记录", status_code=403)
         return record
@@ -69,12 +75,12 @@ router = APIRouter(prefix="/api/export", tags=["导出"])
 
 @router.post("/records")
 def export_records(
-    current_user: CurrentUser,
+    _current_user: _Exporter,
     db: DbSession,
     request: Request,
     format: str = Query("csv", pattern="^(csv|xlsx)$"),
 ):
-    records, msg_counts = RecordService(db).get_records_for_export(current_user)
+    records, msg_counts = RecordService(db).get_records_for_export()
 
     columns = [
         ColumnDef("记录ID", key="id", fmt=str),

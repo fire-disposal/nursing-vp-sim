@@ -536,7 +536,7 @@ curl "https://iomt.205716.xyz/api/diagnose?token=***"
 `active` / `completed`（口径见 `state_window`）。`time_cost_24h` 是窗口内已提交回合
 推进的**情境时间单位**总和（取载荷 `time_cost`，不是请求数、不是分钟），两个
 `avg_*_per_request_24h` 在 0 请求时给 `null`（`avg_time_cost_per_request_24h` = 平均每个已提交请求推进的
-时间单位）；`llm_failures_24h` 取 `llm_call_logs` 里情境两阶段（`st_intent` / `st_dm`）失败调用数。
+时间单位）；`llm_failures_24h` 取 `llm_call_logs` 里情境 agent 运行时（`st_dm`）失败调用数。
 旧口径 `dm_steps_24h` / `dm_avg_steps_24h` / `fallbacks_24h` 已删除。字段契约以
 [ops/diagnostics.md](ops/diagnostics.md) 为准。
 

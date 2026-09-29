@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { ScenarioTimelineEntry } from "@/api/scenario";
+import TurnLocator from "./TurnLocator";
 
 /**
  * 经历时间线：按**时间单位**分组的学生动作 + 世界的回应（同一时间单位内的多条属于同一时间点）。
@@ -36,28 +37,6 @@ function TimelineEntry({ entry }: { entry: ScenarioTimelineEntry }) {
 				</button>
 			)}
 		</div>
-	);
-}
-
-/** 时间点定位：页面给了 `onLocateTurn` 就是按钮，没给就是纯文本（信息一样在）。 */
-function TurnLocator({
-	turn,
-	onLocateTurn,
-}: {
-	turn: number;
-	onLocateTurn?: (turn: number) => void;
-}) {
-	if (onLocateTurn === undefined) {
-		return <span className="sc-locate">时间单位 {turn}</span>;
-	}
-	return (
-		<button
-			type="button"
-			className="sc-locate"
-			onClick={() => onLocateTurn(turn)}
-		>
-			时间单位 {turn}
-		</button>
 	);
 }
 

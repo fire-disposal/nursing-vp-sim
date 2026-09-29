@@ -19,9 +19,9 @@ import { queryKeys } from "@/api/query-keys";
 import { getScoreboardRanking } from "@/api/scoreboard";
 import type { components } from "@/api/api-types.gen";
 import StudentTrendDialog, {
-	formatDuration,
 	type TrendScope,
 } from "@/components/admin/scoreboard/StudentTrendDialog";
+import { formatDuration } from "@/utils/duration";
 import { TextInput } from "@mantine/core";
 import PageHeader from "@/components/ui/page-header";
 import ResponsiveTable from "@/components/ui/responsive-table";

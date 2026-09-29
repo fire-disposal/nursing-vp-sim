@@ -178,7 +178,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse_AuditLogItem_"
+                }
               }
             }
           },
@@ -6968,7 +6970,7 @@
           "情境训练"
         ],
         "summary": "Submit Turn Route",
-        "description": "学生做一件事 → 世界回应 → 返回权威视图（**解析 → 结算 → 演出 → 原子提交**）。",
+        "description": "学生做一件事 → 世界回应 → 返回权威视图（**结算 → 模型循环 → 原子提交**）。",
         "operationId": "submit_turn_route_api_scenario_sessions__session_id__turns_post",
         "security": [
           {
@@ -8092,7 +8094,7 @@
           "情境训练"
         ],
         "summary": "Admin Session Detail",
-        "description": "管理侧：单次会话的完整回放（视图 + 报告 + 每回合解析/结算/交付 + 关注点投影）。\n\n视图按**这一局自带的内容快照**回放：病例今天被改成什么样都不影响历史回放。",
+        "description": "管理侧：单次会话的完整回放（视图 + 报告 + 每回合结算/工具账/交付）。\n\n视图按**这一局自带的内容快照**回放：病例今天被改成什么样都不影响历史回放。",
         "operationId": "admin_session_detail_api_scenario_admin_sessions__session_id__get",
         "security": [
           {
@@ -8140,7 +8142,7 @@
           "情境训练"
         ],
         "summary": "Admin Stats",
-        "description": "管理侧：按包汇总（会话数、结算数、不可逆结局数、关注点处理比例）。试跑默认排除。",
+        "description": "管理侧：按包汇总（会话数、结算数、不可逆结局数、被工具层拒掉的调用数）。试跑默认排除。",
         "operationId": "admin_stats_api_scenario_admin_stats_get",
         "responses": {
           "200": {
@@ -10645,7 +10647,7 @@
           "op": {
             "type": "string",
             "title": "Op",
-            "default": ""
+            "default": "set"
           },
           "value": {
             "title": "Value"
@@ -11266,15 +11268,194 @@
       "AttemptOutcome": {
         "type": "string",
         "enum": [
+          "clarification",
           "speech",
           "performed",
           "blocked",
           "unmodeled",
-          "clarification",
           "hint"
         ],
         "title": "AttemptOutcome",
         "description": "一次尝试在世界里的归宿。"
+      },
+      "AuditLogItem": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "actor_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Id"
+          },
+          "actor_username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Username"
+          },
+          "actor_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Display Name"
+          },
+          "actor_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Role"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "target_type": {
+            "type": "string",
+            "title": "Target Type"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "target_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Label"
+          },
+          "outcome": {
+            "type": "string",
+            "title": "Outcome"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload"
+          },
+          "error_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Detail"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Id"
+          },
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip"
+          },
+          "request_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Method"
+          },
+          "request_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "created_at",
+          "actor_id",
+          "actor_username",
+          "actor_display_name",
+          "actor_role",
+          "action",
+          "target_type",
+          "target_id",
+          "target_label",
+          "outcome",
+          "payload",
+          "error_detail",
+          "request_id",
+          "ip",
+          "request_method",
+          "request_path"
+        ],
+        "title": "AuditLogItem",
+        "description": "一条审计日志（append-only，字段多为可空的历史快照）。"
       },
       "BatchCreateResult": {
         "properties": {
@@ -12799,23 +12980,13 @@
           },
           "text": {
             "type": "string",
-            "title": "Text"
-          },
-          "sources": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Sources"
+            "title": "Text",
+            "default": ""
           }
         },
-        "additionalProperties": false,
         "type": "object",
-        "required": [
-          "text"
-        ],
         "title": "DeliveryMessage",
-        "description": "演出输出的一条消息：环境叙述（`speaker=None`）或角色台词（`speaker=<actor id>`）。"
+        "description": "交付的一条消息：环境叙述（`speaker=None`）或角色台词（`speaker=<actor id>`）。"
       },
       "EndTrainingRequest": {
         "properties": {
@@ -13177,42 +13348,6 @@
           "created_at"
         ],
         "title": "FeedbackSubmitResponse"
-      },
-      "FocusState": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "intent": {
-            "type": "string",
-            "title": "Intent",
-            "default": ""
-          },
-          "relevant": {
-            "type": "boolean",
-            "title": "Relevant",
-            "default": false
-          },
-          "addressed": {
-            "type": "boolean",
-            "title": "Addressed",
-            "default": false
-          },
-          "evidence_refs": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Evidence Refs"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id"
-        ],
-        "title": "FocusState",
-        "description": "教学关注点**此刻**的投影：相关 / 已处理（只是本包观察条件成立，不等于能力达标）。"
       },
       "HTTPValidationError": {
         "properties": {
@@ -13700,22 +13835,17 @@
         ],
         "title": "MessageItem"
       },
-      "ModelsUsed": {
+      "ModelCalls": {
         "properties": {
-          "parse": {
+          "calls": {
             "type": "integer",
-            "title": "Parse",
-            "default": 0
-          },
-          "delivery": {
-            "type": "integer",
-            "title": "Delivery",
+            "title": "Calls",
             "default": 0
           }
         },
         "type": "object",
-        "title": "ModelsUsed",
-        "description": "本回合实际花掉的模型调用数（两阶段成本口径，进事件与判定）。"
+        "title": "ModelCalls",
+        "description": "本回合花掉的模型调用数（工具循环的轮数，**一个循环、一个计数**）。"
       },
       "OkResponse": {
         "properties": {
@@ -13769,6 +13899,37 @@
           "limit"
         ],
         "title": "PaginatedResponse[AssignmentListItem]"
+      },
+      "PaginatedResponse_AuditLogItem_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AuditLogItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit"
+        ],
+        "title": "PaginatedResponse[AuditLogItem]"
       },
       "PaginatedResponse_CaseBrief_": {
         "properties": {
@@ -15252,15 +15413,18 @@
         "properties": {
           "request_id": {
             "type": "string",
-            "title": "Request Id"
+            "title": "Request Id",
+            "default": ""
           },
           "base_seq": {
             "type": "integer",
-            "title": "Base Seq"
+            "title": "Base Seq",
+            "default": 0
           },
           "turn": {
             "type": "integer",
-            "title": "Turn"
+            "title": "Turn",
+            "default": 0
           },
           "time_cost": {
             "type": "integer",
@@ -15268,7 +15432,8 @@
             "default": 0
           },
           "outcome": {
-            "$ref": "#/components/schemas/AttemptOutcome"
+            "$ref": "#/components/schemas/AttemptOutcome",
+            "default": "speech"
           },
           "block_reason": {
             "type": "string",
@@ -15292,40 +15457,12 @@
             "type": "array",
             "title": "Reveals"
           },
-          "reactions": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Reactions"
-          },
-          "social": {
-            "items": {
-              "$ref": "#/components/schemas/AppliedEffect"
-            },
-            "type": "array",
-            "title": "Social"
-          },
-          "visible_events": {
-            "items": {
-              "$ref": "#/components/schemas/VisibleEvent"
-            },
-            "type": "array",
-            "title": "Visible Events"
-          },
           "facts": {
             "items": {
               "type": "string"
             },
             "type": "array",
             "title": "Facts"
-          },
-          "focus": {
-            "items": {
-              "$ref": "#/components/schemas/FocusState"
-            },
-            "type": "array",
-            "title": "Focus"
           },
           "problems": {
             "items": {
@@ -15336,15 +15473,8 @@
           }
         },
         "type": "object",
-        "required": [
-          "request_id",
-          "base_seq",
-          "turn",
-          "outcome",
-          "action"
-        ],
         "title": "ResolvedTurn",
-        "description": "结算阶段的产物：世界这一回合**确定性地**发生了什么（内部模型，不直接给学生）。"
+        "description": "**平台确定性地**结算的产物：世界这一回合发生了什么（内部模型，不直接给学生）。"
       },
       "RoleCreateRequest": {
         "properties": {
@@ -15590,79 +15720,6 @@
         ],
         "title": "ScenarioAdminEvent"
       },
-      "ScenarioAdminFocusState": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "intent": {
-            "type": "string",
-            "title": "Intent",
-            "default": ""
-          },
-          "relevant": {
-            "type": "boolean",
-            "title": "Relevant",
-            "default": false
-          },
-          "addressed": {
-            "type": "boolean",
-            "title": "Addressed",
-            "default": false
-          },
-          "evidence_refs": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Evidence Refs"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id"
-        ],
-        "title": "ScenarioAdminFocusState"
-      },
-      "ScenarioAdminFocusSummary": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "intent": {
-            "type": "string",
-            "title": "Intent"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "intent"
-        ],
-        "title": "ScenarioAdminFocusSummary"
-      },
-      "ScenarioAdminFocusTurn": {
-        "properties": {
-          "turn": {
-            "type": "integer",
-            "title": "Turn"
-          },
-          "states": {
-            "items": {
-              "$ref": "#/components/schemas/ScenarioAdminFocusState"
-            },
-            "type": "array",
-            "title": "States"
-          }
-        },
-        "type": "object",
-        "required": [
-          "turn"
-        ],
-        "title": "ScenarioAdminFocusTurn"
-      },
       "ScenarioAdminOverview": {
         "properties": {
           "player_role": {
@@ -15692,13 +15749,6 @@
             "type": "array",
             "title": "Actors"
           },
-          "teaching_focus": {
-            "items": {
-              "$ref": "#/components/schemas/ScenarioAdminFocusSummary"
-            },
-            "type": "array",
-            "title": "Teaching Focus"
-          },
           "cues": {
             "type": "integer",
             "title": "Cues",
@@ -15709,9 +15759,9 @@
             "title": "Affordances",
             "default": 0
           },
-          "reactions": {
+          "devices": {
             "type": "integer",
-            "title": "Reactions",
+            "title": "Devices",
             "default": 0
           },
           "facts": {
@@ -15880,13 +15930,6 @@
             },
             "type": "array",
             "title": "Problems"
-          },
-          "focus": {
-            "items": {
-              "$ref": "#/components/schemas/ScenarioAdminFocusTurn"
-            },
-            "type": "array",
-            "title": "Focus"
           },
           "turns": {
             "items": {
@@ -16074,16 +16117,10 @@
             "title": "Lost",
             "default": 0
           },
-          "focus_address_ratio": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Focus Address Ratio"
+          "tool_rejections": {
+            "type": "integer",
+            "title": "Tool Rejections",
+            "default": 0
           }
         },
         "type": "object",
@@ -16116,18 +16153,6 @@
           "input": {
             "$ref": "#/components/schemas/TurnInput"
           },
-          "intent": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Intent"
-          },
           "resolved": {
             "anyOf": [
               {
@@ -16147,6 +16172,27 @@
                 "type": "null"
               }
             ]
+          },
+          "tools": {
+            "items": {
+              "$ref": "#/components/schemas/ToolStep"
+            },
+            "type": "array",
+            "title": "Tools"
+          },
+          "tool_rejections": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Tool Rejections"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Notes"
           },
           "outcome": {
             "type": "string",
@@ -16172,7 +16218,14 @@
             "title": "Problems"
           },
           "models": {
-            "$ref": "#/components/schemas/ModelsUsed"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelCalls"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -16182,7 +16235,7 @@
           "input"
         ],
         "title": "ScenarioAdminTurnReplay",
-        "description": "一个已提交回合的「解析 → 结算 → 交付」来源回放（**不是**模型的思考过程）。"
+        "description": "一个已提交回合的「结算 → 模型循环 → 交付」来源回放（**不是**模型的思考过程）。\n\n`tools` 是模型每一次工具调用的账（含被拒的那些与原因）；`notes` 是模型写给自己的备忘\n（学生看不到）。"
       },
       "ScenarioAffordance": {
         "properties": {
@@ -17774,10 +17827,8 @@
             "type": "string",
             "enum": [
               "receiving",
-              "parsing",
               "resolving",
               "delivering",
-              "validating",
               "committing"
             ],
             "title": "Phase"
@@ -18132,33 +18183,11 @@
             },
             "type": "array",
             "title": "Messages"
-          },
-          "hints": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Hints"
-          },
-          "assets": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Assets"
-          },
-          "highlights": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Highlights"
           }
         },
-        "additionalProperties": false,
         "type": "object",
         "title": "SceneDelivery",
-        "description": "演出阶段的输出。**没有** effects / reveals / facts / notes / 委派字段（docs/scenario.md）。"
+        "description": "本回合的最终交付（学生看到的话）。由模型循环产出，平台逐条校验后收下。"
       },
       "ScoreItem": {
         "properties": {
@@ -20104,6 +20133,40 @@
         ],
         "title": "ToolCommandResponse"
       },
+      "ToolStep": {
+        "properties": {
+          "tool": {
+            "type": "string",
+            "title": "Tool"
+          },
+          "args": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Args"
+          },
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "default": true
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "default": ""
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "tool"
+        ],
+        "title": "ToolStep",
+        "description": "模型在环境里做的一件事（**记账**，不是思考过程）。\n\n`ok=False` 时 `reason` 是机器可读的拒绝原因（`key_unregistered` / `out_of_range` /\n`image_gated` / `text_leak` …），`detail` 是给模型看的那句话——两者都进事件载荷，\n/api/diagnose 与教师回放按 `reason` 计数。"
+      },
       "TrainingNotificationItem": {
         "properties": {
           "id": {
@@ -20743,7 +20806,8 @@
               "action",
               "hint"
             ],
-            "title": "Kind"
+            "title": "Kind",
+            "default": "speech"
           },
           "target": {
             "anyOf": [
@@ -20780,11 +20844,8 @@
           }
         },
         "type": "object",
-        "required": [
-          "kind"
-        ],
         "title": "TurnInput",
-        "description": "学生这次请求的输入回声（请求原文，供结算、演出与教师回放读同一份）。"
+        "description": "学生这次请求的输入回声（请求原文，供结算、交付与教师回放读同一份）。"
       },
       "UserBrief": {
         "properties": {
@@ -21156,46 +21217,6 @@
           "type"
         ],
         "title": "ValidationError"
-      },
-      "VisibleEvent": {
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "action",
-              "effect",
-              "reveal",
-              "reaction",
-              "social",
-              "notice",
-              "image",
-              "blocked",
-              "unmodeled"
-            ],
-            "title": "Kind"
-          },
-          "ref": {
-            "type": "string",
-            "title": "Ref",
-            "default": ""
-          },
-          "text": {
-            "type": "string",
-            "title": "Text",
-            "default": ""
-          },
-          "turn": {
-            "type": "integer",
-            "title": "Turn",
-            "default": 0
-          }
-        },
-        "type": "object",
-        "required": [
-          "kind"
-        ],
-        "title": "VisibleEvent",
-        "description": "本回合**已经发生且学生可见**的一件事（演出的唯一素材来源）。"
       },
       "VoiceConfigResponse": {
         "properties": {

@@ -64,16 +64,6 @@
       "goals": [
         "被看见",
         "把疼处理好"
-      ],
-      "dm_writable": [
-        {
-          "key": "bed_a.comfort",
-          "kind": "int",
-          "lo": 0,
-          "hi": 5,
-          "max_delta": 2,
-          "meaning": "A 床患者的舒适与配合程度"
-        }
       ]
     },
     {
@@ -89,16 +79,6 @@
       "style": "忍耐、话少；越难受越不出声，血氧下降后开始答非所问",
       "goals": [
         "不麻烦别人"
-      ],
-      "dm_writable": [
-        {
-          "key": "bed_b.comfort",
-          "kind": "int",
-          "lo": 0,
-          "hi": 5,
-          "max_delta": 1,
-          "meaning": "B 床患者的舒适与配合程度"
-        }
       ]
     },
     {
@@ -135,6 +115,28 @@
     "scene.doctor_present": false,
     "bed_a.comfort": 2,
     "bed_b.comfort": 2
+  },
+  "state_bounds": {
+    "scene.bed_b_sat": {
+      "lo": 0,
+      "hi": 100
+    },
+    "scene.bed_b_consciousness": {
+      "lo": 0,
+      "hi": 5
+    },
+    "scene.a_pain": {
+      "lo": 0,
+      "hi": 10
+    },
+    "bed_a.comfort": {
+      "lo": 0,
+      "hi": 5
+    },
+    "bed_b.comfort": {
+      "lo": 0,
+      "hi": 5
+    }
   },
   "truth": [
     "B 床正在静默低氧并出现意识改变，比 A 床危险得多",
@@ -336,124 +338,6 @@
       }
     }
   ],
-  "reactions": [
-    {
-      "id": "r_a_calls_again",
-      "when": {
-        "all": [
-          {
-            "kind": "turns_without_action",
-            "affordance_id": "reassure_a",
-            "turns": 2
-          }
-        ]
-      },
-      "by": "bed_a",
-      "does": "escalate",
-      "intent": "A 床的铃声更急了，家属开始在走廊上质问「你们到底管不管」",
-      "effects": [
-        {
-          "target": "bed_a",
-          "key": "comfort",
-          "op": "decr",
-          "value": 1
-        }
-      ],
-      "once": false
-    },
-    {
-      "id": "r_b_step_1",
-      "when": {
-        "all": [
-          {
-            "kind": "turns_without_action",
-            "affordance_id": "visit_b",
-            "turns": 2
-          }
-        ]
-      },
-      "by": "bed_b",
-      "does": "escalate",
-      "intent": "B 床的呼吸越来越浅，监护仪的低氧报警被走廊里的喊声盖住",
-      "effects": [
-        {
-          "target": "scene",
-          "key": "bed_b_sat",
-          "op": "decr",
-          "value": 2
-        },
-        {
-          "target": "scene",
-          "key": "bed_b_consciousness",
-          "op": "decr",
-          "value": 1
-        }
-      ],
-      "once": false
-    },
-    {
-      "id": "r_b_step_2",
-      "when": {
-        "all": [
-          {
-            "kind": "turns_without_action",
-            "affordance_id": "visit_b",
-            "turns": 4
-          }
-        ]
-      },
-      "by": "bed_b",
-      "does": "escalate",
-      "intent": "B 床已经不再应答，只有监护仪在响",
-      "effects": [
-        {
-          "target": "scene",
-          "key": "bed_b_sat",
-          "op": "decr",
-          "value": 3
-        },
-        {
-          "target": "scene",
-          "key": "bed_b_consciousness",
-          "op": "decr",
-          "value": 1
-        }
-      ],
-      "once": false
-    },
-    {
-      "id": "r_b_answer_matters",
-      "when": {
-        "all": [
-          {
-            "kind": "cue_revealed",
-            "cue_id": "c_b_low_sat"
-          }
-        ]
-      },
-      "by": "bed_b",
-      "does": "say",
-      "intent": "老人轻声说「我没事，你先去忙那个喊的」——他仍在替别人着想",
-      "once": true
-    },
-    {
-      "id": "r_doctor_arrives",
-      "when": {
-        "all": [
-          {
-            "kind": "state_cmp",
-            "key": "scene.doctor_present",
-            "op": "==",
-            "value": true
-          }
-        ]
-      },
-      "by": "doctor",
-      "does": "say",
-      "intent": "医生直接问两床的客观情况与处置先后，并指出「安静的那个更危险」",
-      "once": false
-    }
-  ],
   "facts": [
     {
       "id": "f_b_low_sat",
@@ -503,123 +387,6 @@
         "measure_a"
       ]
     }
-  ],
-  "dims": [
-    {
-      "id": "d_observation",
-      "label": "两床观察覆盖",
-      "agg": "coverage",
-      "source": "facts",
-      "params": {}
-    },
-    {
-      "id": "d_actions",
-      "label": "处置动作数",
-      "agg": "count",
-      "source": "actions",
-      "params": {}
-    },
-    {
-      "id": "d_redirect",
-      "label": "转向危重那床的延迟",
-      "agg": "latency",
-      "source": "actions",
-      "params": {
-        "affordances": [
-          "visit_b",
-          "measure_b"
-        ]
-      }
-    },
-    {
-      "id": "d_b_sat",
-      "label": "B 床血氧变化",
-      "agg": "slope",
-      "source": "state",
-      "params": {
-        "key": "scene.bed_b_sat"
-      }
-    }
-  ],
-  "presentation": {
-    "hud": [
-      {
-        "slot": "现场线索",
-        "source": "cue"
-      },
-      {
-        "slot": "可做动作",
-        "source": "affordance"
-      }
-    ],
-    "panels": [
-      "timeline",
-      "emotion",
-      "coverage"
-    ],
-    "devices": [
-      {
-        "id": "monitor_b",
-        "kind": "monitor",
-        "title": "B 床监护仪",
-        "sound": "beep",
-        "visible_when": {
-          "all": [
-            {
-              "kind": "cue_revealed",
-              "cue_id": "c_b_low_sat"
-            }
-          ]
-        },
-        "channels": [
-          {
-            "ref": "scene.bed_b_sat",
-            "label": "血氧",
-            "unit": "%",
-            "normal": [
-              95,
-              100
-            ],
-            "critical": [
-              0,
-              90
-            ]
-          }
-        ]
-      }
-    ],
-    "board": [
-      {
-        "id": "board_scene",
-        "title": "现场看到的",
-        "source": "cue"
-      },
-      {
-        "id": "board_confirmed",
-        "title": "已确认的",
-        "source": "fact"
-      },
-      {
-        "id": "board_done",
-        "title": "已处置",
-        "source": "action"
-      }
-    ]
-  },
-  "failure": "irreversible",
-  "failure_when": {
-    "all": [
-      {
-        "kind": "state_cmp",
-        "key": "scene.bed_b_consciousness",
-        "op": "<=",
-        "value": 1
-      }
-    ]
-  },
-  "hidden_from_player": [
-    "B 床正在静默低氧并出现意识改变",
-    "呼声音量与危险程度无关"
   ],
   "rubric": [
     {
@@ -725,5 +492,52 @@
       "weight": 10
     }
   ],
-  "teaching_focus": []
+  "presentation": {
+    "devices": [
+      {
+        "id": "monitor_b",
+        "kind": "monitor",
+        "title": "B 床监护仪",
+        "sound": "beep",
+        "visible_when": {
+          "all": [
+            {
+              "kind": "cue_revealed",
+              "cue_id": "c_b_low_sat"
+            }
+          ]
+        },
+        "channels": [
+          {
+            "ref": "scene.bed_b_sat",
+            "label": "血氧",
+            "unit": "%",
+            "normal": [
+              95,
+              100
+            ],
+            "critical": [
+              0,
+              90
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "failure": "irreversible",
+  "failure_when": {
+    "all": [
+      {
+        "kind": "state_cmp",
+        "key": "scene.bed_b_consciousness",
+        "op": "<=",
+        "value": 1
+      }
+    ]
+  },
+  "hidden_from_player": [
+    "B 床正在静默低氧并出现意识改变",
+    "呼声音量与危险程度无关"
+  ]
 }

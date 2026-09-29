@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from core.config import MAX_EXPORT_ROWS
 from core.deps import DbSession
 from core.exceptions import NotFoundError
+from core.pagination import paginate
 from core.security import require_permission
 from core.statuses import LLMCallStatus
 from infra.exporter import ColumnDef, ExportAudit, export_response
@@ -119,11 +120,10 @@ class LLMMonitorService:
         q = q.group_by(LLMCallLog.record_id, User.display_name, Case.name, LLMCallLog.provider_name)
         if status == "success":
             q = q.having(func.sum(func.cast(LLMCallLog.status != LLMCallStatus.SUCCESS, type_=SAInteger)) == 0)
-        elif status == "failed":
+        if status == "failed":
             q = q.having(func.sum(func.cast(LLMCallLog.status != LLMCallStatus.SUCCESS, type_=SAInteger)) > 0)
-        total = q.order_by(None).count()
-        rows = q.order_by(func.max(LLMCallLog.created_at).desc()).offset(offset).limit(limit).all()
-        return rows, total
+        q = q.order_by(func.max(LLMCallLog.created_at).desc())
+        return paginate(q, offset, limit)
 
     def _llm_raw_logs(
         self,
@@ -150,9 +150,8 @@ class LLMMonitorService:
             q = q.filter(LLMCallLog.created_at >= since)
         if until is not None:
             q = q.filter(LLMCallLog.created_at < until)
-        total = q.order_by(None).count()
-        rows = q.order_by(LLMCallLog.created_at.desc()).offset(offset).limit(limit).all()
-        return rows, total
+        q = q.order_by(LLMCallLog.created_at.desc())
+        return paginate(q, offset, limit)
 
     def _llm_get_by_id(self, log_id: int) -> LLMCallLog | None:
         return self.db.query(LLMCallLog).filter(LLMCallLog.id == log_id).first()

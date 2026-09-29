@@ -93,29 +93,23 @@ def pack_from_content(content: dict[str, Any]) -> ScenarioPack:
 
 _PREFIXED_PARENTS = {
     "affordance": "affordances",
-    "reaction": "reactions",
     "cue": "setting.cues",
     "fact": "facts",
     "criterion": "rubric",
     "asset": "assets",
     "device": "presentation.devices",
-    "board": "presentation.board",
-    "focus": "teaching_focus",
 }
-_PREFIXED_RE = re.compile(r"^(affordance|reaction|cue|fact|criterion|asset|device|board|focus) ([^:]+?):")
-_HUD_RE = re.compile(r"^hud slot (\d+):")
-_DUPLICATE_RE = re.compile(r"^(actor|affordance|cue|reaction|fact|criterion|dim|asset|device|board section) id 重复")
+_PREFIXED_RE = re.compile(r"^(affordance|cue|fact|criterion|asset|device) ([^:]+?):")
+_BOUNDS_RE = re.compile(r"^state_bounds ([^:]+?):")
+_DUPLICATE_RE = re.compile(r"^(actor|affordance|cue|fact|criterion|asset|device) id 重复")
 _DUPLICATE_PARENTS = {
     "actor": "actors",
     "affordance": "affordances",
     "cue": "setting.cues",
-    "reaction": "reactions",
     "fact": "facts",
     "criterion": "rubric",
-    "dim": "dims",
     "asset": "assets",
     "device": "presentation.devices",
-    "board section": "presentation.board",
 }
 
 
@@ -129,9 +123,9 @@ def problem_path(message: str) -> str:
             device, channel = target.split("/", 1)
             return f"{parent}[{device}].channels[{channel}]"
         return f"{parent}[{target}]"
-    match = _HUD_RE.match(message)
+    match = _BOUNDS_RE.match(message)
     if match is not None:
-        return f"presentation.hud[{match.group(1)}]"
+        return f"state_bounds[{match.group(1)}]"
     match = _DUPLICATE_RE.match(message)
     if match is not None:
         return _DUPLICATE_PARENTS[match.group(1)]

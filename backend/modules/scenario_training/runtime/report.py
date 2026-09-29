@@ -42,7 +42,7 @@ def state_at(world: World, key: str, turn: int) -> Any:
 
 
 def turn_changes(pack: ScenarioPack, world: World, turn: int) -> list[str]:
-    """某一回合**已经记录在案**的可见变化（读数、线索、反应）。"""
+    """某一回合**已经记录在案**的可见变化（读数、线索）。"""
     changes: list[str] = []
     for key, turns in world.state_turns.items():
         history = world.state_history.get(key, [])
@@ -57,12 +57,6 @@ def turn_changes(pack: ScenarioPack, world: World, turn: int) -> list[str]:
         cue = pack.cue(cue_id)
         if cue is not None:
             changes.append(cue.text)
-    for reaction_id, item_turn in world.fired_turns.items():
-        if item_turn != turn:
-            continue
-        reaction = next((item for item in pack.reactions if item.id == reaction_id), None)
-        if reaction is not None:
-            changes.append(reaction.intent)
     return changes
 
 

@@ -46,6 +46,11 @@ def strip_case_metadata(data: dict) -> dict:
 # 否则会被静默丢弃。未声明的顶层键由 CaseDataSchema 的 extra="allow" 兜住。
 _INNER_CFG = ConfigDict(extra="allow")
 
+#: 体征参考人群闭集（docs/15 §四）：这里声明取值，发布门禁
+#: （``modules/cases/validator._check_vitals_age_group``）从本别名派生可选项清单 ——
+#: 闭集只有这一处，不在两个文件里各抄一份。
+VitalsAgeGroup = Literal["pediatric", "adult", "elderly"]
+
 
 class PatientInfo(BaseModel):
     model_config = _INNER_CFG
@@ -58,7 +63,7 @@ class PatientInfo(BaseModel):
     #: 体征参考人群，缺省按 ``age`` 推定（≤12 儿科 / ≥65 老年 / 其余成人）。
     #: **照护者代诉型病例**必须显式声明：儿科病例的对话者是家长，体征属于患儿，
     #: 不声明就会拿家长年龄套成人参考范围，向学生输出错误的"低于/高于参考范围"。
-    vitals_age_group: Literal["pediatric", "adult", "elderly"] | None = None
+    vitals_age_group: VitalsAgeGroup | None = None
     #: 情绪立绘映射：情绪键（六态闭集）→ 立绘 URL，同一患者可有多张按情绪切换的立绘。
     #: 可选声明；不声明 = 只有单张立绘。这里只声明结构（字符串 → 字符串）：键是否在闭集内
     #: 属于发布门禁（``modules/cases/validator._check_portrait_states``），因为只有那里能

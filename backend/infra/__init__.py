@@ -13,7 +13,6 @@
 子包：
 - llm/  — LLM API 客户端、路由器、限流、日志、解析（与领域无关）
 - tts/  — Volcengine 语音合成 WebSocket 客户端
-- volc/ — Volcengine 共享认证工具
 
 注意：本包不做 re-export，请从实现所在子模块直接导入
 （如 ``from infra.queue import TaskQueue``）。

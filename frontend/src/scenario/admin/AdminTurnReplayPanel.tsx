@@ -10,33 +10,25 @@ import {
 } from "@mantine/core";
 import { IconChevronDown, IconChevronRight } from "@tabler/icons-react";
 import { useState } from "react";
-import type {
-	ScenarioAdminFocusTurn,
-	ScenarioAdminTurnReplay,
-} from "@/api/scenario";
+import type { ScenarioAdminTurnReplay } from "@/api/scenario";
 
 /**
- * 会话回放里的两块**过程证据**（docs/scenario.md、§7.1、§7.7）：
+ * 回放的一块**过程证据**：每一条已提交请求一次一条的「输入 → 结算 → 工具 → 交付」。
  *
- * 1. **教学关注点投影**（`focus`）：每个时间单位边界重算一次的「相关 / 已处理」+ 证据引用。它不是
- *    已删除的锚点状态机（历史）：没有唯一 active、没有推进权、没有催办；`addressed` 只是本包声明的观察条件
- *    成立（本包确实看到了处理证据），**不等于学生能力达标**。同一块文字在界面上必须这么写。
- * 2. **逐时间单位来源回放**（`turns`）：一条已提交请求的「解析 → 结算 → 交付」流水。这里展示的是
- *    **记录下来的阶段产物**（学生输入原文、模型解析结果、确定性结算、最终交付、拒绝原因），
- *    不是模型的自述思考过程——标签一律用「解析结果 / 结算 / 交付」，不许写成"思考"。
- *
- * 学生侧永远看不到这两块（`focus` / `resolved` / `intent` / `problems` 都不出学生接口）。
+ * 展示的全部是**记录下来的产物**（学生输入原文、确定性结算差量、每一次工具调用、模型写给
+ * 自己的备忘、最终交付的话），不是模型的自述思考过程——标签一律用「结算 / 工具账 / 交付」，
+ * 不许写成"思考"。`tools` 里的**被拒**调用与原因照样摆出来：那是"模型想干什么、平台为什么不许"
+ * 的唯一证据；`notes` 是模型草稿纸，**只教师可见**，学生接口里没有。
  */
 
-/** 关注点投影的一项：生成物没有单独导出这个别名，从时间单位类型派生（少一处手工镜像）。 */
-type FocusState = NonNullable<ScenarioAdminFocusTurn["states"]>[number];
-/** 回放里的三段产物与调用计数：同样从回放类型派生，避免给 `api/scenario.ts` 再加别名。 */
+/** 回放里各段产物与调用计数：从回放类型派生，不给 `api/scenario.ts` 再加手工别名。 */
 type TurnInputEcho = ScenarioAdminTurnReplay["input"];
 type ResolvedTurn = NonNullable<ScenarioAdminTurnReplay["resolved"]>;
 type SceneDelivery = NonNullable<ScenarioAdminTurnReplay["delivery"]>;
 type ModelsUsed = NonNullable<ScenarioAdminTurnReplay["models"]>;
 type AppliedEffect = NonNullable<ResolvedTurn["effects"]>[number];
 type DeliveryMessage = NonNullable<SceneDelivery["messages"]>[number];
+type ToolCall = NonNullable<ScenarioAdminTurnReplay["tools"]>[number];
 
 const INPUT_KIND: Record<string, string> = {
 	speech: "说话",
@@ -104,89 +96,6 @@ function Stage({
 	);
 }
 
-/** 关注点的一行：id + 相关 / 已处理（文字与颜色成对，不靠颜色单独表意）+ 意图 + 证据引用。 */
-function FocusStateRow({ state }: { state: FocusState }) {
-	const evidence = state.evidence_refs ?? [];
-	return (
-		<Box miw={0}>
-			<Group gap={6} wrap="wrap">
-				<Code>{state.id}</Code>
-				<Badge
-					size="xs"
-					variant={state.relevant ? "light" : "outline"}
-					color={state.relevant ? "blue" : "gray"}
-				>
-					{state.relevant ? "相关" : "不相关"}
-				</Badge>
-				<Badge
-					size="xs"
-					variant={state.addressed ? "light" : "outline"}
-					color={state.addressed ? "teal" : "gray"}
-				>
-					{state.addressed ? "已处理" : "未处理"}
-				</Badge>
-			</Group>
-			{state.intent !== "" && <Text size="xs">{state.intent}</Text>}
-			<Text size="xs" c="dimmed">
-				证据：{evidence.length === 0 ? "无" : evidence.join("、")}
-			</Text>
-		</Box>
-	);
-}
-
-/** 一个时间单位的关注点快照（点开看它的相关 / 已处理与证据）。 */
-function FocusTurnRow({ turn, states }: { turn: number; states: FocusState[] }) {
-	const [open, setOpen] = useState(false);
-	const relevant = states.filter((state) => state.relevant).length;
-	const addressed = states.filter((state) => state.addressed).length;
-	return (
-		<Paper withBorder radius="sm">
-			<UnstyledButton
-				w="100%"
-				p="xs"
-				onClick={() => setOpen((value) => !value)}
-				aria-expanded={open}
-				aria-label={`${turnLabel(turn)} 的教学关注点投影`}
-			>
-				<Group justify="space-between" wrap="nowrap" gap="xs">
-					<Group gap="xs" wrap="wrap">
-						<Text size="sm" fw={600}>
-							{turnLabel(turn)}
-						</Text>
-						<Text size="xs" c="dimmed">
-							{states.length} 个关注点
-						</Text>
-					</Group>
-					<Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
-						<Badge size="sm" variant="light" color="blue">
-							相关 {relevant}
-						</Badge>
-						<Badge size="sm" variant="light" color="teal">
-							已处理 {addressed}
-						</Badge>
-						{open ? (
-							<IconChevronDown size={14} aria-hidden="true" />
-						) : (
-							<IconChevronRight size={14} aria-hidden="true" />
-						)}
-					</Group>
-				</Group>
-			</UnstyledButton>
-			{open && (
-				<Stack gap={6} px="xs" pb="xs">
-					{states.length === 0 ? (
-						<Text size="xs" c="dimmed">
-							（这个时间单位没有关注点投影）
-						</Text>
-					) : (
-						states.map((state) => <FocusStateRow key={state.id} state={state} />)
-					)}
-				</Stack>
-			)}
-		</Paper>
-	);
-}
-
 /** 学生输入原文（请求回声）：kind / target / affordance_id / selection / text。 */
 function InputEcho({ input }: { input: TurnInputEcho }) {
 	const selection = input.selection ?? [];
@@ -218,13 +127,13 @@ function InputEcho({ input }: { input: TurnInputEcho }) {
 	);
 }
 
-/** 结算阶段：动作 / 结果 / 效果旧新值 / 揭示 / 反应 / 人物状态。 */
+/** 结算阶段：动作 / 结果 / 效果旧新值 / 揭示 / 观察到的事实。 */
 function ResolvedView({ resolved }: { resolved: ResolvedTurn }) {
 	const meta = outcomeMeta(resolved.outcome);
 	const effects = resolved.effects ?? [];
 	const reveals = resolved.reveals ?? [];
-	const reactions = resolved.reactions ?? [];
-	const social = resolved.social ?? [];
+	const facts = resolved.facts ?? [];
+	const action = resolved.action;
 	return (
 		<Stack gap={4}>
 			<Group gap="xs" wrap="wrap" align="baseline">
@@ -232,7 +141,9 @@ function ResolvedView({ resolved }: { resolved: ResolvedTurn }) {
 					动作：
 				</Text>
 				<Text size="xs">
-					{resolved.action.label || resolved.action.text || "（没有标签）"}
+					{action === undefined
+						? "（没有行动回声）"
+						: action.label || action.text || "（没有标签）"}
 				</Text>
 				<Badge size="sm" variant="light" color={meta.color}>
 					{meta.label}
@@ -263,57 +174,105 @@ function ResolvedView({ resolved }: { resolved: ResolvedTurn }) {
 				揭示：{reveals.length === 0 ? "无" : reveals.join("、")}
 			</Text>
 			<Text size="xs" c="dimmed">
-				反应：{reactions.length === 0 ? "无" : reactions.join("、")}
+				观察到的事实：{facts.length === 0 ? "无" : facts.join("、")}
 			</Text>
-			{social.length > 0 && (
+		</Stack>
+	);
+}
+
+/** 一笔工具调用：工具名 + 通过 / 被拒（被拒必须给原因）+ 细节参数。 */
+function ToolRow({ call }: { call: ToolCall }) {
+	const args = call.args ?? {};
+	const hasArgs = Object.keys(args).length > 0;
+	return (
+		<Box>
+			<Group gap={6} wrap="wrap" align="baseline">
+				<Badge size="sm" variant="light" color={call.ok ? "teal" : "orange"}>
+					{call.ok ? "通过" : "被拒"}
+				</Badge>
+				<Code>{call.tool}</Code>
+				{!call.ok && call.reason !== "" && (
+					<Text size="xs" c="orange.7">
+						原因：{call.reason}
+					</Text>
+				)}
+			</Group>
+			{call.detail !== "" && (
 				<Text size="xs" c="dimmed">
-					人物状态：{social.map(effectText).join("；")}
+					{call.detail}
+				</Text>
+			)}
+			{hasArgs && <Code block>{JSON.stringify(args, null, 2)}</Code>}
+		</Box>
+	);
+}
+
+/** 工具账：模型每一次工具调用（含被拒的那些与原因），外加按原因汇总的拒绝计数。 */
+function ToolsView({ replay }: { replay: ScenarioAdminTurnReplay }) {
+	const tools = replay.tools ?? [];
+	const rejections = Object.entries(replay.tool_rejections ?? {});
+	if (tools.length === 0 && rejections.length === 0) {
+		return (
+			<Text size="xs" c="dimmed">
+				（这一次请求没有工具调用）
+			</Text>
+		);
+	}
+	return (
+		<Stack gap={6}>
+			{tools.map((call, index) => (
+				<ToolRow key={`${index}-${call.tool}`} call={call} />
+			))}
+			{rejections.length > 0 && (
+				<Text size="xs" c="dimmed">
+					被拒汇总：
+					{rejections.map(([reason, count]) => `${reason} ×${count}`).join("、")}
 				</Text>
 			)}
 		</Stack>
 	);
 }
 
-/** 交付阶段：台词（谁说的 + 来源）+ 提示 / 图片 / 高亮。 */
+/** 模型草稿纸：写给自己的备忘，只教师可见（学生接口里没有这一项）。 */
+function NotesView({ notes }: { notes: string[] }) {
+	if (notes.length === 0) {
+		return (
+			<Text size="xs" c="dimmed">
+				（这一次请求没有留下草稿）
+			</Text>
+		);
+	}
+	return (
+		<Stack gap={4}>
+			{notes.map((note, index) => (
+				<Code key={`${index}-${note.slice(0, 12)}`} block>
+					{note}
+				</Code>
+			))}
+		</Stack>
+	);
+}
+
+/** 交付阶段：这一次请求的最终交付（学生看到的话）。 */
 function DeliveryView({ delivery }: { delivery: SceneDelivery }) {
 	const messages = delivery.messages ?? [];
-	const hints = delivery.hints ?? [];
-	const assets = delivery.assets ?? [];
-	const highlights = delivery.highlights ?? [];
+	if (messages.length === 0) {
+		return (
+			<Text size="xs" c="dimmed">
+				（这一次请求没有交付台词）
+			</Text>
+		);
+	}
 	return (
 		<Stack gap={6}>
-			{messages.length === 0 ? (
-				<Text size="xs" c="dimmed">
-					（这一次请求没有交付台词）
-				</Text>
-			) : (
-				messages.map((message, index) => (
-					<DeliveryLine key={`${index}-${message.text.slice(0, 12)}`} message={message} />
-				))
-			)}
-			<Group gap="xs" wrap="wrap">
-				{hints.length > 0 && (
-					<Text size="xs" c="dimmed">
-						提示：{hints.join("、")}
-					</Text>
-				)}
-				{assets.length > 0 && (
-					<Text size="xs" c="dimmed">
-						图片：{assets.join("、")}
-					</Text>
-				)}
-				{highlights.length > 0 && (
-					<Text size="xs" c="dimmed">
-						高亮：{highlights.join("、")}
-					</Text>
-				)}
-			</Group>
+			{messages.map((message, index) => (
+				<DeliveryLine key={`${index}-${message.text.slice(0, 12)}`} message={message} />
+			))}
 		</Stack>
 	);
 }
 
 function DeliveryLine({ message }: { message: DeliveryMessage }) {
-	const sources = message.sources ?? [];
 	const speaker = message.speaker || message.as_role || "（未标注说话人）";
 	return (
 		<Box>
@@ -328,11 +287,6 @@ function DeliveryLine({ message }: { message: DeliveryMessage }) {
 				)}
 			</Group>
 			<Text size="xs">{message.text}</Text>
-			{sources.length > 0 && (
-				<Text size="xs" c="dimmed">
-					来源：{sources.join("、")}
-				</Text>
-			)}
 		</Box>
 	);
 }
@@ -376,16 +330,13 @@ function TurnResult({
 				</Stack>
 			)}
 			<Text size="xs" c="dimmed">
-				模型调用：
-				{models === null
-					? "未记录"
-					: `解析 ${models.parse} 次 · 交付 ${models.delivery} 次`}
+				模型调用：{models === null ? "未记录" : `${models.calls} 次`}
 			</Text>
 		</Stack>
 	);
 }
 
-/** 一条已提交请求：标题行（时间单位 / seq / request_id / 类型 / 结果）+ 展开后的四个阶段。 */
+/** 一条已提交请求：标题行（时间单位 / seq / request_id / 结果）+ 展开后的各段。 */
 function TurnReplayBlock({ replay }: { replay: ScenarioAdminTurnReplay }) {
 	const [open, setOpen] = useState(false);
 	const meta = outcomeMeta(replay.outcome);
@@ -399,7 +350,7 @@ function TurnReplayBlock({ replay }: { replay: ScenarioAdminTurnReplay }) {
 				p="xs"
 				onClick={() => setOpen((value) => !value)}
 				aria-expanded={open}
-				aria-label={`${turnLabel(replay.turn)} 的解析 / 结算 / 交付回放`}
+				aria-label={`${turnLabel(replay.turn)} 的请求回放`}
 			>
 				<Group justify="space-between" wrap="nowrap" gap="xs">
 					<Box miw={0}>
@@ -429,17 +380,8 @@ function TurnReplayBlock({ replay }: { replay: ScenarioAdminTurnReplay }) {
 			</UnstyledButton>
 			{open && (
 				<Stack gap="sm" px="xs" pb="xs">
-					<Stage label="输入" note="学生请求原文（kind / 目标 / 声明动作 / 选项 / 自由文本）">
+					<Stage label="输入" note="学生请求原文（类型 / 目标 / 声明动作 / 选项 / 自由文本）">
 						<InputEcho input={replay.input} />
-					</Stage>
-					<Stage label="解析结果" note="模型解析产物，不是思考过程">
-						{replay.intent == null ? (
-							<Text size="xs" c="dimmed">
-								（这一次请求没有解析记录）
-							</Text>
-						) : (
-							<Code block>{JSON.stringify(replay.intent, null, 2)}</Code>
-						)}
 					</Stage>
 					<Stage label="结算" note="世界这一次确定性地发生了什么">
 						{resolved === null ? (
@@ -450,7 +392,13 @@ function TurnReplayBlock({ replay }: { replay: ScenarioAdminTurnReplay }) {
 							<ResolvedView resolved={resolved} />
 						)}
 					</Stage>
-					<Stage label="交付" note="演出的最终产出（学生看到的话）">
+					<Stage label="工具账" note="模型每一次工具调用（被拒的也在这里，含原因）">
+						<ToolsView replay={replay} />
+					</Stage>
+					<Stage label="草稿纸" note="模型写给自己的备忘 · 只教师可见">
+						<NotesView notes={replay.notes ?? []} />
+					</Stage>
+					<Stage label="交付" note="这一次请求的最终交付（学生看到的话）">
 						{delivery === null ? (
 							<Text size="xs" c="dimmed">
 								（这一次请求没有交付记录）
@@ -468,70 +416,34 @@ function TurnReplayBlock({ replay }: { replay: ScenarioAdminTurnReplay }) {
 	);
 }
 
-export default function AdminFocusPanel({
-	focus = null,
+export default function AdminTurnReplayPanel({
 	turns = null,
 }: {
-	/** 教学关注点的时间单位投影（`detail.focus`）。 */
-	focus?: ScenarioAdminFocusTurn[] | null;
-	/** 已提交请求的「解析 → 结算 → 交付」回放（`detail.turns`）。 */
+	/** 已提交请求的「输入 → 结算 → 工具 → 交付」回放（`detail.turns`）。 */
 	turns?: ScenarioAdminTurnReplay[] | null;
 }) {
-	const focusTurns = focus ?? [];
 	const replayTurns = turns ?? [];
 	return (
-		<Stack gap="md">
-			<Box component="section" aria-label="教学关注点投影">
-				<Group justify="space-between" align="baseline" mb={4} gap="xs" wrap="wrap">
-					<Text size="sm" fw={600}>
-						教学关注点投影（按时间单位）
-					</Text>
-					<Text size="xs" c="dimmed">
-						每个时间单位边界重算 · 只在管理侧可见
-					</Text>
-				</Group>
-				<Text size="xs" c="dimmed" mb={6}>
-					「已处理」= 本包声明的观察条件（addressed_when）在这个时间单位成立，也就是本包看到了处理证据；
-					它不等于学生能力达标。关注点没有推进权，也不解锁世界。
+		<Box component="section" aria-label="逐请求回放">
+			<Group justify="space-between" align="baseline" mb={4} gap="xs" wrap="wrap">
+				<Text size="sm" fw={600}>
+					逐请求回放（输入 → 结算 → 工具 → 交付）
 				</Text>
-				{focusTurns.length === 0 ? (
-					<Text size="sm" c="dimmed">
-						本包未声明教学关注点
-					</Text>
-				) : (
-					<Stack gap={6}>
-						{focusTurns.map((item) => (
-							<FocusTurnRow
-								key={item.turn}
-								turn={item.turn}
-								states={item.states ?? []}
-							/>
-						))}
-					</Stack>
-				)}
-			</Box>
-
-			<Box component="section" aria-label="逐请求来源回放">
-				<Group justify="space-between" align="baseline" mb={4} gap="xs" wrap="wrap">
-					<Text size="sm" fw={600}>
-						请求来源回放（解析 → 结算 → 交付）
-					</Text>
-					<Text size="xs" c="dimmed">
-						记录下来的阶段产物 · 不是模型的思考过程
-					</Text>
-				</Group>
-				{replayTurns.length === 0 ? (
-					<Text size="sm" c="dimmed">
-						还没有已提交请求
-					</Text>
-				) : (
-					<Stack gap={6}>
-						{replayTurns.map((item) => (
-							<TurnReplayBlock key={item.seq} replay={item} />
-						))}
-					</Stack>
-				)}
-			</Box>
-		</Stack>
+				<Text size="xs" c="dimmed">
+					记录下来的阶段产物 · 不是模型的思考过程
+				</Text>
+			</Group>
+			{replayTurns.length === 0 ? (
+				<Text size="sm" c="dimmed">
+					还没有已提交请求
+				</Text>
+			) : (
+				<Stack gap={6}>
+					{replayTurns.map((item) => (
+						<TurnReplayBlock key={item.seq} replay={item} />
+					))}
+				</Stack>
+			)}
+		</Box>
 	);
 }

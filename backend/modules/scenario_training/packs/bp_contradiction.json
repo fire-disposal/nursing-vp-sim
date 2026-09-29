@@ -62,21 +62,6 @@
       "goals": [
         "证明自己身体没问题",
         "尽快把检查做完"
-      ],
-      "dm_writable": [
-        {
-          "key": "patient.trust",
-          "kind": "int",
-          "lo": 0,
-          "hi": 5,
-          "max_delta": 1,
-          "meaning": "患者对你这个人的信任程度：愿意听你说、也愿意配合核对"
-        },
-        {
-          "key": "patient.guarded",
-          "kind": "bool",
-          "meaning": "他是否处于防备状态（不愿多说、把话题挡回去）"
-        }
       ]
     }
   ],
@@ -85,6 +70,24 @@
     "scene.bp_dia": 98,
     "patient.trust": 2,
     "patient.guarded": 0
+  },
+  "state_bounds": {
+    "scene.bp_sys": {
+      "lo": 40,
+      "hi": 300
+    },
+    "scene.bp_dia": {
+      "lo": 20,
+      "hi": 200
+    },
+    "patient.trust": {
+      "lo": 0,
+      "hi": 5
+    },
+    "patient.guarded": {
+      "lo": 0,
+      "hi": 5
+    }
   },
   "truth": [
     "他很可能在被漏诊或已自行停药的高血压，需要靠第三方证据（用药、旧记录、复测）确认，而不是靠他承认"
@@ -108,6 +111,20 @@
         {
           "kind": "actor",
           "id": "patient"
+        }
+      ],
+      "effects": [
+        {
+          "target": "scene",
+          "key": "bp_sys",
+          "op": "set",
+          "value": 168
+        },
+        {
+          "target": "scene",
+          "key": "bp_dia",
+          "op": "set",
+          "value": 98
         }
       ]
     },
@@ -237,173 +254,6 @@
       }
     }
   ],
-  "reactions": [
-    {
-      "id": "r_deny_again",
-      "when": {
-        "all": [
-          {
-            "kind": "action_count_gte",
-            "affordance_id": "ask_history",
-            "count": 1
-          }
-        ]
-      },
-      "by": "patient",
-      "does": "say",
-      "intent": "他立刻否认：「我跟你说过我没有高血压，你们怎么老要给我安个病？」",
-      "effects": [
-        {
-          "target": "patient",
-          "key": "guarded",
-          "op": "incr",
-          "value": 1
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "r_annoyed",
-      "when": {
-        "all": [
-          {
-            "kind": "action_count_gte",
-            "affordance_id": "ask_history",
-            "count": 2
-          }
-        ]
-      },
-      "by": "patient",
-      "does": "withhold",
-      "intent": "他不接这个话了，转口问「什么时候能回家」，之后回答明显变短",
-      "effects": [
-        {
-          "target": "patient",
-          "key": "trust",
-          "op": "decr",
-          "value": 1
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "r_meds_slip",
-      "when": {
-        "all": [
-          {
-            "kind": "action_count_gte",
-            "affordance_id": "ask_meds",
-            "count": 1
-          }
-        ]
-      },
-      "by": "patient",
-      "does": "say",
-      "intent": "他含糊地说抽屉里那半板药是家里人让他吃的，「说是降压的？我也不清楚」",
-      "effects": [
-        {
-          "target": "patient",
-          "key": "trust",
-          "op": "incr",
-          "value": 1
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "r_record_found",
-      "when": {
-        "all": [
-          {
-            "kind": "action_count_gte",
-            "affordance_id": "ask_record",
-            "count": 1
-          }
-        ]
-      },
-      "by": "patient",
-      "does": "say",
-      "intent": "他看到你在翻旧记录，语气软了一点：「那次医生也说过有点高，让我复查，我没去。」",
-      "effects": [
-        {
-          "target": "patient",
-          "key": "trust",
-          "op": "incr",
-          "value": 1
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "r_retake",
-      "when": {
-        "all": [
-          {
-            "kind": "action_count_gte",
-            "affordance_id": "measure_bp_again",
-            "count": 1
-          }
-        ]
-      },
-      "by": "patient",
-      "does": "say",
-      "intent": "他看着两次读数都不低，第一次不再立刻反驳，只是沉默了一下",
-      "once": true
-    },
-    {
-      "id": "r_settles_with_time",
-      "when": {
-        "all": [
-          {
-            "kind": "turn_gte",
-            "count": 5
-          }
-        ]
-      },
-      "by": "patient",
-      "does": "say",
-      "intent": "等了这几分钟你没再追着问，他反倒先开口：「……我姐也是高血压，我是不是也该查一下。」",
-      "effects": [
-        {
-          "target": "patient",
-          "key": "trust",
-          "op": "incr",
-          "value": 1
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "r_patient_reacts_to_reading",
-      "when": {
-        "all": [
-          {
-            "kind": "cue_revealed",
-            "cue_id": "c_bp_high"
-          }
-        ]
-      },
-      "by": "patient",
-      "does": "say",
-      "intent": "他把袖子放下来：「多少？……高吗？」语气里带着一点不服，又补了一句「我平时真的没事」",
-      "once": true
-    },
-    {
-      "id": "r_nurse_note",
-      "when": {
-        "all": [
-          {
-            "kind": "cue_revealed",
-            "cue_id": "c_pills"
-          }
-        ]
-      },
-      "by": "patient",
-      "does": "say",
-      "intent": "他盯着那半板药看了一会儿，声音低下去：「……家里人让我吃的，说不吃不行。」",
-      "once": true
-    }
-  ],
   "facts": [
     {
       "id": "f_bp_high",
@@ -450,115 +300,6 @@
         "wait_rest_recheck"
       ]
     }
-  ],
-  "dims": [
-    {
-      "id": "d_observation",
-      "label": "采集完整度",
-      "agg": "coverage",
-      "source": "facts",
-      "params": {}
-    },
-    {
-      "id": "d_actions",
-      "label": "动作数",
-      "agg": "count",
-      "source": "actions",
-      "params": {}
-    },
-    {
-      "id": "d_verify",
-      "label": "开始求证的延迟",
-      "agg": "latency",
-      "source": "actions",
-      "params": {
-        "affordances": [
-          "ask_meds",
-          "ask_record",
-          "measure_bp_again",
-          "wait_rest_recheck"
-        ]
-      }
-    },
-    {
-      "id": "d_bp",
-      "label": "血压变化",
-      "agg": "slope",
-      "source": "state",
-      "params": {
-        "key": "scene.bp_sys"
-      }
-    }
-  ],
-  "presentation": {
-    "hud": [
-      {
-        "slot": "血压（收缩压）",
-        "source": "state",
-        "ref": "scene.bp_sys",
-        "visible_when": {
-          "all": [
-            {
-              "kind": "cue_revealed",
-              "cue_id": "c_bp_high"
-            }
-          ]
-        }
-      },
-      {
-        "slot": "现场线索",
-        "source": "cue"
-      },
-      {
-        "slot": "可做动作",
-        "source": "affordance"
-      }
-    ],
-    "panels": [
-      "timeline",
-      "emotion",
-      "coverage"
-    ],
-    "board": [
-      {
-        "id": "board_scene",
-        "title": "现场看到的",
-        "source": "cue"
-      },
-      {
-        "id": "board_readings",
-        "title": "读数",
-        "source": "state",
-        "refs": [
-          "scene.bp_sys"
-        ],
-        "labels": {
-          "scene.bp_sys": "收缩压（mmHg）"
-        },
-        "visible_when": {
-          "all": [
-            {
-              "kind": "cue_revealed",
-              "cue_id": "c_bp_high"
-            }
-          ]
-        }
-      },
-      {
-        "id": "board_confirmed",
-        "title": "已确认的",
-        "source": "fact"
-      },
-      {
-        "id": "board_done",
-        "title": "已处置",
-        "source": "action"
-      }
-    ]
-  },
-  "failure": "recoverable",
-  "hidden_from_player": [
-    "他可能在被漏诊或已自行停药的高血压"
   ],
   "rubric": [
     {
@@ -642,5 +383,36 @@
       "weight": 15
     }
   ],
-  "teaching_focus": []
+  "presentation": {
+    "devices": [
+      {
+        "id": "ward_monitor",
+        "kind": "monitor",
+        "title": "病房监护仪",
+        "channels": [
+          {
+            "ref": "scene.bp_sys",
+            "label": "血压（收缩压）",
+            "unit": "mmHg",
+            "normal": [
+              90,
+              140
+            ],
+            "visible_when": {
+              "all": [
+                {
+                  "kind": "cue_revealed",
+                  "cue_id": "c_bp_high"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "failure": "recoverable",
+  "hidden_from_player": [
+    "他可能在被漏诊或已自行停药的高血压"
+  ]
 }

@@ -37,17 +37,17 @@ function contactText(presence: string): string {
 }
 
 /**
- * 概览 —— 教师视角的**落地页**：这个病例是什么、学生扮演谁、在哪儿、谁在场、要练什么。
+ * 概览 —— 教师视角的**落地页**：这个病例是什么、学生扮演谁、在哪儿、谁在场、能碰到什么。
  *
- * 头一块只写病例身份（标题 / 上架状态 / 编号 / 版本 / 一句话），回答"这是什么"；下面四块分别是
- * 角色与地点时间、在场者、教学关注点（要练什么）与可做的动作数。
+ * 头一块只写病例身份（标题 / 上架状态 / 编号 / 版本 / 一句话），回答"这是什么"；下面三块分别是
+ * 角色与地点时间、在场者、训练内容（平台从病例内容推导出的线索/动作/读数/观察点/判据计数）。
  *
  * 数据全部来自 `GET /scenario/admin/packs` 的 `overview` 投影（这份病例的当前内容）：
- * 角色 / 地点时间 / 手边有什么 / 在场者 / 教学关注点 / 可做的动作数。DM 侧的真相字段（`truth`、
+ * 角色 / 地点时间 / 手边有什么 / 在场者 / 各项数量。DM 侧的真相字段（`truth`、
  * `hidden_from_player`、actor 的 knowledge）**一个都不在这里**——管理界面要的是"作者声明了什么"，
  * 不是"患者藏着什么"，少一处副本就少一处泄漏面。
  *
- * **计数与内部标记不进首屏**：线索/反应/观察点/判据数、失败口径、图片生成声明这些是维护者
+ * **计数与内部标记不进首屏**：图片生成声明与这一局的会话次数这些是维护者
  * 核对用的，收在折叠的「维护者信息」里；首屏只回答教师的问题。
  *
  * 那些字段在生成物里都是可选的：缺就当"没有这一项"渲染（整行不出现），不硬读、不拿默认值冒充。
@@ -58,7 +58,6 @@ export default function AdminCaseOverviewPanel({ pack }: { pack: ScenarioAdminPa
 	const assets = pack.assets ?? [];
 	const resources = overview?.resources ?? [];
 	const actors = overview?.actors ?? [];
-	const teachingFocus = overview?.teaching_focus ?? [];
 	const uploaded = assets.filter((asset) => asset.uploaded).length;
 
 	return (
@@ -134,39 +133,30 @@ export default function AdminCaseOverviewPanel({ pack }: { pack: ScenarioAdminPa
 
 					<Paper withBorder p="md">
 						<Text fw={600} mb={6}>
-							要练什么
+							训练内容（平台推导）
 						</Text>
-						<Text size="xs" c="dimmed" mb={6}>
-							作者希望学生在这次训练里遇到的判断问题（教师可见，不是给学生的提示）。
-							这里只是作者声明的练习重点，不代表学生是否达标。
+						<Text size="xs" c="dimmed" mb="sm">
+							这些数字由平台从病例内容推导，不是作者单独声明的练习重点：现场线索、可做的动作、
+							挂在设备上的读数、可观察的事实与判据，合起来是这一局学生能碰到的东西。
 						</Text>
-						<Text size="sm" mb="xs">
-							可以做的动作：{overview.affordances} 个
-						</Text>
-						{teachingFocus.length === 0 ? (
-							<Text size="sm" c="dimmed">
-								没有声明教学关注点：这份病例不预设判断问题，训练按常规时间推进。
+						<SimpleGrid cols={{ base: 2, sm: 3, md: 5 }} spacing="md">
+							<Field label="现场线索">{overview.cues}</Field>
+							<Field label="可做的动作">{overview.affordances}</Field>
+							<Field label="设备读数">{overview.devices}</Field>
+							<Field label="观察点">{overview.facts}</Field>
+							<Field label="判据">
+								{overview.criteria}（权重合计 {overview.criteria_weight}）
+							</Field>
+						</SimpleGrid>
+						{overview.failure === "irreversible" ||
+						overview.failure === "recoverable" ? (
+							<Text size="xs" c="dimmed" mt="xs">
+								失败口径：
+								{overview.failure === "irreversible"
+									? "可失败到不可逆"
+									: "可恢复"}
 							</Text>
-						) : (
-							<Table verticalSpacing="xs">
-								<Table.Thead>
-									<Table.Tr>
-										<Table.Th>教学关注点</Table.Th>
-									</Table.Tr>
-								</Table.Thead>
-								<Table.Tbody>
-									{teachingFocus.map((focus) => (
-										<Table.Tr key={focus.id}>
-											<Table.Td>
-												<Text size="sm">
-													{focus.intent || "（没有写教学意图）"}
-												</Text>
-											</Table.Td>
-										</Table.Tr>
-									))}
-								</Table.Tbody>
-							</Table>
-						)}
+						) : null}
 					</Paper>
 
 					<Accordion variant="separated">
@@ -176,33 +166,16 @@ export default function AdminCaseOverviewPanel({ pack }: { pack: ScenarioAdminPa
 							</Accordion.Control>
 							<Accordion.Panel>
 								<Text size="xs" c="dimmed" mb="sm">
-									下面这些数字与内部标记用来核对内容，课堂上用不到。
+									下面这些数字用来核对内容，课堂上用不到。
 								</Text>
-								<SimpleGrid cols={{ base: 2, sm: 3, md: 5 }} spacing="md">
-									<Field label="现场线索">{overview.cues}</Field>
-									<Field label="动作">{overview.affordances}</Field>
-									<Field label="反应">{overview.reactions}</Field>
-									<Field label="观察点">{overview.facts}</Field>
-									<Field label="判据">
-										{overview.criteria}（权重合计 {overview.criteria_weight}）
-									</Field>
-								</SimpleGrid>
-								<Text size="xs" c="dimmed" mt="xs">
+								<Text size="xs" c="dimmed">
 									图片：{assets.length} 张，已上传 {uploaded} 张
 									{assets.length > uploaded &&
 										`，缺 ${assets.length - uploaded} 张字节`}
 								</Text>
-								<SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md" mt="sm">
-									<Field label="会话">{pack.sessions} 次</Field>
-									{overview.failure === "irreversible" ||
-									overview.failure === "recoverable" ? (
-										<Field label="失败口径">
-											{overview.failure === "irreversible"
-												? "可失败到不可逆"
-												: "可恢复"}
-										</Field>
-									) : null}
-								</SimpleGrid>
+								<Text size="xs" c="dimmed" mt={4}>
+									会话：{pack.sessions} 次
+								</Text>
 							</Accordion.Panel>
 						</Accordion.Item>
 					</Accordion>

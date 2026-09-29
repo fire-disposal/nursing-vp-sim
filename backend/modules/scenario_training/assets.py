@@ -23,7 +23,24 @@ if TYPE_CHECKING:
 
 ASSETS_ROOT = pathlib.Path(__file__).resolve().parent / "assets"
 MAX_ASSET_BYTES = 8 * 1024 * 1024
-ALLOWED_MIME = ("image/png", "image/jpeg", "image/webp", "image/gif")
+
+#: 文件后缀 → MIME 的**唯一来源**（`router.py` 的回退与 `seed_from_pack` 的播种都用它）
+SUFFIX_MIME: dict[str, str] = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+}
+ALLOWED_MIME = tuple(dict.fromkeys(SUFFIX_MIME.values()))
+
+
+def suffix_mime(filename: str | None) -> str:
+    """上传时 `content_type` 缺失的回退：按后缀取 MIME（认不出交给 `store_asset` 拒绝）。"""
+    suffix = "." + (filename or "").rsplit(".", 1)[-1].lower()
+    return SUFFIX_MIME.get(suffix, "application/octet-stream")
+
+
 MAX_EDGE = 1600  # 场景图长边上限（再大对展示无意义，只增体积）
 WEBP_QUALITY = 82
 

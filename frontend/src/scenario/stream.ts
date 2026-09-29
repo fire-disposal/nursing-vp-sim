@@ -33,10 +33,8 @@ export interface PendingStudentLine {
  */
 export const PHASE_LABEL: Record<string, string> = {
 	receiving: "正在接受本次请求",
-	parsing: "正在理解你的表达",
 	resolving: "正在结算本次行动",
 	delivering: "正在生成回应",
-	validating: "正在校验回应",
 	committing: "正在提交本次结果",
 };
 

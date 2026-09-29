@@ -6,9 +6,9 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
-from .dm.contract import banned_terms
 from .runtime.world import namespaced_key
 from .schema import Affordance, AffordanceType, Clause, EffectOp, JudgeRuleKind, ScenarioPack, Trigger
 
@@ -21,7 +21,7 @@ _RULE_AFFORDANCE_KEYS: dict[JudgeRuleKind, tuple[str, ...]] = {
     JudgeRuleKind.OPTION_CHOICE: ("affordances",),
 }
 
-_NEEDS_AFFORDANCE = frozenset({"action_used", "action_count_gte", "turns_without_action"})
+_NEEDS_AFFORDANCE = frozenset({"action_used"})
 
 
 class _Index:
@@ -33,6 +33,8 @@ class _Index:
         self.facts = {f.id for f in pack.facts}
         self.affordances = {a.id for a in pack.affordances}
         self.state_keys = set(pack.state_keys)
+        self.devices = {d.id for d in pack.presentation.devices}
+        self.assets = {a.id for a in pack.assets}
 
     @property
     def targets(self) -> set[str]:
@@ -45,20 +47,15 @@ def validate_pack(pack: ScenarioPack) -> list[str]:
     problems: list[str] = []
     problems += _check_ids(pack)
     problems += _check_state_keys(pack, index)
+    problems += _check_bounds(pack, index)
     problems += _check_affordances(pack, index)
-    problems += _check_reactions(pack, index)
     problems += _check_leaks(pack)
-    problems += _check_assets(pack)
-    problems += _check_hud(pack, index)
-    problems += _check_board(pack, index)
+    problems += _check_assets(pack, index)
     problems += _check_devices(pack, index)
-    problems += _check_cues(pack, index)
     problems += _check_facts(pack, index)
     problems += _check_judgment(pack, index)
     problems += _check_failure(pack, index)
     problems += _check_targets(pack, index)
-    problems += _check_teaching_focus(pack, index)
-    problems += _check_dm_writable(pack, index)
     problems += _check_triggers(pack)
     return problems
 
@@ -70,12 +67,8 @@ def _check_failure(pack: ScenarioPack, index: _Index) -> list[str]:
 
 
 def _presentation_trigger_sites(pack: ScenarioPack) -> list[tuple[Trigger | None, str]]:
-    """演示面（HUD / 线索板 / 设备各通道 / 催促）里全部可省略的触发条件及定位前缀。"""
+    """演示面（设备与通道）里全部可省略的触发条件及定位前缀。"""
     sites: list[tuple[Trigger | None, str]] = []
-    for slot in pack.presentation.hud:
-        sites.append((slot.visible_when, f"hud slot {slot.slot}"))
-    for section in pack.presentation.board:
-        sites.append((section.visible_when, f"board {section.id}"))
     for device in pack.presentation.devices:
         sites.append((device.visible_when, f"device {device.id}"))
         for channel in device.channels:
@@ -88,12 +81,7 @@ def _trigger_sites(pack: ScenarioPack) -> list[tuple[Trigger | None, str]]:
     sites: list[tuple[Trigger | None, str]] = []
     for affordance in pack.affordances:
         sites.append((affordance.visible_when, f"affordance {affordance.id}"))
-    for reaction in pack.reactions:
-        sites.append((reaction.when, f"reaction {reaction.id}"))
     sites += _presentation_trigger_sites(pack)
-    for item in pack.teaching_focus:
-        sites.append((item.relevant_when, f"teaching_focus {item.id}.relevant_when"))
-        sites.append((item.addressed_when, f"teaching_focus {item.id}.addressed_when"))
     sites.append((pack.failure_when, "failure_when"))
     return sites
 
@@ -117,9 +105,8 @@ def _check_targets(pack: ScenarioPack, index: _Index) -> list[str]:
     两层一起兜住"裸 id 跨类型碰撞"（docs/scenario.md）。
     """
     problems: list[str] = []
-    devices = {device.id for device in pack.presentation.devices}
     seen: dict[str, str] = {}
-    for label, ids in (("actor", index.actors), ("device", devices), ("scene", {"scene"})):
+    for label, ids in (("actor", index.actors), ("device", index.devices), ("scene", {"scene"})):
         for item in ids:
             other = seen.get(item)
             if other is not None and other != label:
@@ -129,86 +116,10 @@ def _check_targets(pack: ScenarioPack, index: _Index) -> list[str]:
         for target in affordance.targets:
             if target.kind.value == "actor" and target.id not in index.actors:
                 problems.append(f"affordance {affordance.id}: targets 引用未知 actor {target.id}")
-            elif target.kind.value == "device" and target.id not in devices:
+            elif target.kind.value == "device" and target.id not in index.devices:
                 problems.append(f"affordance {affordance.id}: targets 引用未知 device {target.id}")
             elif target.kind.value == "scene" and target.id != "scene":
                 problems.append(f"affordance {affordance.id}: scene 目标只能是 'scene'（收到 {target.id}）")
-    return problems
-
-
-def _check_teaching_focus(pack: ScenarioPack, index: _Index) -> list[str]:
-    """教学关注点：id 唯一；`evidence_refs` 只能引用本包已登记的事实/动作/线索。"""
-    problems = _duplicates("teaching_focus", [item.id for item in pack.teaching_focus])
-    known = index.facts | index.affordances | index.cues
-    for item in pack.teaching_focus:
-        where = f"teaching_focus {item.id}"
-        if not item.intent.strip():
-            problems.append(f"{where}: 缺 intent（作者希望学生遇到的判断问题）")
-        for ref in item.evidence_refs:
-            if ref not in known:
-                problems.append(f"{where}: evidence_refs 引用未登记的事实/动作/线索 {ref}")
-    return problems
-
-
-def _logic_keys(pack: ScenarioPack) -> set[str]:
-    """**驱动世界逻辑**的状态键：触发条件（含失败条件）与 state 维度引用的键。
-
-    这些键参与确定性判定，DM 不得改写（否则等于让模型改判据）。
-    """
-    keys: set[str] = set()
-
-    def walk(node: object) -> None:
-        if isinstance(node, dict):
-            mapping: dict[Any, Any] = node
-            if mapping.get("kind") == "state_cmp" and mapping.get("key"):
-                keys.add(str(mapping["key"]))
-            for value in mapping.values():
-                walk(value)
-        elif isinstance(node, list):
-            for value in node:
-                walk(value)
-
-    walk(pack.model_dump(mode="json", exclude_none=True))
-    for dim in pack.dims:
-        if dim.source == "state" and isinstance(dim.params.get("key"), str):
-            keys.add(str(dim.params["key"]))
-    return keys
-
-
-def _check_dm_writable(pack: ScenarioPack, index: _Index) -> list[str]:
-    """人物状态可写集（docs/scenario.md）：平台能机器查的边界全部在这里。
-
-    1. 键必须已登记且属于该角色；
-    2. **不得是设备通道读数**（设备状态永远不在写集）；
-    3. **不得驱动世界逻辑**（任何 `state_cmp` 条件 / `failure_when` / state 维度）——
-       此类阈值与风险结局都属于这一类；
-    4. `meaning` 必须写清语义（作者必须为"为什么它能被 DM 改"给出理由）；
-    5. 类型与取值域自洽。
-
-    「数值、测量结果、风险结局、动作完成状态」在**这四条之外**再靠作者审阅把关：
-    平台不内置领域词表（本模块领域中立），但凡是参与判定的键都会被第 3 条挡住。
-    """
-    problems: list[str] = []
-    readings = {channel.ref for device in pack.presentation.devices for channel in device.channels}
-    logic = _logic_keys(pack)
-    for actor in pack.actors:
-        for item in actor.dm_writable:
-            key = item.key if "." in item.key else f"{actor.id}.{item.key}"
-            where = f"actor {actor.id}.dm_writable"
-            if key not in index.state_keys:
-                problems.append(f"{where}: 未登记状态键 {key}")
-            if not key.startswith(f"{actor.id}."):
-                problems.append(f"{where}: 键必须以本人开头（{key}）")
-            if key in readings:
-                problems.append(f"{where}: {key} 是设备读数，永远不可写")
-            if key in logic:
-                problems.append(f"{where}: {key} 驱动世界判定（触发条件/维度），不可写")
-            if not item.meaning.strip():
-                problems.append(f"{where}: {key} 缺 meaning（说清这条人物状态意味着什么）")
-            if item.kind == "bool" and (item.lo is not None or item.hi is not None or item.max_delta is not None):
-                problems.append(f"{where}: {key} 是布尔状态，不要写 lo/hi/max_delta")
-            if item.lo is not None and item.hi is not None and item.lo > item.hi:
-                problems.append(f"{where}: {key} 的 lo/hi 顺序不对")
     return problems
 
 
@@ -228,10 +139,8 @@ def _check_ids(pack: ScenarioPack) -> list[str]:
         ("actor", [a.id for a in pack.actors]),
         ("affordance", [a.id for a in pack.affordances]),
         ("cue", [c.id for c in pack.setting.cues]),
-        ("reaction", [r.id for r in pack.reactions]),
         ("fact", [f.id for f in pack.facts]),
         ("criterion", [d.id for d in pack.rubric]),
-        ("dim", [d.id for d in pack.dims]),
         ("asset", [a.id for a in pack.assets]),
     ):
         problems += _duplicates(label, ids)
@@ -247,6 +156,21 @@ def _check_state_keys(pack: ScenarioPack, index: _Index) -> list[str]:
         target = key.split(".", 1)[0]
         if target not in index.targets:
             problems.append(f"状态键目标未知：{key}")
+    return problems
+
+
+def _check_bounds(pack: ScenarioPack, index: _Index) -> list[str]:
+    """`state_bounds`：只能约束已登记的**数值**键，且区间顺序正确（模型的 `world_set` 按它拒）。"""
+    problems: list[str] = []
+    for key, bound in pack.state_bounds.items():
+        where = f"state_bounds {key}"
+        if key not in index.state_keys:
+            problems.append(f"{where}: 未登记状态键")
+            continue
+        if not isinstance(pack.state_keys[key], (int, float)) or isinstance(pack.state_keys[key], bool):
+            problems.append(f"{where}: 只能给数值键声明边界")
+        if bound.lo is not None and bound.hi is not None and bound.lo > bound.hi:
+            problems.append(f"{where}: lo/hi 顺序不对")
     return problems
 
 
@@ -302,23 +226,20 @@ def _check_affordances(pack: ScenarioPack, index: _Index) -> list[str]:
     return problems
 
 
-def _check_reactions(pack: ScenarioPack, index: _Index) -> list[str]:
-    problems: list[str] = []
-    for reaction in pack.reactions:
-        where = f"reaction {reaction.id}"
-        if reaction.by not in index.actors:
-            problems.append(f"{where}: 未知行为者 {reaction.by}")
-        for cue_id in reaction.reveals:
-            if cue_id not in index.cues:
-                problems.append(f"{where}: 揭示了未知线索 {cue_id}")
-        problems += _check_effects(pack, index, reaction.effects, where)
-        problems += _check_trigger(pack, index, reaction.when, where)
-    return problems
+def _banned_terms(pack: ScenarioPack) -> list[str]:
+    """按钮/选项/提示文案里不得出现的术语：由 facts 派生（作者可用 `banned_phrases` 显式补充）。"""
+    terms: list[str] = []
+    for fact in pack.facts:
+        for token in re.split(r"[^\w\u4e00-\u9fff]+", f"{fact.id} {fact.intent}"):
+            if len(token) >= 2:
+                terms.append(token)
+        terms.extend(fact.banned_phrases)
+    return sorted(set(terms))
 
 
 def _check_leaks(pack: ScenarioPack) -> list[str]:
-    """开场就可见的文案不得泄底（按钮文案的运行期检查见 §十三 验收句 2）。"""
-    banned = banned_terms(pack)
+    """开场就可见的文案不得泄底（按钮文案的运行期检查由模型的 `char_say`/`deliver` 承担）。"""
+    banned = _banned_terms(pack)
     visible: list[tuple[str, str]] = [
         (f"pack.title={pack.title}", pack.title),
         (f"pack.one_line={pack.one_line}", pack.one_line),
@@ -334,17 +255,7 @@ def _check_leaks(pack: ScenarioPack) -> list[str]:
     return problems
 
 
-def _check_cues(pack: ScenarioPack, index: _Index) -> list[str]:
-    problems: list[str] = []
-    mentioned = {cue_id for aff in pack.affordances for cue_id in aff.reveals}
-    mentioned |= {cue_id for reaction in pack.reactions for cue_id in reaction.reveals}
-    for cue in pack.setting.cues:
-        if not cue.visible_from_start and cue.id not in mentioned:
-            problems.append(f"cue {cue.id}: 既非开场可见、也无人揭示（死线索）")
-    return problems
-
-
-def _check_assets(pack: ScenarioPack) -> list[str]:
+def _check_assets(pack: ScenarioPack, index: _Index) -> list[str]:
     """资源声明必须可用；**字节是否已上传不在加载期判断**（不做 IO，由管理侧/安装时报告）。"""
     problems: list[str] = []
     for asset in pack.assets:
@@ -352,36 +263,9 @@ def _check_assets(pack: ScenarioPack) -> list[str]:
             problems.append(f"asset {asset.id}: 暂不支持的资源类型 {asset.kind}")
         if not asset.alt:
             problems.append(f"asset {asset.id}: 缺 alt（无图也要可读）")
-    return problems
-
-
-def _check_hud(pack: ScenarioPack, index: _Index) -> list[str]:
-    """HUD 槽位的门控必须指向本包内的线索/动作/状态（与反应共用同一套封闭词汇）。"""
-    problems: list[str] = []
-    for position, slot in enumerate(pack.presentation.hud):
-        where = f"hud slot {position}:{slot.slot}"
-        if slot.source == "state" and not slot.ref:
-            problems.append(f"{where}: source=state 需要 ref")
-        if slot.ref is not None and slot.source == "state" and slot.ref not in index.state_keys:
-            problems.append(f"{where}: 未登记状态键 {slot.ref}")
-        problems += _check_trigger(pack, index, slot.visible_when, where)
-    return problems
-
-
-def _check_board(pack: ScenarioPack, index: _Index) -> list[str]:
-    """线索板版块：来源合法、state 的 refs 必须已登记、门控引用有效、id 不重复。"""
-    problems: list[str] = _duplicates("board section", [section.id for section in pack.presentation.board])
-    for section in pack.presentation.board:
-        where = f"board {section.id}"
-        if section.source == "state":
-            if not section.refs:
-                problems.append(f"{where}: source=state 需要 refs")
-            for ref in section.refs:
-                if ref not in index.state_keys:
-                    problems.append(f"{where}: 未登记状态键 {ref}")
-        elif section.refs:
-            problems.append(f"{where}: 只有 source=state 才用 refs")
-        problems += _check_trigger(pack, index, section.visible_when, where)
+        for cue_id in asset.reveal_with:
+            if cue_id not in index.cues:
+                problems.append(f"asset {asset.id}: reveal_with 引用未知线索 {cue_id}")
     return problems
 
 
@@ -472,16 +356,10 @@ def _clause_requirements(clause: Clause) -> list[str]:
     problems: list[str] = []
     if kind in _NEEDS_AFFORDANCE and not clause.affordance_id:
         problems.append("缺少 affordance_id")
-    if kind == "action_count_gte" and not clause.count:
-        problems.append("缺少 count")
-    if kind == "turns_without_action" and not clause.turns:
-        problems.append("缺少 turns")
     if kind == "cue_revealed" and not clause.cue_id:
         problems.append("缺少 cue_id")
     if kind == "fact_declared" and not clause.fact_id:
         problems.append("缺少 fact_id")
-    if kind == "turn_gte" and not clause.count:
-        problems.append("缺少 count")
     if kind == "state_cmp":
         if not clause.key:
             problems.append("缺少 key")

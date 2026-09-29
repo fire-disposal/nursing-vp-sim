@@ -34,11 +34,11 @@ from models.scenario_training import StEvent, StSession
 
 log = logging.getLogger(__name__)
 
-# 情境训练两阶段的 LLM purpose（唯一回合管线：意图解析 → 演出）。
-# 权威定义在 ``modules/scenario_training/dm/stages.py`` 的 ``PURPOSE_INTENT`` / ``PURPOSE_DELIVERY``
-# 与 ``infra/llm/profile.py`` 的 ``PROFILES``；这里不反向 import feature 模块，故复写这两个冻结字面量
-# （改名时必须两处一起改）。旧的独立患者实体 purpose（``st_patient``）不属于两阶段管线，不计入。
-SCENARIO_LLM_PURPOSES: tuple[str, ...] = ("st_intent", "st_dm")
+# 情境训练的 LLM purpose（agent 运行时：一个回合内模型可能多步调用工具，都走 `st_dm`）。
+# 权威定义在 ``modules/scenario_training/agent/runner.py`` 与 ``infra/llm/profile.py`` 的 ``PROFILES``；
+# 这里不反向 import feature 模块，故复写这个冻结字面量（改名时必须两处一起改）。
+# 已废弃：两阶段时代的 ``st_intent``（意图解析）与独立患者实体的 ``st_patient``，都不再写入。
+SCENARIO_LLM_PURPOSES: tuple[str, ...] = ("st_dm",)
 
 _CN_TZ = ZoneInfo("Asia/Shanghai")
 _TZ_NAME = "Asia/Shanghai"
@@ -271,13 +271,15 @@ def query_scenario(db: Session, day_ago: datetime) -> dict:
     - `requests_24h` / `time_cost_24h` / `model_calls_24h`：分子都只取 `turn_committed`
       （= 已提交的业务回合）。`time_cost_24h` = 窗口内这些回合推进的**情境时间单位总和**
       （载荷 `time_cost` 是本请求消耗的时间单位，0 = 没花时间；机制切换前的事件没有该键 → 记 0）。
-      它不是请求数、不是分钟。`model_calls_24h` = 这些回合记录的 `models.parse + models.delivery`。
+      它不是请求数、不是分钟。`model_calls_24h` 取该回合记录的 `models.calls`（agent 运行时一个回合
+      可能调用模型多步）；历史事件用的是 `models.parse + models.delivery` 两阶段口径，两者都认，
+      不静默记 0。
     - `avg_time_cost_per_request_24h` / `avg_model_calls_per_request_24h`：分子分母
       **同群体同窗口**（都只数 `turn_committed`）；请求数为 0 时给 `null`，不给 0。
       `avg_time_cost_per_request_24h` 读作「平均每个已提交请求推进的时间单位」。
     - `clarifications_24h` / `hints_24h`：`clarification_exchange` / `hint_requested` 的次数
       ——它们**不推进情境时间**，故与 `requests_24h` 分列。
-    - `llm_failures_24h`：情境两阶段（`st_intent` / `st_dm`）在 `llm_call_logs` 里窗口内
+    - `llm_failures_24h`：情境 agent 运行时（`st_dm`）在 `llm_call_logs` 里窗口内
       `status != success` 的调用数——失败没有世界事件，只有日志来源，故不取 `st_events`。
     - `active` / `completed`：即时状态计数（见块上的 `state_window`），不受 24h 窗口影响。
     - `rate_limited_24h`：`audit_logs` 里 `scenario.rate_limited` 的行数（见
@@ -294,8 +296,9 @@ def query_scenario(db: Session, day_ago: datetime) -> dict:
                 count(*) AS requests,
                 coalesce(sum(coalesce((payload ->> 'time_cost')::int, 0)), 0) AS time_cost,
                 coalesce(sum(
-                    coalesce((payload -> 'models' ->> 'parse')::int, 0)
-                  + coalesce((payload -> 'models' ->> 'delivery')::int, 0)
+                    coalesce((payload -> 'models' ->> 'calls')::int,
+                             coalesce((payload -> 'models' ->> 'parse')::int, 0)
+                           + coalesce((payload -> 'models' ->> 'delivery')::int, 0))
                 ), 0) AS model_calls
               FROM st_events
              WHERE kind = 'turn_committed' AND created_at >= :since

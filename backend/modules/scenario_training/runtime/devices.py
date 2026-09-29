@@ -15,7 +15,7 @@ from typing import Any, Literal
 
 from ..api_models import ScenarioDevice, ScenarioDeviceChannel
 from ..schema import DeviceChannel, ScenarioPack
-from .world import World, trigger_holds
+from .world import World, is_measured, trigger_holds, visible_devices
 
 HISTORY_LEN = 12
 
@@ -57,11 +57,12 @@ def _display(value: Any, channel: DeviceChannel) -> str:
 
 
 def build_devices(pack: ScenarioPack, world: World) -> list[ScenarioDevice]:
-    """投影出场景里的设备与通道读数（含状态、趋势、是否测量过与最近更新回合）。"""
+    """投影出场景里的设备与通道读数（含状态、趋势、是否测量过与最近更新回合）。
+
+    可见性 = 作者的 `visible_when` 成立 **或** 模型用 `present_monitor` 主动摆出来过。
+    """
     devices: list[ScenarioDevice] = []
-    for device in pack.presentation.devices:
-        if device.visible_when is not None and not trigger_holds(pack, world, device.visible_when):
-            continue
+    for device in visible_devices(pack, world):
         channels: list[ScenarioDeviceChannel] = []
         for channel in device.channels:
             if channel.visible_when is not None and not trigger_holds(pack, world, channel.visible_when):
@@ -69,7 +70,7 @@ def build_devices(pack: ScenarioPack, world: World) -> list[ScenarioDevice]:
             if channel.ref not in world.state:
                 continue  # 没这个读数就不给通道——不用 0 冒充
             turns = world.state_turns.get(channel.ref, [])
-            if len(turns) <= 1:
+            if not is_measured(world, channel.ref):
                 # **没测过就没有读数**：初始值只供引擎内部判定，不得投影成学生的"读数"——
                 # 否则等于在测量之前就把隐匿的危重程度（`critical` 区间）告诉学生。
                 # 状态/值/趋势/更新回合一律为空，显示 `—`（docs/scenario.md：不得用 0 或初始值冒充）。

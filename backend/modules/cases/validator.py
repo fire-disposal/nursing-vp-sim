@@ -19,7 +19,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, get_args
 
 from pydantic import ValidationError
 
@@ -40,9 +40,12 @@ from modules.training.workflows import (
     startable_workflow_ids,
 )
 from schemas.case_schema import (
+    BlueprintEditorialState,
+    BlueprintVariantRole,
     ClinicalFindingKind,
     ClinicalRubricRule,
     ClinicalTriggerKind,
+    VitalsAgeGroup,
 )
 
 #: 临床判断训练的 workflow id（内容规则与之绑定：见 :func:`_check_clinical_reasoning`）。
@@ -229,8 +232,9 @@ def _check_completion_declaration(c: dict, issues: list[CaseIssue]) -> None:
         )
 
 
-#: 体征参考人群闭集（与 ``physical_exam_rules._AGE_DEFAULTS`` 的键一致，docs/15 §四）
-_VITALS_AGE_GROUPS: tuple[str, ...] = ("pediatric", "adult", "elderly")
+#: 体征参考人群闭集 —— 从 ``patient_info.vitals_age_group`` 的声明派生（唯一真源在
+#: ``schemas.case_schema.VitalsAgeGroup``，docs/15 §四 体征参考人群）。
+_VITALS_AGE_GROUPS: tuple[str, ...] = get_args(VitalsAgeGroup)
 
 
 def _check_vitals_age_group(c: dict, issues: list[CaseIssue]) -> None:
@@ -605,6 +609,18 @@ _FINDING_KINDS: tuple[str, ...] = tuple(kind.value for kind in ClinicalFindingKi
 _TRIGGER_KINDS: tuple[str, ...] = tuple(kind.value for kind in ClinicalTriggerKind)
 _RUBRIC_RULES: tuple[str, ...] = tuple(rule.value for rule in ClinicalRubricRule)
 
+#: 锚点规则的两组分工（判定目标的规则 / 只判定行动与沟通、需与目标组一致的规则）——
+#: 成员取自声明枚举：规则改名时这两组跟着变，分支不会悄悄失配。
+_OBJECTIVE_REFERRING_RULES: set[str] = {
+    ClinicalRubricRule.OBJECTIVE_MET,
+    ClinicalRubricRule.ACTION_TAKEN,
+    ClinicalRubricRule.COMMUNICATED,
+}
+_ACT_OR_COMMUNICATE_RULES: set[str] = {
+    ClinicalRubricRule.ACTION_TAKEN,
+    ClinicalRubricRule.COMMUNICATED,
+}
+
 _FINDING_REF_LABEL = "证据（findings[].id）"
 _OBJECTIVE_REF_LABEL = "目标（objectives.*[].id）"
 
@@ -675,9 +691,6 @@ def _checked_refs(
     refs: list[str] = []
     for j in range(len(raw)):
         value = raw[j]
-        if not isinstance(value, str) or not value.strip():
-            issues.append(_e(f"{path}.{key}[{j}] 必须是非空字符串（引用{what}）", f"{path}.{key}[{j}]"))
-            continue
         ref = value.strip()
         if ref not in known:
             issues.append(
@@ -972,31 +985,27 @@ def _check_rubric_anchor(
     find_refs = _checked_refs(anchor, "findings", path, content.findings, issues, what=_FINDING_REF_LABEL)
     covered.update(obj_refs)
     # 引用「写了但不存在」由 _checked_refs 报出；这里只补「根本没写」的情况，不重复报。
-    if rule == "finding_observed":
+    if rule == ClinicalRubricRule.FINDING_OBSERVED:
         if not find_refs and not _declared_list(anchor, "findings"):
             issues.append(
                 _e(
-                    f"{path}.findings 不能为空：finding_observed 锚点必须引用它判定的证据",
+                    f"{path}.findings 不能为空：{ClinicalRubricRule.FINDING_OBSERVED} 锚点必须引用它判定的证据",
                     f"{path}.findings",
-                    f"引用 {_FINDING_REF_LABEL}，或把 rule 改成 objective_met",
+                    f"引用 {_FINDING_REF_LABEL}，或把 rule 改成 {ClinicalRubricRule.OBJECTIVE_MET}",
                 )
             )
         return
-    if (
-        rule in {"objective_met", "action_taken", "communicated"}
-        and not obj_refs
-        and not _declared_list(anchor, "objectives")
-    ):
+    if rule in _OBJECTIVE_REFERRING_RULES and not obj_refs and not _declared_list(anchor, "objectives"):
         issues.append(
             _e(
                 f"{path}.objectives 不能为空：{rule} 锚点必须引用它判定的目标",
                 f"{path}.objectives",
-                f"引用 {_OBJECTIVE_REF_LABEL}，或把 rule 改成 finding_observed",
+                f"引用 {_OBJECTIVE_REF_LABEL}，或把 rule 改成 {ClinicalRubricRule.FINDING_OBSERVED}",
             )
         )
-    if rule not in {"action_taken", "communicated"}:
+    if rule not in _ACT_OR_COMMUNICATE_RULES:
         return
-    expected = "must_act" if rule == "action_taken" else "must_communicate"
+    expected = "must_act" if rule == ClinicalRubricRule.ACTION_TAKEN else "must_communicate"
     for ref in obj_refs:
         if content.groups.get(ref) != expected:
             issues.append(
@@ -1094,11 +1103,12 @@ BLUEPRINT_FIELD = "blueprint"
 #: 蓝图里必须解析成「线索 id 或 required_inquiries 原文」的清单（docs/19 §3.2 第 4 条）。
 _BLUEPRINT_REF_LISTS: tuple[str, ...] = ("must_cover", "situational", "key_omissions")
 
-#: 迁移变式 ``transfer_of`` 指向的病例角色（docs/19 §3.2 第 6 条）。
-PRACTICE_ROLE = "practice"
+#: 迁移变式 ``transfer_of`` 指向的病例角色（docs/19 §3.2 第 6 条）—— 取值来自蓝图声明
+#: （``schemas.case_schema.BlueprintVariantRole``），不在这里手抄一份。
+PRACTICE_ROLE = BlueprintVariantRole.PRACTICE.value
 
 #: 迁移变式的角色 id（与 ``PRACTICE_ROLE`` 相对）。
-TRANSFER_ROLE = "transfer"
+TRANSFER_ROLE = BlueprintVariantRole.TRANSFER.value
 
 
 def _blueprint_list(bp: dict, key: str) -> list:
@@ -1242,7 +1252,7 @@ def _check_blueprint_variant(bp: dict, issues: list[CaseIssue]) -> None:
 def _check_blueprint_review(bp: dict, issues: list[CaseIssue]) -> None:
     """``teacher_reviewed`` 必须留审阅人 —— 临床裁定不能无名（docs/19 §3.2 第 7 条）。"""
     review = bp.get("review")
-    if not isinstance(review, dict) or review.get("editorial_state") != "teacher_reviewed":
+    if not isinstance(review, dict) or review.get("editorial_state") != BlueprintEditorialState.TEACHER_REVIEWED:
         return
     reviewer = review.get("reviewer")
     if isinstance(reviewer, str) and reviewer.strip():

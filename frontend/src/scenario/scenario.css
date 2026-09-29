@@ -238,8 +238,8 @@
 
 /* ── 页头（会话状态 / 结算）──
    它**不是第二条 App 顶栏**：没有边框与底色，只是一行"App 不提供的信息 + 动作"。
-   三块从左到右：病例名（可省略）/ 回合 + 进度 / **一个**动作控件（`.sc-topbar-end`）。
-   任何宽度都不折行——窄屏的收缩由病例名与进度承担（见文件末尾移动端一节）。 */
+   三块从左到右：病例名（可省略）/ 回合 / **一个**动作控件（`.sc-topbar-end`）。
+   任何宽度都不折行——窄屏的收缩由病例名（它有自己的省略号）承担（见文件末尾移动端一节）。 */
 .sc-topbar {
 	display: flex;
 	align-items: center;
@@ -365,90 +365,6 @@
 	border: 0;
 	background: rgb(0 0 0 / 32%);
 	touch-action: none;
-}
-
-/* 顶栏进度（原「经历量化」面板）：一条细进度 + 数字；细节在自建弹层里 */
-.sc-progress-wrap {
-	position: relative;
-	display: flex;
-	align-items: center;
-	min-width: 0;
-}
-
-.sc-progress {
-	display: flex;
-	align-items: center;
-	gap: var(--sc-2);
-	min-height: var(--sc-h-sm);
-	padding: 0 var(--sc-1);
-	min-width: 0;
-	border: 0;
-	background: transparent;
-	color: inherit;
-	font: inherit;
-	font-size: var(--sc-fs-meta);
-	cursor: pointer;
-}
-
-.sc-progress:hover {
-	background: var(--sc-hover);
-}
-
-.sc-progress-bar {
-	position: relative;
-	width: 56px;
-	height: 6px;
-	flex: none;
-	background: var(--sc-hover);
-	border: 1px solid var(--sc-line);
-}
-
-/* 未开始（0%）时给一段最小可见的起点标记：不然它看起来像一条分隔线 */
-.sc-progress-fill {
-	width: 3px;
-}
-
-.sc-progress-bar[data-empty="true"] .sc-progress-fill {
-	background: var(--sc-line);
-}
-
-.sc-progress-fill {
-	position: absolute;
-	inset: 0 auto 0 0;
-	background: var(--sc-accent);
-}
-
-.sc-progress-value {
-	font-variant-numeric: tabular-nums;
-	color: var(--sc-text);
-	white-space: nowrap;
-}
-
-.sc-progress-label {
-	color: var(--sc-dim);
-	white-space: nowrap;
-}
-
-.sc-progress-panel {
-	position: absolute;
-	top: calc(100% + var(--sc-0));
-	right: 0;
-	z-index: 30;
-	min-width: 260px;
-	max-width: 340px;
-	max-height: 320px;
-	overflow-y: auto;
-	padding: var(--sc-2);
-	border: 1px solid var(--sc-line);
-	background: var(--sc-surface);
-	box-shadow: var(--mantine-shadow-xs);
-	border-radius: var(--sc-radius-container);
-}
-
-.sc-progress-detail {
-	display: flex;
-	flex-direction: column;
-	gap: var(--sc-1);
 }
 
 /* ── 场景区：画面 + 设备（设备是处境的一部分，不属于动作列） ──
@@ -1171,36 +1087,6 @@
 	stroke: var(--sc-bad);
 }
 
-/* ── HUD 读数：画面之下的一行读数（不做大卡片） ── */
-.sc-hud {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--sc-2);
-	min-width: 0;
-}
-
-.sc-hud-slot {
-	flex: 1 1 140px;
-	min-width: 120px;
-	padding: var(--sc-2) var(--sc-3);
-	border: 1px solid var(--sc-line);
-	background: var(--sc-surface);
-	border-radius: var(--sc-radius-container);
-}
-
-.sc-hud-label {
-	font-size: var(--sc-fs-meta);
-	color: var(--sc-dim);
-}
-
-.sc-hud-value {
-	font-family: var(--mantine-font-family-monospace, monospace);
-	font-variant-numeric: tabular-nums;
-	font-size: var(--sc-fs-body);
-	font-weight: 650;
-	line-height: var(--sc-lh-tight);
-	color: var(--sc-text);
-}
 /*
  * 保底说明：这一回合的世界回应出自既定情境（不是当场生成的）。
  * 一句话、不解释机制——它是学生对自己读到的内容来源的唯一交代（docs/20 §13）。
@@ -2449,9 +2335,9 @@ button.sc-panel-head:hover {
 		gap: var(--sc-1);
 	}
 
-	/* ── 页头**一行**：病名（先省略）+ 回合 / 进度 + 尾部动作控件 ──
-	   390 上放不下时，收缩的代价先落在进度（省名字、再省数字），最后才轮到病名的省略号；
-	   动作控件不参与收缩、不许换行——它是页头存在的理由之一（"结束"不能藏在第二行）。 */
+	/* ── 页头**一行**：病名（先省略）+ 回合 + 尾部动作控件 ──
+	   390 上放不下时，收缩的代价落在病名（它先省略）；回合读数与动作控件不参与收缩、不许换行——
+	   "结束"不能藏在第二行。 */
 	.sc-topbar {
 		padding-block: var(--sc-2);
 		flex-wrap: nowrap;
@@ -2462,53 +2348,18 @@ button.sc-panel-head:hover {
 		min-width: 0;
 	}
 	.sc-topbar-meta {
-		/* 不生长也不收缩：回合 + 进度只有百来像素，被压了就是把读数夹断半个字；
+		/* 不生长也不收缩：回合读数只有几十像素，被压了就是把读数夹断半个字；
 		   一行里多出来的宽度全给病名（它有自己的省略号）。 */
 		flex: 0 0 auto;
 		margin-left: 0;
 		flex-wrap: nowrap;
 		gap: 0 var(--sc-2);
 	}
-	.sc-topbar-meta .sc-progress-wrap {
-		flex: 0 1 auto;
-		min-width: 0;
-		overflow: hidden;
-	}
-	/* 回合数不参与收缩（它只有几十像素，被压了反而看不清）。
-	   进度按自己的刻度再细一档：窄屏它只需要说明"到哪了"。 */
+		/* 回合数不参与收缩（它只有几十像素，被压了反而看不清）。 */
 	.sc-topbar-meta > span,
 	.sc-topbar-meta > .sc-btn {
 		flex: none;
 		white-space: nowrap;
-	}
-	.sc-progress {
-		min-width: 0;
-		gap: var(--sc-1);
-	}
-	.sc-progress-bar {
-		width: 40px;
-	}
-	/* 进度的名字在窄屏让位（条形与百分比仍说明"到哪了"；全量细节在点开的弹层里，名字在那边还在） */
-	.sc-progress-label {
-		display: none;
-	}
-	.sc-progress-value {
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	/* 行内只留"数字 + 细条"那一对：次数读数让位（它还在弹层里，见 DimCard 的 data-narrow-hide） */
-	.sc-progress-count[data-narrow-hide="true"] {
-		display: none;
-	}
-	/* 弹层宽度按窄屏收一档，**仍贴右展开**：进度在页头是"跟着尾部控件"的（它的右缘
-	   离行尾只有那一个动作控件 + 间隙），右对齐因此永远落在屏幕里；贴左展开反而会从右边冲出去。
-	   宽度上限再留出页头左端的余量（病例名那一侧）。 */
-	.sc-progress-panel {
-		min-width: 0;
-		width: min(300px, calc(100vw - 84px));
-		max-width: calc(100vw - 84px);
 	}
 	/* 页头右端：触屏是 44 的可点面（`--sc-control-h` 已抬到 44），桌面视觉宽度就是图标那点 */
 	.sc-topbar-end {
@@ -2536,13 +2387,6 @@ button.sc-panel-head:hover {
 	.sc-stage-body {
 		padding: var(--sc-1) var(--sc-2);
 		gap: var(--sc-1);
-	}
-	/* 读数条：窄屏把"标签 + 数值"收进一行（它们是读数，不是两行卡片） */
-	.sc-hud-slot {
-		display: flex;
-		align-items: baseline;
-		gap: var(--sc-1);
-		padding: var(--sc-0) var(--sc-2);
 	}
 	/* 在场者条是**只读**的：不需要 44 的触控目标 */
 	.sc-actor {
@@ -2672,8 +2516,6 @@ button.sc-panel-head:hover {
 .sc-input,
 .sc-textarea,
 .sc-choice,
-.sc-progress,
-.sc-progress-panel,
 .sc-board-more,
 .sc-sound-toggle {
 	border-radius: var(--sc-radius);

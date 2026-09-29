@@ -1,7 +1,7 @@
 """判读规则：`Criterion.rule`（封闭枚举）的逐条实现，外加经历维度投影。
 
 纯函数：不连库、不调 LLM、不读时钟——只读 `World` 里由动作与效果累积出的事实，
-因此结论可复算、可解释、可回放。规则参数一律来自 `Criterion.params` / `DimSpec.params`，
+因此结论可复算、可解释、可回放。规则参数一律来自 `Criterion.params`，
 本文件不内置任何领域语义（领域语义只来自 pack 数据）。
 """
 
@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..runtime.world import ActionRecord, World, facts_observed, turn_word
-from ..schema import Anchor, Criterion, DimAgg, DimSpec, JudgeRuleKind, ScenarioPack
+from ..schema import Anchor, Criterion, JudgeRuleKind, ScenarioPack
 
 
 @dataclass(frozen=True)
@@ -301,26 +301,16 @@ def summarize(results: list[DecisionResult]) -> dict[str, int]:
 
 
 # --------------------------------------------------------------------------- #
-# 维度投影：经历量化
+# 维度投影：经历量化（**平台通用三件套**，作者不声明）
 # --------------------------------------------------------------------------- #
 
-_UNITS: dict[DimAgg, str] = {
-    DimAgg.COUNT: "次",
-    DimAgg.LATENCY: "回合",
-    DimAgg.COVERAGE: "比例",
-    DimAgg.SLOPE: "",
-}
+#: 通用维度：每个场景都有、都由账本算得出——作者不必写同构模板，也不会出现零消费者维度。
+DIM_ACTIONS = "d_actions"
+DIM_FACTS = "d_facts"
+DIM_TIME = "d_time"
 
 
-def _actions_measure(params: dict[str, Any], world: World) -> tuple[Any, str]:
-    wanted = set(_ids(params, "affordances"))
-    turn = _first_turn(world, wanted)
-    if turn is None:
-        return None, f"目标动作集合（{len(wanted)} 项）从未出现"
-    return turn, f"目标动作集合（{len(wanted)} 项）首用于{turn_word(turn)}"
-
-
-def _facts_measure(pack: ScenarioPack, world: World) -> tuple[Any, str]:
+def _facts_coverage(pack: ScenarioPack, world: World) -> tuple[float, str]:
     critical = [fact for fact in pack.facts if fact.critical]
     if not critical:
         return 1.0, "包未声明必采事实，覆盖率按满值记"
@@ -329,47 +319,37 @@ def _facts_measure(pack: ScenarioPack, world: World) -> tuple[Any, str]:
     return len(covered) / len(critical), f"必采事实已采集 {len(covered)}/{len(critical)} 项"
 
 
-def _state_measure(pack: ScenarioPack, world: World, params: dict[str, Any]) -> tuple[Any, str]:
-    key = params.get("key")
-    if not isinstance(key, str) or not key:
-        return None, "缺少 params.key，无法取变化量"
-    initial = pack.state_keys.get(key)
-    current = world.state.get(key)
-    initial_num = initial if isinstance(initial, (int, float)) and not isinstance(initial, bool) else None
-    current_num = current if isinstance(current, (int, float)) and not isinstance(current, bool) else None
-    if initial_num is None or current_num is None:
-        return None, f"{key} 缺初值或非数值，无法取变化量"
-    delta = current_num - initial_num
-    return delta, f"{key} 初值 {initial} → 当前 {current}（变化 {delta:+}）"
-
-
-def _measure(pack: ScenarioPack, world: World, dim: DimSpec) -> tuple[Any, str]:
-    if dim.source == "actions":
-        if dim.agg is DimAgg.COUNT:
-            count = len(world.actions)
-            return count, f"动作累计 {count} 次"
-        if dim.agg is DimAgg.LATENCY:
-            return _actions_measure(dim.params, world)
-    if dim.source == "facts" and dim.agg is DimAgg.COVERAGE:
-        return _facts_measure(pack, world)
-    if dim.source == "state" and dim.agg is DimAgg.SLOPE:
-        return _state_measure(pack, world, dim.params)
-    return None, f"暂不支持的维度组合（source={dim.source}, agg={dim.agg.value}）"
-
-
 def dims_snapshot(pack: ScenarioPack, world: World) -> list[dict[str, Any]]:
-    """按 `DimSpec` 输出经历量化投影（逐条对应，缺数据的维度给 None 并注明原因）。"""
-    snapshot: list[dict[str, Any]] = []
-    for dim in pack.dims:
-        value, detail = _measure(pack, world, dim)
-        snapshot.append(
-            {
-                "id": dim.id,
-                "label": dim.label,
-                "agg": dim.agg.value,
-                "value": value,
-                "unit": _UNITS[dim.agg],
-                "detail": detail,
-            }
-        )
-    return snapshot
+    """经历量化投影：**处置动作数 / 必采事实覆盖 / 情境时间单位**。
+
+    只读账本（`world.actions` / `facts_observed` / `world.turn`），因此可复算、可解释；
+    没有作者声明，所以不会出现"五个包同构模板"这种东西。
+    """
+    declared = [action for action in world.actions if action.affordance_id]
+    coverage, coverage_detail = _facts_coverage(pack, world)
+    return [
+        {
+            "id": DIM_ACTIONS,
+            "label": "处置动作数",
+            "agg": "count",
+            "value": len(declared),
+            "unit": "次",
+            "detail": f"已声明动作累计 {len(declared)} 次",
+        },
+        {
+            "id": DIM_FACTS,
+            "label": "必采事实覆盖",
+            "agg": "coverage",
+            "value": coverage,
+            "unit": "比例",
+            "detail": coverage_detail,
+        },
+        {
+            "id": DIM_TIME,
+            "label": "情境时间单位",
+            "agg": "count",
+            "value": world.turn,
+            "unit": "单位",
+            "detail": f"本局累计推进 {world.turn} 个时间单位",
+        },
+    ]

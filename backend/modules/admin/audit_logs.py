@@ -23,9 +23,12 @@ from sqlalchemy import or_
 from core.config import MAX_EXPORT_ROWS
 from core.deps import DbSession
 from core.exceptions import ValidationError
+from core.pagination import paginate
 from core.security import require_permission
 from infra.exporter import ColumnDef, ExportAudit, export_response
 from models import AuditLog, User
+from schemas.admin import AuditLogItem
+from schemas.common import PaginatedResponse
 
 router = APIRouter(prefix="/audit-logs", tags=["审计日志"])
 
@@ -81,10 +84,8 @@ class AuditLogService:
 
     def list_filtered(self, filters: AuditLogFilters, *, offset: int, limit: int) -> tuple[list[AuditLog], int]:
         """列表与导出的唯一入口（口径一致，导出不会漏筛）。"""
-        q = self._filtered_query(filters)
-        total = q.count()
-        rows = q.order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).offset(offset).limit(limit).all()
-        return rows, total
+        q = self._filtered_query(filters).order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+        return paginate(q, offset, limit)
 
 
 def _parse_dt(value: str, field: str) -> datetime:
@@ -95,26 +96,26 @@ def _parse_dt(value: str, field: str) -> datetime:
     return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
 
 
-def _to_item(row: AuditLog) -> dict[str, Any]:
-    return {
-        "id": row.id,
-        "created_at": row.created_at.isoformat() if row.created_at else None,
-        "actor_id": row.actor_id,
-        "actor_username": row.actor_username,
-        "actor_display_name": row.actor_display_name,
-        "actor_role": row.actor_role,
-        "action": row.action,
-        "target_type": row.target_type,
-        "target_id": row.target_id,
-        "target_label": row.target_label,
-        "outcome": row.outcome,
-        "payload": row.payload or {},
-        "error_detail": row.error_detail,
-        "request_id": row.request_id,
-        "ip": row.ip,
-        "request_method": row.request_method,
-        "request_path": row.request_path,
-    }
+def _to_item(row: AuditLog) -> AuditLogItem:
+    return AuditLogItem(
+        id=row.id,
+        created_at=row.created_at.isoformat() if row.created_at else None,
+        actor_id=row.actor_id,
+        actor_username=row.actor_username,
+        actor_display_name=row.actor_display_name,
+        actor_role=row.actor_role,
+        action=row.action,
+        target_type=row.target_type,
+        target_id=row.target_id,
+        target_label=row.target_label,
+        outcome=row.outcome,
+        payload=row.payload or {},
+        error_detail=row.error_detail,
+        request_id=row.request_id,
+        ip=row.ip,
+        request_method=row.request_method,
+        request_path=row.request_path,
+    )
 
 
 def _audit_filters(filters: Any) -> dict[str, Any]:
@@ -127,7 +128,7 @@ def _audit_filters(filters: Any) -> dict[str, Any]:
         return {}
 
 
-@router.get("")
+@router.get("", response_model=PaginatedResponse[AuditLogItem])
 def list_audit_logs(
     current_user: _Viewer,
     db: DbSession,
@@ -136,7 +137,7 @@ def list_audit_logs(
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ):
     rows, total = AuditLogService(db).list_filtered(filters, offset=offset, limit=limit)
-    return {"items": [_to_item(r) for r in rows], "total": total, "offset": offset, "limit": limit}
+    return PaginatedResponse(items=[_to_item(r) for r in rows], total=total, offset=offset, limit=limit)
 
 
 @router.post("/export")

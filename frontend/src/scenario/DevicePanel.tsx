@@ -7,6 +7,7 @@ import {
 	worstStatus,
 	writeSoundEnabled,
 } from "./sound";
+import TurnLocator from "./TurnLocator";
 import { useNarrowScreen } from "./viewport";
 
 /**
@@ -124,28 +125,6 @@ function channelUnitSuffix(channel: ScenarioDeviceChannel): string {
  */
 function channelSummary(channel: ScenarioDeviceChannel): string {
 	return `${channel.label} ${channelDisplay(channel)}${channelUnitSuffix(channel)}`;
-}
-
-/** 时间点定位：页面给了 `onLocateTurn` 就是按钮，没给就是纯文本（信息一样在）。 */
-function TurnLocator({
-	turn,
-	onLocateTurn,
-}: {
-	turn: number;
-	onLocateTurn?: (turn: number) => void;
-}) {
-	if (onLocateTurn === undefined) {
-		return <span className="sc-locate">时间单位 {turn}</span>;
-	}
-	return (
-		<button
-			type="button"
-			className="sc-locate"
-			onClick={() => onLocateTurn(turn)}
-		>
-			时间单位 {turn}
-		</button>
-	);
 }
 
 function Channel({

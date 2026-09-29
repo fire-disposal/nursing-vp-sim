@@ -57,16 +57,6 @@
       "style": "说话断续费力，越急越说不清；情绪一激动就更喘",
       "goals": [
         "想喘上气"
-      ],
-      "dm_writable": [
-        {
-          "key": "patient.comfort",
-          "kind": "int",
-          "lo": 0,
-          "hi": 5,
-          "max_delta": 1,
-          "meaning": "患者的舒适与配合程度（喘得厉害时会更差）"
-        }
       ]
     },
     {
@@ -90,6 +80,24 @@
     "patient.comfort": 2,
     "patient.consciousness": 3,
     "patient.airway_patent": false
+  },
+  "state_bounds": {
+    "scene.spo2": {
+      "lo": 0,
+      "hi": 100
+    },
+    "scene.o2_flow": {
+      "lo": 0,
+      "hi": 15
+    },
+    "patient.comfort": {
+      "lo": 0,
+      "hi": 5
+    },
+    "patient.consciousness": {
+      "lo": 0,
+      "hi": 5
+    }
   },
   "truth": [
     "深部痰栓导致左侧气道堵塞，单纯经口吸痰取不出",
@@ -291,133 +299,6 @@
       }
     }
   ],
-  "reactions": [
-    {
-      "id": "r_suction_first",
-      "when": {
-        "all": [
-          {
-            "kind": "action_count_gte",
-            "affordance_id": "suction",
-            "count": 1
-          }
-        ]
-      },
-      "by": "patient",
-      "does": "say",
-      "intent": "吸出少量血性黏痰后症状毫无缓解，患者更慌更躁，追问自己是不是不行了",
-      "effects": [
-        {
-          "target": "patient",
-          "key": "comfort",
-          "op": "decr",
-          "value": 1
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "r_suction_repeat",
-      "when": {
-        "all": [
-          {
-            "kind": "action_count_gte",
-            "affordance_id": "suction",
-            "count": 2
-          }
-        ]
-      },
-      "by": "patient",
-      "does": "escalate",
-      "intent": "再次吸痰不仅无效，血氧继续下降；患者烦躁转为嗜睡",
-      "effects": [
-        {
-          "target": "scene",
-          "key": "spo2",
-          "op": "decr",
-          "value": 4
-        },
-        {
-          "target": "patient",
-          "key": "consciousness",
-          "op": "decr",
-          "value": 1
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "r_o2_partial",
-      "when": {
-        "all": [
-          {
-            "kind": "action_count_gte",
-            "affordance_id": "increase_o2",
-            "count": 1
-          }
-        ]
-      },
-      "by": "patient",
-      "does": "say",
-      "intent": "调高氧流量后短暂舒服一点，很快又诉憋闷；血氧只回升两三个点",
-      "effects": [
-        {
-          "target": "scene",
-          "key": "spo2",
-          "op": "incr",
-          "value": 2
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "r_doctor_arrives",
-      "when": {
-        "all": [
-          {
-            "kind": "state_cmp",
-            "key": "scene.doctor_present",
-            "op": "==",
-            "value": true
-          }
-        ]
-      },
-      "by": "doctor",
-      "does": "say",
-      "intent": "要求护士口述已观察到的体征与已做处置，随即指示加压给氧并准备插管",
-      "once": false
-    },
-    {
-      "id": "r_deteriorate",
-      "when": {
-        "all": [
-          {
-            "kind": "turns_without_action",
-            "affordance_id": "bag_valve",
-            "turns": 3
-          }
-        ]
-      },
-      "by": "patient",
-      "does": "escalate",
-      "intent": "迟迟没有有效通气，患者意识进一步下沉，气道几乎不通",
-      "effects": [
-        {
-          "target": "scene",
-          "key": "spo2",
-          "op": "decr",
-          "value": 2
-        },
-        {
-          "target": "patient",
-          "key": "consciousness",
-          "op": "decr",
-          "value": 1
-        }
-      ],
-      "once": false
-    }
-  ],
   "facts": [
     {
       "id": "f_low_spo2",
@@ -467,129 +348,6 @@
         "suction"
       ]
     }
-  ],
-  "dims": [
-    {
-      "id": "d_observation",
-      "label": "观察与测量覆盖",
-      "agg": "coverage",
-      "source": "facts",
-      "params": {}
-    },
-    {
-      "id": "d_actions",
-      "label": "处置动作数",
-      "agg": "count",
-      "source": "actions",
-      "params": {}
-    },
-    {
-      "id": "d_escalation",
-      "label": "升级延迟",
-      "agg": "latency",
-      "source": "actions",
-      "params": {
-        "affordances": [
-          "bag_valve",
-          "call_doctor"
-        ]
-      }
-    },
-    {
-      "id": "d_spo2",
-      "label": "血氧变化",
-      "agg": "slope",
-      "source": "state",
-      "params": {
-        "key": "scene.spo2"
-      }
-    }
-  ],
-  "presentation": {
-    "hud": [
-      {
-        "slot": "现场线索",
-        "source": "cue"
-      },
-      {
-        "slot": "可做动作",
-        "source": "affordance"
-      }
-    ],
-    "panels": [
-      "timeline",
-      "emotion",
-      "coverage"
-    ],
-    "devices": [
-      {
-        "id": "bedside_monitor",
-        "kind": "monitor",
-        "title": "床旁监护仪",
-        "sound": "beep",
-        "channels": [
-          {
-            "ref": "scene.spo2",
-            "label": "血氧",
-            "unit": "%",
-            "normal": [
-              95,
-              100
-            ],
-            "critical": [
-              0,
-              90
-            ]
-          }
-        ]
-      }
-    ],
-    "board": [
-      {
-        "id": "board_scene",
-        "title": "现场看到的",
-        "source": "cue"
-      },
-      {
-        "id": "board_noticed",
-        "title": "注意到的",
-        "source": "noticed"
-      },
-      {
-        "id": "board_confirmed",
-        "title": "已确认的",
-        "source": "fact"
-      },
-      {
-        "id": "board_done",
-        "title": "已处置",
-        "source": "action"
-      }
-    ]
-  },
-  "failure": "irreversible",
-  "assets": [
-    {
-      "id": "a_room",
-      "kind": "image",
-      "path": "room-panel.png",
-      "title": "夜班病房",
-      "alt": "夜班病房：床旁吸引器与氧气装置就在手边"
-    }
-  ],
-  "failure_when": {
-    "all": [
-      {
-        "kind": "state_cmp",
-        "key": "patient.consciousness",
-        "op": "<=",
-        "value": 1
-      }
-    ]
-  },
-  "hidden_from_player": [
-    "深部痰栓导致单侧堵塞",
-    "需要加压给氧而非继续吸痰"
   ],
   "rubric": [
     {
@@ -689,70 +447,56 @@
       "weight": 5
     }
   ],
-  "teaching_focus": [
-    {
-      "id": "a_see_the_plug",
-      "intent": "把低氧归因到左侧气道堵塞：先测量与听诊，而不是继续吸痰",
-      "relevant_when": null,
-      "addressed_when": {
-        "all": [
+  "presentation": {
+    "devices": [
+      {
+        "id": "bedside_monitor",
+        "kind": "monitor",
+        "title": "床旁监护仪",
+        "sound": "beep",
+        "channels": [
           {
-            "kind": "action_used",
-            "affordance_id": "measure_spo2"
-          },
-          {
-            "kind": "action_used",
-            "affordance_id": "auscultate"
+            "ref": "scene.spo2",
+            "label": "血氧",
+            "unit": "%",
+            "normal": [
+              95,
+              100
+            ],
+            "critical": [
+              0,
+              90
+            ]
           }
         ]
-      },
-      "evidence_refs": [
-        "measure_spo2",
-        "auscultate"
-      ]
-    },
+      }
+    ]
+  },
+  "assets": [
     {
-      "id": "a_control_airway",
-      "intent": "气道打不开时升级处置：加压给氧＋呼叫医生准备插管，而不是反复吸痰",
-      "relevant_when": null,
-      "addressed_when": {
-        "all": [
-          {
-            "kind": "action_used",
-            "affordance_id": "bag_valve"
-          },
-          {
-            "kind": "action_used",
-            "affordance_id": "call_doctor"
-          }
-        ]
-      },
-      "evidence_refs": [
-        "bag_valve",
-        "call_doctor"
-      ]
-    },
-    {
-      "id": "a_reassess_after",
-      "intent": "气道建立后复评与收尾：体位引流排痰＋记录处置与病情变化",
-      "relevant_when": null,
-      "addressed_when": {
-        "all": [
-          {
-            "kind": "action_used",
-            "affordance_id": "reposition"
-          },
-          {
-            "kind": "action_used",
-            "affordance_id": "document"
-          }
-        ]
-      },
-      "evidence_refs": [
-        "reposition",
-        "document",
-        "bag_valve"
+      "id": "a_room",
+      "kind": "image",
+      "path": "room-panel.png",
+      "title": "夜班病房",
+      "alt": "夜班病房：床旁吸引器与氧气装置就在手边",
+      "reveal_with": [
+        "c_secretions"
       ]
     }
+  ],
+  "failure": "irreversible",
+  "failure_when": {
+    "all": [
+      {
+        "kind": "state_cmp",
+        "key": "patient.consciousness",
+        "op": "<=",
+        "value": 1
+      }
+    ]
+  },
+  "hidden_from_player": [
+    "深部痰栓导致单侧堵塞",
+    "需要加压给氧而非继续吸痰"
   ]
 }

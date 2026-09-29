@@ -32,6 +32,7 @@ import {
 	toComparability,
 	toGradePolicy,
 } from "@/utils/grade-bands";
+import { formatDuration } from "@/utils/duration";
 
 type StudentTrendResponse = components["schemas"]["StudentTrendResponse"];
 
@@ -48,17 +49,6 @@ interface StudentTrendDialogProps {
 	userId: number | null;
 	scope: TrendScope;
 	onOpenChange: (open: boolean) => void;
-}
-
-export function formatDuration(seconds: number | null | undefined): string {
-	if (seconds == null || seconds < 0) return "-";
-	const total = Math.round(seconds);
-	const h = Math.floor(total / 3600);
-	const m = Math.floor((total % 3600) / 60);
-	const s = total % 60;
-	if (h > 0) return `${h}小时${m}分`;
-	if (m > 0) return `${m}分${s}秒`;
-	return `${s}秒`;
 }
 
 const TREND_LABELS: Record<string, string> = {

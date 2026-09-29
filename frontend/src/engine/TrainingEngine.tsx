@@ -5,7 +5,7 @@ import { Center, Flex, Stack, Text } from "@mantine/core";
 import { queryKeys } from "@/api/query-keys";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useToast } from "@/components/Toast";
-import { LoadingSkeleton } from "@/components/ui";
+import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { ChatArea } from "@/components/training/ChatArea";
 import PatientStage from "@/components/training/PatientStage";
 import { ScoreCard, ScoringOverlay } from "@/components/training/scoring";

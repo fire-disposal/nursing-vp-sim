@@ -2,48 +2,42 @@
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import os
 import time
-from collections import deque
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
 from core.config import APP_VERSION
 from infra.error_archive import ErrorArchive
+from infra.error_buffer import (
+    BufferConfig,
+    DedupArchiveBuffer,
+    DedupEntry,
+    ErrorGroup,
+    aggregate,
+    fingerprint,
+)
 
 log = logging.getLogger(__name__)
 
-_MAX_ERRORS = 2000
 CACHE_TTL_SECONDS = 120
 _RECENT_ERRORS_N = 20
-_DEDUP_WINDOW = 300
-_DEDUP_HASH_HEAD = 300
 _MSG_MAX = 4000
 _MSG_HEAD = 1200
 _MAX_GROUP_MESSAGES = 5
-_DAY_SECONDS = 86400
 _ARCHIVE_WINDOW_LIMIT = 20000
-# 错误窗口计数一律按「事件发生时间」从档案 + 本进程未落盘增量求，跨 worker。
-_ERROR_WINDOWS: tuple[tuple[str, int], ...] = (("last_5min", 300), ("last_hour", 3600))
-_ARCHIVE_PATH = os.getenv("DIAGNOSTIC_ERROR_ARCHIVE", "/app/data/diagnostics/backend-errors.jsonl")
-_ARCHIVE_MAX_BYTES = int(os.getenv("DIAGNOSTIC_ERROR_ARCHIVE_MAX_MB", "5")) * 1024 * 1024
-_ARCHIVE_BACKUPS = int(os.getenv("DIAGNOSTIC_ERROR_ARCHIVE_BACKUPS", "3"))
-_ARCHIVE_FLUSH_SECONDS = 30
 _PROCESS_START = time.time()
 
-
-def _event_time(event: dict) -> datetime | None:
-    """档案/内存事件的 occurrence 时间（``time`` 优先，回退 ``last_seen``）。"""
-    raw = event.get("time") or event.get("last_seen")
-    if not raw:
-        return None
-    try:
-        parsed = datetime.fromisoformat(str(raw))
-    except ValueError:
-        return None
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+_CONFIG = BufferConfig(
+    archive_path=os.getenv("DIAGNOSTIC_ERROR_ARCHIVE", "/app/data/diagnostics/backend-errors.jsonl"),
+    archive_max_bytes=int(os.getenv("DIAGNOSTIC_ERROR_ARCHIVE_MAX_MB", "5")) * 1024 * 1024,
+    archive_backups=int(os.getenv("DIAGNOSTIC_ERROR_ARCHIVE_BACKUPS", "3")),
+    max_entries=2000,
+    dedup_window=300,
+    hash_head=300,
+    query_limit=_ARCHIVE_WINDOW_LIMIT,
+)
 
 
 def _truncate_message(msg: str) -> str:
@@ -54,105 +48,77 @@ def _truncate_message(msg: str) -> str:
     return f"{msg[:_MSG_HEAD]}{marker}{msg[-tail:]}"
 
 
-def _fingerprint(logger: str, message: str) -> str:
-    normalized = " ".join(message[:_DEDUP_HASH_HEAD].split())
-    return hashlib.sha256(f"{logger}\0{normalized}".encode()).hexdigest()[:16]
+def _event(entry: DedupEntry, count: int, source: str) -> dict:
+    first_seen = datetime.fromtimestamp(entry.first_seen, tz=UTC).isoformat()
+    last_seen = datetime.fromtimestamp(entry.last_seen, tz=UTC).isoformat()
+    return {
+        "fingerprint": entry.fingerprint,
+        "level": entry.payload["level"],
+        "logger": entry.payload["logger"],
+        "message": entry.payload["message"],
+        "count": count,
+        "first_seen": first_seen,
+        "last_seen": last_seen,
+        "source": source,
+        # 档案按 ``time`` 过滤窗口（见 ErrorArchive.query）。
+        "time": last_seen,
+        "version": APP_VERSION,
+    }
 
 
-@dataclass
-class ErrorEntry:
-    level: str
-    logger: str
-    message: str
-    fingerprint: str
-    first_seen: float
-    last_seen: float
-    count: int = 1
-    persisted_count: int = 0
-    last_persisted: float = 0
-
-    def as_dict(self, *, count: int | None = None, source: str = "memory") -> dict:
-        return {
-            "fingerprint": self.fingerprint,
-            "level": self.level,
-            "logger": self.logger,
-            "message": self.message,
-            "count": self.count if count is None else count,
-            "first_seen": datetime.fromtimestamp(self.first_seen, tz=UTC).isoformat(),
-            "last_seen": datetime.fromtimestamp(self.last_seen, tz=UTC).isoformat(),
-            "source": source,
-        }
+def _fallback_fingerprint(event: dict) -> str:
+    return fingerprint(str(event.get("logger", "")), message=str(event.get("message", "")), head=_CONFIG.hash_head)
 
 
 class ErrorCaptureHandler(logging.Handler):
     """Capture ERROR+ records, deduplicate bursts, and persist bounded aggregates."""
 
-    def __init__(self, max_errors: int = _MAX_ERRORS, archive: ErrorArchive | None = None):
+    def __init__(self, archive: ErrorArchive | None = None):
         super().__init__(level=logging.ERROR)
-        self.buffer: deque[ErrorEntry] = deque(maxlen=max_errors)
-        self._entries: dict[tuple[str, str], ErrorEntry] = {}
-        self.archive = archive
+        self._buffer = DedupArchiveBuffer(_CONFIG, archive=archive, build_event=_event)
         self.setFormatter(logging.Formatter("%(message)s"))
+
+    @property
+    def archive(self) -> ErrorArchive | None:
+        return self._buffer.archive
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
             message = _truncate_message(self.format(record))
             now = record.created or time.time()
-            key = (record.name, message[:_DEDUP_HASH_HEAD])
-            entry = self._entries.get(key)
-
-            if entry is not None and now - entry.last_seen <= _DEDUP_WINDOW:
-                entry.count += 1
-                entry.last_seen = now
-                if now - entry.last_persisted >= _ARCHIVE_FLUSH_SECONDS:
-                    self._persist_delta(entry)
-                return
-
-            entry = ErrorEntry(
-                level=record.levelname,
-                logger=record.name,
-                message=message,
-                fingerprint=_fingerprint(record.name, message),
-                first_seen=now,
-                last_seen=now,
+            self._buffer.record(
+                key=(record.name, message[: _CONFIG.hash_head]),
+                fingerprint=fingerprint(record.name, message=message, head=_CONFIG.hash_head),
+                payload={"level": record.levelname, "logger": record.name, "message": message},
+                now=now,
             )
-            self.buffer.append(entry)
-            self._entries[key] = entry
-            self._prune_entries()
-            self._persist_delta(entry)
         except Exception:
             self.handleError(record)
 
-    def _persist_delta(self, entry: ErrorEntry) -> None:
-        delta = entry.count - entry.persisted_count
-        if delta <= 0 or self.archive is None:
-            return
-        event = entry.as_dict(count=delta, source="archive")
-        event["time"] = event["last_seen"]
-        event["version"] = APP_VERSION
-        self.archive.append(event)
-        entry.persisted_count = entry.count
-        entry.last_persisted = entry.last_seen
-
-    def _prune_entries(self) -> None:
-        live_ids = {id(entry) for entry in self.buffer}
-        stale = [key for key, entry in self._entries.items() if id(entry) not in live_ids]
-        for key in stale:
-            del self._entries[key]
-
     def get_recent(self, n: int = _RECENT_ERRORS_N) -> list[dict]:
-        return [entry.as_dict() for entry in list(self.buffer)[-n:]]
+        return [_event(entry, entry.count, "memory") for entry in list(self._buffer.buffer)[-n:]]
 
     def unpersisted_events(self, since: datetime) -> list[dict]:
-        cutoff = since.timestamp()
-        events = []
-        for entry in self.buffer:
-            delta = entry.count - entry.persisted_count
-            if delta > 0 and entry.last_seen >= cutoff:
-                event = entry.as_dict(count=delta)
-                event["time"] = event["last_seen"]
-                events.append(event)
-        return events
+        return self._buffer.unpersisted(since)
+
+
+def _backend_group(group: ErrorGroup) -> dict:
+    """分组投影：``level``/``logger`` 取首见事件，``message`` 取最近事件并保留变体。"""
+    messages: list[str] = []
+    for event in group.events:
+        msg = str(event.get("message", ""))[:_MSG_MAX]
+        if msg not in messages and len(messages) < _MAX_GROUP_MESSAGES:
+            messages.append(msg)
+    return {
+        "fingerprint": group.fingerprint,
+        "level": group.first_event.get("level", "ERROR"),
+        "logger": group.first_event.get("logger", ""),
+        "message": str(group.latest_event.get("message", ""))[:_MSG_MAX],
+        "messages": messages,
+        "count": group.count,
+        "first_seen": group.first_seen,
+        "last_seen": group.last_seen,
+    }
 
 
 @dataclass
@@ -180,14 +146,7 @@ class DiagnoseService:
     def install_handler(self) -> None:
         if self._handler is not None:
             return
-        try:
-            self._archive = ErrorArchive(
-                _ARCHIVE_PATH,
-                max_bytes=_ARCHIVE_MAX_BYTES,
-                backup_count=_ARCHIVE_BACKUPS,
-            )
-        except OSError:
-            log.exception("Diagnostic error archive unavailable; continuing with memory buffer")
+        self._archive = _CONFIG.open_archive()
         self._handler = ErrorCaptureHandler(archive=self._archive)
         logging.root.addHandler(self._handler)
         log.info("ErrorCaptureHandler installed (archive=%s)", bool(self._archive))
@@ -211,22 +170,8 @@ class DiagnoseService:
         不同指纹数。窗口边界归属精度受档案落盘节奏限制（同组最多每 30s 补记一次增量）。
         """
         now = now or datetime.now(UTC)
-        counts = dict.fromkeys([name for name, _ in _ERROR_WINDOWS], 0)
-        fingerprints: set[str] = set()
-        for event in self._events_since(now, _DAY_SECONDS):
-            occurrence = _event_time(event)
-            if occurrence is None:
-                continue
-            amount = max(1, int(event.get("count", 1) or 1))
-            age = (now - occurrence).total_seconds()
-            for name, window in _ERROR_WINDOWS:
-                if age <= window:
-                    counts[name] += amount
-            fingerprint = str(event.get("fingerprint") or "")
-            if fingerprint:
-                fingerprints.add(fingerprint)
-        # total_captured 与前端遥测同名字段统一为「24h 内不同错误签名数」（历史值为内存组数）。
-        return {**counts, "unique_24h": len(fingerprints), "total_captured": len(fingerprints)}
+        events = self._events_since(now, 86400)
+        return aggregate(events, now, windows=_CONFIG.windows, fallback_fingerprint=_fallback_fingerprint).counts
 
     async def _db_status(self) -> dict:
         import asyncio
@@ -280,49 +225,22 @@ class DiagnoseService:
     def get_error_context(self, *, minutes: int = 60, max_groups: int = 20) -> dict:
         minutes = max(1, min(minutes, 1440))
         max_groups = max(1, min(max_groups, 50))
-        events = self._events_since(datetime.now(UTC), minutes * 60)
+        now = datetime.now(UTC)
+        groups = aggregate(
+            self._events_since(now, minutes * 60),
+            now,
+            windows=_CONFIG.windows,
+            fallback_fingerprint=_fallback_fingerprint,
+        ).groups
 
-        groups: dict[str, dict] = {}
-        for event in events:
-            fp = str(
-                event.get("fingerprint") or _fingerprint(str(event.get("logger", "")), str(event.get("message", "")))
-            )
-            count = max(1, int(event.get("count", 1) or 1))
-            first_seen = str(event.get("first_seen") or event.get("time") or "")
-            last_seen = str(event.get("last_seen") or event.get("time") or "")
-            msg = str(event.get("message", ""))[:_MSG_MAX]
-            group = groups.setdefault(
-                fp,
-                {
-                    "fingerprint": fp,
-                    "level": event.get("level", "ERROR"),
-                    "logger": event.get("logger", ""),
-                    "message": msg,
-                    "messages": [],
-                    "count": 0,
-                    "first_seen": first_seen,
-                    "last_seen": last_seen,
-                },
-            )
-            group["count"] += count
-            if first_seen and (not group["first_seen"] or first_seen < group["first_seen"]):
-                group["first_seen"] = first_seen
-            if last_seen and last_seen > group["last_seen"]:
-                group["last_seen"] = last_seen
-                group["message"] = msg
-            # 保留变体消息（去重、按首次出现顺序、上限 _MAX_GROUP_MESSAGES 条），
-            # 避免同指纹的早期消息被 last_seen 单条覆盖而丢失根因线索。
-            if msg not in group["messages"] and len(group["messages"]) < _MAX_GROUP_MESSAGES:
-                group["messages"].append(msg)
-
-        ordered = sorted(groups.values(), key=lambda item: (item["last_seen"], item["count"]), reverse=True)
+        ordered = sorted(groups.values(), key=lambda group: (group.last_seen, group.count), reverse=True)
         selected = ordered[:max_groups]
         return {
             "window_minutes": minutes,
-            "total_events": sum(group["count"] for group in groups.values()),
+            "total_events": sum(group.count for group in groups.values()),
             "unique_groups": len(groups),
             "truncated": len(ordered) > len(selected),
-            "groups": selected,
+            "groups": [_backend_group(group) for group in selected],
         }
 
     async def build_snapshot(self) -> dict:

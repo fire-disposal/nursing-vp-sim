@@ -1,22 +1,26 @@
-"""教师/管理回放：把**已提交事件**摊成「解析 → 结算 → 交付」的来源回放。
+"""教师/管理回放：把**已提交事件**摊成「结算 → 模型循环 → 交付」的来源回放。
 
 只读投影，不新增真源，也不把模型的思考过程当执行证据（docs/scenario.md）：
-每个回放条目都来自事件载荷里**平台自己记下**的东西（输入、解析结果、结算差量、最终交付、问题与模型调用数）。
-教学关注点是逐回合重算的投影（`project_focus`），取代旧的锚点面板。
+每个回放条目都来自事件载荷里**平台自己记下**的东西（输入、结算差量、每一次工具调用与它的
+拒绝原因、最终交付、问题与模型调用数）。
 """
 
 from __future__ import annotations
 
 from typing import Any, Literal
 
-from ..api_models import (
-    ScenarioAdminFocusState,
-    ScenarioAdminFocusTurn,
-    ScenarioAdminTurnReplay,
+from ..api_models import ScenarioAdminTurnReplay
+from ..turns import (
+    ActionEcho,
+    AppliedEffect,
+    AttemptOutcome,
+    DeliveryMessage,
+    ModelCalls,
+    ResolvedTurn,
+    SceneDelivery,
+    ToolStep,
+    TurnInput,
 )
-from ..schema import ScenarioPack
-from ..turns import DeliveryMessage, ModelsUsed, ResolvedTurn, SceneDelivery, TurnInput
-from .world import project_focus, world_from_events
 
 _TURN_KIND = "turn_committed"
 # 回合种类只有这三种（同 `ActionEcho.kind` / `TurnInput.kind`）；表里没有的输入一律降级成 action
@@ -36,11 +40,9 @@ def _delivery_of(payload: dict[str, Any]) -> SceneDelivery | None:
                 as_role=str(item.get("as_role") or ""),
                 ephemeral=bool(item.get("ephemeral")),
                 text=str(item.get("text") or ""),
-                sources=[str(ref) for ref in item.get("sources") or []],
             )
             for item in messages
-        ],
-        assets=[str(item) for item in payload.get("images") or []],
+        ]
     )
 
 
@@ -48,8 +50,6 @@ def _resolved_of(payload: dict[str, Any]) -> ResolvedTurn | None:
     actions = payload.get("actions") or []
     if not actions:
         return None
-    from ..turns import ActionEcho, AppliedEffect, AttemptOutcome, VisibleEvent
-
     action = actions[0]
     try:
         outcome = AttemptOutcome(str(payload.get("outcome") or "speech"))
@@ -75,9 +75,6 @@ def _resolved_of(payload: dict[str, Any]) -> ResolvedTurn | None:
         ),
         effects=[AppliedEffect.model_validate(item) for item in payload.get("effects") or []],
         reveals=[str(item) for item in payload.get("reveals") or []],
-        reactions=[str(item) for item in payload.get("reactions") or []],
-        social=[AppliedEffect.model_validate(item) for item in payload.get("social") or []],
-        visible_events=[VisibleEvent.model_validate(item) for item in payload.get("visible_events") or []],
         facts=[str(item) for item in payload.get("facts") or []],
         problems=[str(item) for item in payload.get("problems") or []],
     )
@@ -101,70 +98,26 @@ def admin_turns(events: list[dict[str, Any]]) -> list[ScenarioAdminTurnReplay]:
         if str(event.get("kind")) != _TURN_KIND:
             continue
         payload = event.get("payload") or {}
-        turn = int(payload.get("turn") or 0)
+        raw_models = payload.get("models")
         out.append(
             ScenarioAdminTurnReplay(
                 seq=int(event.get("seq") or 0),
-                turn=turn,
+                turn=int(payload.get("turn") or 0),
                 request_id=str(payload.get("request_id") or ""),
                 kind=str((payload.get("input") or {}).get("kind") or ""),
                 input=_turn_input(payload.get("input") or {}),
-                intent=payload.get("intent"),
                 resolved=_resolved_of(payload),
                 delivery=_delivery_of(payload),
+                tools=[ToolStep.model_validate(item) for item in payload.get("tools") or []],
+                tool_rejections={str(k): int(v) for k, v in (payload.get("tool_rejections") or {}).items()},
+                notes=[str(item) for item in payload.get("notes") or []],
                 outcome=str(payload.get("outcome") or ""),
                 block_reason=payload.get("block_reason") or None,
                 problems=[str(item) for item in payload.get("problems") or []],
-                models=ModelsUsed.model_validate(payload.get("models") or {}),
+                models=ModelCalls.model_validate(raw_models) if isinstance(raw_models, dict) else None,
             )
         )
     return out
 
 
-def focus_turns(pack: ScenarioPack, events: list[dict[str, Any]]) -> list[ScenarioAdminFocusTurn]:
-    """教学关注点的**逐回合快照**：在每个回合边界重算一次（与结算同一份判据，不另立存储）。"""
-    if not pack.teaching_focus:
-        return []
-    turn_events: dict[int, int] = {}
-    for position, event in enumerate(events):
-        payload = event.get("payload") or {}
-        turn = payload.get("turn")
-        if turn is not None:
-            turn_events.setdefault(int(turn), position)
-    out: list[ScenarioAdminFocusTurn] = []
-    for turn in sorted(turn_events):
-        prefix = events[: turn_events[turn] + 1]
-        world = world_from_events(pack, prefix)
-        out.append(
-            ScenarioAdminFocusTurn(
-                turn=turn,
-                states=[
-                    ScenarioAdminFocusState(
-                        id=state.id,
-                        intent=state.intent,
-                        relevant=state.relevant,
-                        addressed=state.addressed,
-                        evidence_refs=list(state.evidence_refs),
-                    )
-                    for state in project_focus(pack, world)
-                ],
-            )
-        )
-    final = world_from_events(pack, events)
-    if not out or out[-1].turn != final.turn:
-        out.append(
-            ScenarioAdminFocusTurn(
-                turn=final.turn,
-                states=[
-                    ScenarioAdminFocusState(
-                        id=state.id,
-                        intent=state.intent,
-                        relevant=state.relevant,
-                        addressed=state.addressed,
-                        evidence_refs=list(state.evidence_refs),
-                    )
-                    for state in project_focus(pack, final)
-                ],
-            )
-        )
-    return out
+__all__ = ["admin_turns"]

@@ -2,9 +2,9 @@
 
 - **默认关闭**（`SCENARIO_TRAINING_ENABLED`）：关闭时整个命名空间 404。
 - 学生侧判 `scenario_training`；管理侧内容用 `case_manage`、数据用 `stats_view`。
-- 会话只能被本人读取与操作；管理侧可读全部会话（含每回合的**解析/结算/交付**来源与拒绝原因）。
-- **路由只做输入输出适配**：解析、结算、演出、提交全在 `runtime/session.py`；HTTP 与 SSE
-  共用同一个执行器（docs/23 §8.3）。
+- 会话只能被本人读取与操作；管理侧可读全部会话（含每回合的**结算/工具账/交付**来源与拒绝原因）。
+- **路由只做输入输出适配**：结算、模型循环、提交全在 `runtime/session.py`；HTTP 与 SSE
+  共用同一个执行器。
 
 **内容只有一份**：`st_packs.content` 是当前内容、`version` 是保存次数；会话在开局时把内容
 **快照进自己的行**，此后病例怎么改都不影响这一局（回放、判读都读快照）。所以这里没有修订、
@@ -41,8 +41,6 @@ from .api_models import (
     ScenarioAdminAsset,
     ScenarioAdminAssetUpload,
     ScenarioAdminEvent,
-    ScenarioAdminFocusSummary,
-    ScenarioAdminFocusTurn,
     ScenarioAdminOverview,
     ScenarioAdminPack,
     ScenarioAdminPackDelete,
@@ -76,9 +74,9 @@ from .api_models import (
     ScenarioTurnResult,
     ScenarioView,
 )
-from .dm.stages import StageFailure
+from .dm.agent import AgentFailure
 from .pack_loader import PackInvalid
-from .runtime.replay import admin_turns, focus_turns
+from .runtime.replay import admin_turns
 from .runtime.session import (
     RequestConflict,
     SeqConflict,
@@ -105,13 +103,6 @@ _StudentUser = Annotated[User, Depends(require_permission("scenario_training"))]
 
 log = logging.getLogger(__name__)
 
-_MEDIA_TYPES = {
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".webp": "image/webp",
-    ".gif": "image/gif",
-}
 _CACHE_REPLACEABLE = "private, max-age=300"
 
 
@@ -146,10 +137,11 @@ def _map_error(exc: Exception) -> HTTPException:
         return _student_error(409, "request_conflict", "这个请求号已经用于另一次输入")
     if isinstance(exc, TurnRejected):
         return _student_error(422, exc.code, exc.message)
-    if isinstance(exc, StageFailure):
-        status = 503 if exc.code == "provider_unavailable" else 502
-        message = "模型暂时不可用，本次未执行、世界未改变" if status == 503 else "本次没有生成成功，世界未改变"
-        return _student_error(status, exc.code, message)
+    if isinstance(exc, AgentFailure):
+        if exc.code == "provider_unavailable":
+            return _student_error(503, exc.code, "模型暂时不可用，本次未执行、世界未改变")
+        # 循环用完步数仍未交付：这是**我们这一侧**的失败，重发只会再撞一次（不可重试）
+        return _student_error(500, "internal_error", "本回合没有生成成功，世界未改变")
     return _student_error(500, "internal_error", "服务端异常，本次未提交")
 
 
@@ -248,16 +240,20 @@ async def create_session_route(
     # 试跑：草稿也能开（作者要能试）；学生开新局必须已上架
     row = _require_pack(db, key) if payload.trial else _require_published(db, key)
     _, pack = pack_loader.load_pack(db, row.key)
-    session, _problems = await create_session(
-        db,
-        user_id=current_user.id,
-        pack_key=row.key,
-        pack_version=row.version,
-        content=row.content,
-        pack=pack,
-        llm=request.app.state.llm_client,
-        trial=payload.trial,
-    )
+    try:
+        session, _problems = await create_session(
+            db,
+            user_id=current_user.id,
+            pack_key=row.key,
+            pack_version=row.version,
+            content=row.content,
+            pack=pack,
+            llm=request.app.state.llm_client,
+            trial=payload.trial,
+        )
+    except AgentFailure as exc:
+        # 开场拿不到交付：不建会话（学生不该进到一个没有现场的空壳里），如实说失败
+        raise _map_error(exc) from exc
     view = _live_view(db, session, pack)
     return ScenarioSessionResponse(session_id=session.id, pack=view.pack, view=view)
 
@@ -305,7 +301,7 @@ async def submit_turn_route(
     db: DbSession,
     current_user: _StudentUser,
 ) -> ScenarioTurnResult:
-    """学生做一件事 → 世界回应 → 返回权威视图（**解析 → 结算 → 演出 → 原子提交**）。"""
+    """学生做一件事 → 世界回应 → 返回权威视图（**结算 → 模型循环 → 原子提交**）。"""
     await check_scenario_action_limit(current_user.id, request)
     session = _load_session(db, session_id, current_user.id)
     pack = _pack_of(session)
@@ -318,7 +314,7 @@ async def submit_turn_route(
             llm=request.app.state.llm_client,
             user_id=current_user.id,
         )
-    except (SessionClosed, SeqConflict, RequestConflict, TurnRejected, StageFailure) as exc:
+    except (SessionClosed, SeqConflict, RequestConflict, TurnRejected, AgentFailure) as exc:
         raise _map_error(exc) from exc
 
 
@@ -388,7 +384,7 @@ async def submit_turn_stream(
 
         exc = task.exception()
         if exc is not None:
-            if isinstance(exc, (SessionClosed, SeqConflict, RequestConflict, TurnRejected, StageFailure)):
+            if isinstance(exc, (SessionClosed, SeqConflict, RequestConflict, TurnRejected, AgentFailure)):
                 http = _map_error(exc)
                 detail: dict[str, Any] = (
                     http.detail
@@ -479,10 +475,9 @@ def _pack_overview(pack: ScenarioPack | None) -> ScenarioAdminOverview | None:
         actors=[
             ScenarioAdminActor(id=actor.id, role=actor.role, presence=actor.presence.value) for actor in pack.actors
         ],
-        teaching_focus=[ScenarioAdminFocusSummary(id=item.id, intent=item.intent) for item in pack.teaching_focus],
         cues=len(pack.setting.cues),
         affordances=len(pack.affordances),
-        reactions=len(pack.reactions),
+        devices=len(pack.presentation.devices),
         facts=len(pack.facts),
         criteria=len(pack.rubric),
         criteria_weight=sum(item.weight for item in pack.rubric),
@@ -700,11 +695,9 @@ _BLANK_PACK: dict[str, Any] = {
             "targets": [{"kind": "actor", "id": "patient"}],
         }
     ],
-    "reactions": [],
     "facts": [],
-    "dims": [],
     "rubric": [],
-    "presentation": {"hud": [], "panels": [], "board": [], "devices": []},
+    "presentation": {"devices": []},
     "failure": "recoverable",
     "hidden_from_player": [],
 }
@@ -857,9 +850,7 @@ async def admin_replace_asset(
     if existing is None:
         raise HTTPException(status_code=404, detail="该包未声明此资源（新增请走上传接口）")
     data = await file.read()
-    mime = file.content_type or _MEDIA_TYPES.get(
-        "." + (file.filename or "").rsplit(".", 1)[-1].lower(), "application/octet-stream"
-    )
+    mime = file.content_type or assets_mod.suffix_mime(file.filename)
     declaration = existing.model_copy(
         update={
             "title": title or existing.title,
@@ -913,9 +904,7 @@ async def admin_upload_asset(
     row, pack = pack_loader.load_pack(db, pack_key)
     del row
     data = await file.read()
-    mime = file.content_type or _MEDIA_TYPES.get(
-        "." + (file.filename or "").rsplit(".", 1)[-1].lower(), "application/octet-stream"
-    )
+    mime = file.content_type or assets_mod.suffix_mime(file.filename)
     declaration = Asset(
         id=asset_id,
         kind="image",
@@ -993,7 +982,7 @@ def admin_sessions(
 
 @router.get("/admin/sessions/{session_id}", dependencies=[_DataViewer])
 def admin_session_detail(session_id: int, db: DbSession) -> ScenarioAdminSessionDetail:
-    """管理侧：单次会话的完整回放（视图 + 报告 + 每回合解析/结算/交付 + 关注点投影）。
+    """管理侧：单次会话的完整回放（视图 + 报告 + 每回合结算/工具账/交付）。
 
     视图按**这一局自带的内容快照**回放：病例今天被改成什么样都不影响历史回放。
     """
@@ -1010,9 +999,6 @@ def admin_session_detail(session_id: int, db: DbSession) -> ScenarioAdminSession
         view=view,
         report=report,
         problems=problems,
-        focus=[
-            ScenarioAdminFocusTurn.model_validate(item.model_dump(mode="json")) for item in focus_turns(pack, events)
-        ],
         turns=[ScenarioAdminTurnReplay.model_validate(item.model_dump(mode="json")) for item in admin_turns(events)],
         event_count=len(events),
         events=[
@@ -1025,20 +1011,18 @@ def admin_session_detail(session_id: int, db: DbSession) -> ScenarioAdminSession
 
 @router.get("/admin/stats", dependencies=[_DataViewer])
 def admin_stats(db: DbSession) -> ScenarioAdminStats:
-    """管理侧：按包汇总（会话数、结算数、不可逆结局数、关注点处理比例）。试跑默认排除。"""
+    """管理侧：按包汇总（会话数、结算数、不可逆结局数、被工具层拒掉的调用数）。试跑默认排除。"""
     rows = db.execute(
         select(StSession.id, StSession.pack_key, StSession.status, StSession.report, StSession.meta)
     ).all()
     titles = _titles_of(db)
-    # 关注点的已处理/相关计数取自 `session_closed` 载荷（报告是学生可见的，里面没有关注点）
-    focus_counts = {
-        int(sid): (int(rel or 0), int(add or 0))
-        for sid, rel, add in db.execute(
-            select(
-                StEvent.session_id,
-                StEvent.payload["focus_relevant"].as_integer(),
-                StEvent.payload["focus_addressed"].as_integer(),
-            ).where(StEvent.kind == "session_closed")
+    # 工具层拒绝计数取自 `session_closed` 载荷（回合级计数在各自的 `turn_committed` 里）
+    rejections = {
+        int(sid): int(total or 0)
+        for sid, total in db.execute(
+            select(StEvent.session_id, StEvent.payload["tool_rejections"].as_integer()).where(
+                StEvent.kind == "session_closed"
+            )
         ).all()
     }
     stats: dict[str, dict[str, Any]] = {}
@@ -1053,8 +1037,7 @@ def admin_stats(db: DbSession) -> ScenarioAdminStats:
                 "sessions": 0,
                 "completed": 0,
                 "lost": 0,
-                "addressed": 0,
-                "relevant": 0,
+                "tool_rejections": 0,
             },
         )
         bucket["sessions"] += 1
@@ -1064,9 +1047,7 @@ def admin_stats(db: DbSession) -> ScenarioAdminStats:
         outcome = payload.get("outcome") or {}
         if outcome.get("lost") or payload.get("lost"):
             bucket["lost"] += 1
-        relevant, addressed = focus_counts.get(int(session_id), (0, 0))
-        bucket["relevant"] += relevant
-        bucket["addressed"] += addressed
+        bucket["tool_rejections"] += rejections.get(int(session_id), 0)
     return ScenarioAdminStats(
         packs=[
             ScenarioAdminStatsBucket(
@@ -1075,7 +1056,7 @@ def admin_stats(db: DbSession) -> ScenarioAdminStats:
                 sessions=item["sessions"],
                 completed=item["completed"],
                 lost=item["lost"],
-                focus_address_ratio=(round(item["addressed"] / item["relevant"], 4) if item["relevant"] else None),
+                tool_rejections=item["tool_rejections"],
             )
             for item in sorted(stats.values(), key=lambda entry: entry["pack_key"])
         ]

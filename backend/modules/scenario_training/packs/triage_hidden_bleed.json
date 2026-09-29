@@ -66,16 +66,6 @@
       "style": "忍着、不爱麻烦人，倾向把话说小；被问到具体经过时才会补出关键信息",
       "goals": [
         "快点回家"
-      ],
-      "dm_writable": [
-        {
-          "key": "patient.comfort",
-          "kind": "int",
-          "lo": 0,
-          "hi": 5,
-          "max_delta": 1,
-          "meaning": "患者的舒适与配合程度（疼得厉害时会更差）"
-        }
       ]
     },
     {
@@ -113,6 +103,24 @@
     "scene.doctor_present": false,
     "patient.comfort": 2
   },
+  "state_bounds": {
+    "scene.pulse": {
+      "lo": 0,
+      "hi": 250
+    },
+    "scene.bp_sys": {
+      "lo": 40,
+      "hi": 300
+    },
+    "scene.consciousness": {
+      "lo": 0,
+      "hi": 5
+    },
+    "patient.comfort": {
+      "lo": 0,
+      "hi": 5
+    }
+  },
   "truth": [
     "他极可能是腹腔内出血，主诉『闪了腰』是误归因",
     "正确处置是立即送抢救区并呼叫医生，而不是骨科或开药回家"
@@ -132,6 +140,20 @@
         {
           "kind": "actor",
           "id": "patient"
+        }
+      ],
+      "effects": [
+        {
+          "target": "scene",
+          "key": "pulse",
+          "op": "set",
+          "value": 118
+        },
+        {
+          "target": "scene",
+          "key": "bp_sys",
+          "op": "set",
+          "value": 92
         }
       ]
     },
@@ -243,159 +265,6 @@
       }
     }
   ],
-  "reactions": [
-    {
-      "id": "r_red_good",
-      "when": {
-        "all": [
-          {
-            "kind": "action_used",
-            "affordance_id": "triage_red"
-          }
-        ]
-      },
-      "by": "doctor",
-      "does": "say",
-      "intent": "抢救区医生接手，一边推平车一边说按内出血走，床旁超声马上到",
-      "once": true
-    },
-    {
-      "id": "r_ortho_delay",
-      "when": {
-        "all": [
-          {
-            "kind": "action_used",
-            "affordance_id": "triage_ortho"
-          }
-        ]
-      },
-      "by": "patient",
-      "does": "escalate",
-      "intent": "骨科候诊区排了四十分钟，他靠在椅子上慢慢往下滑，被旁边的人扶住",
-      "effects": [
-        {
-          "target": "scene",
-          "key": "consciousness",
-          "op": "decr",
-          "value": 1
-        },
-        {
-          "target": "scene",
-          "key": "bp_sys",
-          "op": "decr",
-          "value": 6
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "r_home_bad",
-      "when": {
-        "all": [
-          {
-            "kind": "action_used",
-            "affordance_id": "triage_home"
-          }
-        ]
-      },
-      "by": "patient",
-      "does": "escalate",
-      "intent": "他拿着膏药处方走出急诊门口，在台阶上蹲下去，被人搀回来时已经叫不太醒",
-      "effects": [
-        {
-          "target": "scene",
-          "key": "consciousness",
-          "op": "decr",
-          "value": 2
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "r_hesitate",
-      "when": {
-        "all": [
-          {
-            "kind": "turns_without_action",
-            "affordance_id": "triage_red",
-            "turns": 3
-          }
-        ]
-      },
-      "by": "patient",
-      "does": "escalate",
-      "intent": "他在分诊台前站的时间越来越长，汗把衣领浸透，说话开始颠三倒四",
-      "effects": [
-        {
-          "target": "scene",
-          "key": "consciousness",
-          "op": "decr",
-          "value": 1
-        },
-        {
-          "target": "scene",
-          "key": "bp_sys",
-          "op": "decr",
-          "value": 4
-        }
-      ],
-      "once": false
-    },
-    {
-      "id": "r_vitals_taken",
-      "when": {
-        "all": [
-          {
-            "kind": "cue_revealed",
-            "cue_id": "c_vitals"
-          }
-        ]
-      },
-      "by": "patient",
-      "does": "say",
-      "intent": "他小声说「我是不是有点晕」，下意识扶住了分诊台",
-      "once": true
-    },
-    {
-      "id": "r_patient_fades",
-      "when": {
-        "all": [
-          {
-            "kind": "turn_gte",
-            "count": 2
-          }
-        ]
-      },
-      "by": "patient",
-      "does": "say",
-      "intent": "他说话比刚才慢，句子中间要停一下：「我……没事，就是腰这儿，一阵一阵地疼」，扶着台子的手往下滑了一点",
-      "effects": [
-        {
-          "target": "patient",
-          "key": "comfort",
-          "op": "decr",
-          "value": 1
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "r_colleague_pressures",
-      "when": {
-        "all": [
-          {
-            "kind": "turns_without_action",
-            "affordance_id": "measure_vitals",
-            "turns": 2
-          }
-        ]
-      },
-      "by": "colleague",
-      "does": "say",
-      "intent": "同事压着嗓子催：「后面推车的都过不去了——你到底给他测不测？」",
-      "once": false
-    }
-  ],
   "facts": [
     {
       "id": "f_shock_signs",
@@ -458,114 +327,6 @@
         "c_story"
       ]
     }
-  ],
-  "dims": [
-    {
-      "id": "d_observation",
-      "label": "核实体征的覆盖",
-      "agg": "coverage",
-      "source": "facts",
-      "params": {}
-    },
-    {
-      "id": "d_actions",
-      "label": "动作数",
-      "agg": "count",
-      "source": "actions",
-      "params": {}
-    },
-    {
-      "id": "d_verify",
-      "label": "开始核实体征的延迟",
-      "agg": "latency",
-      "source": "actions",
-      "params": {
-        "affordances": [
-          "measure_vitals",
-          "ask_trauma",
-          "observe_abdomen"
-        ]
-      }
-    },
-    {
-      "id": "d_bp",
-      "label": "血压变化",
-      "agg": "slope",
-      "source": "state",
-      "params": {
-        "key": "scene.bp_sys"
-      }
-    }
-  ],
-  "presentation": {
-    "hud": [
-      {
-        "slot": "现场线索",
-        "source": "cue"
-      },
-      {
-        "slot": "可做动作",
-        "source": "affordance"
-      }
-    ],
-    "panels": [
-      "timeline",
-      "emotion",
-      "coverage"
-    ],
-    "board": [
-      {
-        "id": "board_scene",
-        "title": "现场看到的",
-        "source": "cue"
-      },
-      {
-        "id": "board_readings",
-        "title": "读数",
-        "source": "state",
-        "refs": [
-          "scene.bp_sys",
-          "scene.pulse"
-        ],
-        "labels": {
-          "scene.bp_sys": "收缩压（mmHg）",
-          "scene.pulse": "脉搏（次/分）"
-        },
-        "visible_when": {
-          "all": [
-            {
-              "kind": "cue_revealed",
-              "cue_id": "c_vitals"
-            }
-          ]
-        }
-      },
-      {
-        "id": "board_confirmed",
-        "title": "已确认的",
-        "source": "fact"
-      },
-      {
-        "id": "board_done",
-        "title": "已处置",
-        "source": "action"
-      }
-    ]
-  },
-  "failure": "irreversible",
-  "failure_when": {
-    "all": [
-      {
-        "kind": "state_cmp",
-        "key": "scene.consciousness",
-        "op": "<=",
-        "value": 1
-      }
-    ]
-  },
-  "hidden_from_player": [
-    "他极可能是腹内出血",
-    "『闪了腰』是误归因"
   ],
   "rubric": [
     {
@@ -645,5 +406,56 @@
       "weight": 20
     }
   ],
-  "teaching_focus": []
+  "presentation": {
+    "devices": [
+      {
+        "id": "triage_monitor",
+        "kind": "monitor",
+        "title": "分诊台监护仪",
+        "channels": [
+          {
+            "ref": "scene.pulse",
+            "label": "脉搏",
+            "unit": "次/分",
+            "normal": [
+              60,
+              100
+            ]
+          },
+          {
+            "ref": "scene.bp_sys",
+            "label": "收缩压",
+            "unit": "mmHg",
+            "normal": [
+              90,
+              140
+            ]
+          }
+        ],
+        "visible_when": {
+          "all": [
+            {
+              "kind": "cue_revealed",
+              "cue_id": "c_vitals"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "failure": "irreversible",
+  "failure_when": {
+    "all": [
+      {
+        "kind": "state_cmp",
+        "key": "scene.consciousness",
+        "op": "<=",
+        "value": 1
+      }
+    ]
+  },
+  "hidden_from_player": [
+    "他极可能是腹内出血",
+    "『闪了腰』是误归因"
+  ]
 }

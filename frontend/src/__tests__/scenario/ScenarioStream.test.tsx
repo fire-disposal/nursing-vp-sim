@@ -19,7 +19,6 @@ import {
 	makeView,
 	sseCommitted,
 	sseError,
-	ssePhase,
 } from "./fixtures";
 import { chooseMode, chooseTarget, submitLine } from "./intent";
 
@@ -166,35 +165,6 @@ function committedView(studentText: string) {
 }
 
 describe("阶段状态：只给真实阶段", () => {
-	it("phase 帧显示该阶段的人话文案", async () => {
-		const user = userEvent.setup();
-		const stream = await speak(user);
-
-		await push(stream, ssePhase("parsing"));
-		expect(document.querySelector(".sc-streaming")?.textContent).toBe(
-			"正在理解你的表达",
-		);
-
-		await push(stream, ssePhase("validating"));
-		expect(document.querySelector(".sc-streaming")?.textContent).toBe(
-			"正在校验回应",
-		);
-
-		// 提交后不再显示阶段
-		await push(
-			stream,
-			sseCommitted(
-				makeTurnResult({
-					request_id: stream.request.request_id,
-					turn: 2,
-					view: committedView("我这就去看看他的呼吸。"),
-				}),
-			),
-		);
-		stream.settle();
-		await waitFor(() => expect(document.querySelector(".sc-streaming")).toBeNull());
-	});
-
 	it("未知阶段原样透传，不自造阶段名", async () => {
 		const user = userEvent.setup();
 		const stream = await speak(user);
@@ -224,7 +194,7 @@ describe("阶段状态：只给真实阶段", () => {
 		// 只说明"正在处理"，不指认一个它并不知道的阶段
 		const text = document.querySelector(".sc-streaming")?.textContent ?? "";
 		expect(text).toMatch(/正在处理/);
-		expect(text).not.toMatch(/正在理解|正在结算|正在生成|正在校验|正在提交/);
+		expect(text).not.toMatch(/正在接受|正在结算|正在生成|正在提交/);
 	});
 });
 

@@ -1,11 +1,13 @@
-"""会话：**唯一回合管线**（解析 → 结算 → 演出 → 提交）+ 开启 / 澄清 / 求提示 / 结束 / 结果查询。
+"""会话：**唯一回合管线**（确定性结算 → 模型循环 → 原子提交）+ 开启 / 澄清 / 求提示 / 结束 / 结果查询。
 
-三条纪律（docs/scenario.md）：
-1. **固定顺序**：`check_request` → 结算 → 演出 → 校验 → 原子提交；按钮与自由表达走同一条路；
+四条纪律（docs/scenario.md）：
+1. **固定顺序**：`check_request` → 平台结算 → 模型循环（工具逐条校验） → 原子提交；
+   按钮与自由表达走同一条路；
 2. **事务只包提交**：模型等待期间**不持有数据库事务**——读完立刻 `rollback()` 结束隐式事务，
-   此后只使用纯值（id / 序号 / World 快照），绝不触碰已过期 ORM 实例的属性（那会触发懒加载重新占事务）；
-3. **原子提交**：一个业务回合只追加**一条**事件；提交时锁会话行、复核 `request_id` 幂等与
-   `expected_seq` 基线；失败不推进、不留半个世界。
+   此后只使用纯值（id / 序号 / World 快照），绝不触碰已过期 ORM 实例的属性；
+3. **原子提交**：一个业务回合只追加**一条**事件（工具调用逐条记在那条事件的载荷里）；
+   提交时锁会话行、复核 `request_id` 幂等与 `expected_seq` 基线；失败不推进、不留半个世界；
+4. **循环没交付就不提交**：步数上限用完仍未 `deliver` → 结构化失败（`internal_error`，不可重试）。
 """
 
 from __future__ import annotations
@@ -29,21 +31,18 @@ from ..api_models import (
     ScenarioTurnRequest,
     ScenarioTurnResult,
 )
-from ..dm.contract import notice_for
-from ..dm.stages import StageFailure, run_delivery, run_hint, run_intent
+from ..dm.agent import AgentFailure, AgentOutcome, notice_for, run_agent
 from ..judge.rules import dims_snapshot
 from ..schema import ScenarioPack
 from ..turns import (
-    ActionEcho,
     AttemptOutcome,
-    IntentKind,
-    IntentResolution,
-    ModelsUsed,
+    ModelCalls,
     ResolvedTurn,
     TurnPhase,
-    VisibleEvent,
 )
-from ..turns import TurnInput as TurnInputModel
+from ..turns import (
+    TurnInput as TurnInputModel,
+)
 from .report import build_report
 from .view import build_view
 from .world import (
@@ -52,13 +51,9 @@ from .world import (
     attach_clarification,
     attach_delivery,
     attach_hint,
-    fire_reactions,
     initial_world,
     is_lost,
-    project_focus,
     settle_turn,
-    state_label,
-    visible_refs,
     world_from_events,
 )
 
@@ -256,7 +251,7 @@ def _commit_event(
 
 
 # --------------------------------------------------------------------------- #
-# 开启
+# 载荷装配
 # --------------------------------------------------------------------------- #
 
 
@@ -266,41 +261,33 @@ def _message_payload(message: Any) -> dict[str, Any]:
         "as_role": message.as_role,
         "ephemeral": message.ephemeral,
         "text": message.text,
-        "sources": list(message.sources),
+        "sources": [],
         "kind": "narration" if message.speaker is None else "speech",
         "origin": "dm",
     }
 
 
-def _visible_events(
-    pack: ScenarioPack,
-    world: World,
-    *,
-    effects: list[Any],
-    reveals: list[str],
-    fired: list[str],
-    turn: int,
-) -> list[VisibleEvent]:
-    out: list[VisibleEvent] = []
-    for item in effects:
-        out.append(
-            VisibleEvent(
-                kind="effect",
-                ref=f"effect:{item.key}",
-                text=f"{state_label(pack, item.key)}：{item.old} → {item.new}",
-                turn=turn,
-            )
-        )
-    for cue_id in reveals:
-        cue = pack.cue(cue_id)
-        if cue is not None:
-            out.append(VisibleEvent(kind="reveal", ref=f"cue:{cue_id}", text=cue.text, turn=turn))
-    for reaction_id in fired:
-        reaction = next((item for item in pack.reactions if item.id == reaction_id), None)
-        if reaction is not None:
-            out.append(VisibleEvent(kind="reaction", ref=f"reaction:{reaction_id}", text=reaction.intent, turn=turn))
-    del world
-    return out
+def _image_payload(asset_id: str) -> dict[str, Any]:
+    return {"asset_id": asset_id, "caption": "", "origin": "pack"}
+
+
+def _agent_payload(outcome: AgentOutcome) -> dict[str, Any]:
+    """模型侧产物进事件载荷的那部分（步骤账 + 拒绝计数 + 备忘 + 时间推进）。"""
+    return {
+        **outcome.payload(),
+        "notes": list(outcome.tools.notes),
+        "presented": list(outcome.tools.presented),
+    }
+
+
+def _actions_of(world: World, resolved: ResolvedTurn) -> list[dict[str, Any]]:
+    """本回合学生做的那件事（**已含世界答复**）；未建模也照记（判读要看得见它）。"""
+    if not world.actions:
+        return []
+    record = world.actions[-1]
+    payload = asdict(record)
+    payload["turn"] = resolved.turn
+    return [payload]
 
 
 async def create_session(
@@ -314,52 +301,33 @@ async def create_session(
     llm: LLMClient,
     trial: bool = False,
 ) -> tuple[StSession, list[str]]:
-    """开启一次情境：**先**在事务外做开场演出，**再**用一个短事务落行与开场事件。
+    """开启一次情境：**先**在事务外把开场演出来，**再**用一个短事务落行与开场事件。
 
     会话行携带开局时的**内容快照**（`pack_content` + `pack_version`）：此后病例怎么改都不影响这一局。
-
-    开场基线按「尚未评估」处理：初始就成立的反应在这里结算一次（docs/scenario.md）。
+    开场同样走模型循环（`stage="opening"`）：它可以把设备/图片摆出来、可以揭示"一进来就看得见"的线索。
     """
     world = initial_world(pack)
-    fired, effects, reveals = fire_reactions(pack, world, world.clone(), initial=True)
-    resolved = ResolvedTurn(
-        request_id="",
-        base_seq=0,
-        turn=0,
-        outcome=AttemptOutcome.SPEECH,
-        action=ActionEcho(kind="speech", label="（开场）", outcome=AttemptOutcome.SPEECH),
-        effects=effects,
-        reveals=reveals,
-        reactions=fired,
-        visible_events=_visible_events(pack, world, effects=effects, reveals=reveals, fired=fired, turn=0),
-        focus=project_focus(pack, world),
-    )
-    delivery, problems = await run_delivery(
-        llm,
-        pack,
-        world,
-        request_text="",
-        request_mode="speech",
-        target=None,
-        resolved=resolved,
-        notice="",
-        allowed_refs=visible_refs(pack, world),
-        user_id=user_id,
-        mode="opening",
-    )
+    # 开场也走模型循环：拿不到交付就**不建会话**（学生不该进到一个没有现场的空壳里）。
+    # `AgentFailure` 直接抛给调用方，由路由翻成学生侧错误。
+    outcome = await run_agent(llm, pack, world, request=None, resolved=None, user_id=user_id, stage="opening")
+    problems: list[str] = list(outcome.problems)
+    delivery_messages = [_message_payload(message) for message in outcome.delivery.messages]
+    tools_payload = _agent_payload(outcome)
+    attach_delivery(world, delivery_messages, turn=0, seq=0)
     payload = {
         "schema": EVENT_SCHEMA_VERSION,
         "pack_key": pack.key,
         "pack_version": pack_version,
         "player_role": pack.player.role,
         "trial": trial,
-        "effects": [item.model_dump(mode="json") for item in effects],
-        "reveals": reveals,
-        "reactions": fired,
-        "messages": [_message_payload(message) for message in delivery.messages],
-        "images": list(delivery.assets),
-        "models": ModelsUsed(delivery=1).model_dump(),
+        "effects": [item.model_dump(mode="json") for item in outcome.tools.effects],
+        "reveals": list(outcome.tools.reveals),
+        "messages": delivery_messages,
+        "images": [_image_payload(asset_id) for asset_id in outcome.tools.images],
+        "presence": dict(outcome.tools.presence),
+        "models": ModelCalls(calls=outcome.model_calls).model_dump(),
         "problems": problems,
+        **tools_payload,
     }
     with unit_of_work(db, conflict_detail="开启情境失败"):
         session = StSession(
@@ -420,13 +388,6 @@ async def _phase(hooks: TurnHooks | None, name: TurnPhase) -> None:
         await hooks.on_phase(name)
 
 
-def _action_payload(record: Any, *, turn: int, seq: int) -> dict[str, Any]:
-    payload = asdict(record)
-    payload["turn"] = turn
-    payload["seq"] = seq
-    return payload
-
-
 def _input_echo(request: ScenarioTurnRequest) -> TurnInputModel:
     return TurnInputModel(
         kind=request.kind,
@@ -441,23 +402,23 @@ def _clarification(
     pack: ScenarioPack,
     world: World,
     request: ScenarioTurnRequest,
-    intent: IntentResolution,
     *,
+    question: str,
     session_id: int,
     pack_key: str,
     version: int,
     trial: bool,
     base_seq: int,
-    models: ModelsUsed,
-    problems: list[str],
+    problems: list[str] | None = None,
 ) -> tuple[dict[str, Any], ScenarioTurnResult]:
+    """确定性澄清：多对象歧义由**平台**问一句（不花模型、不推进时间、不写世界）。"""
     seq = base_seq + 1
     attach_clarification(
         world,
         turn=world.turn,
         seq=seq,
         text=request.text or "",
-        question=intent.clarification,
+        question=question,
         request_id=request.request_id,
     )
     world.seq = seq
@@ -467,11 +428,10 @@ def _clarification(
         "request_id": request.request_id,
         "turn": world.turn,
         "input": request.model_dump(mode="json"),
-        "intent": intent.model_dump(mode="json"),
         "text": request.text or "",
-        "clarification": intent.clarification,
-        "models": models.model_dump(),
-        "problems": problems,
+        "clarification": question,
+        "models": ModelCalls().model_dump(),
+        "problems": list(problems or []),
     }
     result = ScenarioTurnResult(
         request_id=request.request_id,
@@ -499,11 +459,13 @@ async def _hint(
     llm: LLMClient,
     user_id: int,
 ) -> tuple[dict[str, Any], ScenarioTurnResult]:
+    """求提示：走**只读**的模型循环（工具只有读工具），记录后原样交付，不推进世界。"""
     seq = base_seq + 1
-    delivery, problems = await run_hint(
-        llm, pack, world, text=request.text or "", allowed_refs=visible_refs(pack, world), user_id=user_id
-    )
-    messages = [_message_payload(message) for message in delivery.messages]
+    echo = _input_echo(request)
+    problems: list[str] = []
+    outcome = await run_agent(llm, pack, world, request=echo, resolved=None, user_id=user_id, stage="hint")
+    problems += outcome.problems
+    messages = [_message_payload(message) for message in outcome.delivery.messages]
     attach_hint(
         world,
         turn=world.turn,
@@ -521,9 +483,9 @@ async def _hint(
         "input": request.model_dump(mode="json"),
         "text": request.text or "",
         "messages": messages,
-        "hints": list(delivery.hints),
-        "models": ModelsUsed(delivery=1).model_dump(),
+        "models": ModelCalls(calls=outcome.model_calls).model_dump(),
         "problems": problems,
+        **_agent_payload(outcome),
     }
     result = ScenarioTurnResult(
         request_id=request.request_id,
@@ -553,86 +515,46 @@ async def _turn(
     hooks: TurnHooks | None = None,
 ) -> tuple[dict[str, Any], ScenarioTurnResult]:
     seq = base_seq + 1
-    models = ModelsUsed()
     problems: list[str] = []
-    echo = _input_echo(request)
+    # 结构化动作的多对象歧义 → 平台先问一句（**确定性**，不花模型）
     if request.kind == "action" and request.affordance_id:
-        # 结构化动作：平台直接构造同一份解析结果（**不走解析模型**）
-        intent = IntentResolution(
-            kind=IntentKind.ACTION,
-            target=request.target,
-            affordance_id=request.affordance_id,
-            selection=list(request.selection),
-            utterance=request.text or "",
-        )
-    else:
-        await _phase(hooks, "parsing")
-        intent, parse_problems = await run_intent(
-            llm,
-            pack,
-            world,
-            mode=request.kind,
-            text=request.text or "",
-            target=request.target.model_dump(mode="json") if request.target else None,
-            user_id=user_id,
-        )
-        models.parse = 1
-        problems += parse_problems
-    if intent.kind is IntentKind.ACTION and intent.affordance_id:
-        affordance = pack.affordance(intent.affordance_id)
-        if affordance is not None and affordance.targets:
-            if intent.target is None:
-                if len(affordance.targets) == 1:
-                    # 唯一目标 → 平台自动绑定（不增加操作负担）
-                    intent = intent.model_copy(update={"target": affordance.targets[0]})
-                else:
-                    # 多对象歧义 → **先澄清**（不消耗回合，不静默换人）
-                    intent = IntentResolution(
-                        kind=IntentKind.CLARIFICATION,
-                        target=None,
-                        utterance=request.text or "",
-                        clarification="这件事你要对哪一个对象做？请先选定一个对象。",
-                    )
-    if intent.kind is IntentKind.CLARIFICATION:
-        return _clarification(
-            pack,
-            world,
-            request,
-            intent,
-            session_id=session_id,
-            pack_key=pack_key,
-            version=version,
-            trial=trial,
-            base_seq=base_seq,
-            models=models,
-            problems=problems,
-        )
+        affordance = pack.affordance(request.affordance_id)
+        if affordance is not None and affordance.targets and request.target is None:
+            if len(affordance.targets) == 1:
+                request = request.model_copy(update={"target": affordance.targets[0]})
+            else:
+                return _clarification(
+                    pack,
+                    world,
+                    request,
+                    question="这件事你要对哪一个对象做？请先选定一个对象。",
+                    session_id=session_id,
+                    pack_key=pack_key,
+                    version=version,
+                    trial=trial,
+                    base_seq=base_seq,
+                )
 
     await _phase(hooks, "resolving")
-    resolved = settle_turn(pack, world, request=echo, intent=intent, request_id=request.request_id, base_seq=base_seq)
+    echo = _input_echo(request)
+    resolved = settle_turn(pack, world, request=echo, request_id=request.request_id, base_seq=base_seq)
     problems += resolved.problems
-    record = world.actions[-1]
-    record.seq = seq
-    allowed_refs = visible_refs(pack, world) | {event.ref for event in resolved.visible_events if event.ref}
     notice = notice_for(pack, resolved.outcome, resolved.block_reason, request.text or "")
+
     await _phase(hooks, "delivering")
-    delivery, delivery_problems = await run_delivery(
-        llm,
-        pack,
-        world,
-        request_text=request.text or "",
-        request_mode=request.kind,
-        target=request.target.model_dump(mode="json") if request.target else None,
-        resolved=resolved,
-        notice=notice,
-        allowed_refs=allowed_refs,
-        user_id=user_id,
-        mode="turn",
-    )
-    models.delivery = 1
-    problems += delivery_problems
-    await _phase(hooks, "validating")
-    messages = [_message_payload(message) for message in delivery.messages]
+    outcome = await run_agent(llm, pack, world, request=echo, resolved=resolved, user_id=user_id, notice=notice)
+    problems += outcome.problems
+
+    # 模型可以推进时间（`time_advance`）：时间尺的最终值以它为准，消耗量如实累加。
+    resolved.time_cost += outcome.tools.time_advanced
+    resolved.turn = world.turn
+    # 模型侧的世界改动（工具产生的效果与揭示）与包声明的差量**并进同一份账**：
+    # 事件载荷里的 `effects` / `reveals` 就是这一回合世界的全部变化，回放与教师回放读同一份。
+    resolved.effects = [*resolved.effects, *outcome.tools.effects]
+    resolved.reveals = [*resolved.reveals, *outcome.tools.reveals]
+    resolved.facts = sorted({*resolved.facts, *_facts(pack, world)})
+
+    messages = [_message_payload(message) for message in outcome.delivery.messages]
     attach_delivery(
         world,
         messages,
@@ -641,10 +563,6 @@ async def _turn(
         notice_text=notice,
         notice_kind=resolved.outcome.value,
     )
-    images = [{"asset_id": asset_id, "caption": "", "origin": "pack"} for asset_id in delivery.assets]
-    for image in images:
-        if image not in world.images:
-            world.images.append(image)
     world.seq = seq
     view = _view_for(pack, world, session_id=session_id, pack_key=pack_key, version=version, trial=trial)
     payload = {
@@ -653,22 +571,19 @@ async def _turn(
         "turn": resolved.turn,
         "time_cost": resolved.time_cost,
         "input": request.model_dump(mode="json"),
-        "intent": intent.model_dump(mode="json"),
         "outcome": resolved.outcome.value,
         "block_reason": resolved.block_reason,
-        "actions": [_action_payload(record, turn=resolved.turn, seq=seq)],
+        "actions": _actions_of(world, resolved),
         "effects": [item.model_dump(mode="json") for item in resolved.effects],
         "reveals": list(resolved.reveals),
-        "reactions": list(resolved.reactions),
-        "social": [item.model_dump(mode="json") for item in resolved.social],
         "messages": messages,
         "notice_text": notice,
-        "images": images,
-        "noticed": [],
-        "focus": [item.model_dump(mode="json") for item in resolved.focus],
+        "images": [_image_payload(asset_id) for asset_id in outcome.tools.images],
+        "presence": dict(outcome.tools.presence),
         "facts": list(resolved.facts),
-        "models": models.model_dump(),
+        "models": ModelCalls(calls=outcome.model_calls).model_dump(),
         "problems": problems,
+        **_agent_payload(outcome),
     }
     result = ScenarioTurnResult(
         request_id=request.request_id,
@@ -682,6 +597,12 @@ async def _turn(
         view=view,
     )
     return payload, result
+
+
+def _facts(pack: ScenarioPack, world: World) -> list[str]:
+    from .world import facts_observed
+
+    return sorted(facts_observed(pack, world))
 
 
 def _require_writable(session: StSession, session_id: int) -> dict[str, Any]:
@@ -745,7 +666,7 @@ async def submit_turn(
 
     _live_set(session_id, request.request_id, _Live("in_flight"))
     try:
-        # 求提示走**只读交付路径**（不结算、不推进世界），不能落进回合结算
+        # 求提示走**只读模型循环**（不结算、不推进世界），不能落进回合结算
         payload, result = await (
             _hint(
                 pack,
@@ -777,15 +698,25 @@ async def submit_turn(
     except TurnRejected:
         _live_drop(session_id, request.request_id)
         raise
-    except StageFailure as exc:
+    except AgentFailure as exc:
+        retryable = exc.code == "provider_unavailable"
         _live_set(
             session_id,
             request.request_id,
-            _Live("failed", ScenarioErrorInfo(code=exc.code, message="本回合没有生成成功，世界未改变", retryable=True)),
+            _Live(
+                "failed",
+                ScenarioErrorInfo(
+                    code=exc.code if retryable else "internal_error",
+                    message=(
+                        "模型暂时不可用，本次未执行、世界未改变" if retryable else "本回合没有生成成功，世界未改变"
+                    ),
+                    retryable=retryable,
+                ),
+            ),
         )
         raise
     except Exception:
-        # 内部异常（不是供应商/生成失败）：如实说是服务端自己的问题，且**不可重试**——
+        # 内部异常（不是供应商故障）：如实说是服务端自己的问题，且**不可重试**——
         # 同一个请求重发只会再撞一次同样的 bug，把学生引去"再点一次"是不诚实的。
         _live_set(
             session_id,
@@ -825,6 +756,17 @@ async def submit_turn(
 # --------------------------------------------------------------------------- #
 
 
+def _tool_rejection_total(db: OrmSession, session_id: int) -> int:
+    """本局被工具层拒掉的调用总数（模型越界 / 图片闸门命中）——进 `session_closed` 载荷供聚合。"""
+    total = 0
+    for payload in db.execute(
+        select(StEvent.payload).where(StEvent.session_id == session_id, StEvent.kind == KIND_TURN)
+    ).scalars():
+        for count in ((payload or {}).get("tool_rejections") or {}).values():
+            total += int(count or 0)
+    return total
+
+
 def submit_close(
     db: OrmSession,
     *,
@@ -859,6 +801,7 @@ def submit_close(
 
     base_seq = current_seq(db, session_id)
     world = replay(db, session_id, pack)
+    rejections = _tool_rejection_total(db, session_id)
     db.rollback()
     del status, meta
     if expected_seq != base_seq:
@@ -875,9 +818,6 @@ def submit_close(
     )
     report = build_report(pack, world, view=view)
     response = ScenarioCloseResponse(session_id=session_id, report=report, view=view)
-    from .world import project_focus
-
-    focus = project_focus(pack, world)
     payload = {
         "schema": EVENT_SCHEMA_VERSION,
         "request_id": request_id,
@@ -885,9 +825,8 @@ def submit_close(
         "lost": report.outcome.lost,
         "outcome": report.outcome.status,
         "turn": report.outcome.turn,
-        # 关注点**只给管理侧**聚合用（学生响应里没有它）：存计数而不是列表，省得再解析
-        "focus_relevant": sum(1 for item in focus if item.relevant),
-        "focus_addressed": sum(1 for item in focus if item.relevant and item.addressed),
+        "time_cost": world.turn,
+        "tool_rejections": rejections,
     }
     with unit_of_work(db, conflict_detail="结束情境失败"):
         row = _lock_session(db, session_id)
@@ -985,10 +924,7 @@ def session_row(session: StSession, pack_title: str, turn: int) -> dict[str, Any
 
 
 def session_turns(db: OrmSession, session_ids: list[int]) -> dict[int, int]:
-    """每个会话**实际跑到第几回合**（一次分组查询；`turn_committed` 的 `turn` 与回放同源）。
-
-    只认新机制的 `turn_committed`：旧机制的 `dm_turn` / `student_action` 已不在读集里。
-    """
+    """每个会话**实际跑到第几回合**（一次分组查询；`turn_committed` 的 `turn` 与回放同源）。"""
     if not session_ids:
         return {}
     found: dict[int, int] = {}
