@@ -2,7 +2,7 @@
  * 场景编辑器的**表单页签**：只暴露必须由人决定的字段，按 pack 结构分节。
  *
  * 取向（docs/scenario.md P0-3）：
- * - 列表字段（线索/在场者/动作/事实/判据/维度/教学关注点/设备）一律可增删排序；
+ * - 列表字段（线索/在场者/动作/事实/判据/设备）一律可增删排序；
  * - 其余字段**保持原值**、折叠在一处（作者看不到就等于不存在），要改它们去「JSON 原始」页签；
  * - 节内的校验问题来自后端（`POST .../validate`），这里只**归位**不重算——
  *   路径映射是 `sectionForPath`，节标题上的红字与顶部摘要指向同一处。
@@ -28,13 +28,12 @@ import { boolAt, listAt, numberAt, setIn, textAt } from "./packDoc";
 
 /** 每一节覆盖哪些字段前缀（顶部摘要据此把问题指到节）。 */
 export const PACK_SECTIONS: { id: string; label: string; prefixes: string[] }[] = [
-	{ id: "basic", label: "基本信息", prefixes: ["title", "one_line", "player", "key", "pack_schema_version"] },
+	{ id: "basic", label: "基本信息", prefixes: ["title", "one_line", "player", "key"] },
 	{ id: "setting", label: "场景", prefixes: ["setting.place", "setting.time_hint", "setting.resources"] },
 	{ id: "actors", label: "在场者", prefixes: ["actors"] },
 	{ id: "affordances", label: "可做动作", prefixes: ["affordances"] },
 	{ id: "cues", label: "线索与事实", prefixes: ["setting.cues", "facts"] },
-	{ id: "rubric", label: "判读", prefixes: ["rubric", "dims"] },
-	{ id: "teaching_focus", label: "教学关注点", prefixes: ["teaching_focus"] },
+	{ id: "rubric", label: "判读", prefixes: ["rubric"] },
 	{ id: "presentation", label: "呈现", prefixes: ["presentation", "assets", "failure"] },
 ];
 
@@ -71,17 +70,11 @@ const JUDGE_RULES = [
 	"option_choice",
 ].map((value) => ({ value, label: value }));
 
-const DIM_AGGS = ["coverage", "slope", "latency", "count"].map((value) => ({ value, label: value }));
-
-const PANELS = ["timeline", "emotion", "coverage"].map((value) => ({ value, label: value }));
-
 /** 表单编辑不到的**顶层**字段：折叠在一处，向作者交代"它们是原样保留的"。 */
 const ADVANCED_KEYS = [
 	"state_keys",
 	"truth",
-	"reactions",
 	"assets",
-	"hidden_from_player",
 	"failure",
 	"failure_when",
 	"presentation",
@@ -425,7 +418,7 @@ export default function PackForm({
 						<ListEditor
 							items={listAt<ScenarioPackValue>(doc, "facts")}
 							onChange={(value) => onChange(setIn(doc, ["facts"], value))}
-							create={() => ({ id: "f_new", intent: "", kind: "reported", critical: false, cue_ids: [], affordance_ids: [] })}
+							create={() => ({ id: "f_new", intent: "", critical: false, cue_ids: [], affordance_ids: [] })}
 							addLabel="添加事实"
 							emptyText="还没有声明事实。"
 							render={(_fact, index) => (
@@ -435,15 +428,6 @@ export default function PackForm({
 											label="id"
 											value={textAt(doc, "facts", index, "id")}
 											onChange={(event) => onChange(setIn(doc, ["facts", index, "id"], event.currentTarget.value))}
-										/>
-										<Select
-											label="来源"
-											data={[
-												{ value: "measured", label: "measured · 量出来的" },
-												{ value: "reported", label: "reported · 口述的" },
-											]}
-											value={textAt(doc, "facts", index, "kind") || "reported"}
-											onChange={(value) => value && onChange(setIn(doc, ["facts", index, "kind"], value))}
 										/>
 										<Switch
 											label="关键"
@@ -484,49 +468,10 @@ export default function PackForm({
 			<Section
 				id="rubric"
 				title="判读"
-				hint="维度（聚合口径）与判据（规则 + 三档判读文本 + 权重）。判据的参数（引用哪些动作）在「JSON 原始」页签里改。"
+				hint="判据（规则 + 三档判读文本 + 权重）。判据的参数（引用哪些动作）在「JSON 原始」页签里改。"
 				issues={issuesOf("rubric")}
 			>
 				<Stack gap="lg">
-					<div>
-						<Text size="sm" fw={600} mb={4}>
-							维度
-						</Text>
-						<ListEditor
-							items={listAt<ScenarioPackValue>(doc, "dims")}
-							onChange={(value) => onChange(setIn(doc, ["dims"], value))}
-							create={() => ({ id: "d_new", label: "", agg: "coverage", source: "actions", params: {} })}
-							addLabel="添加维度"
-							emptyText="还没有声明维度。"
-							render={(_dim, index) => (
-								<Group grow align="flex-start">
-									<TextInput
-										label="id"
-										value={textAt(doc, "dims", index, "id")}
-										onChange={(event) => onChange(setIn(doc, ["dims", index, "id"], event.currentTarget.value))}
-									/>
-									<TextInput
-										label="名称"
-										value={textAt(doc, "dims", index, "label")}
-										onChange={(event) => onChange(setIn(doc, ["dims", index, "label"], event.currentTarget.value))}
-									/>
-									<Select
-										label="聚合"
-										data={DIM_AGGS}
-										value={textAt(doc, "dims", index, "agg") || "coverage"}
-										onChange={(value) => value && onChange(setIn(doc, ["dims", index, "agg"], value))}
-									/>
-									<Select
-										label="来源"
-										data={["facts", "actions", "state"].map((value) => ({ value, label: value }))}
-										value={textAt(doc, "dims", index, "source") || "actions"}
-										onChange={(value) => value && onChange(setIn(doc, ["dims", index, "source"], value))}
-									/>
-								</Group>
-							)}
-						/>
-					</div>
-
 					<div>
 						<Text size="sm" fw={600} mb={4}>
 							判据
@@ -596,54 +541,12 @@ export default function PackForm({
 			</Section>
 
 			<Section
-				id="teaching_focus"
-				title="教学关注点"
-				hint="作者希望学生遇到的判断问题（intent），以及「是否值得关注 / 是否已被处理」的观察条件。不推进世界、不解锁动作、不分阶段；relevant_when / addressed_when / evidence_refs（条件与回看定位）在「JSON 原始」页签里改。"
-				issues={issuesOf("teaching_focus")}
-			>
-				<ListEditor
-					items={listAt<ScenarioPackValue>(doc, "teaching_focus")}
-					onChange={(value) => onChange(setIn(doc, ["teaching_focus"], value))}
-					create={() => ({ id: "focus_new", intent: "", relevant_when: null, addressed_when: null, evidence_refs: [] })}
-					addLabel="添加关注点"
-					emptyText="没有声明教学关注点。"
-					render={(_focus, index) => (
-						<>
-							<TextInput
-								label="id"
-								value={textAt(doc, "teaching_focus", index, "id")}
-								onChange={(event) =>
-									onChange(setIn(doc, ["teaching_focus", index, "id"], event.currentTarget.value))
-								}
-							/>
-							<Textarea
-								label="教学意图（intent）"
-								description="只给 DM 与教师回放看，学生看不到"
-								autosize
-								minRows={2}
-								value={textAt(doc, "teaching_focus", index, "intent")}
-								onChange={(event) =>
-									onChange(setIn(doc, ["teaching_focus", index, "intent"], event.currentTarget.value))
-								}
-							/>
-						</>
-					)}
-				/>
-			</Section>
-
-			<Section
 				id="presentation"
 				title="呈现"
-				hint="面板开关、设备（现场那台仪器）与图像生成开关。"
+				hint="设备（现场那台仪器）——读数只在这里出现。"
 				issues={issuesOf("presentation")}
 			>
 				<Stack gap="sm">
-					<MultiSelect
-						label="面板"
-						data={PANELS}
-						value={listAt<string>(doc, "presentation", "panels")}
-						onChange={(value) => onChange(setIn(doc, ["presentation", "panels"], value))}
-					/>
 					<ListEditor
 						items={listAt<ScenarioPackValue>(doc, "presentation", "devices")}
 						onChange={(value) => onChange(setIn(doc, ["presentation", "devices"], value))}

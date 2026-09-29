@@ -44,7 +44,7 @@ function contactText(presence: string): string {
  *
  * 数据全部来自 `GET /scenario/admin/packs` 的 `overview` 投影（这份病例的当前内容）：
  * 角色 / 地点时间 / 手边有什么 / 在场者 / 各项数量。DM 侧的真相字段（`truth`、
- * `hidden_from_player`、actor 的 knowledge）**一个都不在这里**——管理界面要的是"作者声明了什么"，
+ * actor 的 knowledge）**一个都不在这里**——管理界面要的是"作者声明了什么"，
  * 不是"患者藏着什么"，少一处副本就少一处泄漏面。
  *
  * **计数与内部标记不进首屏**：图片生成声明与这一局的会话次数这些是维护者

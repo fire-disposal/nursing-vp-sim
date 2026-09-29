@@ -158,10 +158,10 @@ def _pack_block(pack: ScenarioPack) -> str:
         for asset in pack.assets:
             gate = f"，前置线索：{'、'.join(asset.reveal_with)}" if asset.reveal_with else ""
             rows.append(f"- {asset.id}：{asset.title or asset.id}（{asset.alt}）{gate}")
-    if pack.truth or pack.hidden_from_player:
+    if pack.truth:
         rows.append("")
         rows.append("### 学生看不到的真相（世界必须自洽，但一个字都不许说给学生）")
-        rows.extend(f"- {item}" for item in [*pack.truth, *pack.hidden_from_player])
+        rows.extend(f"- {item}" for item in pack.truth)
     return "\n".join(rows)
 
 
@@ -258,7 +258,7 @@ def leak_terms(pack: ScenarioPack, world: World) -> list[str]:
     """**不得出现在学生可见文本里**的短语（隐藏事实的证据口径）。
 
     只取作者显式写的整句/短语（未采集事实的 `intent`、`banned_phrases`、未揭示线索的全文、
-    `hidden_from_player`），不切词——切词会把某个读数缩写这类正常说法也判成泄底。
+    `truth`），不切词——切词会把某个读数缩写这类正常说法也判成泄底。
     """
     observed = facts_observed(pack, world)
     terms: list[str] = []
@@ -268,7 +268,7 @@ def leak_terms(pack: ScenarioPack, world: World) -> list[str]:
         terms.append(fact.intent)
         terms.extend(fact.banned_phrases)
     terms.extend(cue.text for cue in pack.setting.cues if cue.id not in world.revealed)
-    terms.extend(pack.hidden_from_player)
+    terms.extend(pack.truth)
     return sorted({term for term in terms if len(term) >= 4})
 
 

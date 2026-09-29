@@ -26,23 +26,19 @@
       },
       {
         "id": "c_history",
-        "text": "追问既往：糖尿病、高血压；最近一周没怎么吃东西。",
-        "visible_from_start": false
+        "text": "追问既往：糖尿病、高血压；最近一周没怎么吃东西。"
       },
       {
         "id": "c_abdomen",
-        "text": "护士说：「肚子胀，右下腹按下去更疼，松手也疼。」",
-        "visible_from_start": false
+        "text": "护士说：「肚子胀，右下腹按下去更疼，松手也疼。」"
       },
       {
         "id": "c_urine",
-        "text": "尿量：一整夜 100 ml，颜色很深。",
-        "visible_from_start": false
+        "text": "尿量：一整夜 100 ml，颜色很深。"
       },
       {
         "id": "c_results",
-        "text": "回报：乳酸 4.2 mmol/L、白细胞 16.8；床旁超声见右下腹游离液体。",
-        "visible_from_start": false
+        "text": "化验和床旁超声都回来了：白细胞 16.8，超声见右下腹游离液体。"
       }
     ]
   },
@@ -110,13 +106,20 @@
   },
   "truth": [
     "这是外科急腹症合并早期循环不稳，需要尽快确诊并升级到外科",
-    "关键下一步是化验（乳酸/血常规）与床旁超声，并把二线叫起来"
+    "关键下一步是乳酸/血常规与床旁超声，并把二线叫起来",
+    "患者不在你的视野里：你只能通过电话决策，到不了他床边"
   ],
   "affordances": [
     {
       "id": "ask_vitals",
       "type": "ask",
       "label": "让护士复述并补测生命体征",
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "nurse"
+        }
+      ],
       "effects": [
         {
           "target": "nurse",
@@ -124,54 +127,48 @@
           "op": "decr",
           "value": 1
         }
-      ],
-      "targets": [
-        {
-          "kind": "actor",
-          "id": "nurse"
-        }
       ]
     },
     {
       "id": "ask_abdomen",
       "type": "ask",
       "label": "问腹部体征与疼痛部位",
-      "reveals": [
-        "c_abdomen"
-      ],
       "targets": [
         {
           "kind": "actor",
           "id": "nurse"
         }
+      ],
+      "reveals": [
+        "c_abdomen"
       ]
     },
     {
       "id": "ask_urine",
       "type": "ask",
       "label": "问尿量与出入量",
-      "reveals": [
-        "c_urine"
-      ],
       "targets": [
         {
           "kind": "actor",
           "id": "nurse"
         }
+      ],
+      "reveals": [
+        "c_urine"
       ]
     },
     {
       "id": "ask_history",
       "type": "ask",
       "label": "问既往史与近期进食",
-      "reveals": [
-        "c_history"
-      ],
       "targets": [
         {
           "kind": "actor",
           "id": "nurse"
         }
+      ],
+      "reveals": [
+        "c_history"
       ]
     },
     {
@@ -199,8 +196,11 @@
           }
         ]
       },
-      "reveals": [
-        "c_results"
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "nurse"
+        }
       ],
       "effects": [
         {
@@ -216,11 +216,8 @@
           "value": 4.2
         }
       ],
-      "targets": [
-        {
-          "kind": "actor",
-          "id": "nurse"
-        }
+      "reveals": [
+        "c_results"
       ],
       "time_cost": 3
     },
@@ -228,6 +225,12 @@
       "id": "hold_observation",
       "type": "act",
       "label": "先留观复测，明早交班再说",
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "nurse"
+        }
+      ],
       "effects": [
         {
           "target": "nurse",
@@ -236,18 +239,18 @@
           "value": 1
         }
       ],
-      "targets": [
-        {
-          "kind": "actor",
-          "id": "nurse"
-        }
-      ],
       "time_cost": 3
     },
     {
       "id": "order_support",
       "type": "act",
       "label": "先补液并交代观察要点（血压/尿量/意识）",
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "nurse"
+        }
+      ],
       "effects": [
         {
           "target": "scene",
@@ -256,18 +259,27 @@
           "value": 2
         }
       ],
-      "targets": [
-        {
-          "kind": "actor",
-          "id": "nurse"
-        }
-      ],
       "time_cost": 2
     },
     {
       "id": "order_escalate",
       "type": "summon",
       "label": "叫二线/外科起床接手",
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "nurse"
+        }
+      ],
+      "effects": [
+        {
+          "target": "scene",
+          "key": "consultant_in",
+          "op": "set",
+          "value": true
+        }
+      ],
+      "time_cost": 2,
       "visible_when": {
         "all": [
           {
@@ -277,22 +289,7 @@
             "value": false
           }
         ]
-      },
-      "effects": [
-        {
-          "target": "scene",
-          "key": "consultant_in",
-          "op": "set",
-          "value": true
-        }
-      ],
-      "targets": [
-        {
-          "kind": "actor",
-          "id": "nurse"
-        }
-      ],
-      "time_cost": 2
+      }
     },
     {
       "id": "document",
@@ -312,9 +309,7 @@
     {
       "id": "f_vitals",
       "intent": "心率快、血压偏低、尿少——已经有循环不稳的迹象",
-      "kind": "measured",
       "critical": true,
-      "banned_phrases": [],
       "cue_ids": [
         "c_phone"
       ]
@@ -322,54 +317,51 @@
     {
       "id": "f_peritonitis",
       "intent": "右下腹压痛伴反跳痛，提示腹膜炎",
-      "kind": "measured",
       "critical": true,
-      "banned_phrases": [
-        "腹膜炎",
-        "反跳痛"
-      ],
       "cue_ids": [
         "c_abdomen"
       ],
       "affordance_ids": [
         "ask_abdomen"
+      ],
+      "banned_phrases": [
+        "腹膜炎",
+        "反跳痛"
       ]
     },
     {
       "id": "f_lactate",
       "intent": "乳酸升高与影像见游离液体，提示需要外科介入",
-      "kind": "measured",
       "critical": true,
-      "banned_phrases": [
-        "乳酸 4.2",
-        "游离液体"
-      ],
       "cue_ids": [
         "c_results"
       ],
       "affordance_ids": [
         "order_tests"
+      ],
+      "banned_phrases": [
+        "乳酸 4.2",
+        "游离液体"
       ]
     },
     {
       "id": "f_urine",
       "intent": "尿量显著减少",
-      "kind": "measured",
-      "critical": false,
-      "banned_phrases": [
-        "100 ml"
-      ],
       "cue_ids": [
         "c_urine"
       ],
       "affordance_ids": [
         "ask_urine"
+      ],
+      "banned_phrases": [
+        "100 ml"
       ]
     }
   ],
   "rubric": [
     {
       "id": "dp_gather",
+      "title": "在电话里问到了哪些关键信息（而不是只重复已有数据）",
       "rule": "action_set_covers",
       "params": {
         "affordances": [
@@ -390,11 +382,11 @@
         "adequate": "问到了其中一项",
         "missed": "只复述护士已经报过的数字"
       },
-      "title": "在电话里问到了哪些关键信息（而不是只重复已有数据）",
       "weight": 25
     },
     {
       "id": "dp_next_test",
+      "title": "下一步检查与处置选了什么",
       "rule": "option_choice",
       "params": {
         "affordances": [
@@ -423,11 +415,11 @@
         "adequate": "要了心电图或尿量等次要项，但没抓关键",
         "missed": "选择先留观复测、明早再说"
       },
-      "title": "下一步检查与处置选了什么",
       "weight": 30
     },
     {
       "id": "dp_escalate",
+      "title": "是否把二线/外科叫起来",
       "rule": "require_within",
       "params": {
         "affordances": [
@@ -440,11 +432,11 @@
         "adequate": "更晚才叫",
         "missed": "始终没有升级"
       },
-      "title": "是否把二线/外科叫起来",
       "weight": 30
     },
     {
       "id": "dp_plan",
+      "title": "是否同时给出支持性处置与观察要点",
       "rule": "action_set_covers",
       "params": {
         "affordances": [
@@ -458,7 +450,6 @@
         "adequate": "只做了其中一件",
         "missed": "只下检查、没有后续交代"
       },
-      "title": "是否同时给出支持性处置与观察要点",
       "weight": 15
     }
   ],
@@ -487,9 +478,5 @@
       }
     ]
   },
-  "failure": "recoverable",
-  "hidden_from_player": [
-    "患者不在你的视野内",
-    "你只能通过电话决策"
-  ]
+  "failure": "recoverable"
 }

@@ -32,23 +32,19 @@
       },
       {
         "id": "c_vitals",
-        "text": "脉搏 118、血压 92/58、四肢发凉。",
-        "visible_from_start": false
+        "text": "脉搏细速、血压偏低、四肢发凉。"
       },
       {
         "id": "c_shoulder",
-        "text": "追问搬箱子那一刻，他说「一下就疼起来了，左肩膀也酸」。",
-        "visible_from_start": false
+        "text": "追问搬箱子那一刻，他说「一下就疼起来了，左肩膀也酸」。"
       },
       {
         "id": "c_guarding",
-        "text": "他没有明显的腰部压痛点，反而左侧一碰就躲。",
-        "visible_from_start": false
+        "text": "他没有明显的腰部压痛点，反而左侧一碰就躲。"
       },
       {
         "id": "c_shock",
-        "text": "抢救区医生接手：「先按内出血走，床旁超声马上到。」",
-        "visible_from_start": false
+        "text": "抢救区医生接手：「先按内出血走，床旁超声马上到。」"
       }
     ]
   },
@@ -122,7 +118,7 @@
     }
   },
   "truth": [
-    "他极可能是腹腔内出血，主诉『闪了腰』是误归因",
+    "他极可能是腹内出血，主诉『闪了腰』是误归因",
     "正确处置是立即送抢救区并呼叫医生，而不是骨科或开药回家"
   ],
   "affordances": [
@@ -130,12 +126,6 @@
       "id": "measure_vitals",
       "type": "measure",
       "label": "测生命体征",
-      "reveals": [
-        "c_vitals"
-      ],
-      "params": {
-        "unit": "次·分⁻¹ / mmHg"
-      },
       "targets": [
         {
           "kind": "actor",
@@ -155,34 +145,37 @@
           "op": "set",
           "value": 92
         }
+      ],
+      "reveals": [
+        "c_vitals"
       ]
     },
     {
       "id": "ask_trauma",
       "type": "ask",
       "label": "追问受伤那一刻的经过",
-      "reveals": [
-        "c_shoulder"
-      ],
       "targets": [
         {
           "kind": "actor",
           "id": "patient"
         }
+      ],
+      "reveals": [
+        "c_shoulder"
       ]
     },
     {
       "id": "observe_abdomen",
       "type": "observe",
       "label": "看他捂的位置、轻轻触一下左侧",
-      "reveals": [
-        "c_guarding"
-      ],
       "targets": [
         {
           "kind": "actor",
           "id": "patient"
         }
+      ],
+      "reveals": [
+        "c_guarding"
       ]
     },
     {
@@ -190,9 +183,6 @@
       "type": "act",
       "label": "立即送抢救区（红区）并呼叫医生",
       "confirm": true,
-      "reveals": [
-        "c_shock"
-      ],
       "effects": [
         {
           "target": "scene",
@@ -206,6 +196,9 @@
           "op": "set",
           "value": true
         }
+      ],
+      "reveals": [
+        "c_shock"
       ],
       "time_cost": 1
     },
@@ -269,60 +262,54 @@
     {
       "id": "f_shock_signs",
       "intent": "脉搏细速与血压偏低提示循环不稳",
-      "kind": "measured",
       "critical": true,
-      "banned_phrases": [
-        "92/58",
-        "休克",
-        "循环不稳"
-      ],
       "cue_ids": [
         "c_vitals"
       ],
       "affordance_ids": [
         "measure_vitals"
+      ],
+      "banned_phrases": [
+        "92/58",
+        "休克",
+        "循环不稳"
       ]
     },
     {
       "id": "f_shoulder_pain",
       "intent": "突发腹侧疼痛伴肩部放射，提示腹内出血可能",
-      "kind": "measured",
       "critical": true,
-      "banned_phrases": [
-        "内出血",
-        "脾破裂",
-        "放射痛"
-      ],
       "cue_ids": [
         "c_shoulder"
       ],
       "affordance_ids": [
         "ask_trauma"
+      ],
+      "banned_phrases": [
+        "内出血",
+        "脾破裂",
+        "放射痛"
       ]
     },
     {
       "id": "f_abdomen_guarding",
       "intent": "左侧回避触碰，与『闪腰』的解释不符",
-      "kind": "measured",
       "critical": true,
-      "banned_phrases": [
-        "拒按",
-        "腹膜炎",
-        "不符"
-      ],
       "cue_ids": [
         "c_guarding"
       ],
       "affordance_ids": [
         "observe_abdomen"
+      ],
+      "banned_phrases": [
+        "拒按",
+        "腹膜炎",
+        "不符"
       ]
     },
     {
       "id": "f_self_story",
       "intent": "患者自述只是搬东西闪了腰",
-      "kind": "reported",
-      "critical": false,
-      "banned_phrases": [],
       "cue_ids": [
         "c_story"
       ]
@@ -331,6 +318,7 @@
   "rubric": [
     {
       "id": "dp_zone",
+      "title": "把他分到哪儿",
       "rule": "option_choice",
       "params": {
         "affordances": [
@@ -359,11 +347,11 @@
         "adequate": "先留观黄区，但仍留在急诊视线内",
         "missed": "按骨科/开药回家处理"
       },
-      "title": "把他分到哪儿",
       "weight": 50
     },
     {
       "id": "dp_see_hidden",
+      "title": "是否在分区前先核实体征（而不是照主诉分流）",
       "rule": "action_set_covers",
       "params": {
         "affordances": [
@@ -385,11 +373,11 @@
         "adequate": "做了其中一项，开始起疑",
         "missed": "完全按他自己的说法分流"
       },
-      "title": "是否在分区前先核实体征（而不是照主诉分流）",
       "weight": 30
     },
     {
       "id": "dp_document",
+      "title": "是否记录分诊等级与依据",
       "rule": "action_set_covers",
       "params": {
         "affordances": [
@@ -402,7 +390,6 @@
         "adequate": "有记录但缺依据",
         "missed": "未记录"
       },
-      "title": "是否记录分诊等级与依据",
       "weight": 20
     }
   ],
@@ -453,9 +440,5 @@
         "value": 1
       }
     ]
-  },
-  "hidden_from_player": [
-    "他极可能是腹内出血",
-    "『闪了腰』是误归因"
-  ]
+  }
 }

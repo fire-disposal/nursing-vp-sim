@@ -27,7 +27,7 @@
       },
       {
         "id": "c_low_spo2",
-        "text": "指夹血氧 88%（吸氧 3 L/min 下）。"
+        "text": "吸着 3 L/min 的氧，指夹血氧还是上不来。"
       },
       {
         "id": "c_left_absent",
@@ -100,7 +100,7 @@
     }
   },
   "truth": [
-    "深部痰栓导致左侧气道堵塞，单纯经口吸痰取不出",
+    "深部痰栓把左侧气道堵住了，经口吸痰取不出来",
     "正确处置是加压给氧＋体位引流＋呼叫医生准备插管，而不是继续吸痰"
   ],
   "affordances": [
@@ -108,15 +108,14 @@
       "id": "suction",
       "type": "act",
       "label": "吸痰",
-      "reveals": [
-        "c_tube_blood"
-      ],
-      "effects": [],
       "targets": [
         {
           "kind": "actor",
           "id": "patient"
         }
+      ],
+      "reveals": [
+        "c_tube_blood"
       ],
       "time_cost": 2
     },
@@ -124,7 +123,6 @@
       "id": "increase_o2",
       "type": "act",
       "label": "调高氧流量",
-      "effects": [],
       "targets": [
         {
           "kind": "actor",
@@ -137,22 +135,25 @@
       "id": "auscultate",
       "type": "observe",
       "label": "听诊双肺",
-      "reveals": [
-        "c_left_absent"
-      ],
       "targets": [
         {
           "kind": "actor",
           "id": "patient"
         }
+      ],
+      "reveals": [
+        "c_left_absent"
       ]
     },
     {
       "id": "measure_spo2",
       "type": "measure",
       "label": "测血氧",
-      "reveals": [
-        "c_low_spo2"
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "patient"
+        }
       ],
       "effects": [
         {
@@ -162,24 +163,20 @@
           "value": 88
         }
       ],
-      "params": {
-        "unit": "%",
-        "normal": [
-          95,
-          100
-        ]
-      },
-      "targets": [
-        {
-          "kind": "actor",
-          "id": "patient"
-        }
+      "reveals": [
+        "c_low_spo2"
       ]
     },
     {
       "id": "bag_valve",
       "type": "act",
       "label": "球囊面罩加压给氧",
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "patient"
+        }
+      ],
       "effects": [
         {
           "target": "scene",
@@ -194,6 +191,7 @@
           "value": true
         }
       ],
+      "time_cost": 2,
       "visible_when": {
         "all": [
           {
@@ -205,19 +203,18 @@
             "affordance_id": "auscultate"
           }
         ]
-      },
+      }
+    },
+    {
+      "id": "reposition",
+      "type": "act",
+      "label": "侧卧拍背 / 体位引流",
       "targets": [
         {
           "kind": "actor",
           "id": "patient"
         }
       ],
-      "time_cost": 2
-    },
-    {
-      "id": "reposition",
-      "type": "act",
-      "label": "侧卧拍背 / 体位引流",
       "effects": [
         {
           "target": "scene",
@@ -226,6 +223,7 @@
           "value": 2
         }
       ],
+      "time_cost": 2,
       "visible_when": {
         "all": [
           {
@@ -237,22 +235,24 @@
             "affordance_id": "auscultate"
           }
         ]
-      },
-      "targets": [
-        {
-          "kind": "actor",
-          "id": "patient"
-        }
-      ],
-      "time_cost": 2
+      }
     },
     {
       "id": "call_doctor",
       "type": "summon",
       "label": "呼叫值班医生",
+      "effects": [
+        {
+          "target": "scene",
+          "key": "doctor_present",
+          "op": "set",
+          "value": true
+        }
+      ],
       "reveals": [
         "c_plan"
       ],
+      "time_cost": 2,
       "visible_when": {
         "all": [
           {
@@ -262,16 +262,7 @@
             "value": false
           }
         ]
-      },
-      "effects": [
-        {
-          "target": "scene",
-          "key": "doctor_present",
-          "op": "set",
-          "value": true
-        }
-      ],
-      "time_cost": 2
+      }
     },
     {
       "id": "document",
@@ -303,55 +294,52 @@
     {
       "id": "f_low_spo2",
       "intent": "吸氧条件下血氧仍低于正常",
-      "kind": "measured",
       "critical": true,
-      "banned_phrases": [
-        "血氧 88",
-        "低氧血症"
-      ],
       "cue_ids": [
         "c_low_spo2"
       ],
       "affordance_ids": [
         "measure_spo2"
+      ],
+      "banned_phrases": [
+        "血氧 88",
+        "低氧血症"
       ]
     },
     {
       "id": "f_left_absent",
       "intent": "单侧呼吸音消失，提示深部痰栓或单侧堵塞",
-      "kind": "measured",
       "critical": true,
-      "banned_phrases": [
-        "呼吸音消失",
-        "痰栓",
-        "堵塞"
-      ],
       "cue_ids": [
         "c_left_absent"
       ],
       "affordance_ids": [
         "auscultate"
+      ],
+      "banned_phrases": [
+        "呼吸音消失",
+        "痰栓",
+        "堵塞"
       ]
     },
     {
       "id": "f_bloody_sputum",
       "intent": "吸出物为少量血性黏痰",
-      "kind": "measured",
-      "critical": false,
-      "banned_phrases": [
-        "血性"
-      ],
       "cue_ids": [
         "c_tube_blood"
       ],
       "affordance_ids": [
         "suction"
+      ],
+      "banned_phrases": [
+        "血性"
       ]
     }
   ],
   "rubric": [
     {
       "id": "dp_recognize",
+      "title": "是否识别「吸痰无效 + 单侧呼吸音消失」提示深部痰栓 / 单侧堵塞",
       "rule": "action_set_covers",
       "params": {
         "affordances": [
@@ -372,11 +360,11 @@
         "adequate": "测了血氧或听诊之一，意识到吸痰无效",
         "missed": "只看血氧数字，或完全依赖吸痰"
       },
-      "title": "是否识别「吸痰无效 + 单侧呼吸音消失」提示深部痰栓 / 单侧堵塞",
       "weight": 25
     },
     {
       "id": "dp_no_repeat",
+      "title": "是否停止重复无效的吸痰",
       "rule": "avoid_repeat",
       "params": {
         "affordance_id": "suction",
@@ -387,11 +375,11 @@
         "adequate": "吸痰两次但随后改变思路",
         "missed": "反复吸痰三次以上"
       },
-      "title": "是否停止重复无效的吸痰",
       "weight": 30
     },
     {
       "id": "dp_escalate",
+      "title": "是否及时升级（加压给氧 / 呼叫医生）",
       "rule": "require_within",
       "params": {
         "affordances": [
@@ -405,11 +393,11 @@
         "adequate": "三轮内做到其中之一",
         "missed": "始终没有升级"
       },
-      "title": "是否及时升级（加压给氧 / 呼叫医生）",
       "weight": 30
     },
     {
       "id": "dp_sequence",
+      "title": "是否先重新评估再升级处置",
       "rule": "action_order",
       "params": {
         "first": [
@@ -426,11 +414,11 @@
         "adequate": "评估与升级交错，但顺序合理",
         "missed": "没有任何评估就盲目处置"
       },
-      "title": "是否先重新评估再升级处置",
       "weight": 10
     },
     {
       "id": "dp_document",
+      "title": "是否记录处置与病情变化",
       "rule": "action_set_covers",
       "params": {
         "affordances": [
@@ -443,7 +431,6 @@
         "adequate": "有记录但缺患者反应",
         "missed": "未记录"
       },
-      "title": "是否记录处置与病情变化",
       "weight": 5
     }
   ],
@@ -494,9 +481,5 @@
         "value": 1
       }
     ]
-  },
-  "hidden_from_player": [
-    "深部痰栓导致单侧堵塞",
-    "需要加压给氧而非继续吸痰"
-  ]
+  }
 }

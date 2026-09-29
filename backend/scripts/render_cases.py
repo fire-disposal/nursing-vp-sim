@@ -1,11 +1,12 @@
 """把 `modules/scenario_training/packs/*.json` 渲染成人可读文本。
 
 用法：
-    cd backend && uv run python -m scripts.render_cases            # 打印到 stdout
-    cd backend && uv run python -m scripts.render_cases --out ../docs/cases.md
+    cd backend && uv run python -m scripts.render_cases                    # 全部打印到 stdout
+    cd backend && uv run python -m scripts.render_cases --out-dir ../docs/cases
 
-产物是**派生物**（唯一真源永远是 `packs/*.json`）；改了病例就用它重新生成 `docs/cases.md`，
-不要手改产物。
+`--out-dir` 每个病例写一份 `<pack key>/case.md`（目录里可能还有 `case.toml` / `img/`，
+本脚本只写 `case.md`，不动别的东西）。产物是**派生物**（唯一真源永远是 `packs/*.json`）；
+改了病例就用它重新生成，不要手改产物。
 """
 
 from __future__ import annotations
@@ -16,6 +17,11 @@ import pathlib
 import sys
 
 PACKS_DIR = pathlib.Path(__file__).resolve().parent.parent / "modules" / "scenario_training" / "packs"
+
+SOURCE_NOTE = (
+    "> 派生文件：由 `backend/scripts/render_cases.py` 从 `backend/modules/scenario_training/packs/*.json` 生成。\n"
+    "> `packs/*.json` 是唯一真源；改了病例请重新生成，不要手改这一份。"
+)
 
 
 def _j(value: object) -> str:
@@ -79,10 +85,10 @@ def _affordances(pack: dict) -> list[str]:
 def _facts(pack: dict) -> list[str]:
     if not pack.get("facts"):
         return []
-    rows = ["**判读要抽取的事实**"]
+    rows = ["**判读要观察的事实**"]
     for fact in pack["facts"]:
         flag = "，关键" if fact.get("critical") else ""
-        rows.append(f"- `{fact['id']}`（{fact.get('kind', 'reported')}{flag}）：{fact['intent']}")
+        rows.append(f"- `{fact['id']}`{flag}：{fact['intent']}")
     return rows
 
 
@@ -131,13 +137,13 @@ def _assets(pack: dict) -> list[str]:
 def _truth(pack: dict) -> list[str]:
     if not pack.get("truth"):
         return []
-    rows = ["**真相**（只进模型的解析上下文，学生永远看不到）"]
+    rows = ["**学生看不到的真相**（只进模型的解析上下文，学生永远看不到；也是防泄漏词表）"]
     rows.extend(f"- {item}" for item in pack["truth"])
     return rows
 
 
-def render(pack: dict) -> str:
-    rows: list[str] = [f"## {pack['title']}（`{pack['key']}`）", ""]
+def render(pack: dict, *, heading: str = "#") -> str:
+    rows: list[str] = [f"{heading} {pack['title']}（`{pack['key']}`）", ""]
     rows.append(f"> {pack.get('one_line', '')}")
     rows.append(
         f"> 你是：**{pack['player']['role']}** ｜ 地点：{pack['setting']['place']} ｜ 时间：{pack['setting'].get('time_hint', '')}"
@@ -165,32 +171,39 @@ def render(pack: dict) -> str:
     return "\n".join(rows)
 
 
+def case_document(pack: dict) -> str:
+    """一份病例的独立文件：来源说明 + 标题 + 正文。"""
+    return f"{SOURCE_NOTE}\n\n{render(pack)}\n"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="渲染病例为人可读文本")
-    parser.add_argument("--out", type=pathlib.Path, default=None, help="写到文件（缺省打印到 stdout）")
+    parser.add_argument(
+        "--out-dir",
+        type=pathlib.Path,
+        default=None,
+        help="按 pack key 逐份写 <out-dir>/<pack key>/case.md（缺省打印到 stdout）",
+    )
     args = parser.parse_args()
 
     paths = sorted(PACKS_DIR.glob("*.json"))
     if not paths:
         sys.exit(f"没有找到病例：{PACKS_DIR}")
+    packs = [json.loads(path.read_text(encoding="utf-8")) for path in paths]
 
-    blocks = [
-        "# 情境病例（派生文件）",
-        "",
-        "> 由 `backend/scripts/render_cases.py` 从 `backend/modules/scenario_training/packs/*.json` 生成。",
-        "> **`packs/*.json` 是唯一真源**；改了病例请重新生成这份，不要手改。",
-        "",
-    ]
-    for path in paths:
-        blocks.append(render(json.loads(path.read_text(encoding="utf-8"))))
-        blocks.extend(["", "---", ""])
-    text = "\n".join(blocks).rstrip() + "\n"
+    if args.out_dir is None:
+        blocks = [SOURCE_NOTE, ""]
+        for pack in packs:
+            blocks.append(render(pack))
+            blocks.extend(["", "---", ""])
+        sys.stdout.write("\n".join(blocks).rstrip() + "\n")
+        return
 
-    if args.out is None:
-        sys.stdout.write(text)
-    else:
-        args.out.write_text(text, encoding="utf-8")
-        sys.stdout.write(f"写完 {args.out}（{len(text)} 字符）\n")
+    for pack in packs:
+        target = args.out_dir / pack["key"] / "case.md"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(case_document(pack), encoding="utf-8")
+        sys.stdout.write(f"写完 {target}（{len(case_document(pack))} 字符）\n")
 
 
 if __name__ == "__main__":

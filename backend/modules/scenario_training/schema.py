@@ -19,8 +19,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Iterable
 from enum import StrEnum
 from typing import Any, Literal
@@ -110,11 +108,6 @@ class Demand(StrEnum):
     LOUD = "loud"
     QUIET = "quiet"
     NEUTRAL = "neutral"
-
-
-class FactKind(StrEnum):
-    MEASURED = "measured"  # 量出来的
-    REPORTED = "reported"  # 患者/他人口述的
 
 
 class Anchor(StrEnum):
@@ -313,7 +306,6 @@ class FactSpec(BaseModel):
 
     id: str
     intent: str  # 意图描述（**不得出现在按钮文案里**）
-    kind: FactKind = FactKind.REPORTED
     critical: bool = False
     # 作者显式声明的禁用词：按钮/选项文案中出现即视为泄底
     banned_phrases: list[str] = Field(default_factory=list)
@@ -420,7 +412,7 @@ class ScenarioPack(BaseModel):
     state_keys: dict[str, Any] = Field(default_factory=dict)  # <target>.<key> -> 初值
     # 数值键的写边界（模型 `world_set` 用）；布尔/字符串键只做类型校验
     state_bounds: dict[str, StateBound] = Field(default_factory=dict)
-    # 现场真相（学生不可见；模型演绎世界时要有一份自洽的事实）
+    # 现场真相：模型的解析材料，同时是**防泄漏词表**（学生看不见的事实一个字都不能说给他）
     truth: list[str] = Field(default_factory=list)
 
     affordances: list[Affordance]
@@ -436,8 +428,6 @@ class ScenarioPack(BaseModel):
     failure: Literal["recoverable", "irreversible"] = "recoverable"
     # 不可逆失败的条件（由 pack 声明；无时钟，只看动作与状态）
     failure_when: Trigger | None = None
-    # 学生看不到什么（防泄漏 + 真实感）
-    hidden_from_player: list[str] = Field(default_factory=list)
 
     # ---- 便捷索引 ----
     def affordance(self, affordance_id: str) -> Affordance | None:
@@ -463,8 +453,3 @@ class ScenarioPack(BaseModel):
             if cue is not None:
                 items.append((cue_id, cue.text))
         return items
-
-    def content_sha(self) -> str:
-        payload = self.model_dump(mode="json", exclude_none=True)
-        blob = json.dumps(payload, sort_keys=True, ensure_ascii=False)
-        return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]

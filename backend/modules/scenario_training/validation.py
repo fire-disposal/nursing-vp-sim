@@ -196,22 +196,13 @@ def _check_affordance_refs(index: _Index, affordance: Affordance, where: str) ->
     return problems
 
 
-def _check_affordance_cost(affordance: Affordance, where: str) -> list[str]:
-    """`time_cost` 必须是 0..60 的整数（`bool` 不算法外开恩）。"""
-    if isinstance(affordance.time_cost, bool) or not isinstance(affordance.time_cost, int):
-        return [f"{where}: time_cost 必须是整数（收到 {affordance.time_cost!r}）"]
-    if affordance.time_cost < 0 or affordance.time_cost > 60:
-        return [f"{where}: time_cost 必须在 0..60（收到 {affordance.time_cost}）"]
-    return []
-
-
 def _check_affordance(pack: ScenarioPack, index: _Index, affordance: Affordance) -> list[str]:
     where = f"affordance {affordance.id}"
     params = affordance.params or {}
     problems: list[str] = []
     problems += _check_affordance_refs(index, affordance, where)
     problems += _check_effects(pack, index, affordance.effects, where)
-    problems += _check_affordance_cost(affordance, where)
+    problems += _check_trigger(pack, index, affordance.visible_when, where)
     if affordance.select in ("single", "multi") and not params.get("options"):
         problems.append(f"{where}: select={affordance.select} 但缺少 params.options")
     if affordance.type is AffordanceType.DOCUMENT and not affordance.params.get("fields"):
@@ -259,8 +250,6 @@ def _check_assets(pack: ScenarioPack, index: _Index) -> list[str]:
     """资源声明必须可用；**字节是否已上传不在加载期判断**（不做 IO，由管理侧/安装时报告）。"""
     problems: list[str] = []
     for asset in pack.assets:
-        if asset.kind != "image":
-            problems.append(f"asset {asset.id}: 暂不支持的资源类型 {asset.kind}")
         if not asset.alt:
             problems.append(f"asset {asset.id}: 缺 alt（无图也要可读）")
         for cue_id in asset.reveal_with:
@@ -334,20 +323,24 @@ def _check_rule_params(point: Any, index: _Index) -> list[str]:
 
 
 def _check_trigger(pack: ScenarioPack, index: _Index, trigger: Trigger | None, where: str) -> list[str]:
+    """触发子句的引用闭合。
+
+    问题串一律以 `<定位前缀>:` 开头（`where` 自带 `affordance <id>` / `device <id>/<ref>`），
+    子句序号写在原因里——这样 `pack_loader.problem_path` 能把每条问题映射回**字段路径**。
+    """
     if trigger is None:
         return []
     problems: list[str] = []
     for position, clause in enumerate(trigger.all):
-        spot = f"{where} 子句#{position}"
-        problems += [f"{spot}: {message}" for message in _clause_requirements(clause)]
+        problems += [f"{where}: 子句 #{position} {message}" for message in _clause_requirements(clause)]
         if clause.affordance_id and clause.affordance_id not in index.affordances:
-            problems.append(f"{spot}: 未知动作 {clause.affordance_id}")
+            problems.append(f"{where}: 子句 #{position} 引用未知动作 {clause.affordance_id}")
         if clause.cue_id and clause.cue_id not in index.cues:
-            problems.append(f"{spot}: 未知线索 {clause.cue_id}")
+            problems.append(f"{where}: 子句 #{position} 引用未知线索 {clause.cue_id}")
         if clause.fact_id and clause.fact_id not in index.facts:
-            problems.append(f"{spot}: 未知事实 {clause.fact_id}")
+            problems.append(f"{where}: 子句 #{position} 引用未知事实 {clause.fact_id}")
         if clause.key and clause.key not in index.state_keys:
-            problems.append(f"{spot}: 未登记状态键 {clause.key}")
+            problems.append(f"{where}: 子句 #{position} 引用未登记状态键 {clause.key}")
     return problems
 
 

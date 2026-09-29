@@ -41,7 +41,7 @@
       },
       {
         "id": "c_b_low_sat",
-        "text": "B 床指夹血氧 88%，呼吸浅快、鼻翼翕动。"
+        "text": "B 床的血氧上不来，呼吸浅快、鼻翼翕动。"
       },
       {
         "id": "c_b_confused",
@@ -140,13 +140,20 @@
   },
   "truth": [
     "B 床正在静默低氧并出现意识改变，比 A 床危险得多",
-    "A 床的疼是真的，但可以等待；他要的是被看见，而不是优先抢救"
+    "A 床的疼是真的，但可以等待；他要的是被看见，不是优先抢救",
+    "呼声音量与危险程度无关"
   ],
   "affordances": [
     {
       "id": "visit_a",
       "type": "act",
       "label": "先去 A 床看看",
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "bed_a"
+        }
+      ],
       "effects": [
         {
           "target": "bed_a",
@@ -155,21 +162,17 @@
           "value": 1
         }
       ],
-      "targets": [
-        {
-          "kind": "actor",
-          "id": "bed_a"
-        }
-      ],
       "time_cost": 1
     },
     {
       "id": "visit_b",
       "type": "act",
       "label": "到 B 床看看",
-      "reveals": [
-        "c_b_barely_answers",
-        "c_b_confused"
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "bed_b"
+        }
       ],
       "effects": [
         {
@@ -179,11 +182,9 @@
           "value": 1
         }
       ],
-      "targets": [
-        {
-          "kind": "actor",
-          "id": "bed_b"
-        }
+      "reveals": [
+        "c_b_barely_answers",
+        "c_b_confused"
       ],
       "time_cost": 1
     },
@@ -191,25 +192,25 @@
       "id": "measure_a",
       "type": "measure",
       "label": "测 A 床生命体征",
-      "reveals": [
-        "c_a_stable"
-      ],
-      "params": {
-        "unit": "mmHg / 次·分⁻¹"
-      },
       "targets": [
         {
           "kind": "actor",
           "id": "bed_a"
         }
+      ],
+      "reveals": [
+        "c_a_stable"
       ]
     },
     {
       "id": "measure_b",
       "type": "measure",
       "label": "测 B 床血氧与呼吸",
-      "reveals": [
-        "c_b_low_sat"
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "bed_b"
+        }
       ],
       "effects": [
         {
@@ -219,28 +220,14 @@
           "value": 88
         }
       ],
-      "params": {
-        "unit": "%"
-      },
-      "targets": [
-        {
-          "kind": "actor",
-          "id": "bed_b"
-        }
+      "reveals": [
+        "c_b_low_sat"
       ]
     },
     {
       "id": "reassure_a",
       "type": "act",
       "label": "向 A 床和家属解释、回应他",
-      "effects": [
-        {
-          "target": "bed_a",
-          "key": "comfort",
-          "op": "incr",
-          "value": 2
-        }
-      ],
       "targets": [
         {
           "kind": "actor",
@@ -251,6 +238,14 @@
           "id": "family_a"
         }
       ],
+      "effects": [
+        {
+          "target": "bed_a",
+          "key": "comfort",
+          "op": "incr",
+          "value": 2
+        }
+      ],
       "time_cost": 1
     },
     {
@@ -258,6 +253,12 @@
       "type": "act",
       "label": "按医嘱给 A 床镇痛",
       "confirm": true,
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "bed_a"
+        }
+      ],
       "effects": [
         {
           "target": "scene",
@@ -272,18 +273,18 @@
           "value": 2
         }
       ],
-      "targets": [
-        {
-          "kind": "actor",
-          "id": "bed_a"
-        }
-      ],
       "time_cost": 2
     },
     {
       "id": "oxygen_b",
       "type": "act",
       "label": "给 B 床吸氧 / 接无创通气",
+      "targets": [
+        {
+          "kind": "actor",
+          "id": "bed_b"
+        }
+      ],
       "effects": [
         {
           "target": "scene",
@@ -292,18 +293,21 @@
           "value": 5
         }
       ],
-      "targets": [
-        {
-          "kind": "actor",
-          "id": "bed_b"
-        }
-      ],
       "time_cost": 2
     },
     {
       "id": "call_doctor",
       "type": "summon",
       "label": "呼叫值班医生",
+      "effects": [
+        {
+          "target": "scene",
+          "key": "doctor_present",
+          "op": "set",
+          "value": true
+        }
+      ],
+      "time_cost": 2,
       "visible_when": {
         "all": [
           {
@@ -313,16 +317,7 @@
             "value": false
           }
         ]
-      },
-      "effects": [
-        {
-          "target": "scene",
-          "key": "doctor_present",
-          "op": "set",
-          "value": true
-        }
-      ],
-      "time_cost": 2
+      }
     },
     {
       "id": "document",
@@ -342,55 +337,52 @@
     {
       "id": "f_b_low_sat",
       "intent": "B 床在吸氧下血氧仍低、呼吸浅快",
-      "kind": "measured",
       "critical": true,
-      "banned_phrases": [
-        "血氧 88",
-        "低氧血症"
-      ],
       "cue_ids": [
         "c_b_low_sat"
       ],
       "affordance_ids": [
         "measure_b"
+      ],
+      "banned_phrases": [
+        "血氧 88",
+        "低氧血症"
       ]
     },
     {
       "id": "f_b_mental_change",
       "intent": "B 床出现意识改变（答非所问、定向力下降）",
-      "kind": "measured",
       "critical": true,
-      "banned_phrases": [
-        "意识模糊",
-        "谵妄",
-        "定向力"
-      ],
       "cue_ids": [
         "c_b_confused"
       ],
       "affordance_ids": [
         "visit_b"
+      ],
+      "banned_phrases": [
+        "意识模糊",
+        "谵妄",
+        "定向力"
       ]
     },
     {
       "id": "f_a_stable",
       "intent": "A 床生命体征平稳、疼痛可处理但可等待",
-      "kind": "measured",
-      "critical": false,
-      "banned_phrases": [
-        "生命体征平稳"
-      ],
       "cue_ids": [
         "c_a_stable"
       ],
       "affordance_ids": [
         "measure_a"
+      ],
+      "banned_phrases": [
+        "生命体征平稳"
       ]
     }
   ],
   "rubric": [
     {
       "id": "dp_priority",
+      "title": "两床同时按铃时，先处理谁",
       "rule": "action_order",
       "params": {
         "first": [
@@ -409,11 +401,11 @@
         "adequate": "先应了 A 床，但在很短时间里转向 B 床",
         "missed": "在 A 床连续处理情绪/疼痛，把 B 床留在黑暗里"
       },
-      "title": "两床同时按铃时，先处理谁",
       "weight": 30
     },
     {
       "id": "dp_recognize_b",
+      "title": "是否识别 B 床的静默危重（低氧 + 意识改变）",
       "rule": "action_set_covers",
       "params": {
         "affordances": [
@@ -435,11 +427,11 @@
         "adequate": "做了其中之一，意识到 B 床不对劲",
         "missed": "完全按呼声音量分配注意力"
       },
-      "title": "是否识别 B 床的静默危重（低氧 + 意识改变）",
       "weight": 25
     },
     {
       "id": "dp_stabilize_b",
+      "title": "是否及时对 B 床处置（吸氧/无创通气、呼叫医生）",
       "rule": "require_within",
       "params": {
         "affordances": [
@@ -453,11 +445,11 @@
         "adequate": "四轮内做到其中之一",
         "missed": "始终没有对 B 床做处置升级"
       },
-      "title": "是否及时对 B 床处置（吸氧/无创通气、呼叫医生）",
       "weight": 25
     },
     {
       "id": "dp_manage_a",
+      "title": "可等待的那一床是否也被正确管理（而不是被忽略或被过度占用）",
       "rule": "action_set_covers",
       "params": {
         "affordances": [
@@ -471,11 +463,11 @@
         "adequate": "回应过 A 床",
         "missed": "完全没管 A 床的诉求"
       },
-      "title": "可等待的那一床是否也被正确管理（而不是被忽略或被过度占用）",
       "weight": 10
     },
     {
       "id": "dp_document",
+      "title": "是否记录两床情况与处置先后",
       "rule": "action_set_covers",
       "params": {
         "affordances": [
@@ -488,7 +480,6 @@
         "adequate": "有记录但缺顺序/理由",
         "missed": "未记录"
       },
-      "title": "是否记录两床情况与处置先后",
       "weight": 10
     }
   ],
@@ -535,9 +526,5 @@
         "value": 1
       }
     ]
-  },
-  "hidden_from_player": [
-    "B 床正在静默低氧并出现意识改变",
-    "呼声音量与危险程度无关"
-  ]
+  }
 }

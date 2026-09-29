@@ -133,7 +133,7 @@ def problem_path(message: str) -> str:
         if message.startswith(prefix):
             return path
     if message.startswith("状态键") and "：" in message:
-        return f"state_keys.{message.rsplit('：', 1)[1]}"
+        return f"state_keys[{message.rsplit('：', 1)[1]}]"
     if message.startswith("failure"):
         return "failure_when"
     return ""

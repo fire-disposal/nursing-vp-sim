@@ -699,7 +699,6 @@ _BLANK_PACK: dict[str, Any] = {
     "rubric": [],
     "presentation": {"devices": []},
     "failure": "recoverable",
-    "hidden_from_player": [],
 }
 
 
