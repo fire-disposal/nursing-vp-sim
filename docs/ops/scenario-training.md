@@ -29,11 +29,12 @@
 # 0) 发版：pnpm run tag（tag 推送即触发 deploy.yml；部署流程自动跑 alembic upgrade head）
 #    预期：迁移 a4c7e2f9b1d8 应用（内容并入 st_packs、会话补快照、修订/归档表删除）
 
-# 1) 核对库里内容与仓库文件是否一致（只读；不一致时退出码 1）
+# 1) 核对库里内容与仓库病例文件夹是否一致（只读；不一致时退出码 1）
 ssh yecaoyun 'docker exec nursing-vp-sim-backend-1 python -m scripts.install_scenario_pack --check'
-#    预期：五包逐行「库内 v<N> sha=<12> | 仓库 sha=<12> → 一致」
+#    预期：五包逐行「库内 v<N> sha=<12> | 文件夹 sha=<12> → 一致」
 
-# 2) 本次发布带了 packs/*.json 变更（或第 1 步报不一致）→ 重装（幂等：同内容不涨版本）
+# 2) 本次发布带了病例文件夹变更（`modules/scenario_training/cases/<key>/`）或第 1 步报不一致 → 重装
+#    （幂等：同内容不涨版本；安装读的是**文件夹**，不再是 JSON）
 ssh yecaoyun 'docker exec nursing-vp-sim-backend-1 python -m scripts.install_scenario_pack'
 #    再跑一次 --check，期望五包全「一致」
 
@@ -48,6 +49,10 @@ curl -s https://iomt.205716.xyz/api/health
 curl -s "https://iomt.205716.xyz/api/diagnose?token=$DIAGNOSE_TOKEN" | python3 -c 'import json,sys;print(json.load(sys.stdin)["scenario"])'
 #    学生侧五例逐个开一局（或管理侧 trial:true 各开一次），断言 200 且 view.pack.version 非空
 ```
+
+**管理端的三个交换入口**（权限 `case_manage`）：`GET /api/scenario/admin/cases/standard.zip`（标准模板）、
+`POST /api/scenario/admin/packs/import`（zip / 文件夹 / 单个 `case.toml`，宽容导入并回报提示）、
+`GET /api/scenario/admin/packs/{key}/export.zip`（导出，与导入无损往返）。
 
 **怎么查生产现在装的是哪一版**：`install_scenario_pack --check`（对比 content 与仓库文件）
 或 `GET /api/scenario/admin/packs`（每包 `version` / `published` / `published_at`）。

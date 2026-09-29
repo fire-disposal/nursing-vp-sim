@@ -21,6 +21,7 @@ from fastapi.testclient import TestClient
 from core.database import get_db
 from core.security import get_current_user
 from models.scenario_training import StEvent
+from modules.scenario_training import assets as assets_mod
 from modules.scenario_training import pack_loader
 from modules.scenario_training import router as scenario_router
 from tests.scenario_training._stub_llm import StubAgent
@@ -52,8 +53,9 @@ def api(pg_session, monkeypatch):
     monkeypatch.setattr(scenario_router, "check_scenario_open_limit", _no_rate_limit)
     monkeypatch.setattr(scenario_router, "check_scenario_action_limit", _no_rate_limit)
     pack_loader.reset_cache()
-    pack = pack_loader.load_pack_file(PACK_KEY)
+    pack, images = pack_loader.load_case(PACK_KEY)
     case_row, _changed = pack_loader.install(pg_session, pack)
+    assets_mod.seed_assets(pg_session, pack, images, overwrite=True)
     holder = {"user": _FakeUser(), "llm": StubAgent()}
     before = dict(app.dependency_overrides)
 

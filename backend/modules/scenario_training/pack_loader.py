@@ -3,6 +3,8 @@
 - **加载**：按 pack key 读 `st_packs.content` → 校验 → 按 `(key, version)` 缓存。
   内容改一次 version 就变，缓存自然失效；多 worker 各缓存各的，不依赖进程内文件时间戳。
 - **安装**：同内容幂等（不涨版本），内容变了 `version + 1` —— 这正是"改就生效"的路径。
+  图片来源在**病例文件夹**（`case_folder`：`cases/<key>/{case.toml,case.md,img/}`），
+  字节由调用方播种（`assets.seed_assets`）；加载与运行期都不读文件系统。
 - **会话**：开局时把内容快照进会话行（`StSession.pack_content`），回放与判读读那份，
   因此**不需要**多行不可变修订来保证可复现性。
 
@@ -13,7 +15,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import pathlib
 import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
@@ -26,11 +27,10 @@ from models.scenario_training import StPack
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
-from .assets import seed_from_pack
+from . import case_folder
 from .schema import ScenarioPack
 from .validation import validate_pack
 
-PACKS_DIR = pathlib.Path(__file__).resolve().parent / "packs"
 _CACHE: dict[tuple[str, int], ScenarioPack] = {}
 
 
@@ -81,6 +81,12 @@ def pack_from_content(content: dict[str, Any]) -> ScenarioPack:
     if problems:
         raise PackInvalid(problems)
     return pack
+
+
+def load_case(name: str) -> tuple[ScenarioPack, dict[str, bytes]]:
+    """读**仓库里的病例文件夹** → 已校验的病例 + 图片字节（安装/自检与测试的入口）。"""
+    case = case_folder.read_case(name)
+    return pack_from_content(case.content), case.images
 
 
 # --------------------------------------------------------------------------- #
@@ -190,12 +196,12 @@ def list_packs(db: Session, *, published_only: bool = False) -> list[dict[str, A
 def install(
     db: Session, pack: ScenarioPack, *, created_by: int | None = None, published: bool = True
 ) -> tuple[StPack, bool]:
-    """写入**当前内容**。返回 `(pack, changed)`。
+    """写入**当前内容**（字节播种由调用方做：`assets.seed_assets`）。返回 `(pack, changed)`。
 
     - 同内容幂等：`changed=False`，`version` 不动（避免"存了但没变"刷版本号）。
     - 内容变了：`version + 1`（旧会话不受影响——它们带自己的快照）。
     - `published` 只在**新建行**时生效（运行期事实，不随内容覆盖）：
-      播种/CLI/上传一份 JSON 默认上架；系统侧「新建空白 / 复制」显式传 `published=False`。
+      播种/CLI/导入一份病例默认上架；系统侧「新建空白 / 复制」显式传 `published=False`。
     """
     problems = validate_pack(pack)
     if problems:
@@ -214,12 +220,10 @@ def install(
         )
         db.add(row)
         db.flush()
-        seed_from_pack(db, pack)
         return row, True
 
     # 展示字段（title / one_line）就在 `content` 里，随内容一起覆盖；
     # `published` / `published_at` 是运行期事实，不覆盖
-    seed_from_pack(db, pack)
     if content_sha(row.content or {}) == sha:
         return row, False
     row.content = content
@@ -227,17 +231,3 @@ def install(
     db.flush()
     del created_by  # 保存人不再记录（没有修订历史；需要审计时看审计日志）
     return row, True
-
-
-def load_pack_file(name: str) -> ScenarioPack:
-    """按文件名或 pack key 读包（`sputum-ineffective` 与 `sputum_ineffective` 都能命中）。"""
-    stem = name.removesuffix(".json")
-    candidates = [PACKS_DIR / f"{stem}.json", PACKS_DIR / f"{stem.replace('-', '_')}.json"]
-    path = next((item for item in candidates if item.is_file()), None)
-    if path is None:
-        raise PackNotFound(f"找不到包文件：{name}（尝试过 {[item.name for item in candidates]}）")
-    return ScenarioPack.model_validate(json.loads(path.read_text(encoding="utf-8")))
-
-
-def count_pack_files() -> int:
-    return len(list(PACKS_DIR.glob("*.json")))

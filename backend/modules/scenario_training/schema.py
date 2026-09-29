@@ -239,6 +239,9 @@ class Actor(BaseModel):
     `knowledge` 是**信息隔离**的声明：这个人物知道什么。模型可以用 `actor_knows(id)` 查它，
     工具层也据它判断"这句话他有没有资格说"。人物进出本场由模型的 `actor_enter/leave` 表达
     （`presence` 是作者给的上限：`inaccessible` 的人进不了场）。
+
+    `persona` 是**他是个什么样的人**（说话方式、在意什么），散文写在病例的 `case.md`
+    「人物」小节里，TOML 不重复一份（风格与目的都在这一段里，不拆成两个字段）。
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -247,8 +250,7 @@ class Actor(BaseModel):
     role: str
     presence: Presence = Presence.ON_SITE
     knowledge: dict[str, Any] = Field(default_factory=dict)  # 知道什么 = 防泄漏边界
-    style: str = ""
-    goals: list[str] = Field(default_factory=list)
+    persona: str = ""
     demand: Demand = Demand.NEUTRAL
 
 
@@ -273,7 +275,7 @@ class Asset(BaseModel):
 
     id: str
     kind: Literal["image"] = "image"
-    path: str = ""  # 仓库播种来源：assets/<pack_key>/<path>（可留空，由管理侧上传字节）
+    file: str = ""  # 病例文件夹里的文件名：`img/<file>`（播种来源；可留空，由管理侧上传字节）
     title: str = ""
     alt: str = ""  # 无障碍与"看不到图也能用"
     reveal_with: list[str] = Field(default_factory=list)
@@ -398,13 +400,19 @@ class Presentation(BaseModel):
 
 
 class ScenarioPack(BaseModel):
-    """一份病例：**当前内容**（没有形状版本、没有修订号）。"""
+    """一份病例：**当前内容**（没有形状版本、没有修订号）。
+
+    散文（`brief` / `actor.persona` / `truth` / `teacher_notes`）是**给学生与教师看的话**，
+    存在病例文件夹的 `case.md` 里；TOML 只装机制与 meta（同一份事实不写两遍）。
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     key: str
     title: str
     one_line: str = ""
+    # 处境：一段散文（case.md 的「处境」小节）
+    brief: str = ""
 
     player: Player
     setting: Setting
@@ -428,6 +436,9 @@ class ScenarioPack(BaseModel):
     failure: Literal["recoverable", "irreversible"] = "recoverable"
     # 不可逆失败的条件（由 pack 声明；无时钟，只看动作与状态）
     failure_when: Trigger | None = None
+
+    # 教师备注：写给自己与同事的话（case.md 的「教师备注」小节；不进学生视图、不进模型提示词）
+    teacher_notes: str = ""
 
     # ---- 便捷索引 ----
     def affordance(self, affordance_id: str) -> Affordance | None:

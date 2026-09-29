@@ -100,7 +100,7 @@ class StSession(Base, TimestampMixin):
 class StAsset(Base, TimestampMixin):
     """病例图片的**字节**，按 `(pack_key, asset_id)` 存放。
 
-    字节由本表提供（管理侧上传，或安装时从仓库文件播种，见 `assets.seed_from_pack`）；
+    字节由本表提供（管理侧上传，或安装/导入时从病例文件夹的 `img/` 播种，见 `assets.seed_assets`）；
     病例内容只声明"有哪些图片、叫什么"。与反馈系统的图片存储同构，不引入文件系统依赖。
     """
 

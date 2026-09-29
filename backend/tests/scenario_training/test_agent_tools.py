@@ -12,7 +12,7 @@ import json
 
 import pytest
 
-from modules.scenario_training.pack_loader import load_pack_file
+from modules.scenario_training.pack_loader import load_case
 from modules.scenario_training.runtime.tools import ToolRuntime
 from modules.scenario_training.runtime.world import initial_world, reveal_cues
 from modules.scenario_training.schema import ScenarioPack
@@ -20,7 +20,7 @@ from modules.scenario_training.schema import ScenarioPack
 
 @pytest.fixture(scope="module")
 def sputum() -> ScenarioPack:
-    return load_pack_file("sputum-ineffective")
+    return load_case("sputum-ineffective")[0]
 
 
 def _runtime(pack: ScenarioPack) -> ToolRuntime:

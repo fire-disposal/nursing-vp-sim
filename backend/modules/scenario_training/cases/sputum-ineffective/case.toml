@@ -1,0 +1,337 @@
+key = "sputum-ineffective"
+title = "吸痰无效：血氧上不来"
+one_line = "夜班，患者痰多却吸不出来，血氧一路往下掉。"
+failure = "irreversible"
+
+[player]
+role = "夜班护士"
+
+[setting]
+place = "呼吸内科病房"
+time_hint = "凌晨 02:10"
+resources = ["床旁吸引器", "氧气装置", "简易呼吸器", "呼叫铃"]
+
+[state_keys]
+"patient.airway_patent" = false
+"patient.comfort" = 2
+"patient.consciousness" = 3
+"scene.doctor_present" = false
+"scene.o2_flow" = 3
+"scene.spo2" = 88
+
+[state_bounds."patient.comfort"]
+lo = 0.0
+hi = 5.0
+
+[state_bounds."patient.consciousness"]
+lo = 0.0
+hi = 5.0
+
+[state_bounds."scene.o2_flow"]
+lo = 0.0
+hi = 15.0
+
+[state_bounds."scene.spo2"]
+lo = 0.0
+hi = 100.0
+
+[[failure_when.all]]
+kind = "state_cmp"
+key = "patient.consciousness"
+op = "<="
+value = 1
+
+[[cue]]
+id = "c_restless"
+text = "患者坐起前倾，说话断续，额头发汗。"
+visible_from_start = true
+
+[[cue]]
+id = "c_secretions"
+text = "床旁吸引器就位，痰液黏稠、量多。"
+visible_from_start = true
+
+[[cue]]
+id = "c_low_spo2"
+text = "吸着 3 L/min 的氧，指夹血氧还是上不来。"
+
+[[cue]]
+id = "c_left_absent"
+text = "左侧呼吸音几乎听不到，右侧痰鸣明显。"
+
+[[cue]]
+id = "c_tube_blood"
+text = "吸痰管回抽只有少量血性黏痰，越吸患者越躁。"
+
+[[cue]]
+id = "c_plan"
+text = "医生指示：球囊面罩加压给氧，准备插管。"
+
+[[actor]]
+id = "patient"
+role = "患者"
+demand = "quiet"
+
+[actor.knowledge]
+"主诉" = "……喘不上来……"
+"既往" = "慢阻肺、长期吸烟"
+"自述" = "痰很多，可就是咳不出来"
+
+[[actor]]
+id = "doctor"
+role = "值班医生"
+presence = "callable"
+
+[actor.knowledge]
+"现场" = "需要护士先给出可复述的观察与已做处置"
+
+[[affordance]]
+id = "suction"
+type = "act"
+label = "吸痰"
+reveals = ["c_tube_blood"]
+time_cost = 2
+
+[[affordance.targets]]
+kind = "actor"
+id = "patient"
+
+[[affordance]]
+id = "increase_o2"
+type = "act"
+label = "调高氧流量"
+time_cost = 1
+
+[[affordance.targets]]
+kind = "actor"
+id = "patient"
+
+[[affordance]]
+id = "auscultate"
+type = "observe"
+label = "听诊双肺"
+reveals = ["c_left_absent"]
+
+[[affordance.targets]]
+kind = "actor"
+id = "patient"
+
+[[affordance]]
+id = "measure_spo2"
+type = "measure"
+label = "测血氧"
+reveals = ["c_low_spo2"]
+
+[[affordance.targets]]
+kind = "actor"
+id = "patient"
+
+[[affordance.effects]]
+target = "scene"
+key = "spo2"
+value = 88
+
+[[affordance]]
+id = "bag_valve"
+type = "act"
+label = "球囊面罩加压给氧"
+time_cost = 2
+
+[[affordance.visible_when.all]]
+kind = "action_used"
+affordance_id = "measure_spo2"
+
+[[affordance.visible_when.all]]
+kind = "action_used"
+affordance_id = "auscultate"
+
+[[affordance.targets]]
+kind = "actor"
+id = "patient"
+
+[[affordance.effects]]
+target = "scene"
+key = "spo2"
+op = "incr"
+value = 6
+
+[[affordance.effects]]
+target = "patient"
+key = "airway_patent"
+value = true
+
+[[affordance]]
+id = "reposition"
+type = "act"
+label = "侧卧拍背 / 体位引流"
+time_cost = 2
+
+[[affordance.visible_when.all]]
+kind = "action_used"
+affordance_id = "measure_spo2"
+
+[[affordance.visible_when.all]]
+kind = "action_used"
+affordance_id = "auscultate"
+
+[[affordance.targets]]
+kind = "actor"
+id = "patient"
+
+[[affordance.effects]]
+target = "scene"
+key = "spo2"
+op = "incr"
+value = 2
+
+[[affordance]]
+id = "call_doctor"
+type = "summon"
+label = "呼叫值班医生"
+reveals = ["c_plan"]
+time_cost = 2
+
+[[affordance.visible_when.all]]
+kind = "state_cmp"
+key = "scene.doctor_present"
+op = "=="
+value = false
+
+[[affordance.effects]]
+target = "scene"
+key = "doctor_present"
+value = true
+
+[[affordance]]
+id = "document"
+type = "document"
+label = "记录处置与病情变化"
+
+[affordance.params]
+fields = ["时间", "观察", "处置", "反应"]
+
+[[affordance.visible_when.all]]
+kind = "action_used"
+affordance_id = "bag_valve"
+
+[[affordance.visible_when.all]]
+kind = "action_used"
+affordance_id = "call_doctor"
+
+[[fact]]
+id = "f_low_spo2"
+intent = "吸氧条件下血氧仍低于正常"
+critical = true
+banned_phrases = ["血氧 88", "低氧血症"]
+cue_ids = ["c_low_spo2"]
+affordance_ids = ["measure_spo2"]
+
+[[fact]]
+id = "f_left_absent"
+intent = "单侧呼吸音消失，提示深部痰栓或单侧堵塞"
+critical = true
+banned_phrases = ["呼吸音消失", "痰栓", "堵塞"]
+cue_ids = ["c_left_absent"]
+affordance_ids = ["auscultate"]
+
+[[fact]]
+id = "f_bloody_sputum"
+intent = "吸出物为少量血性黏痰"
+banned_phrases = ["血性"]
+cue_ids = ["c_tube_blood"]
+affordance_ids = ["suction"]
+
+[[criterion]]
+id = "dp_recognize"
+title = "是否识别「吸痰无效 + 单侧呼吸音消失」提示深部痰栓 / 单侧堵塞"
+rule = "action_set_covers"
+weight = 25
+
+[criterion.params]
+accept_custom = ["听诊", "呼吸音", "痰栓", "堵塞", "吸不出"]
+affordances = ["auscultate", "measure_spo2"]
+min = 2
+
+[criterion.anchors]
+adequate = "测了血氧或听诊之一，意识到吸痰无效"
+missed = "只看血氧数字，或完全依赖吸痰"
+strong = "测了血氧并听诊，明确指出吸痰取不出深部痰、单侧通气受损"
+
+[[criterion]]
+id = "dp_no_repeat"
+title = "是否停止重复无效的吸痰"
+rule = "avoid_repeat"
+weight = 30
+
+[criterion.params]
+affordance_id = "suction"
+max = 1
+
+[criterion.anchors]
+adequate = "吸痰两次但随后改变思路"
+missed = "反复吸痰三次以上"
+strong = "吸痰一次后即停止，转而重新评估"
+
+[[criterion]]
+id = "dp_escalate"
+title = "是否及时升级（加压给氧 / 呼叫医生）"
+rule = "require_within"
+weight = 30
+
+[criterion.params]
+affordances = ["bag_valve", "call_doctor"]
+within_turns = 3
+
+[criterion.anchors]
+adequate = "三轮内做到其中之一"
+missed = "始终没有升级"
+strong = "三轮内上手加压给氧并呼叫医生"
+
+[[criterion]]
+id = "dp_sequence"
+title = "是否先重新评估再升级处置"
+rule = "action_order"
+weight = 10
+
+[criterion.params]
+first = ["auscultate", "measure_spo2"]
+then = ["bag_valve", "call_doctor"]
+
+[criterion.anchors]
+adequate = "评估与升级交错，但顺序合理"
+missed = "没有任何评估就盲目处置"
+strong = "先看清体征（听诊 / 血氧）再加压给氧或呼叫医生"
+
+[[criterion]]
+id = "dp_document"
+title = "是否记录处置与病情变化"
+rule = "action_set_covers"
+weight = 5
+
+[criterion.params]
+affordances = ["document"]
+min = 1
+
+[criterion.anchors]
+adequate = "有记录但缺患者反应"
+missed = "未记录"
+strong = "记录了观察、处置与患者反应"
+
+[[device]]
+id = "bedside_monitor"
+title = "床旁监护仪"
+sound = "beep"
+
+[[device.channel]]
+ref = "scene.spo2"
+label = "血氧"
+unit = "%"
+normal = [95.0, 100.0]
+critical = [0.0, 90.0]
+
+[[asset]]
+id = "a_room"
+file = "room-panel.png"
+title = "夜班病房"
+alt = "夜班病房：床旁吸引器与氧气装置就在手边"
+reveal_with = ["c_secretions"]

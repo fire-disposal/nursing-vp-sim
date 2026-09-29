@@ -1,0 +1,282 @@
+key = "bp-contradiction"
+title = "入院检查：量出来像高血压，患者坚决否认"
+one_line = "一次入院检查：患者说他身体好得很，血压计不这么认为。"
+
+[player]
+role = "入院责任护士"
+
+[setting]
+place = "内科病房"
+time_hint = "上午 09:20"
+resources = ["血压计", "床头柜", "既往就诊记录", "入院评估单"]
+
+[state_keys]
+"patient.guarded" = 0
+"patient.trust" = 2
+"scene.bp_dia" = 98
+"scene.bp_sys" = 168
+
+[state_bounds."patient.guarded"]
+lo = 0.0
+hi = 5.0
+
+[state_bounds."patient.trust"]
+lo = 0.0
+hi = 5.0
+
+[state_bounds."scene.bp_dia"]
+lo = 20.0
+hi = 200.0
+
+[state_bounds."scene.bp_sys"]
+lo = 40.0
+hi = 300.0
+
+[[cue]]
+id = "c_denial"
+text = "他反复说「我没有高血压，我身体好得很」，语气很坚决。"
+visible_from_start = true
+
+[[cue]]
+id = "c_impatient"
+text = "他答话时眼睛看着窗外，手指敲着床边。"
+visible_from_start = true
+
+[[cue]]
+id = "c_bp_high"
+text = "袖带读数偏高，左右臂差别不大。"
+
+[[cue]]
+id = "c_bp_retake"
+text = "换另一侧复测，结果和第一次一致。"
+
+[[cue]]
+id = "c_bp_rest"
+text = "静息 5 分钟后再测，读数没下来——不是一时紧张。"
+
+[[cue]]
+id = "c_pills"
+text = "床头抽屉里有半板白色小药片；他说「就那种小小白药片，降压的？我不清楚」。"
+
+[[cue]]
+id = "c_record"
+text = "既往就诊记录里有一次 165/95 mmHg 的记载，但诊断一栏写着「待查」。"
+
+[[actor]]
+id = "patient"
+role = "患者"
+
+[actor.knowledge]
+"主诉" = "我没什么病，就是来做个检查"
+"抽屉" = "半板白色小药片（他自己也说不清是什么）"
+"自述" = "我没有高血压，别给我记这个"
+
+[[affordance]]
+id = "measure_bp"
+type = "measure"
+label = "按规范测血压"
+reveals = ["c_bp_high"]
+
+[[affordance.targets]]
+kind = "actor"
+id = "patient"
+
+[[affordance.effects]]
+target = "scene"
+key = "bp_sys"
+value = 168
+
+[[affordance.effects]]
+target = "scene"
+key = "bp_dia"
+value = 98
+
+[[affordance]]
+id = "measure_bp_again"
+type = "measure"
+label = "换另一侧复测"
+reveals = ["c_bp_retake"]
+
+[[affordance.targets]]
+kind = "actor"
+id = "patient"
+
+[[affordance.effects]]
+target = "scene"
+key = "bp_sys"
+value = 166
+
+[[affordance.effects]]
+target = "scene"
+key = "bp_dia"
+value = 96
+
+[[affordance]]
+id = "wait_rest_recheck"
+type = "measure"
+label = "让他静息 5 分钟后再测"
+reveals = ["c_bp_rest"]
+time_cost = 5
+
+[[affordance.targets]]
+kind = "actor"
+id = "patient"
+
+[[affordance.effects]]
+target = "scene"
+key = "bp_sys"
+value = 164
+
+[[affordance.effects]]
+target = "scene"
+key = "bp_dia"
+value = 94
+
+[[affordance]]
+id = "ask_history"
+type = "ask"
+label = "问他有没有高血压、平时血压多少"
+
+[[affordance.targets]]
+kind = "actor"
+id = "patient"
+
+[[affordance.effects]]
+target = "patient"
+key = "guarded"
+op = "incr"
+value = 1
+
+[[affordance]]
+id = "ask_meds"
+type = "ask"
+label = "问他平时吃什么药、谁来开药"
+reveals = ["c_pills"]
+
+[[affordance.targets]]
+kind = "actor"
+id = "patient"
+
+[[affordance.effects]]
+target = "patient"
+key = "trust"
+op = "incr"
+value = 1
+
+[[affordance]]
+id = "ask_record"
+type = "observe"
+label = "查看既往就诊记录"
+reveals = ["c_record"]
+
+[[affordance]]
+id = "document"
+type = "document"
+label = "把体征与陈述的不一致写入入院记录"
+
+[affordance.params]
+fields = ["测量值", "他怎么说", "我核对到的证据", "下一步"]
+
+[[fact]]
+id = "f_bp_high"
+intent = "测得血压明显高于正常范围"
+critical = true
+banned_phrases = ["168", "偏高"]
+cue_ids = ["c_bp_high"]
+affordance_ids = ["measure_bp"]
+
+[[fact]]
+id = "f_denial"
+intent = "患者本人坚决否认既往高血压"
+critical = true
+cue_ids = ["c_denial"]
+
+[[fact]]
+id = "f_third_route"
+intent = "用不依赖患者承认的第三方证据核对"
+critical = true
+cue_ids = ["c_pills", "c_record", "c_bp_retake", "c_bp_rest"]
+affordance_ids = ["ask_meds", "ask_record", "measure_bp_again", "wait_rest_recheck"]
+
+[[criterion]]
+id = "dp_conflict"
+title = "是否识别并处理「体征与陈述不一致」这个矛盾"
+rule = "action_set_covers"
+weight = 40
+
+[criterion.params]
+accept_custom = ["矛盾", "不一致", "否认", "瞒", "不是没有", "两种说法"]
+affordances = ["measure_bp", "ask_history", "ask_meds", "ask_record"]
+min = 3
+
+[criterion.anchors]
+adequate = "量到了并问过，但把「他说没有」当成结论"
+missed = "照清单记成「无高血压史」"
+strong = "量到了、也核对了第三方证据，明确指出两者不一致"
+
+[[criterion]]
+id = "dp_no_dismiss"
+title = "是否用第三条路求证（用药 / 旧记录 / 复测）"
+rule = "action_set_covers"
+weight = 30
+
+[criterion.params]
+affordances = ["ask_meds", "ask_record", "measure_bp_again", "wait_rest_recheck"]
+min = 1
+
+[criterion.anchors]
+adequate = "复测了一次，但没有追证据"
+missed = "只以他的口头陈述为准"
+strong = "主动找了不依赖他承认的证据"
+
+[[criterion]]
+id = "dp_trust"
+title = "追问是否合分寸（没有反复逼问同一件事）"
+rule = "avoid_repeat"
+weight = 15
+
+[criterion.params]
+affordance_id = "ask_history"
+max = 1
+
+[criterion.anchors]
+adequate = "问了两次但随后调整了方式"
+missed = "反复逼问，把他问得更设防"
+strong = "问过一次就换路径求证"
+
+[[criterion]]
+id = "dp_document"
+title = "是否把不一致与下一步写进入院记录"
+rule = "action_set_covers"
+weight = 15
+
+[criterion.params]
+affordances = ["document"]
+min = 1
+
+[criterion.anchors]
+adequate = "有记录但缺证据或下一步"
+missed = "未记录"
+strong = "记录了测量值、他的说法、核对到的证据与下一步"
+
+[[device]]
+id = "ward_monitor"
+title = "病房监护仪"
+
+[[device.channel]]
+ref = "scene.bp_sys"
+label = "血压（收缩压）"
+unit = "mmHg"
+
+[[device.channel.visible_when.all]]
+kind = "cue_revealed"
+cue_id = "c_bp_high"
+
+[[device.channel]]
+ref = "scene.bp_dia"
+label = "血压（舒张压）"
+unit = "mmHg"
+
+[[device.channel.visible_when.all]]
+kind = "cue_revealed"
+cue_id = "c_bp_high"

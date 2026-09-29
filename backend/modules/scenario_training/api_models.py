@@ -468,6 +468,20 @@ class ScenarioAdminPackUpload(BaseModel):
     assets_pending: list[str] = Field(default_factory=list)  # 仓库里缺文件、只有声明的资源 id
 
 
+class ScenarioAdminPackImport(BaseModel):
+    """导入一个病例（zip / 一组文件 / 单个 case.toml）的结果。
+
+    `problems` 是**宽容导入**留下的提示（忽略了哪些多余文件、缺哪张图、哪些键不认得），
+    不是失败：失败一律 422 且带可读原因。
+    """
+
+    key: str
+    title: str
+    version: int
+    changed: bool
+    problems: list[str] = Field(default_factory=list)
+
+
 class ScenarioPackProblem(BaseModel):
     path: str = ""
     message: str

@@ -1,14 +1,17 @@
-"""场景资源：pack 声明的资源 + **库里的字节**（管理侧上传 / 安装播种）。
+"""场景资源：pack 声明的资源 + **库里的字节**（病例文件夹播种 / 管理侧上传）。
 
 - 运行时唯一来源 = `st_assets`（`(pack_key, asset_id)` → 字节 + mime）；
-- 仓库里的 `assets/<pack_key>/...` 只是**播种来源**（作者用文件准备，安装时入库），
+- 病例文件夹的 `cases/<key>/img/` 只是**播种来源**（导入/安装时随内容一起入库），
   运行时不读文件系统——与反馈图片同构，部署与环境无关。
+- **字节原样入库**：作者给的字节就是资产（导入不重编码，`mime` 按文件名后缀还原）；
+  只有管理侧的**上传**入口会先归一（剥元数据 + 统一 WebP，用户裁定 2026-09-27）。
 """
 
 from __future__ import annotations
 
 import io
-import pathlib
+import logging
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 from PIL import Image, ImageOps, UnidentifiedImageError
@@ -21,10 +24,11 @@ from .schema import ScenarioPack
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
-ASSETS_ROOT = pathlib.Path(__file__).resolve().parent / "assets"
+log = logging.getLogger(__name__)
+
 MAX_ASSET_BYTES = 8 * 1024 * 1024
 
-#: 文件后缀 → MIME 的**唯一来源**（`router.py` 的回退与 `seed_from_pack` 的播种都用它）
+#: 文件后缀 → MIME 的**唯一来源**（播种/导入时按文件名还原媒体类型，`_MIME_SUFFIX` 是它的反向）
 SUFFIX_MIME: dict[str, str] = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
@@ -33,10 +37,12 @@ SUFFIX_MIME: dict[str, str] = {
     ".gif": "image/gif",
 }
 ALLOWED_MIME = tuple(dict.fromkeys(SUFFIX_MIME.values()))
+#: 反向（导出时给"没有声明文件名"的行补一个名字）——取第一个后缀
+_MIME_SUFFIX: dict[str, str] = {mime: suffix for suffix, mime in reversed(SUFFIX_MIME.items())}
 
 
 def suffix_mime(filename: str | None) -> str:
-    """上传时 `content_type` 缺失的回退：按后缀取 MIME（认不出交给 `store_asset` 拒绝）。"""
+    """按文件名后缀取 MIME（认不出交给 `store_asset` 拒绝）。"""
     suffix = "." + (filename or "").rsplit(".", 1)[-1].lower()
     return SUFFIX_MIME.get(suffix, "application/octet-stream")
 
@@ -46,7 +52,7 @@ WEBP_QUALITY = 82
 
 
 def normalize_image(data: bytes) -> tuple[bytes, str]:
-    """上传唯一入口：把任意来源图片归一成**干净**的 WebP。
+    """管理侧上传入口：把任意来源图片归一成**干净**的 WebP。
 
     做的四件事（用户裁定 2026-09-27「隐私字段裁剪」）：
     1. **先把 Orientation 用掉**（手机竖拍照片不转正会歪 90°），再让元数据整体消失；
@@ -102,31 +108,30 @@ def store_asset(
     mime_type: str,
     data: bytes,
 ) -> StAsset:
-    """写入或覆盖一份资源字节（管理侧上传用；与反馈图片一样存库）。
+    """写入或覆盖一份资源字节（**字节原样**：病例文件夹 / 导入的字节就是资产）。
 
-    **入库前一律归一**：统一 WebP、剥掉全部元数据、长边限幅、只留首帧。
+    归一化只在上传入口做一次（`normalize_image`），因为那是唯一"任意来源图片"的入口。
     """
     if len(data) > MAX_ASSET_BYTES:
         raise AssetRejected(f"资源过大：{len(data)} 字节（上限 {MAX_ASSET_BYTES}）")
     if mime_type not in ALLOWED_MIME:
         raise AssetRejected(f"不支持的资源类型：{mime_type}")
-    normalized, stored_mime = normalize_image(data)
     row = get_asset(db, pack_key, asset_id)
     if row is None:
         row = StAsset(
             pack_key=pack_key,
             asset_id=asset_id,
             filename=filename,
-            mime_type=stored_mime,
-            file_size=len(normalized),
-            content=normalized,
+            mime_type=mime_type,
+            file_size=len(data),
+            content=data,
         )
         db.add(row)
     else:
         row.filename = filename
-        row.mime_type = stored_mime
-        row.file_size = len(normalized)
-        row.content = normalized
+        row.mime_type = mime_type
+        row.file_size = len(data)
+        row.content = data
     db.flush()
     return row
 
@@ -140,37 +145,44 @@ def delete_asset(db: Session, pack_key: str, asset_id: str) -> bool:
     return True
 
 
-def seed_from_pack(db: Session, pack: ScenarioPack, *, overwrite: bool = False) -> list[str]:
-    """把 pack 声明的、仓库里有文件的资源播种入库（幂等；缺文件时跳过并返回 id 列表）。"""
+def seed_assets(db: Session, pack: ScenarioPack, files: Mapping[str, bytes], *, overwrite: bool = False) -> list[str]:
+    """把 `img/` 的字节（文件名 → 字节）播种入库；返回**没有落地的** asset id。
+
+    `overwrite=False`（编辑器保存/新建时的口径）：库里已有的字节不动，只报告缺哪些；
+    `overwrite=True`（安装/导入：文件夹是权威来源）：按文件重新写入。
+    """
     missing: list[str] = []
-    root = ASSETS_ROOT / pack.key
     for asset in pack.assets:
-        if not asset.path:
+        data = files.get(asset.file) if asset.file else None
+        if data is None:
             missing.append(asset.id)
             continue
-        path = (root / asset.path).resolve()
-        if root.resolve() not in path.parents or not path.is_file():
+        if get_asset(db, pack.key, asset.id) is not None and not overwrite:
+            continue
+        try:
+            store_asset(
+                db,
+                pack_key=pack.key,
+                asset_id=asset.id,
+                filename=asset.file,
+                mime_type=suffix_mime(asset.file),
+                data=data,
+            )
+        except AssetRejected as exc:
+            log.warning("病例 %s 的图片 %s 未入库：%s", pack.key, asset.id, exc)
             missing.append(asset.id)
-            continue
-        existing = get_asset(db, pack.key, asset.id)
-        if existing is not None and not overwrite:
-            continue
-        mime = {
-            ".png": "image/png",
-            ".jpg": "image/jpeg",
-            ".jpeg": "image/jpeg",
-            ".webp": "image/webp",
-            ".gif": "image/gif",
-        }.get(path.suffix.lower(), "application/octet-stream")
-        store_asset(
-            db,
-            pack_key=pack.key,
-            asset_id=asset.id,
-            filename=path.name,
-            mime_type=mime,
-            data=path.read_bytes(),
-        )
     return missing
+
+
+def asset_files(db: Session, pack: ScenarioPack) -> dict[str, bytes]:
+    """病例的图片字节（导出用）：文件名 → 字节；库里没有的跳过。"""
+    out: dict[str, bytes] = {}
+    for asset in pack.assets:
+        row = get_asset(db, pack.key, asset.id)
+        if row is None:
+            continue
+        out[asset.file or row.filename or f"{asset.id}{_MIME_SUFFIX.get(row.mime_type, '.bin')}"] = bytes(row.content)
+    return out
 
 
 def read_image(db: Session, pack: ScenarioPack, asset_id: str) -> tuple[bytes, str]:

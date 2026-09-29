@@ -1,0 +1,294 @@
+key = "triage-hidden-bleed"
+title = "预检分诊：说「腰闪了」的那个人"
+one_line = "他扶着墙走进预检台，说自己只是搬东西闪了腰，想开点膏药就回家。"
+failure = "irreversible"
+
+[player]
+role = "预检分诊护士"
+
+[setting]
+place = "急诊预检台"
+time_hint = "傍晚 18:40"
+resources = ["分诊系统", "血压计与监护", "平车", "抢救区呼叫铃"]
+
+[state_keys]
+"patient.comfort" = 2
+"scene.bp_sys" = 92
+"scene.consciousness" = 3
+"scene.doctor_present" = false
+"scene.pulse" = 118
+"scene.triage_zone" = "none"
+
+[state_bounds."patient.comfort"]
+lo = 0.0
+hi = 5.0
+
+[state_bounds."scene.bp_sys"]
+lo = 40.0
+hi = 300.0
+
+[state_bounds."scene.consciousness"]
+lo = 0.0
+hi = 5.0
+
+[state_bounds."scene.pulse"]
+lo = 0.0
+hi = 250.0
+
+[[failure_when.all]]
+kind = "state_cmp"
+key = "scene.consciousness"
+op = "<="
+value = 1
+
+[[cue]]
+id = "c_grip"
+text = "他扶着分诊台边缘站着，不太敢直起腰。"
+visible_from_start = true
+
+[[cue]]
+id = "c_pale"
+text = "脸色发白、额角出汗，说话比刚进门时慢了半拍。"
+visible_from_start = true
+
+[[cue]]
+id = "c_story"
+text = "他说：「搬箱子闪了一下腰，给我开点膏药，我得回去接孩子。」"
+visible_from_start = true
+
+[[cue]]
+id = "c_vitals"
+text = "脉搏细速、血压偏低、四肢发凉。"
+
+[[cue]]
+id = "c_shoulder"
+text = "追问搬箱子那一刻，他说「一下就疼起来了，左肩膀也酸」。"
+
+[[cue]]
+id = "c_guarding"
+text = "他没有明显的腰部压痛点，反而左侧一碰就躲。"
+
+[[cue]]
+id = "c_shock"
+text = "抢救区医生接手：「先按内出血走，床旁超声马上到。」"
+
+[[actor]]
+id = "patient"
+role = "患者"
+demand = "quiet"
+
+[actor.knowledge]
+"主诉" = "搬箱子闪了腰"
+"实情" = "突发左上腹疼伴左肩酸，现在有点头晕"
+"需求" = "开点膏药回家接孩子"
+
+[[actor]]
+id = "colleague"
+role = "分诊台同事"
+
+[actor.knowledge]
+"立场" = "通道不能堵，倾向按病人自述分流"
+
+[[actor]]
+id = "doctor"
+role = "抢救区医生"
+presence = "callable"
+
+[actor.knowledge]
+"现场" = "要你给出主诉、生命体征、以及为什么送红区"
+
+[[affordance]]
+id = "measure_vitals"
+type = "measure"
+label = "测生命体征"
+reveals = ["c_vitals"]
+
+[[affordance.targets]]
+kind = "actor"
+id = "patient"
+
+[[affordance.effects]]
+target = "scene"
+key = "pulse"
+value = 118
+
+[[affordance.effects]]
+target = "scene"
+key = "bp_sys"
+value = 92
+
+[[affordance]]
+id = "ask_trauma"
+type = "ask"
+label = "追问受伤那一刻的经过"
+reveals = ["c_shoulder"]
+
+[[affordance.targets]]
+kind = "actor"
+id = "patient"
+
+[[affordance]]
+id = "observe_abdomen"
+type = "observe"
+label = "看他捂的位置、轻轻触一下左侧"
+reveals = ["c_guarding"]
+
+[[affordance.targets]]
+kind = "actor"
+id = "patient"
+
+[[affordance]]
+id = "triage_red"
+type = "act"
+label = "立即送抢救区（红区）并呼叫医生"
+reveals = ["c_shock"]
+time_cost = 1
+confirm = true
+
+[[affordance.effects]]
+target = "scene"
+key = "triage_zone"
+value = "red"
+
+[[affordance.effects]]
+target = "scene"
+key = "doctor_present"
+value = true
+
+[[affordance]]
+id = "triage_yellow"
+type = "act"
+label = "分诊到急诊黄区留观"
+time_cost = 1
+
+[[affordance.effects]]
+target = "scene"
+key = "triage_zone"
+value = "yellow"
+
+[[affordance]]
+id = "triage_ortho"
+type = "act"
+label = "分诊到骨科门诊"
+time_cost = 1
+
+[[affordance.effects]]
+target = "scene"
+key = "triage_zone"
+value = "ortho"
+
+[[affordance]]
+id = "triage_home"
+type = "act"
+label = "开膏药回家观察"
+time_cost = 1
+
+[[affordance.effects]]
+target = "scene"
+key = "triage_zone"
+value = "home"
+
+[[affordance]]
+id = "document"
+type = "document"
+label = "记录分诊判断与依据"
+
+[affordance.params]
+fields = ["主诉", "我核到的体征", "分诊等级", "依据"]
+
+[[fact]]
+id = "f_shock_signs"
+intent = "脉搏细速与血压偏低提示循环不稳"
+critical = true
+banned_phrases = ["92/58", "休克", "循环不稳"]
+cue_ids = ["c_vitals"]
+affordance_ids = ["measure_vitals"]
+
+[[fact]]
+id = "f_shoulder_pain"
+intent = "突发腹侧疼痛伴肩部放射，提示腹内出血可能"
+critical = true
+banned_phrases = ["内出血", "脾破裂", "放射痛"]
+cue_ids = ["c_shoulder"]
+affordance_ids = ["ask_trauma"]
+
+[[fact]]
+id = "f_abdomen_guarding"
+intent = "左侧回避触碰，与『闪腰』的解释不符"
+critical = true
+banned_phrases = ["拒按", "腹膜炎", "不符"]
+cue_ids = ["c_guarding"]
+affordance_ids = ["observe_abdomen"]
+
+[[fact]]
+id = "f_self_story"
+intent = "患者自述只是搬东西闪了腰"
+cue_ids = ["c_story"]
+
+[[criterion]]
+id = "dp_zone"
+title = "把他分到哪儿"
+rule = "option_choice"
+weight = 50
+
+[criterion.params]
+accept_custom = ["红区", "抢救", "内出血", "出血", "休克", "超声"]
+acceptable = ["triage_yellow"]
+affordances = ["triage_red", "triage_yellow", "triage_ortho", "triage_home"]
+correct = ["triage_red"]
+
+[criterion.anchors]
+adequate = "先留观黄区，但仍留在急诊视线内"
+missed = "按骨科/开药回家处理"
+strong = "直接送红区；或自输入写明疑似腹内出血/循环不稳"
+
+[[criterion]]
+id = "dp_see_hidden"
+title = "是否在分区前先核实体征（而不是照主诉分流）"
+rule = "action_set_covers"
+weight = 30
+
+[criterion.params]
+accept_custom = ["血压", "脉搏", "肩膀", "不敢直腰", "触痛"]
+affordances = ["measure_vitals", "ask_trauma", "observe_abdomen"]
+min = 2
+
+[criterion.anchors]
+adequate = "做了其中一项，开始起疑"
+missed = "完全按他自己的说法分流"
+strong = "量了生命体征并追问/查看，「闪腰」这个解释被推翻"
+
+[[criterion]]
+id = "dp_document"
+title = "是否记录分诊等级与依据"
+rule = "action_set_covers"
+weight = 20
+
+[criterion.params]
+affordances = ["document"]
+min = 1
+
+[criterion.anchors]
+adequate = "有记录但缺依据"
+missed = "未记录"
+strong = "记录了主诉、我核到的体征、等级与依据"
+
+[[device]]
+id = "triage_monitor"
+title = "分诊台监护仪"
+
+[[device.visible_when.all]]
+kind = "cue_revealed"
+cue_id = "c_vitals"
+
+[[device.channel]]
+ref = "scene.pulse"
+label = "脉搏"
+unit = "次/分"
+normal = [60.0, 100.0]
+
+[[device.channel]]
+ref = "scene.bp_sys"
+label = "收缩压"
+unit = "mmHg"
+normal = [90.0, 140.0]

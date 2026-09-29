@@ -35,7 +35,7 @@ from models import User
 from models.scenario_training import StAsset, StEvent, StPack, StSession
 
 from . import assets as assets_mod
-from . import pack_loader
+from . import case_folder, pack_loader, standard_case
 from .api_models import (
     ScenarioAdminActor,
     ScenarioAdminAsset,
@@ -44,6 +44,7 @@ from .api_models import (
     ScenarioAdminOverview,
     ScenarioAdminPack,
     ScenarioAdminPackDelete,
+    ScenarioAdminPackImport,
     ScenarioAdminPackUpload,
     ScenarioAdminSessionDetail,
     ScenarioAdminSessionList,
@@ -74,6 +75,7 @@ from .api_models import (
     ScenarioTurnResult,
     ScenarioView,
 )
+from .case_folder import CaseFolderError
 from .dm.agent import AgentFailure
 from .pack_loader import PackInvalid
 from .runtime.replay import admin_turns
@@ -548,7 +550,7 @@ def _install_pack(
 ) -> tuple[StPack, bool]:
     """装/重装一份包（**内容只有一份**：同内容幂等、内容变了 version +1）。校验失败一律变成可读的 422。
 
-    `published` 只在**新建病例行**时生效：播种 / 上传一份 JSON → 直接上架（本来就是给人用的内容）；
+    `published` 只在**新建病例行**时生效：安装/导入一份病例 → 直接上架（本来就是给人用的内容）；
     系统侧「新建空白 / 复制」传 `False`，作者显式上架。
     """
     try:
@@ -559,31 +561,75 @@ def _install_pack(
         raise HTTPException(status_code=422, detail={"message": "包内资源无法入库", "problems": [str(exc)]}) from exc
 
 
-@router.post("/admin/packs", dependencies=[_ContentManager])
-async def admin_upload_pack(
+@router.post("/admin/packs/import", dependencies=[_ContentManager])
+async def admin_import_pack(
     db: DbSession,
     current_user: CurrentUser,
-    file: UploadFile = File(...),
-) -> ScenarioAdminPackUpload:
-    """管理侧：上传（或覆盖）一份情境包 JSON → 成为当前内容（默认上架）。"""
-    raw = await file.read()
-    try:
-        payload = json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise HTTPException(status_code=422, detail=f"不是合法的 JSON：{exc}") from exc
-    try:
-        pack = ScenarioPack.model_validate(payload)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=f"包结构不合法：{str(exc)[:300]}") from exc
+    files: list[UploadFile] = File(...),
+) -> ScenarioAdminPackImport:
+    """**导入一个病例**：zip / 一组按相对路径传来的文件（`webkitdirectory`）/ 单个 `case.toml`。
 
-    with unit_of_work(db, conflict_detail="上传情境包失败"):
+    宽容导入：多出来的文件忽略并提示、没有 `case.md` 就当作散文全空；`case.toml` 即 meta
+    （`key` 以它为准）。内容通过**加载期同一套校验**才落库；已存在的 key → `version + 1`。
+    图片按声明播种进 `st_assets`（字节原样，不重编码）。
+    """
+    try:
+        uploaded = await _uploaded_files(files)
+        parsed = case_folder.parse_files(uploaded)
+    except CaseFolderError as exc:
+        raise HTTPException(status_code=422, detail={"message": str(exc), "problems": [str(exc)]}) from exc
+    problems = pack_loader.validate_content(parsed.content)
+    if problems:
+        raise HTTPException(status_code=422, detail={"message": "病例未通过校验", "problems": problems})
+    pack = ScenarioPack.model_validate(parsed.content)
+    notes = list(parsed.notes)
+    with unit_of_work(db, conflict_detail="导入病例失败"):
         row, changed = _install_pack(db, pack, created_by=current_user.id)
-        assets_pending = assets_mod.seed_from_pack(db, pack)
-    return ScenarioAdminPackUpload(
-        key=pack.key,
-        version=int(row.version),
-        created=changed,
-        assets_pending=list(assets_pending),
+        missing = assets_mod.seed_assets(db, pack, parsed.images, overwrite=True)
+    if missing:
+        notes.append(f"这些图片没有入库（缺字节或格式不支持）：{'、'.join(missing)}")
+    return ScenarioAdminPackImport(
+        key=pack.key, title=pack.title, version=int(row.version), changed=changed, problems=notes
+    )
+
+
+@router.get("/admin/packs/{pack_key}/export.zip", dependencies=[_ContentManager])
+def admin_export_pack(pack_key: str, db: DbSession) -> Response:
+    """**导出**这个病例为一个文件夹压缩包（`case.toml` + `case.md` + `img/`，**无损**）。"""
+    row = _require_pack(db, pack_key)
+    try:
+        _, pack = pack_loader.load_pack(db, row.key)
+    except PackInvalid as exc:
+        raise HTTPException(
+            status_code=422, detail={"message": "库里的内容没通过校验", "problems": exc.problems}
+        ) from exc
+    files = case_folder.case_files(pack, assets_mod.asset_files(db, pack))
+    return _zip_response(files, f"{pack.key}.zip", pack.key)
+
+
+@router.get("/admin/cases/standard.zip", dependencies=[_ContentManager])
+def admin_standard_case(key: str = Query(default="new-case"), title: str = Query(default="新病例")) -> Response:
+    """下载**标准模板**：最小可运行病例（带占位注释），改完可以直接从导入端点传回来。"""
+    try:
+        files = standard_case.files(key, title)
+    except CaseFolderError as exc:
+        raise HTTPException(status_code=422, detail={"message": str(exc), "problems": [str(exc)]}) from exc
+    return _zip_response(files, f"{key}.zip", key)
+
+
+async def _uploaded_files(items: list[UploadFile]) -> dict[str, bytes]:
+    """一组上传 → 文件集合：单个 zip 就解开；其余按各自的 `filename`（相对路径）收。"""
+    payloads = [((item.filename or "").strip(), await item.read()) for item in items]
+    if len(payloads) == 1 and (payloads[0][0].lower().endswith(".zip") or payloads[0][1][:2] == b"PK"):
+        return case_folder.unzip_files(payloads[0][1])
+    return {name: data for name, data in payloads if name}
+
+
+def _zip_response(files: dict[str, bytes], filename: str, root: str) -> Response:
+    return Response(
+        content=case_folder.zip_bytes(files, root=f"{root}/"),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
@@ -647,7 +693,7 @@ def admin_save_pack_content(
         )
     with unit_of_work(db, conflict_detail="保存情境包失败"):
         row, changed = _install_pack(db, pack, created_by=current_user.id)
-        assets_mod.seed_from_pack(db, pack)
+        assets_mod.seed_assets(db, pack, case_folder.images_of(pack.key))
     meta = pack_loader.content_meta(row.content or {})
     return ScenarioPackContent(
         key=row.key,
@@ -670,36 +716,6 @@ def admin_validate_pack(pack_key: str, payload: ScenarioPackContentRequest, db: 
 # --------------------------------------------------------------------------- #
 # 病例管理：新建 / 复制 / 上架 / 下架 / 删除（作者在系统侧完成，不依赖仓库文件）
 # --------------------------------------------------------------------------- #
-
-#: 「新建空白病例」的骨架：**最小可运行**（一个人物 + 一个动作 + 一条线索），直接能试跑，
-#: 作者拿到的是可以立刻改的东西，而不是空对象。
-_BLANK_PACK: dict[str, Any] = {
-    "key": "new-case",
-    "title": "新病例",
-    "one_line": "一句话说明这是什么处境（改我）",
-    "player": {"role": "责任护士"},
-    "setting": {
-        "place": "病房",
-        "time_hint": "",
-        "resources": [],
-        "cues": [{"id": "c_first", "text": "（写下学生一进来就看得见的东西）", "visible_from_start": True}],
-    },
-    "actors": [{"id": "patient", "role": "患者", "presence": "on_site"}],
-    "state_keys": {},
-    "affordances": [
-        {
-            "id": "ask_open",
-            "type": "ask",
-            "label": "问一句（改我）",
-            "reveals": ["c_first"],
-            "targets": [{"kind": "actor", "id": "patient"}],
-        }
-    ],
-    "facts": [],
-    "rubric": [],
-    "presentation": {"devices": []},
-    "failure": "recoverable",
-}
 
 
 def _missing_minimum(content: dict[str, Any]) -> list[dict[str, str]]:
@@ -733,7 +749,7 @@ def _install_new_pack(
     pack = ScenarioPack.model_validate(content)
     with unit_of_work(db, conflict_detail="新建病例失败"):
         row, changed = _install_pack(db, pack, created_by=created_by, published=False)
-        pending = assets_mod.seed_from_pack(db, pack)
+        pending = assets_mod.seed_assets(db, pack, case_folder.images_of(pack.key))
     return (
         ScenarioAdminPackUpload(
             key=pack.key,
@@ -751,7 +767,7 @@ def admin_new_blank_pack(
 ) -> ScenarioAdminPackUpload:
     """**新建空白病例**：给一个最小可运行骨架（人物 + 动作 + 线索，可直接试跑）。"""
     _require_free_key(db, payload.key)
-    content = {**_BLANK_PACK, "key": payload.key, "title": payload.title}
+    content = standard_case.content(payload.key, payload.title)
     upload, _pending = _install_new_pack(db, content, created_by=current_user.id)
     return upload
 
@@ -840,18 +856,24 @@ async def admin_replace_asset(
     title: str = Form(default=""),
     alt: str = Form(default=""),
 ) -> ScenarioAdminAssetUpload:
-    """**替换**一张场景图片：`asset_id` 不变（编辑器里的 JSON 引用不用改），只换字节与文案。
+    """**替换**一张场景图片：`asset_id` 不变（编辑器里的引用不用改），只换字节与文案。
 
-    声明变了就重新保存一次内容（version +1；声明没变则幂等）。
+    上传入口**归一**（剥元数据 + WebP），因此声明里的文件名也跟着改成入库的名字——
+    文件夹导出时 `img/<file>` 与字节的格式始终一致。
     """
     row, pack = pack_loader.load_pack(db, pack_key)
     existing = next((item for item in pack.assets if item.id == asset_id), None)
     if existing is None:
         raise HTTPException(status_code=404, detail="该包未声明此资源（新增请走上传接口）")
     data = await file.read()
-    mime = file.content_type or assets_mod.suffix_mime(file.filename)
+    try:
+        normalized, mime = assets_mod.normalize_image(data)
+    except assets_mod.AssetRejected as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    stored = f"{asset_id}.webp"
     declaration = existing.model_copy(
         update={
+            "file": stored,
             "title": title or existing.title,
             "alt": alt or existing.alt,
         }
@@ -866,9 +888,9 @@ async def admin_replace_asset(
                 db,
                 pack_key=pack_key,
                 asset_id=asset_id,
-                filename=file.filename or f"{asset_id}.png",
+                filename=stored,
                 mime_type=mime,
-                data=data,
+                data=normalized,
             )
         except assets_mod.AssetRejected as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -899,15 +921,22 @@ async def admin_upload_asset(
     title: str = Form(default=""),
     alt: str = Form(default=""),
 ) -> ScenarioAdminAssetUpload:
-    """管理侧：上传一张场景图片 → 存字节 + 把声明写进当前内容。"""
+    """管理侧：上传一张场景图片 → 存字节 + 把声明写进当前内容。
+
+    上传入口**归一**（剥元数据 + WebP），声明的文件名就是入库的名字（`<asset_id>.webp`）。
+    """
     row, pack = pack_loader.load_pack(db, pack_key)
     del row
     data = await file.read()
-    mime = file.content_type or assets_mod.suffix_mime(file.filename)
+    try:
+        normalized, mime = assets_mod.normalize_image(data)
+    except assets_mod.AssetRejected as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    stored = f"{asset_id}.webp"
     declaration = Asset(
         id=asset_id,
         kind="image",
-        path="",
+        file=stored,
         title=title or asset_id,
         alt=alt or title or asset_id,
     )
@@ -921,9 +950,9 @@ async def admin_upload_asset(
                 db,
                 pack_key=pack_key,
                 asset_id=asset_id,
-                filename=file.filename or f"{asset_id}.png",
+                filename=stored,
                 mime_type=mime,
-                data=data,
+                data=normalized,
             )
         except assets_mod.AssetRejected as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc

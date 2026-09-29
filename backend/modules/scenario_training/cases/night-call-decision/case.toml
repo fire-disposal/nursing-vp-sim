@@ -1,0 +1,334 @@
+key = "night-call-decision"
+title = "夜班电话：用几项数据决定下一步"
+one_line = "凌晨 02:10，值班室电话把你叫醒——病区护士在电话那头等你下决定。"
+
+[player]
+role = "值班医生"
+
+[setting]
+place = "值班室"
+time_hint = "凌晨 02:10"
+resources = ["值班手机", "院内系统", "床旁超声（需呼叫）"]
+
+[state_keys]
+"nurse.patience" = 3
+"scene.bp_sys" = 92
+"scene.consultant_in" = false
+"scene.lactate" = 0
+"scene.plan_set" = false
+
+[state_bounds."nurse.patience"]
+lo = 0.0
+hi = 5.0
+
+[state_bounds."scene.bp_sys"]
+lo = 40.0
+hi = 300.0
+
+[state_bounds."scene.lactate"]
+lo = 0.0
+hi = 30.0
+
+[[cue]]
+id = "c_phone"
+text = "护士语速很快：「体温 37.8，心率 118，血压 92/58，一晚上尿很少。」"
+visible_from_start = true
+
+[[cue]]
+id = "c_waiting"
+text = "她等着你下决定；电话那头有监护仪的报警声。"
+visible_from_start = true
+
+[[cue]]
+id = "c_history"
+text = "追问既往：糖尿病、高血压；最近一周没怎么吃东西。"
+
+[[cue]]
+id = "c_abdomen"
+text = "护士说：「肚子胀，右下腹按下去更疼，松手也疼。」"
+
+[[cue]]
+id = "c_urine"
+text = "尿量：一整夜 100 ml，颜色很深。"
+
+[[cue]]
+id = "c_results"
+text = "化验和床旁超声都回来了：白细胞 16.8，超声见右下腹游离液体。"
+
+[[actor]]
+id = "nurse"
+role = "病区护士"
+presence = "remote"
+
+[actor.knowledge]
+"主诉" = "右下腹痛、腹胀"
+"已测" = "体温 37.8、脉搏 118、血压 92/58、尿量少"
+"观察" = "神志清、皮肤湿冷"
+
+[[actor]]
+id = "patient"
+role = "患者"
+presence = "inaccessible"
+demand = "quiet"
+
+[actor.knowledge]
+"自述" = "肚子疼，怕是要紧"
+
+[[actor]]
+id = "consultant"
+role = "二线/外科医生"
+presence = "callable"
+
+[actor.knowledge]
+"现场" = "要你把数据和判断讲清楚、给出明确请求"
+
+[[affordance]]
+id = "ask_vitals"
+type = "ask"
+label = "让护士复述并补测生命体征"
+
+[[affordance.targets]]
+kind = "actor"
+id = "nurse"
+
+[[affordance.effects]]
+target = "nurse"
+key = "patience"
+op = "decr"
+value = 1
+
+[[affordance]]
+id = "ask_abdomen"
+type = "ask"
+label = "问腹部体征与疼痛部位"
+reveals = ["c_abdomen"]
+
+[[affordance.targets]]
+kind = "actor"
+id = "nurse"
+
+[[affordance]]
+id = "ask_urine"
+type = "ask"
+label = "问尿量与出入量"
+reveals = ["c_urine"]
+
+[[affordance.targets]]
+kind = "actor"
+id = "nurse"
+
+[[affordance]]
+id = "ask_history"
+type = "ask"
+label = "问既往史与近期进食"
+reveals = ["c_history"]
+
+[[affordance.targets]]
+kind = "actor"
+id = "nurse"
+
+[[affordance]]
+id = "order_tests"
+type = "act"
+label = "下医嘱：查什么"
+reveals = ["c_results"]
+time_cost = 3
+select = "multi"
+
+[[affordance.params.options]]
+id = "lactate"
+label = "急查乳酸＋血常规"
+
+[[affordance.params.options]]
+id = "ultrasound"
+label = "床旁超声"
+
+[[affordance.params.options]]
+id = "ecg"
+label = "心电图"
+
+[[affordance.params.options]]
+id = "catheter"
+label = "留置导尿、记每小时尿量"
+
+[[affordance.targets]]
+kind = "actor"
+id = "nurse"
+
+[[affordance.effects]]
+target = "scene"
+key = "plan_set"
+value = true
+
+[[affordance.effects]]
+target = "scene"
+key = "lactate"
+value = 4.2
+
+[[affordance]]
+id = "hold_observation"
+type = "act"
+label = "先留观复测，明早交班再说"
+time_cost = 3
+
+[[affordance.targets]]
+kind = "actor"
+id = "nurse"
+
+[[affordance.effects]]
+target = "nurse"
+key = "patience"
+op = "decr"
+value = 1
+
+[[affordance]]
+id = "order_support"
+type = "act"
+label = "先补液并交代观察要点（血压/尿量/意识）"
+time_cost = 2
+
+[[affordance.targets]]
+kind = "actor"
+id = "nurse"
+
+[[affordance.effects]]
+target = "scene"
+key = "bp_sys"
+op = "incr"
+value = 2
+
+[[affordance]]
+id = "order_escalate"
+type = "summon"
+label = "叫二线/外科起床接手"
+time_cost = 2
+
+[[affordance.visible_when.all]]
+kind = "state_cmp"
+key = "scene.consultant_in"
+op = "=="
+value = false
+
+[[affordance.targets]]
+kind = "actor"
+id = "nurse"
+
+[[affordance.effects]]
+target = "scene"
+key = "consultant_in"
+value = true
+
+[[affordance]]
+id = "document"
+type = "document"
+label = "记病程：数据、判断、已下医嘱"
+
+[affordance.params]
+fields = ["关键数据", "我的判断", "已下医嘱", "观察要点"]
+
+[[fact]]
+id = "f_vitals"
+intent = "心率快、血压偏低、尿少——已经有循环不稳的迹象"
+critical = true
+cue_ids = ["c_phone"]
+
+[[fact]]
+id = "f_peritonitis"
+intent = "右下腹压痛伴反跳痛，提示腹膜炎"
+critical = true
+banned_phrases = ["腹膜炎", "反跳痛"]
+cue_ids = ["c_abdomen"]
+affordance_ids = ["ask_abdomen"]
+
+[[fact]]
+id = "f_lactate"
+intent = "乳酸升高与影像见游离液体，提示需要外科介入"
+critical = true
+banned_phrases = ["乳酸 4.2", "游离液体"]
+cue_ids = ["c_results"]
+affordance_ids = ["order_tests"]
+
+[[fact]]
+id = "f_urine"
+intent = "尿量显著减少"
+banned_phrases = ["100 ml"]
+cue_ids = ["c_urine"]
+affordance_ids = ["ask_urine"]
+
+[[criterion]]
+id = "dp_gather"
+title = "在电话里问到了哪些关键信息（而不是只重复已有数据）"
+rule = "action_set_covers"
+weight = 25
+
+[criterion.params]
+accept_custom = ["反跳痛", "尿量", "既往", "进食"]
+affordances = ["ask_abdomen", "ask_urine", "ask_history"]
+min = 2
+
+[criterion.anchors]
+adequate = "问到了其中一项"
+missed = "只复述护士已经报过的数字"
+strong = "问了腹部体征并至少核到另一项"
+
+[[criterion]]
+id = "dp_next_test"
+title = "下一步检查与处置选了什么"
+rule = "option_choice"
+weight = 30
+
+[criterion.params]
+accept_custom = ["乳酸", "血常规", "超声", "游离液体", "急腹症", "外科"]
+acceptable = ["ecg", "catheter"]
+affordances = ["order_tests", "hold_observation"]
+correct = ["lactate", "ultrasound"]
+
+[criterion.anchors]
+adequate = "要了心电图或尿量等次要项，但没抓关键"
+missed = "选择先留观复测、明早再说"
+strong = "要了乳酸/血常规或床旁超声；或自输入点出需要外科介入"
+
+[[criterion]]
+id = "dp_escalate"
+title = "是否把二线/外科叫起来"
+rule = "require_within"
+weight = 30
+
+[criterion.params]
+affordances = ["order_escalate"]
+within_turns = 4
+
+[criterion.anchors]
+adequate = "更晚才叫"
+missed = "始终没有升级"
+strong = "四轮内叫了二线/外科"
+
+[[criterion]]
+id = "dp_plan"
+title = "是否同时给出支持性处置与观察要点"
+rule = "action_set_covers"
+weight = 15
+
+[criterion.params]
+affordances = ["order_support", "document"]
+min = 1
+
+[criterion.anchors]
+adequate = "只做了其中一件"
+missed = "只下检查、没有后续交代"
+strong = "交代了补液/观察要点或写入病程"
+
+[[device]]
+id = "duty_phone"
+kind = "phone"
+title = "值班手机"
+
+[[device.channel]]
+ref = "scene.lactate"
+label = "乳酸"
+unit = "mmol/L"
+decimals = 1
+
+[[device.channel.visible_when.all]]
+kind = "action_used"
+affordance_id = "order_tests"

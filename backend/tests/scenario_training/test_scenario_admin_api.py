@@ -11,7 +11,8 @@ from fastapi.testclient import TestClient
 from core.database import get_db
 from core.security import get_current_user
 from models.scenario_training import StSession
-from modules.scenario_training import pack_loader
+from modules.scenario_training import assets as assets_mod
+from modules.scenario_training import case_folder, pack_loader
 from modules.scenario_training import router as scenario_router
 
 PACK_KEY = "sputum-ineffective"
@@ -80,8 +81,9 @@ def app_client(pg_session, monkeypatch):
 
 @pytest.fixture
 def installed(pg_session):
-    pack = pack_loader.load_pack_file(PACK_KEY)
+    pack, images = pack_loader.load_case(PACK_KEY)
     row, _changed = pack_loader.install(pg_session, pack)
+    assets_mod.seed_assets(pg_session, pack, images, overwrite=True)
     return pack, row
 
 
@@ -175,3 +177,90 @@ def test_session_snapshot_survives_pack_content_changes(app_client, installed) -
     fresh = client.get(f"/api/scenario/sessions/{fresh_id}").json()
     assert fresh["view"]["pack"]["title"] == "改名后的病例"
     assert row.version == 2
+
+
+# --------------------------------------------------------------------------- #
+# 病例包（标准模板 / 导入 / 导出）：三个 zip 端点 + 旧 JSON 上传路径已消失
+# --------------------------------------------------------------------------- #
+
+
+def test_standard_template_can_be_imported_back(app_client) -> None:
+    """下载标准模板 → 导入成新病例（默认上架，可直接开新局）。"""
+    client, holder, _db = app_client
+    _admin(client, holder)
+
+    template = client.get("/api/scenario/admin/cases/standard.zip", params={"key": "tpl-case", "title": "模板病例"})
+    assert template.status_code == 200, template.text
+    assert template.headers["content-type"] == "application/zip"
+    assert template.content[:2] == b"PK"
+
+    imported = client.post(
+        "/api/scenario/admin/packs/import",
+        files={"files": ("tpl-case.zip", template.content, "application/zip")},
+    )
+    assert imported.status_code == 200, imported.text
+    body = imported.json()
+    assert (body["key"], body["title"], body["version"], body["changed"]) == ("tpl-case", "模板病例", 1, True)
+    assert body["problems"] == []
+
+    _student(client, holder)
+    assert client.post("/api/scenario/sessions", json={"pack_key": "tpl-case"}).status_code == 200
+
+
+def test_import_accepts_plain_files_and_tolerates_extra(app_client) -> None:
+    """前端按相对路径传一组文件（`webkitdirectory`）：多余的忽略并提示，病例照样装进来。"""
+    client, holder, _db = app_client
+    _admin(client, holder)
+    files = case_folder.case_files(*pack_loader.load_case(PACK_KEY))
+    files["note.txt"] = "作者随手放的备注".encode()
+
+    imported = client.post(
+        "/api/scenario/admin/packs/import",
+        files=[("files", (f"my-case/{name}", data, "application/octet-stream")) for name, data in files.items()],
+    )
+    assert imported.status_code == 200, imported.text
+    body = imported.json()
+    assert body["key"] == PACK_KEY
+    assert body["changed"] is True
+    assert any("note.txt" in problem for problem in body["problems"])
+
+    # 同一份内容再导入一次：幂等，不涨版本
+    again = client.post(
+        "/api/scenario/admin/packs/import",
+        files=[("files", (f"my-case/{name}", data, "application/octet-stream")) for name, data in files.items()],
+    ).json()
+    assert again["version"] == body["version"]
+    assert again["changed"] is False
+
+
+def test_import_of_broken_toml_says_why(app_client) -> None:
+    client, holder, _db = app_client
+    _admin(client, holder)
+    broken = client.post(
+        "/api/scenario/admin/packs/import",
+        files={"files": ("case.toml", b'key = "x"\ntitle = "y\n', "application/toml")},
+    )
+    assert broken.status_code == 422
+    assert "case.toml 解析失败" in broken.json()["detail"]["message"]
+
+
+def test_export_zip_is_lossless_including_image_bytes(app_client, installed) -> None:
+    """导出：内容与磁盘上那一份逐字段一致，图片字节原样（不重编码）。"""
+    client, holder, _db = app_client
+    pack, _row = installed
+    _admin(client, holder)
+
+    exported = client.get(f"/api/scenario/admin/packs/{PACK_KEY}/export.zip")
+    assert exported.status_code == 200
+    parsed = case_folder.parse_files(case_folder.unzip_files(exported.content))
+    assert pack_loader.pack_from_content(parsed.content) == pack
+    assert parsed.images == case_folder.images_of(PACK_KEY)
+    assert parsed.images["room-panel.png"] == (case_folder.CASES_DIR / PACK_KEY / "img" / "room-panel.png").read_bytes()
+
+
+def test_json_upload_path_is_gone(app_client) -> None:
+    """旧的 JSON 上传路径（`POST /admin/packs`）已删除：替代彻底，不留双轨。"""
+    client, holder, _db = app_client
+    _admin(client, holder)
+    gone = client.post("/api/scenario/admin/packs", files={"file": ("pack.json", b"{}", "application/json")})
+    assert gone.status_code == 405

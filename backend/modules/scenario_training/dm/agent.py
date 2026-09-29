@@ -133,10 +133,9 @@ def _pack_block(pack: ScenarioPack) -> str:
     rows.append("### 在场者（`char_say` 的 actor 只能取这里的 id）")
     for actor in pack.actors:
         known = "、".join(f"{key}：{value}" for key, value in actor.knowledge.items()) or "（未声明）"
-        goals = "、".join(actor.goals) or "（未声明）"
         rows.append(
             f"- {actor.id}（{actor.role}，声明在场方式={actor.presence.value}，说话语气={actor.demand.value}）"
-            f"\n  知道：{known}\n  风格：{actor.style or '（未写）'}\n  目的：{goals}"
+            f"\n  知道：{known}\n  他是什么样的人：{actor.persona or '（未写）'}"
         )
     rows.append("")
     rows.append("### 现场线索（id：文本）")

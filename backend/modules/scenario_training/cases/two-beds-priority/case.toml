@@ -1,0 +1,370 @@
+key = "two-beds-priority"
+title = "两床同铃：会叫的能等，不叫的危重"
+one_line = "夜班，两床同时按铃：一个喊得整条走廊都听见，一个只说了句「有点闷」。"
+failure = "irreversible"
+
+[player]
+role = "夜班护士"
+
+[setting]
+place = "呼吸内科病房（夜班）"
+time_hint = "凌晨 03:40"
+resources = ["监护仪", "氧气装置", "无创呼吸机", "镇痛泵", "呼叫铃"]
+
+[state_keys]
+"bed_a.comfort" = 2
+"bed_b.comfort" = 2
+"scene.a_pain" = 5
+"scene.bed_b_consciousness" = 3
+"scene.bed_b_sat" = 88
+"scene.doctor_present" = false
+
+[state_bounds."bed_a.comfort"]
+lo = 0.0
+hi = 5.0
+
+[state_bounds."bed_b.comfort"]
+lo = 0.0
+hi = 5.0
+
+[state_bounds."scene.a_pain"]
+lo = 0.0
+hi = 10.0
+
+[state_bounds."scene.bed_b_consciousness"]
+lo = 0.0
+hi = 5.0
+
+[state_bounds."scene.bed_b_sat"]
+lo = 0.0
+hi = 100.0
+
+[[failure_when.all]]
+kind = "state_cmp"
+key = "scene.bed_b_consciousness"
+op = "<="
+value = 1
+
+[[cue]]
+id = "c_a_ringing"
+text = "A 床的呼叫铃一直在响，隔着走廊都能听见他在喊。"
+visible_from_start = true
+
+[[cue]]
+id = "c_b_dark"
+text = "B 床那侧只亮着床头监护仪的冷光，人没出声。"
+visible_from_start = true
+
+[[cue]]
+id = "c_family_outside"
+text = "A 床家属攥着水杯站在走廊里来回踱步。"
+visible_from_start = true
+
+[[cue]]
+id = "c_a_stable"
+text = "A 床伤口敷料干燥，生命体征平稳——疼是真疼，但不像要出事。"
+
+[[cue]]
+id = "c_b_barely_answers"
+text = "B 床老人应了一声，声音又轻又慢，像是费了很大力气。"
+
+[[cue]]
+id = "c_b_low_sat"
+text = "B 床的血氧上不来，呼吸浅快、鼻翼翕动。"
+
+[[cue]]
+id = "c_b_confused"
+text = "B 床答话开始不对劲：说自己在老家，还问什么时候能回去。"
+
+[[actor]]
+id = "bed_a"
+role = "A 床患者（术后第 1 天）"
+demand = "loud"
+
+[actor.knowledge]
+"主诉" = "疼！疼得睡不着，你们是不是不管我了"
+"既往" = "术后第 1 天，生命体征平稳"
+"自述" = "我就想有人来看看我"
+
+[[actor]]
+id = "bed_b"
+role = "B 床患者（慢阻肺）"
+demand = "quiet"
+
+[actor.knowledge]
+"主诉" = "有点闷，喘不太上来"
+"既往" = "慢阻肺，长期吸烟"
+"自述" = "不麻烦你们，我缓缓就好"
+
+[[actor]]
+id = "family_a"
+role = "A 床家属"
+demand = "loud"
+
+[actor.knowledge]
+"立场" = "看到病人喊，觉得护士不管"
+
+[[actor]]
+id = "doctor"
+role = "值班医生"
+presence = "callable"
+
+[actor.knowledge]
+"现场" = "需要护士给出两床的客观情况与处置先后"
+
+[[affordance]]
+id = "visit_a"
+type = "act"
+label = "先去 A 床看看"
+time_cost = 1
+
+[[affordance.targets]]
+kind = "actor"
+id = "bed_a"
+
+[[affordance.effects]]
+target = "bed_a"
+key = "comfort"
+op = "incr"
+value = 1
+
+[[affordance]]
+id = "visit_b"
+type = "act"
+label = "到 B 床看看"
+reveals = ["c_b_barely_answers", "c_b_confused"]
+time_cost = 1
+
+[[affordance.targets]]
+kind = "actor"
+id = "bed_b"
+
+[[affordance.effects]]
+target = "bed_b"
+key = "comfort"
+op = "incr"
+value = 1
+
+[[affordance]]
+id = "measure_a"
+type = "measure"
+label = "测 A 床生命体征"
+reveals = ["c_a_stable"]
+
+[[affordance.targets]]
+kind = "actor"
+id = "bed_a"
+
+[[affordance]]
+id = "measure_b"
+type = "measure"
+label = "测 B 床血氧与呼吸"
+reveals = ["c_b_low_sat"]
+
+[[affordance.targets]]
+kind = "actor"
+id = "bed_b"
+
+[[affordance.effects]]
+target = "scene"
+key = "bed_b_sat"
+value = 88
+
+[[affordance]]
+id = "reassure_a"
+type = "act"
+label = "向 A 床和家属解释、回应他"
+time_cost = 1
+
+[[affordance.targets]]
+kind = "actor"
+id = "bed_a"
+
+[[affordance.targets]]
+kind = "actor"
+id = "family_a"
+
+[[affordance.effects]]
+target = "bed_a"
+key = "comfort"
+op = "incr"
+value = 2
+
+[[affordance]]
+id = "analgesia_a"
+type = "act"
+label = "按医嘱给 A 床镇痛"
+time_cost = 2
+confirm = true
+
+[[affordance.targets]]
+kind = "actor"
+id = "bed_a"
+
+[[affordance.effects]]
+target = "scene"
+key = "a_pain"
+op = "decr"
+value = 3
+
+[[affordance.effects]]
+target = "bed_a"
+key = "comfort"
+op = "incr"
+value = 2
+
+[[affordance]]
+id = "oxygen_b"
+type = "act"
+label = "给 B 床吸氧 / 接无创通气"
+time_cost = 2
+
+[[affordance.targets]]
+kind = "actor"
+id = "bed_b"
+
+[[affordance.effects]]
+target = "scene"
+key = "bed_b_sat"
+op = "incr"
+value = 5
+
+[[affordance]]
+id = "call_doctor"
+type = "summon"
+label = "呼叫值班医生"
+time_cost = 2
+
+[[affordance.visible_when.all]]
+kind = "state_cmp"
+key = "scene.doctor_present"
+op = "=="
+value = false
+
+[[affordance.effects]]
+target = "scene"
+key = "doctor_present"
+value = true
+
+[[affordance]]
+id = "document"
+type = "document"
+label = "记录两床情况与处置顺序"
+
+[affordance.params]
+fields = ["时间", "A 床", "B 床", "我的处置顺序"]
+
+[[fact]]
+id = "f_b_low_sat"
+intent = "B 床在吸氧下血氧仍低、呼吸浅快"
+critical = true
+banned_phrases = ["血氧 88", "低氧血症"]
+cue_ids = ["c_b_low_sat"]
+affordance_ids = ["measure_b"]
+
+[[fact]]
+id = "f_b_mental_change"
+intent = "B 床出现意识改变（答非所问、定向力下降）"
+critical = true
+banned_phrases = ["意识模糊", "谵妄", "定向力"]
+cue_ids = ["c_b_confused"]
+affordance_ids = ["visit_b"]
+
+[[fact]]
+id = "f_a_stable"
+intent = "A 床生命体征平稳、疼痛可处理但可等待"
+banned_phrases = ["生命体征平稳"]
+cue_ids = ["c_a_stable"]
+affordance_ids = ["measure_a"]
+
+[[criterion]]
+id = "dp_priority"
+title = "两床同时按铃时，先处理谁"
+rule = "action_order"
+weight = 30
+
+[criterion.params]
+first = ["visit_b", "measure_b"]
+then = ["visit_a", "measure_a", "reassure_a", "analgesia_a"]
+
+[criterion.anchors]
+adequate = "先应了 A 床，但在很短时间里转向 B 床"
+missed = "在 A 床连续处理情绪/疼痛，把 B 床留在黑暗里"
+strong = "先快速确认 A 床能让得开，随即直奔 B 床（或直接先 B）"
+
+[[criterion]]
+id = "dp_recognize_b"
+title = "是否识别 B 床的静默危重（低氧 + 意识改变）"
+rule = "action_set_covers"
+weight = 25
+
+[criterion.params]
+accept_custom = ["安静", "不出声", "血氧", "意识", "闷", "呼吸浅"]
+affordances = ["visit_b", "measure_b"]
+min = 2
+
+[criterion.anchors]
+adequate = "做了其中之一，意识到 B 床不对劲"
+missed = "完全按呼声音量分配注意力"
+strong = "到床边看并测了血氧/呼吸，指出问题在安静的这床"
+
+[[criterion]]
+id = "dp_stabilize_b"
+title = "是否及时对 B 床处置（吸氧/无创通气、呼叫医生）"
+rule = "require_within"
+weight = 25
+
+[criterion.params]
+affordances = ["oxygen_b", "call_doctor"]
+within_turns = 4
+
+[criterion.anchors]
+adequate = "四轮内做到其中之一"
+missed = "始终没有对 B 床做处置升级"
+strong = "四轮内既给了氧又喊了医生"
+
+[[criterion]]
+id = "dp_manage_a"
+title = "可等待的那一床是否也被正确管理（而不是被忽略或被过度占用）"
+rule = "action_set_covers"
+weight = 10
+
+[criterion.params]
+affordances = ["reassure_a", "analgesia_a"]
+min = 1
+
+[criterion.anchors]
+adequate = "回应过 A 床"
+missed = "完全没管 A 床的诉求"
+strong = "既回应了 A 床，也在其后处理了 B 床的危重"
+
+[[criterion]]
+id = "dp_document"
+title = "是否记录两床情况与处置先后"
+rule = "action_set_covers"
+weight = 10
+
+[criterion.params]
+affordances = ["document"]
+min = 1
+
+[criterion.anchors]
+adequate = "有记录但缺顺序/理由"
+missed = "未记录"
+strong = "记录了两床观察、处置顺序与理由"
+
+[[device]]
+id = "monitor_b"
+title = "B 床监护仪"
+sound = "beep"
+
+[[device.visible_when.all]]
+kind = "cue_revealed"
+cue_id = "c_b_low_sat"
+
+[[device.channel]]
+ref = "scene.bed_b_sat"
+label = "血氧"
+unit = "%"
+normal = [95.0, 100.0]
+critical = [0.0, 90.0]

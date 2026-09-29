@@ -29,25 +29,36 @@
    回放与判读读那份快照，因此**后来改病例不影响旧局**；也因此不需要归档（`st_session_archives` 已删）。
 3. **学生可见性只由 `published` 表达**（`state` 已删）：学生列表只列已上架病例，未上架不能开新局；
    下架不删数据，老会话照常可读可继续。
-4. **内容在库里，不在镜像里**：发版不会换内容。仓库 `packs/*.json` 是**播种/交换**来源，
-   改了它必须重装（`install_scenario_pack`），否则库里还是旧内容。
-5. **情境时间是累计值**：只有声明为耗时的动作与模型的 `time_advance` 推进它；说话、观察、澄清、求提示都不推进。
-6. **模型能改的世界键 = 包登记的 `state_keys`**，数值键另有作者声明的 `state_bounds`（越界即拒）。
+4. **内容在库里，不在镜像里**；仓库端是**一个病例一个文件夹**：`modules/scenario_training/cases/<key>/`
+   - `case.toml`：机制与 meta（id、state_keys/state_bounds、affordances、cues、facts、rubric、devices、assets、failure）
+   - `case.md`：散文四节 —— `## 处境` / `## 人物`（`### <actor_id>` 逐人一段）/ `## 真相` / `## 教师备注`
+   - `img/`：图片字节（`asset.file` 指向它；导出不重编码）
+   它是**播种/交换**来源，改了必须重装（`install_scenario_pack`），否则库里还是旧内容。
+5. **导出/导入无损**：`pack → 文件夹 → pack` 模型逐字段相等，`文件夹 → pack → 文件夹` 文本逐字节相同
+   （字段全覆盖、图片字节不动）。`version` / `published` / `published_at` 属**运行期事实**，不参与往返。
+   管理端三个入口：`GET /admin/cases/standard.zip`（代码里硬编码的标准模板）、
+   `POST /admin/packs/import`（zip / 文件夹多文件 / 单个 `case.toml`，宽容导入并回报提示）、
+   `GET /admin/packs/{key}/export.zip`。
+6. **情境时间是累计值**：只有声明为耗时的动作与模型的 `time_advance` 推进它；说话、观察、澄清、求提示都不推进。
+7. **模型能改的世界键 = 包登记的 `state_keys`**，数值键另有作者声明的 `state_bounds`（越界即拒）。
    布尔/文本键只做类型校验。**记不下来的东西**（判据、权重、真相）模型看不见也改不了。
-7. **读数只由设备面板展示**（"读数归设备面板"）：没挂在 `presentation.devices` 通道上的数值只存在于
+8. **读数只由设备面板展示**（"读数归设备面板"）：没挂在 `presentation.devices` 通道上的数值只存在于
    引擎内部——学生看不到，模型也只能靠 `world_state` 读到。因此老包里挂在 HUD/白板上的读数都改成了设备通道。
-8. **图片**：只支持作者预置图片（`st_assets`，按 `pack_key + asset_id`）。**绘画/生成已放弃**（相关表与端点已删）。
+9. **图片**：只支持作者预置图片（`st_assets`，按 `pack_key + asset_id`）。**绘画/生成已放弃**（相关表与端点已删）。
    `assets[].reveal_with`（可选，any-of）声明"要等哪条线索被揭示才允许发"：提前发 → **只拒那一次**并记账，
    不整条回合判死。
-9. **呈现面全部由平台推导**：线索板（现场看到的/已确认的/已处置）、面板开关、经历维度三件套
+10. **呈现面全部由平台推导**：线索板（现场看到的/已确认的/已处置）、面板开关、经历维度三件套
    （处置动作数/必采事实覆盖/情境时间）都读账本，作者不再声明 HUD/白板/面板（那些声明与它们的渲染链已删）。
-10. **`view.hud` 是历史字段**：线协议保留它（前端仍在读），但平台不再产生任何槽位——读数在设备面板。
+11. **`view.hud` 是历史字段**：线协议保留它（前端仍在读），但平台不再产生任何槽位——读数在设备面板。
 
 ## 运行与观测
 
 ```bash
-# 装/核对内容（--check 只读：比对库内 content 与仓库文件，不一致时退出码 1）
-docker exec nursing-vp-sim-backend-1 python -m scripts.install_scenario_pack [--check]
+# 装/核对内容（--check 只读：比对库内 content 与仓库病例**文件夹**，不一致时退出码 1）
+docker exec nursing-vp-sim-backend-1 python -m scripts.install_scenario_pack [key ...] [--check]
+
+# 导出（DB → 文件夹，供离线编辑或备份；默认写回 modules/scenario_training/cases/）
+cd backend && uv run python -m scripts.scenario_pack_export [key ...] [--out-dir DIR]
 
 # 开关（缺失即关闭 => /api/scenario/** 404）
 SCENARIO_TRAINING_ENABLED=true
