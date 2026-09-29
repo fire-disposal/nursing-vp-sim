@@ -12,14 +12,14 @@ from datetime import UTC, datetime, timedelta
 
 from infra.ops_queries import query_scenario
 from models.audit import AuditLog
-from models.scenario_training import StEvent, StGeneratedAsset, StSession
+from models.scenario_training import StEvent, StSession
 
 NOW = datetime.now(UTC)
 OLD = NOW - timedelta(hours=30)
 
 
 def _session(db, *, status: str, created_at: datetime) -> StSession:
-    row = StSession(user_id=4242, pack_key="sputum-ineffective", pack_revision_id=1, status=status)
+    row = StSession(user_id=4242, pack_key="sputum-ineffective", pack_version=1, pack_content={}, status=status)
     row.created_at = created_at
     row.updated_at = created_at
     db.add(row)
@@ -44,23 +44,6 @@ def _committed_turn(
         },
     )
     row.created_at = created_at
-    db.add(row)
-
-
-def _image(db, session_id: int, created_at: datetime, sha_seed: int) -> None:
-    row = StGeneratedAsset(
-        session_id=session_id,
-        pack_key="sputum-ineffective",
-        pack_revision_id=1,
-        kind="image",
-        prompt="夜班病房",
-        mime_type="image/webp",
-        file_size=10,
-        sha256=f"{sha_seed:064d}",
-        content=b"x",
-    )
-    row.created_at = created_at
-    row.updated_at = created_at
     db.add(row)
 
 
@@ -96,7 +79,7 @@ def test_counts_24h_requests_time_cost_and_model_calls(pg_session) -> None:
 def test_empty_tables_give_zeroed_shape(pg_session) -> None:
     """空表：字段名就是契约（前端看板与部署冒烟按名字对齐），计数为 0、比值为 null。"""
     result = query_scenario(pg_session, day_ago=NOW - timedelta(hours=24))
-    # 这 14 个键就是 `query_scenario` 的完整形状：`scope`/`window`/`state_window` 由调用方
+    # 这 12 个键就是 `query_scenario` 的完整形状：`scope`/`window`/`state_window` 由调用方
     # （`infra/diagnostics.py`、`modules/admin/ops.py`）在外层补上，不在这里。
     assert set(result) == {
         "opened_24h",
@@ -110,8 +93,6 @@ def test_empty_tables_give_zeroed_shape(pg_session) -> None:
         "clarifications_24h",
         "hints_24h",
         "llm_failures_24h",
-        "read_only_sessions",
-        "generated_images_24h",
         "rate_limited_24h",
     }
     assert result["requests_24h"] == 0

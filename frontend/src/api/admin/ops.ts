@@ -89,7 +89,7 @@ export interface DiagnoseResponse {
 		scope: "db";
 		/** 计数字段的窗口（滚动 24h）。 */
 		window: string;
-		/** 会话状态计数（`active` / `completed` / `read_only_sessions`）的窗口：即时 `now`。 */
+		/** 会话状态计数（`active` / `completed`）的窗口：即时 `now`。 */
 		state_window: string;
 		/** 近 24h 开局的会话数。 */
 		opened_24h: number;
@@ -113,10 +113,6 @@ export interface DiagnoseResponse {
 		hints_24h: number;
 		/** 近 24h 情境两阶段（`st_intent` / `st_dm`）在 `llm_call_logs` 里的失败调用数。 */
 		llm_failures_24h: number;
-		/** 只读 / 已归档的封存会话数（即时）。 */
-		read_only_sessions: number;
-		/** 近 24h 入库的生成图片数。 */
-		generated_images_24h: number;
 		/** 近 24h 学生侧限流命中次数（审计 `scenario.rate_limited`）。 */
 		rate_limited_24h: number;
 	};

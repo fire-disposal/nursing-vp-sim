@@ -6,6 +6,10 @@
 - **路由只做输入输出适配**：解析、结算、演出、提交全在 `runtime/session.py`；HTTP 与 SSE
   共用同一个执行器（docs/23 §8.3）。
 
+**内容只有一份**：`st_packs.content` 是当前内容、`version` 是保存次数；会话在开局时把内容
+**快照进自己的行**，此后病例怎么改都不影响这一局（回放、判读都读快照）。所以这里没有修订、
+没有归档、没有"只读旧局"——一个会话要么在进行、要么已结束。
+
 学生侧错误一律是 `{"code", "message"}`（冲突另带 `current_seq`）——**不带** problems、字段路径或堆栈。
 """
 
@@ -15,6 +19,7 @@ import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
@@ -27,7 +32,7 @@ from core.rate_limits import check_scenario_action_limit, check_scenario_open_li
 from core.security import require_permission
 from core.unit_of_work import unit_of_work
 from models import User
-from models.scenario_training import StEvent, StPack, StPackRevision, StSession, StSessionArchive
+from models.scenario_training import StAsset, StEvent, StPack, StSession
 
 from . import assets as assets_mod
 from . import pack_loader
@@ -40,30 +45,21 @@ from .api_models import (
     ScenarioAdminFocusTurn,
     ScenarioAdminOverview,
     ScenarioAdminPack,
-    ScenarioAdminPackConvert,
-    ScenarioAdminPackSource,
+    ScenarioAdminPackDelete,
     ScenarioAdminPackUpload,
-    ScenarioAdminRevision,
     ScenarioAdminSessionDetail,
     ScenarioAdminSessionList,
     ScenarioAdminSessionRow,
     ScenarioAdminStats,
     ScenarioAdminStatsBucket,
     ScenarioAdminTurnReplay,
-    ScenarioArchiveDetail,
-    ScenarioArchiveList,
-    ScenarioArchiveRaw,
-    ScenarioArchiveRef,
-    ScenarioArchiveSummary,
     ScenarioCloseRequest,
     ScenarioCloseResponse,
     ScenarioErrorInfo,
-    ScenarioGeneratedAsset,
-    ScenarioGeneratedList,
+    ScenarioNewPackRequest,
     ScenarioOpenSessionRequest,
+    ScenarioPackContent,
     ScenarioPackContentRequest,
-    ScenarioPackConvertRequest,
-    ScenarioPackPatchRequest,
     ScenarioPackProblem,
     ScenarioPackSummary,
     ScenarioPackValidation,
@@ -73,7 +69,6 @@ from .api_models import (
     ScenarioSessionRow,
     ScenarioSessionState,
     ScenarioSseCommitted,
-    ScenarioSseDelivery,
     ScenarioSseEnvelope,
     ScenarioSseError,
     ScenarioSsePhase,
@@ -82,19 +77,17 @@ from .api_models import (
     ScenarioView,
 )
 from .dm.stages import StageFailure
-from .pack_loader import PackInvalid, PackNotFound
+from .pack_loader import PackInvalid
 from .runtime.replay import admin_turns, focus_turns
 from .runtime.session import (
     RequestConflict,
     SeqConflict,
-    SessionArchived,
     SessionClosed,
     TurnHooks,
     create_session,
     load_events,
     replay,
     request_lookup,
-    session_read_only,
     session_row,
     session_turns,
     submit_close,
@@ -102,7 +95,7 @@ from .runtime.session import (
 )
 from .runtime.view import build_view
 from .runtime.world import TurnRejected
-from .schema import PACK_SCHEMA_VERSION, Asset, ScenarioPack
+from .schema import Asset, ScenarioPack
 from .turns import TurnPhase
 from .validation import validate_pack
 
@@ -119,7 +112,6 @@ _MEDIA_TYPES = {
     ".webp": "image/webp",
     ".gif": "image/gif",
 }
-_CACHE_IMMUTABLE = "private, max-age=86400"
 _CACHE_REPLACEABLE = "private, max-age=300"
 
 
@@ -148,8 +140,6 @@ def _student_error(status: int, code: str, message: str, **extra: Any) -> HTTPEx
 def _map_error(exc: Exception) -> HTTPException:
     if isinstance(exc, SessionClosed):
         return _student_error(409, "session_closed", "这次情境已经结束")
-    if isinstance(exc, SessionArchived):
-        return _student_error(409, "session_archived", "这是机制切换前的旧局，只能回看")
     if isinstance(exc, SeqConflict):
         return _student_error(409, "session_conflict", "世界已经往前走了，请刷新后重试", current_seq=exc.current_seq)
     if isinstance(exc, RequestConflict):
@@ -163,44 +153,9 @@ def _map_error(exc: Exception) -> HTTPException:
     return _student_error(500, "internal_error", "服务端异常，本次未提交")
 
 
-def _load_pack(db: DbSession, revision_id: int) -> ScenarioPack:
-    try:
-        return pack_loader.load_revision(db, revision_id)
-    except PackNotFound as exc:
-        raise HTTPException(status_code=404, detail="情境包修订不存在") from exc
-    except PackInvalid as exc:
-        raise HTTPException(status_code=422, detail={"message": "情境包未通过校验", "problems": exc.problems}) from exc
-
-
-def _latest(db: DbSession, pack_key: str) -> tuple[StPack, StPackRevision]:
-    latest = pack_loader.latest_revision(db, pack_key)
-    if latest is None:
-        raise HTTPException(status_code=404, detail=f"情境包不存在：{pack_key}")
-    return latest
-
-
-def _require_pack(db: DbSession, pack_key: str) -> StPack:
-    row = db.execute(select(StPack).where(StPack.key == pack_key)).scalar_one_or_none()
-    if row is None:
-        raise HTTPException(status_code=404, detail=f"情境包不存在：{pack_key}")
-    return row
-
-
-def _load_session(db: DbSession, session_id: int, user_id: int | None) -> StSession:
-    session = db.execute(select(StSession).where(StSession.id == session_id)).scalar_one_or_none()
-    if session is None or (user_id is not None and session.user_id != user_id):
-        raise HTTPException(status_code=404, detail="会话不存在")
-    return session
-
-
-def _require_schema_current(pack: ScenarioPack) -> None:
-    """新局只接受当前形状的包修订：旧形状**不靠"裁掉未知键"当兼容**（docs/23 §9.5）。"""
-    if pack.pack_schema_version < PACK_SCHEMA_VERSION:
-        raise _student_error(
-            422,
-            "schema_unsupported",
-            "这份情境是旧机制修订，不能再开新局（旧会话可回看）",
-        )
+def _pack_of(session: StSession) -> ScenarioPack:
+    """会话自带的**内容快照** → 已校验的病例（回放/判读/继续都读它，不读今天的病例内容）。"""
+    return pack_loader.pack_from_content(session.pack_content or {})
 
 
 def _live_view(db: DbSession, session: StSession, pack: ScenarioPack) -> ScenarioView:
@@ -212,45 +167,49 @@ def _live_view(db: DbSession, session: StSession, pack: ScenarioPack) -> Scenari
         world,
         session_id=session.id,
         status=session.status,
-        revision_id=session.pack_revision_id,
+        pack_key=session.pack_key,
+        version=session.pack_version,
         dims=dims_snapshot(pack, world),
-        read_only=session_read_only(session),
         trial=bool((session.meta or {}).get("trial")),
     )
 
 
-def _split_report(raw: Any) -> tuple[ScenarioReport | None, dict[str, Any] | None]:
-    """把库里的报告分成**新形状**与**旧机制原样留档**——旧报告绝不被改写成新形状。"""
+def _require_pack(db: DbSession, pack_key: str) -> StPack:
+    row = pack_loader.get_pack(db, pack_key)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"情境包不存在：{pack_key}")
+    return row
+
+
+def _require_published(db: DbSession, pack_key: str) -> StPack:
+    """学生**开新局**的门：病例必须已上架（下架不删数据，老会话照常继续）。
+
+    找不到这个病例按不存在处理（不泄漏"有个未上架的病例"）。
+    """
+    row = pack_loader.get_pack(db, pack_key)
+    if row is None or not row.published:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "pack_unpublished", "message": "这个情境还没有上架，暂时不能开始"},
+        )
+    return row
+
+
+def _load_session(db: DbSession, session_id: int, user_id: int | None) -> StSession:
+    session = db.execute(select(StSession).where(StSession.id == session_id)).scalar_one_or_none()
+    if session is None or (user_id is not None and session.user_id != user_id):
+        raise HTTPException(status_code=404, detail="会话不存在")
+    return session
+
+
+def _stored_report(raw: Any) -> ScenarioReport | None:
+    """库里存下的结算报告（结束时的原样留档；学生再打开看到的还是它）。"""
     if not isinstance(raw, dict):
-        return None, None
-    if "assessment" in raw:
-        try:
-            return ScenarioReport.model_validate(raw), None
-        except ValueError:
-            return None, raw
-    return None, raw
-
-
-def _archive_of(db: DbSession, session_id: int) -> StSessionArchive | None:
-    return db.execute(select(StSessionArchive).where(StSessionArchive.session_id == session_id)).scalar_one_or_none()
-
-
-def _archive_summary(row: StSessionArchive) -> ScenarioArchiveSummary:
-    return ScenarioArchiveSummary(
-        session_id=row.session_id,
-        pack_key=row.pack_key,
-        pack_revision_id=row.pack_revision_id,
-        shape_version=row.shape_version,
-        archived_at=row.archived_at.isoformat() if row.archived_at else None,
-        status=row.status,
-        turn=row.turn,
-        ended_reason=row.ended_reason,
-        has_report=bool(row.has_report),
-    )
-
-
-def _archive_view(row: StSessionArchive) -> ScenarioView:
-    return ScenarioView.model_validate((row.payload or {}).get("view") or {})
+        return None
+    try:
+        return ScenarioReport.model_validate(raw)
+    except ValueError:
+        return None
 
 
 # --------------------------------------------------------------------------- #
@@ -260,8 +219,8 @@ def _archive_view(row: StSessionArchive) -> ScenarioView:
 
 @router.get("/packs")
 def list_packs(db: DbSession, current_user: _StudentUser) -> list[ScenarioPackSummary]:
-    """可用情境包（含最新修订号）。"""
-    return [ScenarioPackSummary.model_validate(item) for item in pack_loader.list_packs(db)]
+    """可用情境包（**只列已上架**，含当前内容版本）。"""
+    return [ScenarioPackSummary.model_validate(item) for item in pack_loader.list_packs(db, published_only=True)]
 
 
 @router.post("/sessions")
@@ -273,34 +232,34 @@ async def create_session_route(
 ) -> ScenarioSessionResponse:
     """开启一次情境：DM **先立场景**（开场回合），再等学生动手。
 
-    `trial=true`（固定修订试跑）额外要求 `case_manage`，并显式标记该会话。
+    用病例的**当前内容**开局，并把它快照进这一局（`trial=true` 的试跑额外要求 `case_manage`，
+    可以开还没上架的草稿，并显式标记该会话从统计默认排除）。
     """
     await check_scenario_open_limit(current_user.id, request)
     if payload.trial and not current_user.has_permission("case_manage"):
         raise HTTPException(status_code=403, detail="权限不足")
-    if payload.revision_id is not None:
-        revision_id = payload.revision_id
-        pack = _load_pack(db, revision_id)
-    else:
-        packs = pack_loader.list_packs(db)
-        if not packs:
+    if payload.pack_key is None:
+        available = pack_loader.list_packs(db, published_only=True)
+        if not available:
             raise HTTPException(status_code=404, detail="尚无可用情境包")
-        key = payload.pack_key or str(packs[0]["key"])
-        _, revision = _latest(db, key)
-        revision_id = revision.id
-        pack = _load_pack(db, revision_id)
-    _require_schema_current(pack)
+        key = str(available[0]["key"])
+    else:
+        key = payload.pack_key
+    # 试跑：草稿也能开（作者要能试）；学生开新局必须已上架
+    row = _require_pack(db, key) if payload.trial else _require_published(db, key)
+    _, pack = pack_loader.load_pack(db, row.key)
     session, _problems = await create_session(
         db,
         user_id=current_user.id,
-        revision_id=revision_id,
+        pack_key=row.key,
+        pack_version=row.version,
+        content=row.content,
         pack=pack,
         llm=request.app.state.llm_client,
         trial=payload.trial,
     )
-    session_id = session.id
     view = _live_view(db, session, pack)
-    return ScenarioSessionResponse(session_id=session_id, pack=view.pack, view=view)
+    return ScenarioSessionResponse(session_id=session.id, pack=view.pack, view=view)
 
 
 @router.get("/sessions")
@@ -317,7 +276,7 @@ def my_sessions(
         .scalars()
         .all()
     )
-    titles = {key: title for key, title in db.execute(select(StPack.key, StPack.title)).all()}
+    titles = _titles_of(db)
     turns = session_turns(db, [row.id for row in rows])
     return [
         ScenarioSessionRow.model_validate(session_row(row, titles.get(row.pack_key, row.pack_key), turns[row.id]))
@@ -327,34 +286,14 @@ def my_sessions(
 
 @router.get("/sessions/{session_id}")
 def get_session(session_id: int, db: DbSession, current_user: _StudentUser) -> ScenarioSessionState:
-    """会话当前状态。**已归档（机制切换前）的旧局走归档投影，只读。**"""
+    """会话当前状态（视图按**会话自带的内容快照**回放）。"""
     session = _load_session(db, session_id, current_user.id)
-    archived = _archive_of(db, session_id)
-    if archived is not None:
-        payload = archived.payload or {}
-        report, legacy_report = _split_report(payload.get("report"))
-        return ScenarioSessionState(
-            session_id=session_id,
-            status=archived.status,
-            report=report,
-            legacy_report=legacy_report,
-            view=_archive_view(archived),
-            read_only=True,
-            archive=ScenarioArchiveRef(
-                archived_at=archived.archived_at.isoformat() if archived.archived_at else None,
-                shape_version=archived.shape_version,
-                ended_reason=archived.ended_reason,
-            ),
-        )
-    pack = _load_pack(db, session.pack_revision_id)
-    report, legacy_report = _split_report(session.report)
+    pack = _pack_of(session)
     return ScenarioSessionState(
         session_id=session.id,
         status=session.status,
-        report=report,
-        legacy_report=legacy_report,
+        report=_stored_report(session.report),
         view=_live_view(db, session, pack),
-        read_only=session_read_only(session),
     )
 
 
@@ -369,7 +308,7 @@ async def submit_turn_route(
     """学生做一件事 → 世界回应 → 返回权威视图（**解析 → 结算 → 演出 → 原子提交**）。"""
     await check_scenario_action_limit(current_user.id, request)
     session = _load_session(db, session_id, current_user.id)
-    pack = _load_pack(db, session.pack_revision_id)
+    pack = _pack_of(session)
     try:
         return await submit_turn(
             db,
@@ -379,14 +318,7 @@ async def submit_turn_route(
             llm=request.app.state.llm_client,
             user_id=current_user.id,
         )
-    except (
-        SessionClosed,
-        SessionArchived,
-        SeqConflict,
-        RequestConflict,
-        TurnRejected,
-        StageFailure,
-    ) as exc:
+    except (SessionClosed, SeqConflict, RequestConflict, TurnRejected, StageFailure) as exc:
         raise _map_error(exc) from exc
 
 
@@ -397,7 +329,7 @@ def _sse(event: str, payload: Any) -> str:
 
 @router.post(
     "/sessions/{session_id}/turns/stream",
-    # SSE 的四种事件载荷**也是生成类型**：用联合类型声明响应模型，
+    # SSE 的三种事件载荷**也是生成类型**：用联合类型声明响应模型，
     # FastAPI 才会把 `ScenarioSsePhase/Delivery/Committed/Error` 放进 components.schemas
     # （运行期返回的是 StreamingResponse，不走这里的序列化）。
     response_model=ScenarioSseEnvelope,
@@ -410,13 +342,13 @@ async def submit_turn_stream(
     db: DbSession,
     current_user: _StudentUser,
 ) -> StreamingResponse:
-    """同一回合的 SSE 传输：`phase` / `delivery`（**待提交**）/ `committed` / `error`。
+    """同一回合的 SSE 传输：`phase` / `committed` / `error`。
 
-    与 JSON 路径共用 `submit_turn`；这里只把阶段与待提交草稿推出去。
+    与 JSON 路径共用 `submit_turn`；这里只把阶段推出去。
     """
     await check_scenario_action_limit(current_user.id, request)
     session = _load_session(db, session_id, current_user.id)
-    pack = _load_pack(db, session.pack_revision_id)
+    pack = _pack_of(session)
     llm = request.app.state.llm_client
     user_id = current_user.id
 
@@ -429,11 +361,6 @@ async def submit_turn_stream(
             last_phase["value"] = name
             queue.put_nowait(_sse("phase", ScenarioSsePhase(request_id=payload.request_id, phase=name)))
 
-        async def on_delivery(delivery: Any, seq: int) -> None:
-            queue.put_nowait(
-                _sse("delivery", ScenarioSseDelivery(request_id=payload.request_id, pending=True, delivery=delivery))
-            )
-
         async def run() -> ScenarioTurnResult:
             return await submit_turn(
                 db,
@@ -442,7 +369,7 @@ async def submit_turn_stream(
                 request=payload,
                 llm=llm,
                 user_id=user_id,
-                hooks=TurnHooks(on_phase=on_phase, on_delivery=on_delivery),
+                hooks=TurnHooks(on_phase=on_phase),
             )
 
         yield _sse("phase", ScenarioSsePhase(request_id=payload.request_id, phase="receiving"))
@@ -461,9 +388,7 @@ async def submit_turn_stream(
 
         exc = task.exception()
         if exc is not None:
-            if isinstance(
-                exc, (SessionClosed, SessionArchived, SeqConflict, RequestConflict, TurnRejected, StageFailure)
-            ):
+            if isinstance(exc, (SessionClosed, SeqConflict, RequestConflict, TurnRejected, StageFailure)):
                 http = _map_error(exc)
                 detail: dict[str, Any] = (
                     http.detail
@@ -478,7 +403,7 @@ async def submit_turn_stream(
                 )
             else:
                 log.exception("scenario stream failed: %s", exc)
-                error = ScenarioErrorInfo(code="internal_error", message="服务端异常，本次未提交", retryable=True)
+                error = ScenarioErrorInfo(code="internal_error", message="服务端异常，本次未提交", retryable=False)
             yield _sse(
                 "error",
                 ScenarioSseError(request_id=payload.request_id, phase=last_phase["value"], error=error),
@@ -512,7 +437,7 @@ def close_session_route(
 ) -> ScenarioCloseResponse:
     """结束并结算判读（规则可复算；不启用能力等第）。"""
     session = _load_session(db, session_id, current_user.id)
-    pack = _load_pack(db, session.pack_revision_id)
+    pack = _pack_of(session)
     try:
         return submit_close(
             db,
@@ -521,19 +446,19 @@ def close_session_route(
             request_id=payload.request_id,
             expected_seq=payload.expected_seq,
         )
-    except (SessionClosed, SessionArchived, SeqConflict, RequestConflict) as exc:
+    except (SessionClosed, SeqConflict, RequestConflict) as exc:
         raise _map_error(exc) from exc
 
 
-@router.get("/assets/{revision_id}/{asset_id}")
-def get_asset(revision_id: int, asset_id: str, db: DbSession, current_user: _StudentUser) -> Response:
+@router.get("/assets/{pack_key}/{asset_id}")
+def get_asset(pack_key: str, asset_id: str, db: DbSession, current_user: _StudentUser) -> Response:
     """提供场景资源（pack 声明的图片）。需要登录态。"""
-    pack = _load_pack(db, revision_id)
+    _, pack = pack_loader.load_pack(db, pack_key)
     try:
         content, mime = assets_mod.read_image(db, pack, asset_id)
     except assets_mod.AssetNotFound as exc:
         raise HTTPException(status_code=404, detail="资源不存在") from exc
-    headers = {"Cache-Control": _CACHE_IMMUTABLE if assets_mod.is_generated(asset_id) else _CACHE_REPLACEABLE}
+    headers = {"Cache-Control": _CACHE_REPLACEABLE}
     return Response(content=content, media_type=mime, headers=headers)
 
 
@@ -562,13 +487,49 @@ def _pack_overview(pack: ScenarioPack | None) -> ScenarioAdminOverview | None:
         criteria=len(pack.rubric),
         criteria_weight=sum(item.weight for item in pack.rubric),
         failure=pack.failure,
-        image_generation=pack.image_generation,
+    )
+
+
+def _stamp(value: Any) -> str | None:
+    return value.isoformat() if value is not None else None
+
+
+def _current_pack(row: StPack) -> ScenarioPack | None:
+    """病例的当前内容（装进来的内容必然已校验；库若是被外部改坏，列表不因此整页 500）。"""
+    try:
+        return pack_loader.pack_from_content(row.content or {})
+    except (PackInvalid, ValueError):
+        return None
+
+
+def _titles_of(db: DbSession) -> dict[str, str]:
+    """`pack_key → 病例标题`（一次查询；标题在内容里，所以读 `content`）。"""
+    return {
+        str(key): pack_loader.content_meta(content or {})["title"]
+        for key, content in db.execute(select(StPack.key, StPack.content)).all()
+    }
+
+
+def _admin_pack_item(db: DbSession, pack_row: StPack, *, sessions: int) -> ScenarioAdminPack:
+    """一个病例的管理侧投影（列表与上架/下架/删除的响应共用一份）。"""
+    pack = _current_pack(pack_row)
+    meta = pack_loader.content_meta(pack_row.content or {})
+    return ScenarioAdminPack(
+        key=pack_row.key,
+        title=meta["title"],
+        one_line=meta["one_line"],
+        version=int(pack_row.version),
+        published=bool(pack_row.published),
+        published_at=_stamp(pack_row.published_at),
+        assets=[ScenarioAdminAsset.model_validate(item) for item in (assets_mod.describe(db, pack) if pack else [])],
+        overview=_pack_overview(pack),
+        sessions=sessions,
     )
 
 
 @router.get("/admin/packs", dependencies=[_DataViewer])
 def admin_packs(db: DbSession) -> list[ScenarioAdminPack]:
-    """管理侧：全部情境包（含修订、资源状态、关注点概览、会话数）。"""
+    """管理侧：全部情境包（含上架状态、当前内容版本、资源状态、关注点概览、会话数）。"""
     packs = db.execute(select(StPack).order_by(StPack.key)).scalars().all()
     counts = {
         str(key): int(total)
@@ -576,44 +537,27 @@ def admin_packs(db: DbSession) -> list[ScenarioAdminPack]:
             select(StSession.pack_key, func.count(StSession.id)).group_by(StSession.pack_key)
         ).all()
     }
-    out: list[ScenarioAdminPack] = []
-    for pack_row in packs:
-        revisions = (
-            db.execute(
-                select(StPackRevision)
-                .where(StPackRevision.pack_id == pack_row.id)
-                .order_by(StPackRevision.revision_no.desc())
-            )
-            .scalars()
-            .all()
-        )
-        latest = revisions[0] if revisions else None
-        pack = pack_loader.load_revision(db, latest.id) if latest is not None else None
-        out.append(
-            ScenarioAdminPack(
-                key=pack_row.key,
-                title=pack_row.title,
-                state=pack_row.state,
-                one_line=pack_row.one_line,
-                revision_id=latest.id if latest else None,
-                revision_no=latest.revision_no if latest else None,
-                revisions=[
-                    ScenarioAdminRevision(id=item.id, no=item.revision_no, note=item.note) for item in revisions
-                ],
-                assets=[
-                    ScenarioAdminAsset.model_validate(item) for item in (assets_mod.describe(db, pack) if pack else [])
-                ],
-                overview=_pack_overview(pack),
-                sessions=int(counts.get(pack_row.key, 0)),
-            )
-        )
-    return out
+    return [_admin_pack_item(db, pack_row, sessions=int(counts.get(pack_row.key, 0))) for pack_row in packs]
 
 
-def _install_pack(db: DbSession, pack: ScenarioPack, *, note: str) -> tuple[StPack, StPackRevision, bool]:
-    """装/重装一份包。校验或播种失败一律变成**可读的 422**。"""
+def _session_count(db: DbSession, pack_key: str) -> int:
+    return int(db.query(func.count(StSession.id)).filter(StSession.pack_key == pack_key).scalar() or 0)
+
+
+def _install_pack(
+    db: DbSession,
+    pack: ScenarioPack,
+    *,
+    created_by: int | None = None,
+    published: bool = True,
+) -> tuple[StPack, bool]:
+    """装/重装一份包（**内容只有一份**：同内容幂等、内容变了 version +1）。校验失败一律变成可读的 422。
+
+    `published` 只在**新建病例行**时生效：播种 / 上传一份 JSON → 直接上架（本来就是给人用的内容）；
+    系统侧「新建空白 / 复制」传 `False`，作者显式上架。
+    """
     try:
-        return pack_loader.install(db, pack, note=note)
+        return pack_loader.install(db, pack, created_by=created_by, published=published)
     except PackInvalid as exc:
         raise HTTPException(status_code=422, detail={"message": "包未通过校验", "problems": exc.problems}) from exc
     except assets_mod.AssetRejected as exc:
@@ -625,9 +569,8 @@ async def admin_upload_pack(
     db: DbSession,
     current_user: CurrentUser,
     file: UploadFile = File(...),
-    note: str = Form(default=""),
 ) -> ScenarioAdminPackUpload:
-    """管理侧：上传（或覆盖）一份情境包 JSON → 追加新修订。"""
+    """管理侧：上传（或覆盖）一份情境包 JSON → 成为当前内容（默认上架）。"""
     raw = await file.read()
     try:
         payload = json.loads(raw.decode("utf-8"))
@@ -639,135 +582,61 @@ async def admin_upload_pack(
         raise HTTPException(status_code=422, detail=f"包结构不合法：{str(exc)[:300]}") from exc
 
     with unit_of_work(db, conflict_detail="上传情境包失败"):
-        _, revision, created = _install_pack(db, pack, note=note or f"upload by {current_user.id}")
+        row, changed = _install_pack(db, pack, created_by=current_user.id)
         assets_pending = assets_mod.seed_from_pack(db, pack)
     return ScenarioAdminPackUpload(
         key=pack.key,
-        revision_id=revision.id,
-        revision_no=revision.revision_no,
-        created=created,
+        version=int(row.version),
+        created=changed,
         assets_pending=list(assets_pending),
     )
 
 
-def _revision_rows(db: DbSession, pack_id: int) -> list[StPackRevision]:
-    return list(
-        db.execute(
-            select(StPackRevision).where(StPackRevision.pack_id == pack_id).order_by(StPackRevision.revision_no.desc())
-        )
-        .scalars()
-        .all()
-    )
-
-
 def _validation_of(db: DbSession, pack_key: str, content: dict[str, Any]) -> ScenarioPackValidation:
-    """用**同一套**加载期校验算校验结果与"会不会追加修订"。"""
+    """用**同一套**加载期校验算校验结果与"这次保存会不会让 version +1"。"""
     problems = pack_loader.validate_content(content)
     sha: str | None = None
     if not problems:
-        sha = ScenarioPack.model_validate(content).content_sha()
-    revisions = _revision_rows(db, _require_pack(db, pack_key).id)
-    latest = revisions[0] if revisions else None
-    will_append = sha is None or latest is None or latest.content_sha != sha
+        sha = pack_loader.content_sha(ScenarioPack.model_validate(content).model_dump(mode="json"))
+    row = _require_pack(db, pack_key)
+    latest_sha = pack_loader.content_sha(row.content or {})
     return ScenarioPackValidation(
         ok=not problems,
         problems=[ScenarioPackProblem.model_validate(item) for item in problems],
         content_sha=sha,
-        latest_sha=latest.content_sha if latest else None,
-        will_append=will_append,
-        next_revision_no=(latest.revision_no + 1)
-        if (will_append and latest is not None)
-        else (1 if will_append else None),
-        pack_schema_version=int(content.get("pack_schema_version", PACK_SCHEMA_VERSION)),
+        latest_sha=latest_sha,
+        will_change=sha is not None and sha != latest_sha,
+        version=int(row.version),
     )
 
 
-@router.get("/admin/packs/{pack_key}/source", dependencies=[_ContentManager])
-def admin_pack_source(
-    pack_key: str,
-    db: DbSession,
-    revision_id: int | None = Query(default=None),
-) -> ScenarioAdminPackSource:
-    """编辑器：读某一修订的**原始内容**（默认最新）。旧形状带 `legacy` 标识，编辑需显式转换。"""
+@router.get("/admin/packs/{pack_key}/content", dependencies=[_ContentManager])
+def admin_pack_content(pack_key: str, db: DbSession) -> ScenarioPackContent:
+    """编辑器：读这份病例的**当前内容**（存回去就走 POST 同一个端点）。"""
     row = _require_pack(db, pack_key)
-    revisions = _revision_rows(db, row.id)
-    if not revisions:
-        raise HTTPException(status_code=404, detail="这个病例还没有任何修订")
-    target = next((item for item in revisions if item.id == revision_id), None)
-    if revision_id is not None and target is None:
-        raise HTTPException(status_code=404, detail="指定的修订不属于这个病例")
-    if target is None:
-        target = revisions[0]
-    schema_version = int(target.content.get("pack_schema_version", 1))
-    problems = pack_loader.validate_content(target.content)
-    return ScenarioAdminPackSource(
+    content = row.content or {}
+    problems = pack_loader.validate_content(content)
+    meta = pack_loader.content_meta(content)
+    return ScenarioPackContent(
         key=row.key,
-        title=row.title,
-        state=row.state,
-        revision_id=target.id,
-        revision_no=target.revision_no,
-        note=target.note,
-        content=target.content,
+        title=meta["title"],
+        one_line=meta["one_line"],
+        version=int(row.version),
+        published=bool(row.published),
+        published_at=_stamp(row.published_at),
+        content=content,
         problems=[ScenarioPackProblem.model_validate(item) for item in problems],
-        revisions=[ScenarioAdminRevision(id=item.id, no=item.revision_no, note=item.note) for item in revisions],
-        schema_version=schema_version,
-        current_schema_version=PACK_SCHEMA_VERSION,
-        compatible=schema_version >= PACK_SCHEMA_VERSION,
-        legacy=schema_version < PACK_SCHEMA_VERSION,
     )
 
 
-@router.post("/admin/packs/{pack_key}/validate", dependencies=[_ContentManager])
-def admin_validate_pack(pack_key: str, payload: ScenarioPackContentRequest, db: DbSession) -> ScenarioPackValidation:
-    """编辑器：保存前校验（不落库）。失败时每条问题都带字段路径。"""
-    return _validation_of(db, pack_key, payload.content)
-
-
-@router.post("/admin/packs/{pack_key}/convert", dependencies=[_ContentManager])
-def admin_convert_pack(pack_key: str, payload: ScenarioPackConvertRequest, db: DbSession) -> ScenarioAdminPackConvert:
-    """旧修订 → 当前形状草稿的**显式转换**（不静默裁剪未知字段、不宣称语义兼容）。
-
-    输入按 `pack_key + revision_id` 从库里那一版修订读内容——转换只对**真实存在的修订**做，
-    客户端手里的 JSON 不作为入口（否则会转换出一份与任何修订都不对应的退化草稿）。
-    """
-    row = _require_pack(db, pack_key)
-    target = next((item for item in _revision_rows(db, row.id) if item.id == payload.revision_id), None)
-    if target is None:
-        raise HTTPException(status_code=404, detail=f"修订 {payload.revision_id} 不属于这个病例（{pack_key}）")
-    content = dict(target.content or {})
-    if not content:
-        raise HTTPException(status_code=422, detail={"message": "这一修订没有内容，无法转换", "problems": []})
-    from_schema = int(content.get("pack_schema_version", 1))
-    if from_schema >= PACK_SCHEMA_VERSION:
-        # 已经是当前形状：原样返回 + 说明，不报错也不假装"转换过"
-        return ScenarioAdminPackConvert(
-            content=content,
-            notes=["这一版已经是当前形状，无需转换"],
-            problems=[ScenarioPackProblem.model_validate(item) for item in pack_loader.validate_content(content)],
-            from_schema_version=from_schema,
-            to_schema_version=PACK_SCHEMA_VERSION,
-        )
-    try:
-        converted, notes = pack_loader.convert_legacy(content)
-    except pack_loader.PackInvalid as exc:
-        raise HTTPException(status_code=422, detail={"message": "无法转换", "problems": exc.problems}) from exc
-    return ScenarioAdminPackConvert(
-        content=converted,
-        notes=notes,
-        problems=[ScenarioPackProblem.model_validate(item) for item in pack_loader.validate_content(converted)],
-        from_schema_version=from_schema,
-        to_schema_version=PACK_SCHEMA_VERSION,
-    )
-
-
-@router.post("/admin/packs/{pack_key}/revisions", dependencies=[_ContentManager])
-def admin_save_pack_revision(
+@router.post("/admin/packs/{pack_key}/content", dependencies=[_ContentManager])
+def admin_save_pack_content(
     pack_key: str,
     payload: ScenarioPackContentRequest,
     db: DbSession,
     current_user: CurrentUser,
-) -> ScenarioAdminPackUpload:
-    """编辑器保存：**追加新修订**（内容未变则幂等复用既有修订，不产生假修订）。"""
+) -> ScenarioPackContent:
+    """编辑器保存：**覆盖当前内容**（内容未变则幂等，不涨 version）。"""
     content = payload.content
     problems = pack_loader.validate_content(content)
     if problems:
@@ -782,41 +651,251 @@ def admin_save_pack_revision(
             },
         )
     with unit_of_work(db, conflict_detail="保存情境包失败"):
-        _, revision, created = _install_pack(db, pack, note=payload.note or f"editor by {current_user.id}")
-        assets_pending = assets_mod.seed_from_pack(db, pack)
-    return ScenarioAdminPackUpload(
-        key=pack.key,
-        revision_id=revision.id,
-        revision_no=revision.revision_no,
-        created=created,
-        assets_pending=list(assets_pending),
+        row, changed = _install_pack(db, pack, created_by=current_user.id)
+        assets_mod.seed_from_pack(db, pack)
+    meta = pack_loader.content_meta(row.content or {})
+    return ScenarioPackContent(
+        key=row.key,
+        title=meta["title"],
+        one_line=meta["one_line"],
+        version=int(row.version),
+        published=bool(row.published),
+        published_at=_stamp(row.published_at),
+        content=row.content or {},
+        changed=changed,
     )
 
 
-@router.patch("/admin/packs/{pack_key}", dependencies=[_ContentManager])
-def admin_patch_pack(pack_key: str, payload: ScenarioPackPatchRequest, db: DbSession) -> dict[str, Any]:
-    """管理侧：改包状态/标题。"""
+@router.post("/admin/packs/{pack_key}/validate", dependencies=[_ContentManager])
+def admin_validate_pack(pack_key: str, payload: ScenarioPackContentRequest, db: DbSession) -> ScenarioPackValidation:
+    """编辑器：保存前校验（不落库）。失败时每条问题都带字段路径。"""
+    return _validation_of(db, pack_key, payload.content)
+
+
+# --------------------------------------------------------------------------- #
+# 病例管理：新建 / 复制 / 上架 / 下架 / 删除（作者在系统侧完成，不依赖仓库文件）
+# --------------------------------------------------------------------------- #
+
+#: 「新建空白病例」的骨架：**最小可运行**（一个人物 + 一个动作 + 一条线索），直接能试跑，
+#: 作者拿到的是可以立刻改的东西，而不是空对象。
+_BLANK_PACK: dict[str, Any] = {
+    "key": "new-case",
+    "title": "新病例",
+    "one_line": "一句话说明这是什么处境（改我）",
+    "player": {"role": "责任护士"},
+    "setting": {
+        "place": "病房",
+        "time_hint": "",
+        "resources": [],
+        "cues": [{"id": "c_first", "text": "（写下学生一进来就看得见的东西）", "visible_from_start": True}],
+    },
+    "actors": [{"id": "patient", "role": "患者", "presence": "on_site"}],
+    "state_keys": {},
+    "affordances": [
+        {
+            "id": "ask_open",
+            "type": "ask",
+            "label": "问一句（改我）",
+            "reveals": ["c_first"],
+            "targets": [{"kind": "actor", "id": "patient"}],
+        }
+    ],
+    "reactions": [],
+    "facts": [],
+    "dims": [],
+    "rubric": [],
+    "presentation": {"hud": [], "panels": [], "board": [], "devices": []},
+    "failure": "recoverable",
+    "hidden_from_player": [],
+}
+
+
+def _missing_minimum(content: dict[str, Any]) -> list[dict[str, str]]:
+    """上架前的**最小内容要求**（在加载期校验之外单列一项：作者要看到"还缺什么"）。"""
+    out: list[dict[str, str]] = []
+    if not str((content.get("player") or {}).get("role") or "").strip():
+        out.append({"path": "player.role", "message": "缺「你扮演谁」"})
+    if not str((content.get("setting") or {}).get("place") or "").strip():
+        out.append({"path": "setting.place", "message": "缺「在哪儿」"})
+    if not content.get("actors"):
+        out.append({"path": "actors", "message": "至少要有一个人物"})
+    if not content.get("affordances"):
+        out.append({"path": "affordances", "message": "至少要有一个可执行的动作"})
+    return out
+
+
+def _require_free_key(db: DbSession, key: str) -> None:
+    if pack_loader.get_pack(db, key) is not None:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "pack_key_exists", "message": f"病例 key「{key}」已被占用，请换一个"},
+        )
+
+
+def _install_new_pack(
+    db: DbSession, content: dict[str, Any], *, created_by: int
+) -> tuple[ScenarioAdminPackUpload, list[str]]:
+    problems = pack_loader.validate_content(content)
+    if problems:
+        raise HTTPException(status_code=422, detail={"message": "内容未通过校验", "problems": problems})
+    pack = ScenarioPack.model_validate(content)
+    with unit_of_work(db, conflict_detail="新建病例失败"):
+        row, changed = _install_pack(db, pack, created_by=created_by, published=False)
+        pending = assets_mod.seed_from_pack(db, pack)
+    return (
+        ScenarioAdminPackUpload(
+            key=pack.key,
+            version=int(row.version),
+            created=changed,
+            assets_pending=list(pending),
+        ),
+        list(pending),
+    )
+
+
+@router.post("/admin/packs/blank", dependencies=[_ContentManager])
+def admin_new_blank_pack(
+    payload: ScenarioNewPackRequest, db: DbSession, current_user: CurrentUser
+) -> ScenarioAdminPackUpload:
+    """**新建空白病例**：给一个最小可运行骨架（人物 + 动作 + 线索，可直接试跑）。"""
+    _require_free_key(db, payload.key)
+    content = {**_BLANK_PACK, "key": payload.key, "title": payload.title}
+    upload, _pending = _install_new_pack(db, content, created_by=current_user.id)
+    return upload
+
+
+@router.post("/admin/packs/{pack_key}/duplicate", dependencies=[_ContentManager])
+def admin_duplicate_pack(
+    pack_key: str, payload: ScenarioNewPackRequest, db: DbSession, current_user: CurrentUser
+) -> ScenarioAdminPackUpload:
+    """**复制这个病例**（做变式）：以源病例**当前内容**为内容，指向新 key。"""
+    source = _require_pack(db, pack_key)
+    _require_free_key(db, payload.key)
+    content = {**(source.content or {}), "key": payload.key, "title": payload.title}
+    upload, _pending = _install_new_pack(db, content, created_by=current_user.id)
+    return upload
+
+
+def _publish_gate(db: DbSession, row: StPack) -> None:
+    """上架前的检查：当前内容通过校验 + 满足最小内容要求。"""
+    content = row.content or {}
+    problems = pack_loader.validate_content(content) or _missing_minimum(content)
+    if problems:
+        raise HTTPException(status_code=422, detail={"message": "病例未通过校验，不能上架", "problems": problems})
+
+
+@router.post("/admin/packs/{pack_key}/publish", dependencies=[_ContentManager])
+def admin_publish_pack(pack_key: str, db: DbSession) -> ScenarioAdminPack:
+    """**上架**：学生列表可见、可开新局。校验不过不许上架（错误带字段路径）。幂等。"""
     row = _require_pack(db, pack_key)
-    with unit_of_work(db, conflict_detail="更新情境包失败"):
-        if payload.state is not None:
-            row.state = payload.state.value
-        if payload.title is not None:
-            row.title = payload.title
-        if payload.one_line is not None:
-            row.one_line = payload.one_line
-    return {"key": row.key, "state": row.state, "title": row.title, "one_line": row.one_line}
+    _publish_gate(db, row)
+    if not row.published:
+        with unit_of_work(db, conflict_detail="上架病例失败"):
+            row.published = True
+            row.published_at = datetime.now(UTC)
+    return _admin_pack_item(db, row, sessions=_session_count(db, pack_key))
+
+
+@router.post("/admin/packs/{pack_key}/unpublish", dependencies=[_ContentManager])
+def admin_unpublish_pack(pack_key: str, db: DbSession) -> ScenarioAdminPack:
+    """**下架**：不再出现在学生列表、不能再开新局；**数据不动**，已进行的会话照常继续。幂等。"""
+    row = _require_pack(db, pack_key)
+    if row.published:
+        with unit_of_work(db, conflict_detail="下架病例失败"):
+            row.published = False
+    return _admin_pack_item(db, row, sessions=_session_count(db, pack_key))
+
+
+@router.delete("/admin/packs/{pack_key}", dependencies=[_ContentManager])
+def admin_delete_pack(pack_key: str, db: DbSession, confirm: bool = Query(default=False)) -> ScenarioAdminPackDelete:
+    """**删除**病例（当前内容 + 图片字节）。只在**该病例没有任何会话**时允许。
+
+    每一局都自带内容快照，删了病例老会话仍回放得出来 —— 但病例是这些会话的归属，
+    有记录时明确拒绝并告诉作者"可下架但不可删除"；`confirm=true` 是防手滑的服务端那一半（弹窗在前端）。
+    """
+    row = _require_pack(db, pack_key)
+    if not confirm:
+        raise HTTPException(
+            status_code=400, detail={"code": "confirm_required", "message": "删除需要确认（confirm=true）"}
+        )
+    sessions = _session_count(db, pack_key)
+    if sessions:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "pack_has_sessions",
+                "message": f"这个病例已有 {sessions} 局记录，可下架但不可删除",
+                "sessions": sessions,
+            },
+        )
+    asset_ids = [
+        str(item.asset_id) for item in db.execute(select(StAsset).where(StAsset.pack_key == pack_key)).scalars().all()
+    ]
+    with unit_of_work(db, conflict_detail="删除病例失败"):
+        for asset_id in asset_ids:
+            assets_mod.delete_asset(db, pack_key, asset_id)
+        db.delete(row)
+    return ScenarioAdminPackDelete(key=pack_key, deleted_assets=len(asset_ids))
+
+
+@router.post("/admin/packs/{pack_key}/assets/{asset_id}", dependencies=[_ContentManager])
+async def admin_replace_asset(
+    pack_key: str,
+    asset_id: str,
+    db: DbSession,
+    current_user: CurrentUser,
+    file: UploadFile = File(...),
+    title: str = Form(default=""),
+    alt: str = Form(default=""),
+) -> ScenarioAdminAssetUpload:
+    """**替换**一张场景图片：`asset_id` 不变（编辑器里的 JSON 引用不用改），只换字节与文案。
+
+    声明变了就重新保存一次内容（version +1；声明没变则幂等）。
+    """
+    row, pack = pack_loader.load_pack(db, pack_key)
+    existing = next((item for item in pack.assets if item.id == asset_id), None)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="该包未声明此资源（新增请走上传接口）")
+    data = await file.read()
+    mime = file.content_type or _MEDIA_TYPES.get(
+        "." + (file.filename or "").rsplit(".", 1)[-1].lower(), "application/octet-stream"
+    )
+    declaration = existing.model_copy(
+        update={
+            "title": title or existing.title,
+            "alt": alt or existing.alt,
+        }
+    )
+    updated = pack.model_copy(update={"assets": [*(item for item in pack.assets if item.id != asset_id), declaration]})
+    problems = validate_pack(updated)
+    if problems:
+        raise HTTPException(status_code=422, detail={"message": "资源声明未通过校验", "problems": problems})
+    with unit_of_work(db, conflict_detail="替换资源失败"):
+        try:
+            assets_mod.store_asset(
+                db,
+                pack_key=pack_key,
+                asset_id=asset_id,
+                filename=file.filename or f"{asset_id}.png",
+                mime_type=mime,
+                data=data,
+            )
+        except assets_mod.AssetRejected as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        _install_pack(db, updated, created_by=current_user.id)
+    asset = next(item for item in assets_mod.describe(db, updated) if item["id"] == asset_id)
+    return ScenarioAdminAssetUpload(key=pack_key, asset=ScenarioAdminAsset.model_validate(asset))
 
 
 @router.get("/admin/packs/{pack_key}/assets/{asset_id}", dependencies=[_DataViewer])
 def admin_get_asset(pack_key: str, asset_id: str, db: DbSession) -> Response:
     """管理侧预览：按 pack key 取资源字节。"""
-    _, revision = _latest(db, pack_key)
-    pack = _load_pack(db, revision.id)
+    _, pack = pack_loader.load_pack(db, pack_key)
     try:
         content, mime = assets_mod.read_image(db, pack, asset_id)
     except assets_mod.AssetNotFound as exc:
         raise HTTPException(status_code=404, detail="资源不存在") from exc
-    headers = {"Cache-Control": _CACHE_IMMUTABLE if assets_mod.is_generated(asset_id) else _CACHE_REPLACEABLE}
+    headers = {"Cache-Control": _CACHE_REPLACEABLE}
     return Response(content=content, media_type=mime, headers=headers)
 
 
@@ -829,11 +908,10 @@ async def admin_upload_asset(
     file: UploadFile = File(...),
     title: str = Form(default=""),
     alt: str = Form(default=""),
-    suggest_when: str = Form(default=""),
 ) -> ScenarioAdminAssetUpload:
-    """管理侧：上传一张场景图片 → 存字节 + **追加一个声明了它的新修订**。"""
-    _, revision = _latest(db, pack_key)
-    pack = _load_pack(db, revision.id)
+    """管理侧：上传一张场景图片 → 存字节 + 把声明写进当前内容。"""
+    row, pack = pack_loader.load_pack(db, pack_key)
+    del row
     data = await file.read()
     mime = file.content_type or _MEDIA_TYPES.get(
         "." + (file.filename or "").rsplit(".", 1)[-1].lower(), "application/octet-stream"
@@ -844,7 +922,6 @@ async def admin_upload_asset(
         path="",
         title=title or asset_id,
         alt=alt or title or asset_id,
-        suggest_when=suggest_when,
     )
     updated = pack.model_copy(update={"assets": [*(item for item in pack.assets if item.id != asset_id), declaration]})
     problems = validate_pack(updated)
@@ -862,60 +939,22 @@ async def admin_upload_asset(
             )
         except assets_mod.AssetRejected as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
-        _, new_revision, _ = _install_pack(db, updated, note=f"asset:{asset_id} by {current_user.id}")
+        _install_pack(db, updated, created_by=current_user.id)
     asset = next(item for item in assets_mod.describe(db, updated) if item["id"] == asset_id)
-    return ScenarioAdminAssetUpload(
-        key=pack_key, revision_no=new_revision.revision_no, asset=ScenarioAdminAsset.model_validate(asset)
-    )
+    return ScenarioAdminAssetUpload(key=pack_key, asset=ScenarioAdminAsset.model_validate(asset))
 
 
 @router.delete("/admin/packs/{pack_key}/assets/{asset_id}", dependencies=[_ContentManager])
 def admin_delete_asset(pack_key: str, asset_id: str, db: DbSession) -> dict[str, Any]:
-    """管理侧：撤下一张资源（声明从新修订移除；若已无修订引用则连字节一起删）。"""
-    _, revision = _latest(db, pack_key)
-    pack = _load_pack(db, revision.id)
+    """管理侧：撤下一张资源（声明从当前内容里去掉，字节一并删除）。"""
+    row, pack = pack_loader.load_pack(db, pack_key)
     if asset_id not in assets_mod.declared_ids(pack):
         raise HTTPException(status_code=404, detail="该包未声明此资源")
     updated = pack.model_copy(update={"assets": [item for item in pack.assets if item.id != asset_id]})
     with unit_of_work(db, conflict_detail="移除资源失败"):
-        _, new_revision, _ = _install_pack(db, updated, note=f"drop asset:{asset_id}")
+        row, _changed = _install_pack(db, updated)
         assets_mod.delete_asset(db, pack_key, asset_id)
-    return {"key": pack_key, "revision_no": new_revision.revision_no, "assets": assets_mod.describe(db, updated)}
-
-
-@router.get("/admin/packs/{pack_key}/generated", dependencies=[_ContentManager])
-def admin_generated_assets(
-    pack_key: str,
-    db: DbSession,
-    session_id: int | None = None,
-    limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
-) -> ScenarioGeneratedList:
-    """管理侧：某个情境包下 DM 现场生成物的清单（按 pack 过滤后分页，不含字节）。"""
-    _require_pack(db, pack_key)
-    rows, total = assets_mod.list_generated(db, pack_key=pack_key, limit=limit, offset=offset, session_id=session_id)
-    return ScenarioGeneratedList(
-        items=[ScenarioGeneratedAsset.model_validate(assets_mod.describe_generated(row)) for row in rows],
-        total=int(total),
-    )
-
-
-@router.get("/admin/generated/{asset_id}/content", dependencies=[_ContentManager])
-def admin_generated_content(asset_id: int, db: DbSession) -> Response:
-    """管理侧预览：按生成物 id 取字节。"""
-    row = assets_mod.get_generated_asset(db, asset_id)
-    if row is None:
-        raise HTTPException(status_code=404, detail="生成物不存在")
-    return Response(content=bytes(row.content), media_type=row.mime_type, headers={"Cache-Control": _CACHE_IMMUTABLE})
-
-
-@router.delete("/admin/generated/{asset_id}", dependencies=[_ContentManager])
-def admin_delete_generated(asset_id: int, db: DbSession) -> dict[str, Any]:
-    """管理侧：删除一条生成物（字节随之回收）。"""
-    with unit_of_work(db, conflict_detail="删除生成物失败"):
-        if not assets_mod.delete_generated_asset(db, asset_id):
-            raise HTTPException(status_code=404, detail="生成物不存在")
-    return {"deleted": asset_id, "id": asset_id}
+    return {"key": pack_key, "version": int(row.version), "assets": assets_mod.describe(db, updated)}
 
 
 # --------------------------------------------------------------------------- #
@@ -939,7 +978,7 @@ def admin_sessions(
         query = query.where(StSession.status == status)
     total = db.execute(select(func.count()).select_from(query.subquery())).scalar() or 0
     rows = db.execute(query.order_by(StSession.id.desc()).limit(limit).offset(offset)).scalars().all()
-    titles = {key: title for key, title in db.execute(select(StPack.key, StPack.title)).all()}
+    titles = _titles_of(db)
     turns = session_turns(db, [row.id for row in rows])
     return ScenarioAdminSessionList(
         total=int(total),
@@ -954,21 +993,22 @@ def admin_sessions(
 
 @router.get("/admin/sessions/{session_id}", dependencies=[_DataViewer])
 def admin_session_detail(session_id: int, db: DbSession) -> ScenarioAdminSessionDetail:
-    """管理侧：单次会话的完整回放（视图 + 报告 + 每回合解析/结算/交付 + 关注点投影）。"""
+    """管理侧：单次会话的完整回放（视图 + 报告 + 每回合解析/结算/交付 + 关注点投影）。
+
+    视图按**这一局自带的内容快照**回放：病例今天被改成什么样都不影响历史回放。
+    """
     session = _load_session(db, session_id, None)
-    pack = _load_pack(db, session.pack_revision_id)
+    pack = _pack_of(session)
     events = load_events(db, session.id)
-    archived = _archive_of(db, session_id) is not None
     problems = [str(item) for event in events for item in ((event.get("payload") or {}).get("problems") or [])]
     view = _live_view(db, session, pack)
-    report, _legacy = _split_report(session.report)
+    report = _stored_report(session.report)
     return ScenarioAdminSessionDetail(
         session=ScenarioAdminSessionRow.model_validate(
             session_row(session, pack.title, session_turns(db, [session.id])[session.id])
         ),
         view=view,
         report=report,
-        archived=archived,
         problems=problems,
         focus=[
             ScenarioAdminFocusTurn.model_validate(item.model_dump(mode="json")) for item in focus_turns(pack, events)
@@ -983,48 +1023,13 @@ def admin_session_detail(session_id: int, db: DbSession) -> ScenarioAdminSession
     )
 
 
-@router.get("/admin/archives", dependencies=[_DataViewer])
-def admin_archives(
-    db: DbSession,
-    pack_key: str | None = None,
-    limit: int = Query(default=50, ge=1, le=200),
-    offset: int = Query(default=0, ge=0),
-) -> ScenarioArchiveList:
-    """管理侧：旧机制会话的归档清单（历史只读）。"""
-    query = select(StSessionArchive)
-    if pack_key:
-        query = query.where(StSessionArchive.pack_key == pack_key)
-    total = db.execute(select(func.count()).select_from(query.subquery())).scalar() or 0
-    rows = db.execute(query.order_by(StSessionArchive.session_id.desc()).limit(limit).offset(offset)).scalars().all()
-    return ScenarioArchiveList(total=int(total), items=[_archive_summary(row) for row in rows])
-
-
-@router.get("/admin/archives/{session_id}", dependencies=[_DataViewer])
-def admin_archive_detail(session_id: int, db: DbSession) -> ScenarioArchiveDetail:
-    """管理侧：单份归档的完整内容（视图 / 报告 / 回放 / 原始事件），**不重算、不补生成报告**。"""
-    row = _archive_of(db, session_id)
-    if row is None:
-        raise HTTPException(status_code=404, detail="该会话没有归档")
-    payload = row.payload or {}
-    report, legacy_report = _split_report(payload.get("report"))
-    return ScenarioArchiveDetail(
-        summary=_archive_summary(row),
-        view=_archive_view(row),
-        report=report,
-        legacy_report=legacy_report,
-        focus=[ScenarioAdminFocusTurn.model_validate(item) for item in payload.get("focus") or []],
-        turns=[ScenarioAdminTurnReplay.model_validate(item) for item in payload.get("turns") or []],
-        raw=ScenarioArchiveRaw.model_validate(payload.get("raw") or {}),
-    )
-
-
 @router.get("/admin/stats", dependencies=[_DataViewer])
 def admin_stats(db: DbSession) -> ScenarioAdminStats:
     """管理侧：按包汇总（会话数、结算数、不可逆结局数、关注点处理比例）。试跑默认排除。"""
     rows = db.execute(
         select(StSession.id, StSession.pack_key, StSession.status, StSession.report, StSession.meta)
     ).all()
-    titles = {key: title for key, title in db.execute(select(StPack.key, StPack.title)).all()}
+    titles = _titles_of(db)
     # 关注点的已处理/相关计数取自 `session_closed` 载荷（报告是学生可见的，里面没有关注点）
     focus_counts = {
         int(sid): (int(rel or 0), int(add or 0))

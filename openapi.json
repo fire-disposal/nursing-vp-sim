@@ -6789,7 +6789,7 @@
           "情境训练"
         ],
         "summary": "List Packs",
-        "description": "可用情境包（含最新修订号）。",
+        "description": "可用情境包（**只列已上架**，含当前内容版本）。",
         "operationId": "list_packs_api_scenario_packs_get",
         "responses": {
           "200": {
@@ -6820,7 +6820,7 @@
           "情境训练"
         ],
         "summary": "Create Session Route",
-        "description": "开启一次情境：DM **先立场景**（开场回合），再等学生动手。\n\n`trial=true`（固定修订试跑）额外要求 `case_manage`，并显式标记该会话。",
+        "description": "开启一次情境：DM **先立场景**（开场回合），再等学生动手。\n\n用病例的**当前内容**开局，并把它快照进这一局（`trial=true` 的试跑额外要求 `case_manage`，\n可以开还没上架的草稿，并显式标记该会话从统计默认排除）。",
         "operationId": "create_session_route_api_scenario_sessions_post",
         "security": [
           {
@@ -6920,7 +6920,7 @@
           "情境训练"
         ],
         "summary": "Get Session",
-        "description": "会话当前状态。**已归档（机制切换前）的旧局走归档投影，只读。**",
+        "description": "会话当前状态（视图按**会话自带的内容快照**回放）。",
         "operationId": "get_session_api_scenario_sessions__session_id__get",
         "security": [
           {
@@ -7026,7 +7026,7 @@
           "情境训练"
         ],
         "summary": "Submit Turn Stream",
-        "description": "同一回合的 SSE 传输：`phase` / `delivery`（**待提交**）/ `committed` / `error`。\n\n与 JSON 路径共用 `submit_turn`；这里只把阶段与待提交草稿推出去。",
+        "description": "同一回合的 SSE 传输：`phase` / `committed` / `error`。\n\n与 JSON 路径共用 `submit_turn`；这里只把阶段推出去。",
         "operationId": "submit_turn_stream_api_scenario_sessions__session_id__turns_stream_post",
         "security": [
           {
@@ -7063,9 +7063,6 @@
                   "anyOf": [
                     {
                       "$ref": "#/components/schemas/ScenarioSsePhase"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ScenarioSseDelivery"
                     },
                     {
                       "$ref": "#/components/schemas/ScenarioSseCommitted"
@@ -7208,14 +7205,14 @@
         }
       }
     },
-    "/api/scenario/assets/{revision_id}/{asset_id}": {
+    "/api/scenario/assets/{pack_key}/{asset_id}": {
       "get": {
         "tags": [
           "情境训练"
         ],
         "summary": "Get Asset",
         "description": "提供场景资源（pack 声明的图片）。需要登录态。",
-        "operationId": "get_asset_api_scenario_assets__revision_id___asset_id__get",
+        "operationId": "get_asset_api_scenario_assets__pack_key___asset_id__get",
         "security": [
           {
             "HTTPBearer": []
@@ -7223,12 +7220,12 @@
         ],
         "parameters": [
           {
-            "name": "revision_id",
+            "name": "pack_key",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "title": "Revision Id"
+              "type": "string",
+              "title": "Pack Key"
             }
           },
           {
@@ -7269,7 +7266,7 @@
           "情境训练"
         ],
         "summary": "Admin Packs",
-        "description": "管理侧：全部情境包（含修订、资源状态、关注点概览、会话数）。",
+        "description": "管理侧：全部情境包（含上架状态、当前内容版本、资源状态、关注点概览、会话数）。",
         "operationId": "admin_packs_api_scenario_admin_packs_get",
         "responses": {
           "200": {
@@ -7298,7 +7295,7 @@
           "情境训练"
         ],
         "summary": "Admin Upload Pack",
-        "description": "管理侧：上传（或覆盖）一份情境包 JSON → 追加新修订。",
+        "description": "管理侧：上传（或覆盖）一份情境包 JSON → 成为当前内容（默认上架）。",
         "operationId": "admin_upload_pack_api_scenario_admin_packs_post",
         "requestBody": {
           "content": {
@@ -7339,14 +7336,14 @@
         ]
       }
     },
-    "/api/scenario/admin/packs/{pack_key}/source": {
+    "/api/scenario/admin/packs/{pack_key}/content": {
       "get": {
         "tags": [
           "情境训练"
         ],
-        "summary": "Admin Pack Source",
-        "description": "编辑器：读某一修订的**原始内容**（默认最新）。旧形状带 `legacy` 标识，编辑需显式转换。",
-        "operationId": "admin_pack_source_api_scenario_admin_packs__pack_key__source_get",
+        "summary": "Admin Pack Content",
+        "description": "编辑器：读这份病例的**当前内容**（存回去就走 POST 同一个端点）。",
+        "operationId": "admin_pack_content_api_scenario_admin_packs__pack_key__content_get",
         "security": [
           {
             "HTTPBearer": []
@@ -7361,22 +7358,6 @@
               "type": "string",
               "title": "Pack Key"
             }
-          },
-          {
-            "name": "revision_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Revision Id"
-            }
           }
         ],
         "responses": {
@@ -7385,7 +7366,63 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ScenarioAdminPackSource"
+                  "$ref": "#/components/schemas/ScenarioPackContent"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "情境训练"
+        ],
+        "summary": "Admin Save Pack Content",
+        "description": "编辑器保存：**覆盖当前内容**（内容未变则幂等，不涨 version）。",
+        "operationId": "admin_save_pack_content_api_scenario_admin_packs__pack_key__content_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "pack_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Pack Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScenarioPackContentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioPackContent"
                 }
               }
             }
@@ -7461,39 +7498,23 @@
         }
       }
     },
-    "/api/scenario/admin/packs/{pack_key}/convert": {
+    "/api/scenario/admin/packs/blank": {
       "post": {
         "tags": [
           "情境训练"
         ],
-        "summary": "Admin Convert Pack",
-        "description": "旧修订 → 当前形状草稿的**显式转换**（不静默裁剪未知字段、不宣称语义兼容）。\n\n输入按 `pack_key + revision_id` 从库里那一版修订读内容——转换只对**真实存在的修订**做，\n客户端手里的 JSON 不作为入口（否则会转换出一份与任何修订都不对应的退化草稿）。",
-        "operationId": "admin_convert_pack_api_scenario_admin_packs__pack_key__convert_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "pack_key",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Pack Key"
-            }
-          }
-        ],
+        "summary": "Admin New Blank Pack",
+        "description": "**新建空白病例**：给一个最小可运行骨架（人物 + 动作 + 线索，可直接试跑）。",
+        "operationId": "admin_new_blank_pack_api_scenario_admin_packs_blank_post",
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ScenarioPackConvertRequest"
+                "$ref": "#/components/schemas/ScenarioNewPackRequest"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -7501,7 +7522,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ScenarioAdminPackConvert"
+                  "$ref": "#/components/schemas/ScenarioAdminPackUpload"
                 }
               }
             }
@@ -7516,17 +7537,22 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
-    "/api/scenario/admin/packs/{pack_key}/revisions": {
+    "/api/scenario/admin/packs/{pack_key}/duplicate": {
       "post": {
         "tags": [
           "情境训练"
         ],
-        "summary": "Admin Save Pack Revision",
-        "description": "编辑器保存：**追加新修订**（内容未变则幂等复用既有修订，不产生假修订）。",
-        "operationId": "admin_save_pack_revision_api_scenario_admin_packs__pack_key__revisions_post",
+        "summary": "Admin Duplicate Pack",
+        "description": "**复制这个病例**（做变式）：以源病例**当前内容**为内容，指向新 key。",
+        "operationId": "admin_duplicate_pack_api_scenario_admin_packs__pack_key__duplicate_post",
         "security": [
           {
             "HTTPBearer": []
@@ -7548,7 +7574,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ScenarioPackContentRequest"
+                "$ref": "#/components/schemas/ScenarioNewPackRequest"
               }
             }
           }
@@ -7577,14 +7603,14 @@
         }
       }
     },
-    "/api/scenario/admin/packs/{pack_key}": {
-      "patch": {
+    "/api/scenario/admin/packs/{pack_key}/publish": {
+      "post": {
         "tags": [
           "情境训练"
         ],
-        "summary": "Admin Patch Pack",
-        "description": "管理侧：改包状态/标题。",
-        "operationId": "admin_patch_pack_api_scenario_admin_packs__pack_key__patch",
+        "summary": "Admin Publish Pack",
+        "description": "**上架**：学生列表可见、可开新局。校验不过不许上架（错误带字段路径）。幂等。",
+        "operationId": "admin_publish_pack_api_scenario_admin_packs__pack_key__publish_post",
         "security": [
           {
             "HTTPBearer": []
@@ -7601,25 +7627,119 @@
             }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ScenarioPackPatchRequest"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Admin Patch Pack Api Scenario Admin Packs  Pack Key  Patch"
+                  "$ref": "#/components/schemas/ScenarioAdminPack"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scenario/admin/packs/{pack_key}/unpublish": {
+      "post": {
+        "tags": [
+          "情境训练"
+        ],
+        "summary": "Admin Unpublish Pack",
+        "description": "**下架**：不再出现在学生列表、不能再开新局；**数据不动**，已进行的会话照常继续。幂等。",
+        "operationId": "admin_unpublish_pack_api_scenario_admin_packs__pack_key__unpublish_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "pack_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Pack Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioAdminPack"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scenario/admin/packs/{pack_key}": {
+      "delete": {
+        "tags": [
+          "情境训练"
+        ],
+        "summary": "Admin Delete Pack",
+        "description": "**删除**病例（当前内容 + 图片字节）。只在**该病例没有任何会话**时允许。\n\n每一局都自带内容快照，删了病例老会话仍回放得出来 —— 但病例是这些会话的归属，\n有记录时明确拒绝并告诉作者\"可下架但不可删除\"；`confirm=true` 是防手滑的服务端那一半（弹窗在前端）。",
+        "operationId": "admin_delete_pack_api_scenario_admin_packs__pack_key__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "pack_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Pack Key"
+            }
+          },
+          {
+            "name": "confirm",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Confirm"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioAdminPackDelete"
                 }
               }
             }
@@ -7638,6 +7758,71 @@
       }
     },
     "/api/scenario/admin/packs/{pack_key}/assets/{asset_id}": {
+      "post": {
+        "tags": [
+          "情境训练"
+        ],
+        "summary": "Admin Replace Asset",
+        "description": "**替换**一张场景图片：`asset_id` 不变（编辑器里的 JSON 引用不用改），只换字节与文案。\n\n声明变了就重新保存一次内容（version +1；声明没变则幂等）。",
+        "operationId": "admin_replace_asset_api_scenario_admin_packs__pack_key__assets__asset_id__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "pack_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Pack Key"
+            }
+          },
+          {
+            "name": "asset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Asset Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_admin_replace_asset_api_scenario_admin_packs__pack_key__assets__asset_id__post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioAdminAssetUpload"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
       "get": {
         "tags": [
           "情境训练"
@@ -7696,7 +7881,7 @@
           "情境训练"
         ],
         "summary": "Admin Delete Asset",
-        "description": "管理侧：撤下一张资源（声明从新修订移除；若已无修订引用则连字节一起删）。",
+        "description": "管理侧：撤下一张资源（声明从当前内容里去掉，字节一并删除）。",
         "operationId": "admin_delete_asset_api_scenario_admin_packs__pack_key__assets__asset_id__delete",
         "security": [
           {
@@ -7755,7 +7940,7 @@
           "情境训练"
         ],
         "summary": "Admin Upload Asset",
-        "description": "管理侧：上传一张场景图片 → 存字节 + **追加一个声明了它的新修订**。",
+        "description": "管理侧：上传一张场景图片 → 存字节 + 把声明写进当前内容。",
         "operationId": "admin_upload_asset_api_scenario_admin_packs__pack_key__assets_post",
         "security": [
           {
@@ -7790,189 +7975,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ScenarioAdminAssetUpload"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/scenario/admin/packs/{pack_key}/generated": {
-      "get": {
-        "tags": [
-          "情境训练"
-        ],
-        "summary": "Admin Generated Assets",
-        "description": "管理侧：某个情境包下 DM 现场生成物的清单（按 pack 过滤后分页，不含字节）。",
-        "operationId": "admin_generated_assets_api_scenario_admin_packs__pack_key__generated_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "pack_key",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Pack Key"
-            }
-          },
-          {
-            "name": "session_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Session Id"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 100,
-              "minimum": 1,
-              "default": 20,
-              "title": "Limit"
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "default": 0,
-              "title": "Offset"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ScenarioGeneratedList"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/scenario/admin/generated/{asset_id}/content": {
-      "get": {
-        "tags": [
-          "情境训练"
-        ],
-        "summary": "Admin Generated Content",
-        "description": "管理侧预览：按生成物 id 取字节。",
-        "operationId": "admin_generated_content_api_scenario_admin_generated__asset_id__content_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "asset_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Asset Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/scenario/admin/generated/{asset_id}": {
-      "delete": {
-        "tags": [
-          "情境训练"
-        ],
-        "summary": "Admin Delete Generated",
-        "description": "管理侧：删除一条生成物（字节随之回收）。",
-        "operationId": "admin_delete_generated_api_scenario_admin_generated__asset_id__delete",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "asset_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Asset Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Admin Delete Generated Api Scenario Admin Generated  Asset Id  Delete"
                 }
               }
             }
@@ -8090,7 +8092,7 @@
           "情境训练"
         ],
         "summary": "Admin Session Detail",
-        "description": "管理侧：单次会话的完整回放（视图 + 报告 + 每回合解析/结算/交付 + 关注点投影）。",
+        "description": "管理侧：单次会话的完整回放（视图 + 报告 + 每回合解析/结算/交付 + 关注点投影）。\n\n视图按**这一局自带的内容快照**回放：病例今天被改成什么样都不影响历史回放。",
         "operationId": "admin_session_detail_api_scenario_admin_sessions__session_id__get",
         "security": [
           {
@@ -8115,132 +8117,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ScenarioAdminSessionDetail"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/scenario/admin/archives": {
-      "get": {
-        "tags": [
-          "情境训练"
-        ],
-        "summary": "Admin Archives",
-        "description": "管理侧：旧机制会话的归档清单（历史只读）。",
-        "operationId": "admin_archives_api_scenario_admin_archives_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "pack_key",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Pack Key"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 200,
-              "minimum": 1,
-              "default": 50,
-              "title": "Limit"
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "default": 0,
-              "title": "Offset"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ScenarioArchiveList"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/scenario/admin/archives/{session_id}": {
-      "get": {
-        "tags": [
-          "情境训练"
-        ],
-        "summary": "Admin Archive Detail",
-        "description": "管理侧：单份归档的完整内容（视图 / 报告 / 回放 / 原始事件），**不重算、不补生成报告**。",
-        "operationId": "admin_archive_detail_api_scenario_admin_archives__session_id__get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Session Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ScenarioArchiveDetail"
                 }
               }
             }
@@ -11508,6 +11384,30 @@
         ],
         "title": "BatchUserItem"
       },
+      "Body_admin_replace_asset_api_scenario_admin_packs__pack_key__assets__asset_id__post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "default": ""
+          },
+          "alt": {
+            "type": "string",
+            "title": "Alt",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_admin_replace_asset_api_scenario_admin_packs__pack_key__assets__asset_id__post"
+      },
       "Body_admin_upload_asset_api_scenario_admin_packs__pack_key__assets_post": {
         "properties": {
           "asset_id": {
@@ -11530,11 +11430,6 @@
             "type": "string",
             "title": "Alt",
             "default": ""
-          },
-          "suggest_when": {
-            "type": "string",
-            "title": "Suggest When",
-            "default": ""
           }
         },
         "type": "object",
@@ -11550,11 +11445,6 @@
             "type": "string",
             "contentMediaType": "application/octet-stream",
             "title": "File"
-          },
-          "note": {
-            "type": "string",
-            "title": "Note",
-            "default": ""
           }
         },
         "type": "object",
@@ -13849,14 +13739,6 @@
         "type": "object",
         "title": "OkResponse"
       },
-      "PackState": {
-        "type": "string",
-        "enum": [
-          "experimental",
-          "reviewed"
-        ],
-        "title": "PackState"
-      },
       "PaginatedResponse_AssignmentListItem_": {
         "properties": {
           "items": {
@@ -15645,11 +15527,6 @@
             "title": "Alt",
             "default": ""
           },
-          "suggest_when": {
-            "type": "string",
-            "title": "Suggest When",
-            "default": ""
-          },
           "filename": {
             "type": "string",
             "title": "Filename",
@@ -15683,10 +15560,6 @@
             "type": "string",
             "title": "Key"
           },
-          "revision_no": {
-            "type": "integer",
-            "title": "Revision No"
-          },
           "asset": {
             "$ref": "#/components/schemas/ScenarioAdminAsset"
           }
@@ -15694,11 +15567,10 @@
         "type": "object",
         "required": [
           "key",
-          "revision_no",
           "asset"
         ],
         "title": "ScenarioAdminAssetUpload",
-        "description": "上传一张场景图片的结果（上传即追加一个新修订）。"
+        "description": "上传一张场景图片的结果（内容里补上声明 → 当前内容版本 +1）。"
       },
       "ScenarioAdminEvent": {
         "properties": {
@@ -15861,11 +15733,6 @@
             "type": "string",
             "title": "Failure",
             "default": "recoverable"
-          },
-          "image_generation": {
-            "type": "string",
-            "title": "Image Generation",
-            "default": "disabled"
           }
         },
         "type": "object",
@@ -15885,43 +15752,31 @@
             "type": "string",
             "title": "Title"
           },
-          "state": {
-            "type": "string",
-            "title": "State"
-          },
           "one_line": {
             "type": "string",
             "title": "One Line",
             "default": ""
           },
-          "revision_id": {
+          "version": {
+            "type": "integer",
+            "title": "Version",
+            "default": 0
+          },
+          "published": {
+            "type": "boolean",
+            "title": "Published",
+            "default": false
+          },
+          "published_at": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Revision Id"
-          },
-          "revision_no": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Revision No"
-          },
-          "revisions": {
-            "items": {
-              "$ref": "#/components/schemas/ScenarioAdminRevision"
-            },
-            "type": "array",
-            "title": "Revisions"
+            "title": "Published At"
           },
           "assets": {
             "items": {
@@ -15949,123 +15804,27 @@
         "type": "object",
         "required": [
           "key",
-          "title",
-          "state"
+          "title"
         ],
         "title": "ScenarioAdminPack"
       },
-      "ScenarioAdminPackConvert": {
-        "properties": {
-          "content": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Content"
-          },
-          "notes": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Notes"
-          },
-          "problems": {
-            "items": {
-              "$ref": "#/components/schemas/ScenarioPackProblem"
-            },
-            "type": "array",
-            "title": "Problems"
-          },
-          "from_schema_version": {
-            "type": "integer",
-            "title": "From Schema Version",
-            "default": 0
-          },
-          "to_schema_version": {
-            "type": "integer",
-            "title": "To Schema Version",
-            "default": 0
-          }
-        },
-        "type": "object",
-        "title": "ScenarioAdminPackConvert",
-        "description": "旧修订 → 当前形状草稿的**显式**转换结果（不静默裁剪、不宣称语义兼容）。"
-      },
-      "ScenarioAdminPackSource": {
+      "ScenarioAdminPackDelete": {
         "properties": {
           "key": {
             "type": "string",
             "title": "Key"
           },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "state": {
-            "type": "string",
-            "title": "State"
-          },
-          "revision_id": {
+          "deleted_assets": {
             "type": "integer",
-            "title": "Revision Id"
-          },
-          "revision_no": {
-            "type": "integer",
-            "title": "Revision No"
-          },
-          "note": {
-            "type": "string",
-            "title": "Note",
-            "default": ""
-          },
-          "content": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Content"
-          },
-          "problems": {
-            "items": {
-              "$ref": "#/components/schemas/ScenarioPackProblem"
-            },
-            "type": "array",
-            "title": "Problems"
-          },
-          "revisions": {
-            "items": {
-              "$ref": "#/components/schemas/ScenarioAdminRevision"
-            },
-            "type": "array",
-            "title": "Revisions"
-          },
-          "schema_version": {
-            "type": "integer",
-            "title": "Schema Version",
-            "default": 0
-          },
-          "current_schema_version": {
-            "type": "integer",
-            "title": "Current Schema Version",
-            "default": 0
-          },
-          "compatible": {
-            "type": "boolean",
-            "title": "Compatible",
-            "default": true
-          },
-          "legacy": {
-            "type": "boolean",
-            "title": "Legacy",
-            "default": false
+            "title": "Deleted Assets"
           }
         },
         "type": "object",
         "required": [
           "key",
-          "title",
-          "state",
-          "revision_id",
-          "revision_no"
+          "deleted_assets"
         ],
-        "title": "ScenarioAdminPackSource"
+        "title": "ScenarioAdminPackDelete"
       },
       "ScenarioAdminPackUpload": {
         "properties": {
@@ -16073,13 +15832,9 @@
             "type": "string",
             "title": "Key"
           },
-          "revision_id": {
+          "version": {
             "type": "integer",
-            "title": "Revision Id"
-          },
-          "revision_no": {
-            "type": "integer",
-            "title": "Revision No"
+            "title": "Version"
           },
           "created": {
             "type": "boolean",
@@ -16096,34 +15851,10 @@
         "type": "object",
         "required": [
           "key",
-          "revision_id",
-          "revision_no",
+          "version",
           "created"
         ],
         "title": "ScenarioAdminPackUpload"
-      },
-      "ScenarioAdminRevision": {
-        "properties": {
-          "id": {
-            "type": "integer",
-            "title": "Id"
-          },
-          "no": {
-            "type": "integer",
-            "title": "No"
-          },
-          "note": {
-            "type": "string",
-            "title": "Note",
-            "default": ""
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "no"
-        ],
-        "title": "ScenarioAdminRevision"
       },
       "ScenarioAdminSessionDetail": {
         "properties": {
@@ -16142,11 +15873,6 @@
                 "type": "null"
               }
             ]
-          },
-          "archived": {
-            "type": "boolean",
-            "title": "Archived",
-            "default": false
           },
           "problems": {
             "items": {
@@ -16227,9 +15953,9 @@
             "type": "string",
             "title": "Pack Title"
           },
-          "pack_revision_id": {
+          "pack_version": {
             "type": "integer",
-            "title": "Pack Revision Id"
+            "title": "Pack Version"
           },
           "status": {
             "type": "string",
@@ -16271,11 +15997,6 @@
             ],
             "title": "Summary"
           },
-          "read_only": {
-            "type": "boolean",
-            "title": "Read Only",
-            "default": false
-          },
           "trial": {
             "type": "boolean",
             "title": "Trial",
@@ -16310,7 +16031,7 @@
           "user_id",
           "pack_key",
           "pack_title",
-          "pack_revision_id",
+          "pack_version",
           "status"
         ],
         "title": "ScenarioAdminSessionRow"
@@ -16546,185 +16267,6 @@
         "title": "ScenarioAffordanceOption",
         "description": "选择型动作的一个可选项：**id 进 `selection`，label 只用于显示**。"
       },
-      "ScenarioArchiveDetail": {
-        "properties": {
-          "summary": {
-            "$ref": "#/components/schemas/ScenarioArchiveSummary"
-          },
-          "view": {
-            "$ref": "#/components/schemas/ScenarioView"
-          },
-          "report": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ScenarioReport"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "legacy_report": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Legacy Report"
-          },
-          "focus": {
-            "items": {
-              "$ref": "#/components/schemas/ScenarioAdminFocusTurn"
-            },
-            "type": "array",
-            "title": "Focus"
-          },
-          "turns": {
-            "items": {
-              "$ref": "#/components/schemas/ScenarioAdminTurnReplay"
-            },
-            "type": "array",
-            "title": "Turns"
-          },
-          "raw": {
-            "$ref": "#/components/schemas/ScenarioArchiveRaw"
-          }
-        },
-        "type": "object",
-        "required": [
-          "summary",
-          "view"
-        ],
-        "title": "ScenarioArchiveDetail"
-      },
-      "ScenarioArchiveList": {
-        "properties": {
-          "total": {
-            "type": "integer",
-            "title": "Total"
-          },
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/ScenarioArchiveSummary"
-            },
-            "type": "array",
-            "title": "Items"
-          }
-        },
-        "type": "object",
-        "required": [
-          "total"
-        ],
-        "title": "ScenarioArchiveList"
-      },
-      "ScenarioArchiveRaw": {
-        "properties": {
-          "events": {
-            "items": {
-              "$ref": "#/components/schemas/ScenarioAdminEvent"
-            },
-            "type": "array",
-            "title": "Events"
-          },
-          "pack_revision": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Pack Revision"
-          }
-        },
-        "type": "object",
-        "title": "ScenarioArchiveRaw"
-      },
-      "ScenarioArchiveRef": {
-        "properties": {
-          "archived_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Archived At"
-          },
-          "shape_version": {
-            "type": "integer",
-            "title": "Shape Version",
-            "default": 1
-          },
-          "ended_reason": {
-            "type": "string",
-            "title": "Ended Reason",
-            "default": ""
-          }
-        },
-        "type": "object",
-        "title": "ScenarioArchiveRef"
-      },
-      "ScenarioArchiveSummary": {
-        "properties": {
-          "session_id": {
-            "type": "integer",
-            "title": "Session Id"
-          },
-          "pack_key": {
-            "type": "string",
-            "title": "Pack Key"
-          },
-          "pack_revision_id": {
-            "type": "integer",
-            "title": "Pack Revision Id"
-          },
-          "shape_version": {
-            "type": "integer",
-            "title": "Shape Version",
-            "default": 1
-          },
-          "archived_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Archived At"
-          },
-          "status": {
-            "type": "string",
-            "title": "Status",
-            "default": "completed"
-          },
-          "turn": {
-            "type": "integer",
-            "title": "Turn",
-            "default": 0
-          },
-          "ended_reason": {
-            "type": "string",
-            "title": "Ended Reason",
-            "default": ""
-          },
-          "has_report": {
-            "type": "boolean",
-            "title": "Has Report",
-            "default": false
-          }
-        },
-        "type": "object",
-        "required": [
-          "session_id",
-          "pack_key",
-          "pack_revision_id"
-        ],
-        "title": "ScenarioArchiveSummary"
-      },
       "ScenarioAssessment": {
         "properties": {
           "summary": {
@@ -16773,11 +16315,6 @@
           "alt": {
             "type": "string",
             "title": "Alt",
-            "default": ""
-          },
-          "suggest_when": {
-            "type": "string",
-            "title": "Suggest When",
             "default": ""
           },
           "url": {
@@ -17258,88 +16795,6 @@
         "title": "ScenarioErrorInfo",
         "description": "学生侧错误：**只有** code 与 message（不出现 problems、字段路径、堆栈）。"
       },
-      "ScenarioGeneratedAsset": {
-        "properties": {
-          "id": {
-            "type": "integer",
-            "title": "Id"
-          },
-          "session_id": {
-            "type": "integer",
-            "title": "Session Id"
-          },
-          "pack_key": {
-            "type": "string",
-            "title": "Pack Key"
-          },
-          "pack_revision_id": {
-            "type": "integer",
-            "title": "Pack Revision Id"
-          },
-          "kind": {
-            "type": "string",
-            "title": "Kind",
-            "default": "image"
-          },
-          "prompt": {
-            "type": "string",
-            "title": "Prompt",
-            "default": ""
-          },
-          "mime_type": {
-            "type": "string",
-            "title": "Mime Type",
-            "default": ""
-          },
-          "file_size": {
-            "type": "integer",
-            "title": "File Size",
-            "default": 0
-          },
-          "sha256": {
-            "type": "string",
-            "title": "Sha256",
-            "default": ""
-          },
-          "created_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "session_id",
-          "pack_key",
-          "pack_revision_id"
-        ],
-        "title": "ScenarioGeneratedAsset"
-      },
-      "ScenarioGeneratedList": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/ScenarioGeneratedAsset"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "total": {
-            "type": "integer",
-            "title": "Total",
-            "default": 0
-          }
-        },
-        "type": "object",
-        "title": "ScenarioGeneratedList"
-      },
       "ScenarioHudSlot": {
         "properties": {
           "slot": {
@@ -17617,6 +17072,30 @@
         "title": "ScenarioMessage",
         "description": "对话流里的一条。`id` 是**稳定显示身份**（接续与去重按它，不按文案）。"
       },
+      "ScenarioNewPackRequest": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 2,
+            "pattern": "^[a-z0-9][a-z0-9-]*$",
+            "title": "Key"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "title"
+        ],
+        "title": "ScenarioNewPackRequest",
+        "description": "新建（空白骨架）或复制一个病例：只给身份字段，内容由平台生成/拷贝。"
+      },
       "ScenarioOpenSessionRequest": {
         "properties": {
           "pack_key": {
@@ -17629,17 +17108,6 @@
               }
             ],
             "title": "Pack Key"
-          },
-          "revision_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Revision Id"
           },
           "trial": {
             "type": "boolean",
@@ -17656,8 +17124,7 @@
             "type": "string",
             "enum": [
               "lost",
-              "ended_by_student",
-              "cutover"
+              "ended_by_student"
             ],
             "title": "Status"
           },
@@ -17683,78 +17150,79 @@
         ],
         "title": "ScenarioOutcome"
       },
+      "ScenarioPackContent": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "one_line": {
+            "type": "string",
+            "title": "One Line",
+            "default": ""
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version",
+            "default": 0
+          },
+          "published": {
+            "type": "boolean",
+            "title": "Published",
+            "default": false
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "content": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Content"
+          },
+          "problems": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioPackProblem"
+            },
+            "type": "array",
+            "title": "Problems"
+          },
+          "changed": {
+            "type": "boolean",
+            "title": "Changed",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "title"
+        ],
+        "title": "ScenarioPackContent",
+        "description": "**当前内容**（编辑器读/存共用一份响应）：读给内容，存回新版本与遗留问题。"
+      },
       "ScenarioPackContentRequest": {
         "properties": {
           "content": {
             "additionalProperties": true,
             "type": "object",
             "title": "Content"
-          },
-          "note": {
-            "type": "string",
-            "maxLength": 200,
-            "title": "Note",
-            "default": ""
           }
         },
         "type": "object",
         "title": "ScenarioPackContentRequest",
         "description": "编辑器提交的完整 pack 内容（原始 dict；形状由**加载期同一套校验**负责）。"
-      },
-      "ScenarioPackConvertRequest": {
-        "properties": {
-          "revision_id": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Revision Id"
-          }
-        },
-        "type": "object",
-        "required": [
-          "revision_id"
-        ],
-        "title": "ScenarioPackConvertRequest",
-        "description": "把**某个历史修订**转成当前形状草稿：只认 `revision_id`（服务端读那一版内容转换）。\n\n没有\"直接 POST content\"这条入口——转换的输入必须是**库里真实存在的那一版**，\n否则编辑器会拿到一份与任何修订都不对应的退化草稿（前端 helper 一直只发 `revision_id`）。"
-      },
-      "ScenarioPackPatchRequest": {
-        "properties": {
-          "state": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/PackState"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "title": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 200
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title"
-          },
-          "one_line": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 400
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "One Line"
-          }
-        },
-        "type": "object",
-        "title": "ScenarioPackPatchRequest"
       },
       "ScenarioPackProblem": {
         "properties": {
@@ -17784,35 +17252,31 @@
             "type": "string",
             "title": "Title"
           },
-          "state": {
-            "type": "string",
-            "title": "State"
-          },
           "one_line": {
             "type": "string",
-            "title": "One Line"
+            "title": "One Line",
+            "default": ""
           },
-          "revision_id": {
+          "version": {
+            "type": "integer",
+            "title": "Version",
+            "default": 0
+          },
+          "published": {
+            "type": "boolean",
+            "title": "Published",
+            "default": false
+          },
+          "published_at": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Revision Id"
-          },
-          "revision_no": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Revision No"
+            "title": "Published At"
           },
           "player_role": {
             "type": "string",
@@ -17828,9 +17292,7 @@
         "type": "object",
         "required": [
           "key",
-          "title",
-          "state",
-          "one_line"
+          "title"
         ],
         "title": "ScenarioPackSummary"
       },
@@ -17869,25 +17331,14 @@
             ],
             "title": "Latest Sha"
           },
-          "will_append": {
+          "will_change": {
             "type": "boolean",
-            "title": "Will Append",
+            "title": "Will Change",
             "default": false
           },
-          "next_revision_no": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Next Revision No"
-          },
-          "pack_schema_version": {
+          "version": {
             "type": "integer",
-            "title": "Pack Schema Version",
+            "title": "Version",
             "default": 0
           }
         },
@@ -17895,7 +17346,8 @@
         "required": [
           "ok"
         ],
-        "title": "ScenarioPackValidation"
+        "title": "ScenarioPackValidation",
+        "description": "保存前校验的结果；`will_change` = 这次保存会不会让 version +1。"
       },
       "ScenarioReport": {
         "properties": {
@@ -18116,9 +17568,9 @@
             "type": "string",
             "title": "Pack Title"
           },
-          "pack_revision_id": {
+          "pack_version": {
             "type": "integer",
-            "title": "Pack Revision Id"
+            "title": "Pack Version"
           },
           "status": {
             "type": "string",
@@ -18160,11 +17612,6 @@
             ],
             "title": "Summary"
           },
-          "read_only": {
-            "type": "boolean",
-            "title": "Read Only",
-            "default": false
-          },
           "trial": {
             "type": "boolean",
             "title": "Trial",
@@ -18199,7 +17646,7 @@
           "user_id",
           "pack_key",
           "pack_title",
-          "pack_revision_id",
+          "pack_version",
           "status"
         ],
         "title": "ScenarioSessionRow"
@@ -18224,35 +17671,8 @@
               }
             ]
           },
-          "legacy_report": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Legacy Report"
-          },
           "view": {
             "$ref": "#/components/schemas/ScenarioView"
-          },
-          "read_only": {
-            "type": "boolean",
-            "title": "Read Only",
-            "default": false
-          },
-          "archive": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ScenarioArchiveRef"
-              },
-              {
-                "type": "null"
-              }
-            ]
           }
         },
         "type": "object",
@@ -18321,28 +17741,6 @@
           "result"
         ],
         "title": "ScenarioSseCommitted"
-      },
-      "ScenarioSseDelivery": {
-        "properties": {
-          "request_id": {
-            "type": "string",
-            "title": "Request Id"
-          },
-          "pending": {
-            "type": "boolean",
-            "title": "Pending",
-            "default": true
-          },
-          "delivery": {
-            "$ref": "#/components/schemas/SceneDelivery"
-          }
-        },
-        "type": "object",
-        "required": [
-          "request_id",
-          "delivery"
-        ],
-        "title": "ScenarioSseDelivery"
       },
       "ScenarioSseError": {
         "properties": {
@@ -18619,13 +18017,6 @@
             "type": "array",
             "title": "Dims"
           },
-          "nudges": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Nudges"
-          },
           "assets": {
             "items": {
               "$ref": "#/components/schemas/ScenarioAsset"
@@ -18682,16 +18073,10 @@
             "title": "Player Role",
             "default": ""
           },
-          "revision_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Revision Id"
+          "version": {
+            "type": "integer",
+            "title": "Version",
+            "default": 0
           }
         },
         "type": "object",
@@ -18724,11 +18109,6 @@
             "type": "integer",
             "title": "Seq",
             "default": 0
-          },
-          "read_only": {
-            "type": "boolean",
-            "title": "Read Only",
-            "default": false
           },
           "trial": {
             "type": "boolean",
@@ -18778,7 +18158,7 @@
         "additionalProperties": false,
         "type": "object",
         "title": "SceneDelivery",
-        "description": "演出阶段的输出。**没有** effects / reveals / facts / notes / 委派字段（docs/23 §4.4）。"
+        "description": "演出阶段的输出。**没有** effects / reveals / facts / notes / 委派字段（docs/scenario.md）。"
       },
       "ScoreItem": {
         "properties": {
@@ -20460,7 +19840,7 @@
           "id"
         ],
         "title": "TargetRef",
-        "description": "类型化目标引用：**永远带 kind**，不靠裸 id 跨命名空间匹配（docs/23 §4.2）。\n\n加载期另外禁止 actor/device/scene 三个命名空间出现重复 id——两层一起兜住类型碰撞。"
+        "description": "类型化目标引用：**永远带 kind**，不靠裸 id 跨命名空间匹配（docs/scenario.md）。\n\n加载期另外禁止 actor/device/scene 三个命名空间出现重复 id——两层一起兜住类型碰撞。"
       },
       "TeacherSummaryItem": {
         "properties": {

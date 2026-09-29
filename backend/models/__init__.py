@@ -49,11 +49,8 @@ from models.rate_limit import RateLimitEntry
 from models.scenario_training import (
     StAsset,
     StEvent,
-    StGeneratedAsset,
     StPack,
-    StPackRevision,
     StSession,
-    StSessionArchive,
     StSessionRequest,
 )
 from models.school import (
@@ -63,7 +60,6 @@ from models.school import (
     Class,
     ClassMembership,
 )
-from models.simulation import SimulationSession
 from models.training import (
     Message,
     NursingRecord,
@@ -127,14 +123,10 @@ __all__ = [
     "RolePermission",
     "Score",
     "ScoreReview",
-    "SimulationSession",
     "StAsset",
     "StEvent",
-    "StGeneratedAsset",
     "StPack",
-    "StPackRevision",
     "StSession",
-    "StSessionArchive",
     "StSessionRequest",
     "SystemNotification",
     "TimestampMixin",

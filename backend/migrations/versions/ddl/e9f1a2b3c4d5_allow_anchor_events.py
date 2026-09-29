@@ -1,5 +1,5 @@
 """allow `anchor_satisfied` / `anchor_blocked` / `anchor_proposal_rejected` event kinds
-（情境训练 · 叙事锚点，docs/21 §4.0）
+（情境训练 · 叙事锚点，docs/scenario.md）
 
 同一批的三个新事件种类：
 

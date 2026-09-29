@@ -357,10 +357,6 @@ from modules.qa import router as _qa
 from modules.questionnaires.router import router as _questionnaires
 from modules.scenario_training.router import router as _scenario
 from modules.scoreboard import router as _scoreboard
-
-# 临床推理模拟：运行期已下线（docs/18 冻结；2026-09-28 关闭入口与路由注册），
-# 代码保留在 backend/modules/simulations/**（模块与内部测试原样保留，仅不再挂到 app）。
-# from modules.simulations import simulations_router as _simulations
 from modules.training.router import router as _training
 from modules.training.router.chat import router as _chat
 from modules.voice.router import router as _tts
@@ -381,8 +377,6 @@ for r in (
     _rubrics,
     _scenario,
     _scoreboard,
-    # 临床推理模拟：运行期已下线（docs/18 冻结；2026-09-28 关闭 /api/simulations 注册）。
-    # _simulations,
     _stats,
     _telemetry,
     _training,

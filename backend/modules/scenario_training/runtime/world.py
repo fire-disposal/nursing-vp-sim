@@ -5,10 +5,12 @@
 2. **反应链**：条件相对本回合基线**由假变真**才触发；每回合每个反应最多一次，链式求值直到没有新反应
    （`fire_reactions`）——因此上界是本包反应数，且可重放；
 3. **折叠**：把已提交事件还原成世界（`fold_event` / `world_from_events`），
-   历史事件（旧机制的 `dm_turn` / `effects_applied` / `dm_step` …）**只读折叠**，不再有人写它们。
+   旧机制的事件（`dm_turn` / `effects_applied` / `dm_step` …）**不再被折叠**：写集与读集都只有
+   新机制的 5 种事件。代价是明确的——**恢复任何 cutover 之前的数据库备份后，旧会话渲染不出内容**
+   （归档里的 `raw` 事件仍在，但平台不再重放旧协议）。
 
 **唯一结算函数**是 `settle_turn`：显式动作与自由表达都先解析成同一个 `IntentResolution`，
-再走这一条路——不存在「归属回填后补求一遍」的第二条路径（docs/23 §4.1）。
+再走这一条路——不存在「归属回填后补求一遍」的第二条路径（docs/scenario.md）。
 """
 
 from __future__ import annotations
@@ -137,7 +139,6 @@ class World:
     clarifications: list[dict[str, Any]] = field(default_factory=list)
     hints: list[dict[str, Any]] = field(default_factory=list)
     # 旧机制遗留（只读回放用）：DM 声明的事实 / 白板笔记 / 选项 / 图片
-    declared_facts: list[dict[str, Any]] = field(default_factory=list)
     images: list[dict[str, Any]] = field(default_factory=list)
     state_history: dict[str, list[Any]] = field(default_factory=dict)
     state_turns: dict[str, list[int]] = field(default_factory=dict)
@@ -287,11 +288,8 @@ def clause_holds(pack: ScenarioPack, world: World, clause: Clause) -> bool:
     if kind is ClauseKind.STATE_CMP:
         return _cmp(world.state.get(clause.key or ""), clause.op, clause.value)
     if kind is ClauseKind.FACT_DECLARED:
-        # 新机制由引擎判定"事实是否已被采集"（线索已揭示或动作已用过）；
-        # 旧会话里 DM 声明过的事实同样算数（历史不被重新解释）。
-        return clause.fact_id in facts_observed(pack, world) or any(
-            fact.get("fact_id") == clause.fact_id for fact in world.declared_facts
-        )
+        # 由引擎判定"事实是否已被采集"（线索已揭示或动作已用过）；DM 不声明事实，平台不替它记。
+        return clause.fact_id in facts_observed(pack, world)
     if kind is ClauseKind.TURN_GTE:
         return world.turn >= (clause.count or 1)
     return False
@@ -316,7 +314,7 @@ def visible_affordances(pack: ScenarioPack, world: World) -> list[Affordance]:
 def fire_reactions(
     pack: ScenarioPack, world: World, before: World, *, initial: bool = False
 ) -> tuple[list[str], list[AppliedEffect], list[str]]:
-    """**唯一**的反应链算法（docs/23 §4.3）：
+    """**唯一**的反应链算法（docs/scenario.md）：
 
     1. 动作效果与揭示**先**应用（调用方已做）；
     2. 找出条件相对本回合基线**由假变真**的反应，按包声明顺序执行；
@@ -603,7 +601,7 @@ def _resolve_outcome(
 ) -> tuple[AttemptOutcome, str]:
     """本回合世界的答复：`performed` / `blocked`（带处境原因）/ `unmodeled`。
 
-    「可达」判据与前端对象 chip 同源，**入口无关**：自由文本与按钮同判（docs/23 §5.1）。
+    「可达」判据与前端对象 chip 同源，**入口无关**：自由文本与按钮同判（docs/scenario.md）。
     """
     if request.kind == "action":
         if affordance is None:
@@ -619,7 +617,7 @@ def _resolve_outcome(
         return AttemptOutcome.PERFORMED, ""
     if not target_reachable(pack, world, intent.target or request.target):
         # **对不可达的人说话也是世界阻止的实际尝试**（消耗一个回合，如实回应"他不在/听不到"），
-        # 与"按按钮"同判——不存在入口差异（docs/23 §5.1 冻结规则）。
+        # 与"按按钮"同判——不存在入口差异（docs/scenario.md 冻结规则）。
         return AttemptOutcome.BLOCKED, BLOCK_TARGET_UNREACHABLE
     return AttemptOutcome.SPEECH, ""
 
@@ -997,106 +995,18 @@ def _fold_closed(world: World, _payload: dict[str, Any], _seq: int) -> None:
     world.closed = True
 
 
-# —— 旧机制事件：**只读**折叠（历史回放用，不再有人写它们） ——
-
-
-def _fold_legacy_attribution(world: World, payload: dict[str, Any], _seq: int) -> None:
-    affordance_id = payload.get("affordance_id")
-    if not affordance_id:
-        return
-    turn = payload.get("turn")
-    for action in reversed(world.actions):
-        if turn is not None and action.turn != turn:
-            continue
-        if action.affordance_id is None:
-            action.affordance_id = str(affordance_id)
-        return
-
-
-def _fold_legacy_effects(world: World, payload: dict[str, Any], _seq: int) -> None:
-    for item in payload.get("items", []):
-        key = str(item.get("key"))
-        if key not in world.state:
-            continue
-        world.state[key] = item.get("new")
-        world.state_history.setdefault(key, []).append(item.get("new"))
-        world.state_turns.setdefault(key, []).append(world.turn)
-
-
-def _fold_legacy_cues(world: World, payload: dict[str, Any], _seq: int) -> None:
-    for cue_id in payload.get("cue_ids", []):
-        if cue_id not in world.revealed:
-            world.revealed.append(str(cue_id))
-            world.revealed_turns[str(cue_id)] = world.turn
-    for text in payload.get("ad_hoc", []):
-        if text not in world.ad_hoc_cues:
-            world.ad_hoc_cues.append(str(text))
-            world.noticed_turns[str(text)] = world.turn
-    for image in payload.get("images", []):
-        # 事件里可能是 {asset_id,...} 或（早期写法）裸 asset id：两种都折成同一种形状
-        entry = {"asset_id": image, "caption": "", "origin": "pack"} if isinstance(image, str) else image
-        if entry not in world.images:
-            world.images.append(entry)
-
-
-def _fold_legacy_dm_turn(world: World, payload: dict[str, Any], seq: int) -> None:
-    turn = int(payload.get("turn", world.turn))
-    index = 0
-    if payload.get("narration"):
-        world.narrations.append(
-            {
-                "text": payload["narration"],
-                "turn": turn,
-                "seq": seq,
-                "index": index,
-                "origin": "dm",
-                "kind": "narration",
-            }
-        )
-        index += 1
-    for line in payload.get("lines", []):
-        world.lines.append(
-            {
-                **line,
-                "turn": turn,
-                "seq": seq,
-                "index": index,
-                "kind": "speech",
-            }
-        )
-        index += 1
-    world.declared_facts.extend(payload.get("facts_declared", []))
-    for reaction_id in payload.get("fired", []):
-        if reaction_id not in world.fired:
-            world.fired.append(str(reaction_id))
-            world.fired_turns[str(reaction_id)] = turn
-
-
-def _fold_legacy_entity_line(world: World, payload: dict[str, Any], seq: int) -> None:
-    line = dict(payload.get("line") or {})
-    if line:
-        world.lines.append({**line, "turn": world.turn, "seq": seq, "index": 0, "kind": "speech"})
-
-
 _FOLDERS = {
-    # 新机制（唯一写入路径）
+    # 唯一写入路径（也是唯一读入路径）：这五种之外的事件不改变世界
     "session_opened": _fold_session_opened,
     "turn_committed": _fold_turn_committed,
     "clarification_exchange": _fold_clarification,
     "hint_requested": _fold_hint,
     "session_closed": _fold_closed,
-    # 旧机制（只读回放）
-    "student_action": _fold_action,
-    "action_attributed": _fold_legacy_attribution,
-    "effects_applied": _fold_legacy_effects,
-    "cues_revealed": _fold_legacy_cues,
-    "dm_turn": _fold_legacy_dm_turn,
-    "entity_line": _fold_legacy_entity_line,
 }
 
 
 def fold_event(world: World, event: dict[str, Any]) -> None:
-    """把**一条**事件折进世界；未知/已废弃的事件（`dm_step` / `anchor_*` / `judge_result`）不改变世界。"""
+    """把**一条**事件折进世界；旧机制的事件（`dm_step` / `dm_turn` / `anchor_*` / `judge_result`）不改变世界。"""
     world.seq = int(event.get("seq") or world.seq)
     folder = _FOLDERS.get(str(event.get("kind")))
     if folder is not None:

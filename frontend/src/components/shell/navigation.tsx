@@ -144,7 +144,7 @@ export const APP_ROUTES: AppRoute[] = [
 		permission: "training_access",
 		activity: "practice",
 	},
-	// 情境训练（docs/20）：与正式训练资源隔离的实验轨，转公开测试后给学生可见入口——
+	// 情境训练（docs/scenario.md）：与正式训练资源隔离的实验轨，转公开测试后给学生可见入口——
 	// 持有 `scenario_training` 的学生在侧栏/底部 Tab 看到「情境」；后端开关关闭时后端 404、入口照旧存在。
 	{
 		path: "/scenario",

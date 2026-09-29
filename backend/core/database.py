@@ -79,7 +79,7 @@ def verify_schema() -> None:
     Startup **never migrates**. Production releases run ``alembic upgrade head``
     as an explicit deploy step after the new image is available and before
     services start (see ``.github/workflows/deploy.yml``, ``deploy/rollback.sh``
-    and ``docs/09-operations.md``). Verifying here instead of upgrading means a
+    and ``docs/operations.md``). Verifying here instead of upgrading means a
     missing/stale schema fails fast and loudly, and multiple workers never race
     for a migration lock.
 

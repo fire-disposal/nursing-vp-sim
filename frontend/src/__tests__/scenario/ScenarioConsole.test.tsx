@@ -22,7 +22,6 @@ import {
 	makeTurnResult,
 	makeView,
 	sseCommitted,
-	sseDelivery,
 	sseError,
 	ssePhase,
 } from "./fixtures";
@@ -76,7 +75,6 @@ const SESSION = {
 	turn: 1,
 	lost: false,
 	seq: 4,
-	read_only: false,
 	trial: false,
 } as const;
 
@@ -195,7 +193,6 @@ describe("入口", () => {
 
 		expect(mocks.createScenarioSession).toHaveBeenCalledWith({
 			pack_key: PACK.key,
-			revision_id: PACK.revision_id,
 			trial: false,
 		});
 		await screen.findByLabelText("表达与行动");
@@ -555,8 +552,6 @@ describe("失败不污染视图", () => {
 		const user = userEvent.setup();
 		const stream = await speak(user, "先给他换个半坐位。");
 
-		// 先推一个 delivery：它是**未提交草稿**，不得成为内容
-		await push(stream, sseDelivery());
 		await push(stream, ssePhase("delivering"));
 		expect(screen.queryByText("未提交草稿里的话")).toBeNull();
 		expect(document.querySelector(".sc-streaming")?.textContent).toBe(
@@ -602,8 +597,8 @@ describe("失败不污染视图", () => {
 	});
 });
 
-describe("只读与归档", () => {
-	it("session_closed：刷新后转只读——没有输入条，说明已结束，仍可看复盘", async () => {
+describe("结束态", () => {
+	it("session_closed：刷新后进入已结束态——没有输入条，说明已结束，仍可看复盘", async () => {
 		const user = userEvent.setup();
 		const stream = await speak(user);
 		sessionState = makeSessionState({
@@ -628,30 +623,6 @@ describe("只读与归档", () => {
 		expect(
 			within(note).getByRole("button", { name: "查看复盘" }),
 		).toBeInTheDocument();
-	});
-
-	it("session_archived：旧机制会话只读，并说明归档形状", async () => {
-		const user = userEvent.setup();
-		const stream = await speak(user);
-		sessionState = makeSessionState({
-			view: makeView({ session: { ...SESSION, status: "completed", seq: 9 } }),
-			report: makeReport(),
-			read_only: true,
-			archive: { shape_version: 2, ended_reason: "cutover" },
-		});
-
-		await push(stream, sseError("session_archived", "本局只读"));
-
-		await waitFor(() =>
-			expect(document.querySelector(".sc-note")).not.toBeNull(),
-		);
-		const note = document.querySelector(".sc-note") as HTMLElement;
-		expect(note.textContent).toMatch(/机制切换/);
-		expect(note.textContent).toMatch(/已归档/);
-		expect(note.textContent).toMatch(/形状 v2/);
-		expect(note.textContent).toMatch(/cutover/);
-		expect(screen.queryByLabelText("表达与行动")).toBeNull();
-		expect(screen.queryByRole("button", { name: "发送" })).toBeNull();
 	});
 });
 
@@ -918,10 +889,10 @@ describe("页头", () => {
 });
 
 describe("复盘入口", () => {
-	function finishedState(legacyReport: Record<string, unknown> | null = null) {
+	function finishedState() {
 		return makeSessionState({
 			view: makeView({
-				session: { ...SESSION, status: "completed", turn: 3, seq: 9, read_only: true },
+				session: { ...SESSION, status: "completed", turn: 3, seq: 9 },
 				messages: [
 					...BASE_MESSAGES,
 					makeMessage({
@@ -937,9 +908,7 @@ describe("复盘入口", () => {
 					}),
 				],
 			}),
-			read_only: true,
-			report: legacyReport === null ? makeReport() : null,
-			legacy_report: legacyReport,
+			report: makeReport(),
 		});
 	}
 
@@ -977,23 +946,5 @@ describe("复盘入口", () => {
 			),
 		).toBeInTheDocument();
 		expect(screen.queryByLabelText("关键时刻")).toBeNull();
-	});
-
-	it("只有 legacy_report：原样只读展开，不套新报告形状", async () => {
-		const user = userEvent.setup();
-		const legacy = { anchor_count: 2, score: { rate: 0.5 } };
-		sessionState = finishedState(legacy);
-		renderPage();
-
-		await screen.findByText("我先看看他的呼吸。");
-		const note = document.querySelector(".sc-note") as HTMLElement;
-		await user.click(within(note).getByRole("button", { name: "查看复盘" }));
-
-		const section = await screen.findByLabelText("旧机制原报告（原样留档）");
-		expect(section.querySelector("pre")?.textContent).toBe(
-			JSON.stringify(legacy, null, 2),
-		);
-		expect(screen.queryByLabelText("关键时刻")).toBeNull();
-		expect(screen.queryByLabelText("判读详情")).toBeNull();
 	});
 });

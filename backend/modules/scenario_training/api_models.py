@@ -16,7 +16,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from .schema import Anchor, PackState
+from .schema import Anchor
 from .turns import (
     AttemptOutcome,
     DeclarationKind,
@@ -38,8 +38,7 @@ from .turns import (
 
 class ScenarioOpenSessionRequest(BaseModel):
     pack_key: str | None = None
-    revision_id: int | None = None  # trial=true 时必填（固定刚保存的修订）
-    trial: bool = False  # 试跑：需 `case_manage`；会话显式标记并从统计默认排除
+    trial: bool = False  # 试跑：需 `case_manage`（可开未上架的草稿）；会话显式标记并从统计默认排除
 
 
 class ScenarioTurnRequest(BaseModel):
@@ -71,10 +70,10 @@ class ScenarioCloseRequest(BaseModel):
 class ScenarioPackSummary(BaseModel):
     key: str
     title: str
-    state: str
-    one_line: str
-    revision_id: int | None = None
-    revision_no: int | None = None
+    one_line: str = ""
+    version: int = 0
+    published: bool = False
+    published_at: str | None = None
     player_role: str = ""
     place: str = ""
 
@@ -165,7 +164,6 @@ class ScenarioAsset(BaseModel):
     id: str
     title: str = ""
     alt: str = ""
-    suggest_when: str = ""
     url: str | None = None
 
 
@@ -233,7 +231,6 @@ class ScenarioViewSession(BaseModel):
     turn: int
     lost: bool = False
     seq: int = 0  # 已提交事件的最大序号 —— `expected_seq` 的唯一来源
-    read_only: bool = False
     trial: bool = False
 
 
@@ -241,7 +238,7 @@ class ScenarioViewPack(BaseModel):
     key: str
     title: str
     player_role: str = ""
-    revision_id: int | None = None
+    version: int = 0  # 开局时病例的版本（会话自带的快照版本）
 
 
 class ScenarioView(BaseModel):
@@ -257,7 +254,6 @@ class ScenarioView(BaseModel):
     free_input: bool = True
     timeline: list[ScenarioTimelineEntry] = Field(default_factory=list)
     dims: list[ScenarioDim] = Field(default_factory=list)
-    nudges: list[str] = Field(default_factory=list)
     assets: list[ScenarioAsset] = Field(default_factory=list)
     images: list[ScenarioImage] = Field(default_factory=list)
     board: ScenarioBoard = Field(default_factory=ScenarioBoard)
@@ -297,21 +293,11 @@ class ScenarioSessionResponse(BaseModel):
     view: ScenarioView
 
 
-class ScenarioArchiveRef(BaseModel):
-    archived_at: str | None = None
-    shape_version: int = 1
-    ended_reason: str = ""
-
-
 class ScenarioSessionState(BaseModel):
     session_id: int
     status: str
     report: ScenarioReport | None = None
-    legacy_report: dict[str, Any] | None = None
-    """旧机制原样留档的报告（**不重算、不改写**）：有它说明这份会话是切换前的。"""
     view: ScenarioView
-    read_only: bool = False
-    archive: ScenarioArchiveRef | None = None
 
 
 class ScenarioSessionRow(BaseModel):
@@ -319,12 +305,11 @@ class ScenarioSessionRow(BaseModel):
     user_id: int
     pack_key: str
     pack_title: str
-    pack_revision_id: int
+    pack_version: int
     status: str
     turn: int | None = None
     lost: bool | None = None
     summary: dict[str, int] | None = None
-    read_only: bool = False
     trial: bool = False
     created_at: str | None = None
     updated_at: str | None = None
@@ -340,7 +325,7 @@ class ScenarioKeyTurn(BaseModel):
 
 
 class ScenarioOutcome(BaseModel):
-    status: Literal["lost", "ended_by_student", "cutover"]
+    status: Literal["lost", "ended_by_student"]
     reason: str = ""
     turn: int
     lost: bool = False
@@ -435,13 +420,6 @@ class ScenarioAdminOverview(BaseModel):
     criteria: int = 0
     criteria_weight: int = 0
     failure: str = "recoverable"
-    image_generation: str = "disabled"
-
-
-class ScenarioAdminRevision(BaseModel):
-    id: int
-    no: int
-    note: str = ""
 
 
 class ScenarioAdminAsset(BaseModel):
@@ -449,7 +427,6 @@ class ScenarioAdminAsset(BaseModel):
     kind: str = "image"
     title: str = ""
     alt: str = ""
-    suggest_when: str = ""
     filename: str = ""
     mime_type: str = ""
     file_size: int = 0
@@ -457,30 +434,41 @@ class ScenarioAdminAsset(BaseModel):
 
 
 class ScenarioAdminAssetUpload(BaseModel):
-    """上传一张场景图片的结果（上传即追加一个新修订）。"""
+    """上传一张场景图片的结果（内容里补上声明 → 当前内容版本 +1）。"""
 
     key: str
-    revision_no: int
     asset: ScenarioAdminAsset
 
 
 class ScenarioAdminPack(BaseModel):
     key: str
     title: str
-    state: str
     one_line: str = ""
-    revision_id: int | None = None
-    revision_no: int | None = None
-    revisions: list[ScenarioAdminRevision] = Field(default_factory=list)
+    #: 当前内容的整数版本（保存一次 +1；同内容重复保存不动）
+    version: int = 0
+    # ── 上架状态（学生列表只列已上架；下架不删数据）──
+    published: bool = False
+    published_at: str | None = None
     assets: list[ScenarioAdminAsset] = Field(default_factory=list)
     overview: ScenarioAdminOverview | None = None
     sessions: int = 0
 
 
+class ScenarioNewPackRequest(BaseModel):
+    """新建（空白骨架）或复制一个病例：只给身份字段，内容由平台生成/拷贝。"""
+
+    key: str = Field(min_length=2, max_length=64, pattern=r"^[a-z0-9][a-z0-9-]*$")
+    title: str = Field(min_length=1, max_length=200)
+
+
+class ScenarioAdminPackDelete(BaseModel):
+    key: str
+    deleted_assets: int
+
+
 class ScenarioAdminPackUpload(BaseModel):
     key: str
-    revision_id: int
-    revision_no: int
+    version: int
     created: bool
     assets_pending: list[str] = Field(default_factory=list)  # 仓库里缺文件、只有声明的资源 id
 
@@ -491,62 +479,34 @@ class ScenarioPackProblem(BaseModel):
 
 
 class ScenarioPackValidation(BaseModel):
+    """保存前校验的结果；`will_change` = 这次保存会不会让 version +1。"""
+
     ok: bool
     problems: list[ScenarioPackProblem] = Field(default_factory=list)
     content_sha: str | None = None
     latest_sha: str | None = None
-    will_append: bool = False
-    next_revision_no: int | None = None
-    pack_schema_version: int = 0
+    will_change: bool = False
+    version: int = 0
 
 
-class ScenarioAdminPackSource(BaseModel):
+class ScenarioPackContent(BaseModel):
+    """**当前内容**（编辑器读/存共用一份响应）：读给内容，存回新版本与遗留问题。"""
+
     key: str
     title: str
-    state: str
-    revision_id: int
-    revision_no: int
-    note: str = ""
+    one_line: str = ""
+    version: int = 0
+    published: bool = False
+    published_at: str | None = None
     content: dict[str, Any] = Field(default_factory=dict)
     problems: list[ScenarioPackProblem] = Field(default_factory=list)
-    revisions: list[ScenarioAdminRevision] = Field(default_factory=list)
-    schema_version: int = 0
-    current_schema_version: int = 0
-    compatible: bool = True  # false = 历史形状：显示原始 JSON，编辑需走显式转换
-    legacy: bool = False
-
-
-class ScenarioAdminPackConvert(BaseModel):
-    """旧修订 → 当前形状草稿的**显式**转换结果（不静默裁剪、不宣称语义兼容）。"""
-
-    content: dict[str, Any] = Field(default_factory=dict)
-    notes: list[str] = Field(default_factory=list)
-    problems: list[ScenarioPackProblem] = Field(default_factory=list)
-    from_schema_version: int = 0
-    to_schema_version: int = 0
+    changed: bool = False  # 存：内容是否真的改了（同内容幂等 → False、version 不动）
 
 
 class ScenarioPackContentRequest(BaseModel):
     """编辑器提交的完整 pack 内容（原始 dict；形状由**加载期同一套校验**负责）。"""
 
     content: dict[str, Any] = Field(default_factory=dict)
-    note: str = Field(default="", max_length=200)
-
-
-class ScenarioPackConvertRequest(BaseModel):
-    """把**某个历史修订**转成当前形状草稿：只认 `revision_id`（服务端读那一版内容转换）。
-
-    没有"直接 POST content"这条入口——转换的输入必须是**库里真实存在的那一版**，
-    否则编辑器会拿到一份与任何修订都不对应的退化草稿（前端 helper 一直只发 `revision_id`）。
-    """
-
-    revision_id: int = Field(..., ge=1)
-
-
-class ScenarioPackPatchRequest(BaseModel):
-    state: PackState | None = None
-    title: str | None = Field(default=None, max_length=200)
-    one_line: str | None = Field(default=None, max_length=400)
 
 
 # --------------------------------------------------------------------------- #
@@ -602,7 +562,6 @@ class ScenarioAdminSessionDetail(BaseModel):
     session: ScenarioAdminSessionRow
     view: ScenarioView
     report: ScenarioReport | None = None
-    archived: bool = False
     problems: list[str] = Field(default_factory=list)
     focus: list[ScenarioAdminFocusTurn] = Field(default_factory=list)
     turns: list[ScenarioAdminTurnReplay] = Field(default_factory=list)
@@ -623,76 +582,14 @@ class ScenarioAdminStats(BaseModel):
     packs: list[ScenarioAdminStatsBucket] = Field(default_factory=list)
 
 
-class ScenarioGeneratedAsset(BaseModel):
-    id: int
-    session_id: int
-    pack_key: str
-    pack_revision_id: int
-    kind: str = "image"
-    prompt: str = ""
-    mime_type: str = ""
-    file_size: int = 0
-    sha256: str = ""
-    created_at: str | None = None
-
-
-class ScenarioGeneratedList(BaseModel):
-    items: list[ScenarioGeneratedAsset] = Field(default_factory=list)
-    total: int = 0
-
-
 # --------------------------------------------------------------------------- #
-# 管理侧：归档（历史只读）
-# --------------------------------------------------------------------------- #
-
-
-class ScenarioArchiveSummary(BaseModel):
-    session_id: int
-    pack_key: str
-    pack_revision_id: int
-    shape_version: int = 1
-    archived_at: str | None = None
-    status: str = "completed"
-    turn: int = 0
-    ended_reason: str = ""
-    has_report: bool = False
-
-
-class ScenarioArchiveList(BaseModel):
-    total: int
-    items: list[ScenarioArchiveSummary] = Field(default_factory=list)
-
-
-class ScenarioArchiveRaw(BaseModel):
-    events: list[ScenarioAdminEvent] = Field(default_factory=list)
-    pack_revision: dict[str, Any] = Field(default_factory=dict)
-
-
-class ScenarioArchiveDetail(BaseModel):
-    summary: ScenarioArchiveSummary
-    view: ScenarioView
-    report: ScenarioReport | None = None
-    legacy_report: dict[str, Any] | None = None
-    """旧机制原样留档的报告（§9.1：报告原来不存在就留空，绝不补生成）。"""
-    focus: list[ScenarioAdminFocusTurn] = Field(default_factory=list)
-    turns: list[ScenarioAdminTurnReplay] = Field(default_factory=list)
-    raw: ScenarioArchiveRaw = Field(default_factory=ScenarioArchiveRaw)
-
-
-# --------------------------------------------------------------------------- #
-# SSE 载荷（四种事件的 `data`）
+# SSE 载荷（三种事件的 `data`）
 # --------------------------------------------------------------------------- #
 
 
 class ScenarioSsePhase(BaseModel):
     request_id: str
     phase: TurnPhase
-
-
-class ScenarioSseDelivery(BaseModel):
-    request_id: str
-    pending: bool = True
-    delivery: SceneDelivery
 
 
 class ScenarioSseCommitted(BaseModel):
@@ -707,5 +604,5 @@ class ScenarioSseError(BaseModel):
     error: ScenarioErrorInfo
 
 
-#: SSE 四种事件的负荷联合（只用于**生成类型与文档**；运行期是 `text/event-stream` 分帧）。
-ScenarioSseEnvelope = ScenarioSsePhase | ScenarioSseDelivery | ScenarioSseCommitted | ScenarioSseError
+#: SSE 三种事件的负荷联合（只用于**生成类型与文档**；运行期是 `text/event-stream` 分帧）。
+ScenarioSseEnvelope = ScenarioSsePhase | ScenarioSseCommitted | ScenarioSseError

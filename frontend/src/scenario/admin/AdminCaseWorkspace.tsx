@@ -3,30 +3,19 @@ import {
 	IconArrowLeft,
 	IconChartBar,
 	IconDatabase,
-	IconHistory,
 	IconInfoCircle,
 	IconPencil,
-	IconSparkles,
 } from "@tabler/icons-react";
 import type { ComponentType } from "react";
 import type { ScenarioAdminPack } from "@/api/scenario";
 import AdminAssetsPanel from "./AdminAssetsPanel";
 import AdminCaseEditorPanel from "./AdminCaseEditorPanel";
 import AdminCaseOverviewPanel from "./AdminCaseOverviewPanel";
-import AdminCaseRevisionsPanel from "./AdminCaseRevisionsPanel";
-import AdminGeneratedPanel from "./AdminGeneratedPanel";
 import AdminSessionsPanel from "./AdminSessionsPanel";
 import AdminStatsPanel from "./AdminStatsPanel";
 
 /** 病例工作区的分块。 */
-export type CaseBlock =
-	| "overview"
-	| "editor"
-	| "revisions"
-	| "assets"
-	| "generated"
-	| "sessions"
-	| "stats";
+export type CaseBlock = "overview" | "editor" | "assets" | "sessions" | "stats";
 
 /**
  * 分块与**权限键**的对应（与后端逐字一致：内容面 `case_manage`，数据面 `stats_view`）。
@@ -42,9 +31,7 @@ export const CASE_BLOCKS: {
 }[] = [
 	{ id: "overview", label: "概览", permission: "case_manage", icon: IconInfoCircle },
 	{ id: "editor", label: "编辑", permission: "case_manage", icon: IconPencil },
-	{ id: "revisions", label: "修订", permission: "case_manage", icon: IconHistory },
-	{ id: "assets", label: "资源", permission: "case_manage", icon: IconDatabase },
-	{ id: "generated", label: "生成物", permission: "case_manage", icon: IconSparkles },
+	{ id: "assets", label: "图片", permission: "case_manage", icon: IconDatabase },
 	{ id: "sessions", label: "会话", permission: "stats_view", icon: IconChartBar },
 	{ id: "stats", label: "统计", permission: "stats_view", icon: IconChartBar },
 ];
@@ -60,8 +47,10 @@ export function visibleCaseBlocks(permissions: string[]): CaseBlock[] {
  * 病例工作区 —— 选中一个病例之后的**唯一入口**。
  *
  * 头部那一处病例信息就是**唯一**的病例选择：没有第二个选择器，也没有"在别的页签里
- * 选了病例、切过来就没了"。资源的增删、生成物的分页、这个病例的会话与统计，
- * 都是这个病例身上的块——它们之间不再互相跳转（本来就在同一个病例上）。
+ * 选了病例、切过来就没了"。图片的增删、这个病例的会话与统计，都是这个病例身上的块。
+ *
+ * 病例的新模型很简单：**当前内容 + 整数 `version`（内容变了才 +1）+ 是否上架**。
+ * 没有"历史版本"这回事——所以块里也没有历史版本，头部只报版本与上架状态。
  */
 export default function AdminCaseWorkspace({
 	pack,
@@ -69,22 +58,16 @@ export default function AdminCaseWorkspace({
 	block,
 	onBlock,
 	onBack,
-	onOpenSession,
-	focusSessionId,
 }: {
 	pack: ScenarioAdminPack;
 	permissions: string[];
 	block: CaseBlock;
 	onBlock: (block: CaseBlock) => void;
 	onBack: () => void;
-	/** 「生成物」里点会话号 → 换到「会话」块并把那一次展开。 */
-	onOpenSession: (sessionId: number) => void;
-	focusSessionId: number | null;
 }) {
 	const blocks = visibleCaseBlocks(permissions);
 	const current = blocks.includes(block) ? block : (blocks[0] ?? null);
-	const reviewed = pack.state === "reviewed";
-	// 生成物里 `assets` 是可选的：缺就是"这份病例没声明资源"，不当作空数组之外的别的东西。
+	// `assets` 是可选的：缺就是"这份病例没声明图片"，不当作空数组之外的别的东西。
 	const assets = pack.assets ?? [];
 
 	return (
@@ -100,12 +83,12 @@ export default function AdminCaseWorkspace({
 						返回病例列表
 					</Button>
 					<Text fw={600}>{pack.title}</Text>
-					<Badge variant="light" color={reviewed ? "green" : "gray"}>
-						{reviewed ? "已审" : "实验版"}
+					<Badge variant="light" color={pack.published ? "green" : "orange"}>
+						{pack.published ? "已上架" : "未上架"}
 					</Badge>
 					<Code>{pack.key}</Code>
 					<Text size="xs" c="dimmed">
-						修订 #{pack.revision_no ?? "—"} · {pack.sessions} 次会话 · 资源{" "}
+						版本 #{pack.version} · {pack.sessions} 次会话 · 图片{" "}
 						{assets.filter((asset) => asset.uploaded).length}/{assets.length}
 					</Text>
 				</Group>
@@ -133,25 +116,8 @@ export default function AdminCaseWorkspace({
 				    分页/展开态带过来，也不会同时发几块的请求 */}
 				{current === "overview" && <AdminCaseOverviewPanel pack={pack} />}
 				{current === "editor" && <AdminCaseEditorPanel pack={pack} />}
-				{current === "revisions" && <AdminCaseRevisionsPanel pack={pack} />}
 				{current === "assets" && <AdminAssetsPanel pack={pack} />}
-				{current === "generated" && (
-					// 「会话」块（stats_view）不可见时不传跳转回调：生成物面板就只显示会话号，
-					// 不给一个点了会跳到无权查看的块的按钮。
-					<AdminGeneratedPanel
-						pack={pack}
-						onOpenSession={
-							blocks.includes("sessions") ? onOpenSession : undefined
-						}
-					/>
-				)}
-				{current === "sessions" && (
-					<AdminSessionsPanel
-						packKey={pack.key}
-						lockPack
-						focusSessionId={focusSessionId}
-					/>
-				)}
+				{current === "sessions" && <AdminSessionsPanel packKey={pack.key} lockPack />}
 				{current === "stats" && <AdminStatsPanel packKey={pack.key} />}
 			</Tabs>
 		</>

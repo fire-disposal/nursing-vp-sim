@@ -3,7 +3,7 @@
 数值、状态（正常/偏低/偏高/危急）与趋势一律由平台从事件流算出（`state_history` / `state_turns`），
 **不由 LLM 编**。「危急」只改视觉与音调，不是警报。
 
-`measured` / `updated_turn`（docs/23 §7.5）：这条读数在本场里**是否真的产生过**（有过效果应用）、
+`measured` / `updated_turn`（docs/scenario.md）：这条读数在本场里**是否真的产生过**（有过效果应用）、
 最近一次变化发生在哪一回合。未测量、未知、未连接**不得用 0 或初始值代替**——没测过就
 `status="unknown"`、`value=None`、`display="—"`、无趋势、无更新回合（初始值只供引擎内部判定）；
 有值才是真的测过，回合数是模拟推进近似，**不是真实分钟**。
@@ -72,7 +72,7 @@ def build_devices(pack: ScenarioPack, world: World) -> list[ScenarioDevice]:
             if len(turns) <= 1:
                 # **没测过就没有读数**：初始值只供引擎内部判定，不得投影成学生的"读数"——
                 # 否则等于在测量之前就把隐匿的危重程度（`critical` 区间）告诉学生。
-                # 状态/值/趋势/更新回合一律为空，显示 `—`（docs/23 §7.5：不得用 0 或初始值冒充）。
+                # 状态/值/趋势/更新回合一律为空，显示 `—`（docs/scenario.md：不得用 0 或初始值冒充）。
                 channels.append(
                     ScenarioDeviceChannel(
                         ref=channel.ref,

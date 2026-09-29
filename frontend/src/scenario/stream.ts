@@ -14,7 +14,7 @@ import type {
  * - 提交中那条**待定**学生消息的形状（权威消息到达后按稳定 `id` 接替）。
  *
  * 不再有：模型原始块（`blocks`）的前端镜像、按「时间点＋文案」猜同一件事、把未提交
- * 草稿当事实。视图缺什么就是还没有（`docs/23` §4.5、§7.5）。
+ * 草稿当事实。视图缺什么就是还没有（`docs/scenario.md` §4.5、§7.5）。
  */
 
 /** 一条待定（乐观）学生消息：学生刚提交、权威视图还没到的那一句。 */
@@ -27,7 +27,7 @@ export interface PendingStudentLine {
 }
 
 /**
- * SSE 阶段 → 学生能读的话（`docs/23` §7.6：只给**真实**阶段，不伪造进度、不做假轮播）。
+ * SSE 阶段 → 学生能读的话（`docs/scenario.md` §7.6：只给**真实**阶段，不伪造进度、不做假轮播）。
  *
  * 阶段名是后端契约的封闭枚举，这里只负责翻译；出现未知阶段原样透传，不自造新阶段名。
  */
@@ -46,7 +46,7 @@ export function phaseText(phase: string): string {
 	return PHASE_LABEL[phase] ?? phase;
 }
 
-/** 消息类别的可读标签：形状之外还有文字，不靠颜色／图标区分（`docs/23` §7.8）。 */
+/** 消息类别的可读标签：形状之外还有文字，不靠颜色／图标区分（`docs/scenario.md` §7.8）。 */
 export function messageKindLabel(kind: ScenarioMessage["kind"]): string {
 	switch (kind) {
 		case "speech":
@@ -105,7 +105,7 @@ export function studentDeclarationLabel(
 /**
  * 学生消息的完整读法，例如「对 2 床患者 · 行动」。
  *
- * 学生说过／尝试过什么必须能读出**对象**（`docs/23` §7.4）；没有对象的自由表达只给
+ * 学生说过／尝试过什么必须能读出**对象**（`docs/scenario.md` §7.4）；没有对象的自由表达只给
  * 「说话／行动」，平台不替他补一个最近聊天对象。
  */
 export function studentLineLabel(
@@ -126,7 +126,7 @@ export interface ScenarioTurnGroup {
 
 /**
  * 按**发生的时间单位**分组消息（升序）。视图给全量消息，前端不再只取最近五条：
- * 学生向上回看时，正在读的那一段不能被裁掉（`docs/23` §7.5）。
+ * 学生向上回看时，正在读的那一段不能被裁掉（`docs/scenario.md` §7.5）。
  * 纯交流不推进时间，所以同一时间单位里出现多条消息是正常情形。
  */
 export function groupTurns(

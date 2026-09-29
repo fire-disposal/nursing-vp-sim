@@ -1,7 +1,7 @@
 """视图投影：把世界投影成**学生可见**的东西。
 
 防泄漏是硬要求：`truth`、`hidden_from_player`、未揭示的线索、未被 HUD 声明的状态键、
-教学关注点与任何拒绝原因**一律不进视图**（docs/23 §11）。
+教学关注点与任何拒绝原因**一律不进视图**（docs/scenario.md）。
 
 消息用**稳定 id**（`m<事件序号><类别><序号>`）标识：客户端按 id 接续与去重，
 **不按文案、不猜回合**。排序按「回合 → 回合内因果序」，因此"学生尝试 → 世界回应 → 可见变化"
@@ -54,28 +54,23 @@ def _hud(pack: ScenarioPack, world: World) -> list[ScenarioHudSlot]:
     return slots
 
 
-def _nudges(pack: ScenarioPack, world: World) -> list[str]:
-    return [nudge.direction for nudge in pack.presentation.nudges if trigger_holds(pack, world, nudge.when)]
+def _asset_url(pack_key: str | None, asset_id: str) -> str | None:
+    return None if not pack_key else f"/api/scenario/assets/{pack_key}/{asset_id}"
 
 
-def _asset_url(revision_id: int | None, asset_id: str) -> str | None:
-    return None if revision_id is None else f"/api/scenario/assets/{revision_id}/{asset_id}"
-
-
-def _assets(pack: ScenarioPack, revision_id: int | None) -> list[ScenarioAsset]:
+def _assets(pack: ScenarioPack, pack_key: str | None) -> list[ScenarioAsset]:
     return [
         ScenarioAsset(
             id=asset.id,
             title=asset.title,
             alt=asset.alt,
-            suggest_when=asset.suggest_when,
-            url=_asset_url(revision_id, asset.id),
+            url=_asset_url(pack_key, asset.id),
         )
         for asset in pack.assets
     ]
 
 
-def _images(pack: ScenarioPack, world: World, revision_id: int | None) -> list[ScenarioImage]:
+def _images(pack: ScenarioPack, world: World, pack_key: str | None) -> list[ScenarioImage]:
     out: list[ScenarioImage] = []
     for image in world.images:
         asset_id = str(image.get("asset_id", ""))
@@ -83,7 +78,7 @@ def _images(pack: ScenarioPack, world: World, revision_id: int | None) -> list[S
         out.append(
             ScenarioImage(
                 asset_id=asset_id,
-                url=_asset_url(revision_id, asset_id),
+                url=_asset_url(pack_key, asset_id),
                 title=image.get("title") or (asset.title if asset else ""),
                 alt=image.get("alt") or (asset.alt if asset else ""),
                 caption=image.get("caption", ""),
@@ -355,9 +350,9 @@ def build_view(
     *,
     session_id: int,
     status: str,
-    revision_id: int | None = None,
+    pack_key: str | None = None,
+    version: int = 0,
     dims: list[dict[str, Any]] | None = None,
-    read_only: bool = False,
     trial: bool = False,
 ) -> ScenarioView:
     """学生可见的完整视图（**不含** problems / 教学关注点 / 隐藏事实）。"""
@@ -398,14 +393,13 @@ def build_view(
             turn=world.turn,
             lost=is_lost(pack, world),
             seq=world.seq,
-            read_only=read_only,
             trial=trial,
         ),
         pack=ScenarioViewPack(
             key=pack.key,
             title=pack.title,
             player_role=pack.player.role,
-            revision_id=revision_id,
+            version=version,
         ),
         situation=ScenarioSituation(
             place=pack.setting.place,
@@ -421,9 +415,8 @@ def build_view(
         free_input=True,
         timeline=_timeline(pack, world),
         dims=[ScenarioDim.model_validate(item) for item in (dims or [])],
-        nudges=_nudges(pack, world),
-        assets=_assets(pack, revision_id),
-        images=_images(pack, world, revision_id),
+        assets=_assets(pack, pack_key),
+        images=_images(pack, world, pack_key),
         board=build_board(pack, world),
         devices=build_devices(pack, world),
         panels=[panel.value for panel in pack.presentation.panels],

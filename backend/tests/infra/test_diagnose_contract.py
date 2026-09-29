@@ -150,8 +150,6 @@ def _payload(monkeypatch, *, frontend_last_5min: int) -> dict:
             "clarifications_24h": 3,
             "hints_24h": 2,
             "llm_failures_24h": 1,
-            "read_only_sessions": 5,
-            "generated_images_24h": 3,
             "rate_limited_24h": 5,
         },
         "voice": {"tts": {}},
@@ -275,8 +273,6 @@ def test_scenario_block_reports_ops_window_and_counts(monkeypatch):
         "clarifications_24h",
         "hints_24h",
         "llm_failures_24h",
-        "read_only_sessions",
-        "generated_images_24h",
         "rate_limited_24h",
     }
     assert all(
@@ -291,8 +287,6 @@ def test_scenario_block_reports_ops_window_and_counts(monkeypatch):
             "clarifications_24h",
             "hints_24h",
             "llm_failures_24h",
-            "read_only_sessions",
-            "generated_images_24h",
             "rate_limited_24h",
         )
     )
@@ -320,7 +314,6 @@ def test_scenario_zero_shape_uses_null_ratios(monkeypatch):
     assert shape["model_calls_24h"] == 0
     assert shape["avg_model_calls_per_request_24h"] is None
     assert shape["llm_failures_24h"] == 0
-    assert shape["read_only_sessions"] == 0
     assert shape["rate_limited_24h"] == 0
     assert set(shape) == set(_payload(monkeypatch, frontend_last_5min=0)["scenario"]) - {
         "scope",

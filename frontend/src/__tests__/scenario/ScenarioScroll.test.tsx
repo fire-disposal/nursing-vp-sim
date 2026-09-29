@@ -22,7 +22,7 @@ import {
 } from "./fixtures";
 
 /**
- * 对话流滚动：**新回应跟着走，但不抢学生正在读的地方**（`docs/23` §7.5/§7.6）。
+ * 对话流滚动：**新回应跟着走，但不抢学生正在读的地方**（`docs/scenario.md` §7.5/§7.6）。
  *
  * jsdom 没有排版，所以把台词流的高度量出来（`stubMetrics`），"有没有贴底"才是真断言；
  * "有新回应"入口由组件自己给，这里只按用户能看到的按钮名找它。
@@ -113,7 +113,7 @@ async function commit(harness: SseHarness, index: number, view: ScenarioView) {
 
 function baseView(): ScenarioView {
 	return makeView({
-		session: { id: 12, status: "active", turn: 1, lost: false, seq: 4, read_only: false, trial: false },
+		session: { id: 12, status: "active", turn: 1, lost: false, seq: 4, trial: false },
 	});
 }
 
@@ -162,7 +162,6 @@ function afterTurn(turn: number, reply: string): ScenarioView {
 			turn,
 			lost: false,
 			seq: 4 + turn * 2,
-			read_only: false,
 			trial: false,
 		},
 		messages,

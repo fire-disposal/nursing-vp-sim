@@ -1624,7 +1624,7 @@ export interface paths {
         };
         /**
          * List Packs
-         * @description 可用情境包（含最新修订号）。
+         * @description 可用情境包（**只列已上架**，含当前内容版本）。
          */
         get: operations["list_packs_api_scenario_packs_get"];
         put?: never;
@@ -1652,7 +1652,8 @@ export interface paths {
          * Create Session Route
          * @description 开启一次情境：DM **先立场景**（开场回合），再等学生动手。
          *
-         *     `trial=true`（固定修订试跑）额外要求 `case_manage`，并显式标记该会话。
+         *     用病例的**当前内容**开局，并把它快照进这一局（`trial=true` 的试跑额外要求 `case_manage`，
+         *     可以开还没上架的草稿，并显式标记该会话从统计默认排除）。
          */
         post: operations["create_session_route_api_scenario_sessions_post"];
         delete?: never;
@@ -1670,7 +1671,7 @@ export interface paths {
         };
         /**
          * Get Session
-         * @description 会话当前状态。**已归档（机制切换前）的旧局走归档投影，只读。**
+         * @description 会话当前状态（视图按**会话自带的内容快照**回放）。
          */
         get: operations["get_session_api_scenario_sessions__session_id__get"];
         put?: never;
@@ -1712,9 +1713,9 @@ export interface paths {
         put?: never;
         /**
          * Submit Turn Stream
-         * @description 同一回合的 SSE 传输：`phase` / `delivery`（**待提交**）/ `committed` / `error`。
+         * @description 同一回合的 SSE 传输：`phase` / `committed` / `error`。
          *
-         *     与 JSON 路径共用 `submit_turn`；这里只把阶段与待提交草稿推出去。
+         *     与 JSON 路径共用 `submit_turn`；这里只把阶段推出去。
          */
         post: operations["submit_turn_stream_api_scenario_sessions__session_id__turns_stream_post"];
         delete?: never;
@@ -1763,7 +1764,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/scenario/assets/{revision_id}/{asset_id}": {
+    "/api/scenario/assets/{pack_key}/{asset_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1774,7 +1775,7 @@ export interface paths {
          * Get Asset
          * @description 提供场景资源（pack 声明的图片）。需要登录态。
          */
-        get: operations["get_asset_api_scenario_assets__revision_id___asset_id__get"];
+        get: operations["get_asset_api_scenario_assets__pack_key___asset_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1792,13 +1793,13 @@ export interface paths {
         };
         /**
          * Admin Packs
-         * @description 管理侧：全部情境包（含修订、资源状态、关注点概览、会话数）。
+         * @description 管理侧：全部情境包（含上架状态、当前内容版本、资源状态、关注点概览、会话数）。
          */
         get: operations["admin_packs_api_scenario_admin_packs_get"];
         put?: never;
         /**
          * Admin Upload Pack
-         * @description 管理侧：上传（或覆盖）一份情境包 JSON → 追加新修订。
+         * @description 管理侧：上传（或覆盖）一份情境包 JSON → 成为当前内容（默认上架）。
          */
         post: operations["admin_upload_pack_api_scenario_admin_packs_post"];
         delete?: never;
@@ -1807,7 +1808,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/scenario/admin/packs/{pack_key}/source": {
+    "/api/scenario/admin/packs/{pack_key}/content": {
         parameters: {
             query?: never;
             header?: never;
@@ -1815,12 +1816,16 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Admin Pack Source
-         * @description 编辑器：读某一修订的**原始内容**（默认最新）。旧形状带 `legacy` 标识，编辑需显式转换。
+         * Admin Pack Content
+         * @description 编辑器：读这份病例的**当前内容**（存回去就走 POST 同一个端点）。
          */
-        get: operations["admin_pack_source_api_scenario_admin_packs__pack_key__source_get"];
+        get: operations["admin_pack_content_api_scenario_admin_packs__pack_key__content_get"];
         put?: never;
-        post?: never;
+        /**
+         * Admin Save Pack Content
+         * @description 编辑器保存：**覆盖当前内容**（内容未变则幂等，不涨 version）。
+         */
+        post: operations["admin_save_pack_content_api_scenario_admin_packs__pack_key__content_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1847,7 +1852,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/scenario/admin/packs/{pack_key}/convert": {
+    "/api/scenario/admin/packs/blank": {
         parameters: {
             query?: never;
             header?: never;
@@ -1857,20 +1862,17 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Admin Convert Pack
-         * @description 旧修订 → 当前形状草稿的**显式转换**（不静默裁剪未知字段、不宣称语义兼容）。
-         *
-         *     输入按 `pack_key + revision_id` 从库里那一版修订读内容——转换只对**真实存在的修订**做，
-         *     客户端手里的 JSON 不作为入口（否则会转换出一份与任何修订都不对应的退化草稿）。
+         * Admin New Blank Pack
+         * @description **新建空白病例**：给一个最小可运行骨架（人物 + 动作 + 线索，可直接试跑）。
          */
-        post: operations["admin_convert_pack_api_scenario_admin_packs__pack_key__convert_post"];
+        post: operations["admin_new_blank_pack_api_scenario_admin_packs_blank_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/scenario/admin/packs/{pack_key}/revisions": {
+    "/api/scenario/admin/packs/{pack_key}/duplicate": {
         parameters: {
             query?: never;
             header?: never;
@@ -1880,10 +1882,50 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Admin Save Pack Revision
-         * @description 编辑器保存：**追加新修订**（内容未变则幂等复用既有修订，不产生假修订）。
+         * Admin Duplicate Pack
+         * @description **复制这个病例**（做变式）：以源病例**当前内容**为内容，指向新 key。
          */
-        post: operations["admin_save_pack_revision_api_scenario_admin_packs__pack_key__revisions_post"];
+        post: operations["admin_duplicate_pack_api_scenario_admin_packs__pack_key__duplicate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scenario/admin/packs/{pack_key}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Publish Pack
+         * @description **上架**：学生列表可见、可开新局。校验不过不许上架（错误带字段路径）。幂等。
+         */
+        post: operations["admin_publish_pack_api_scenario_admin_packs__pack_key__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scenario/admin/packs/{pack_key}/unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Unpublish Pack
+         * @description **下架**：不再出现在学生列表、不能再开新局；**数据不动**，已进行的会话照常继续。幂等。
+         */
+        post: operations["admin_unpublish_pack_api_scenario_admin_packs__pack_key__unpublish_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1900,14 +1942,17 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Admin Delete Pack
+         * @description **删除**病例（当前内容 + 图片字节）。只在**该病例没有任何会话**时允许。
+         *
+         *     每一局都自带内容快照，删了病例老会话仍回放得出来 —— 但病例是这些会话的归属，
+         *     有记录时明确拒绝并告诉作者"可下架但不可删除"；`confirm=true` 是防手滑的服务端那一半（弹窗在前端）。
+         */
+        delete: operations["admin_delete_pack_api_scenario_admin_packs__pack_key__delete"];
         options?: never;
         head?: never;
-        /**
-         * Admin Patch Pack
-         * @description 管理侧：改包状态/标题。
-         */
-        patch: operations["admin_patch_pack_api_scenario_admin_packs__pack_key__patch"];
+        patch?: never;
         trace?: never;
     };
     "/api/scenario/admin/packs/{pack_key}/assets/{asset_id}": {
@@ -1923,10 +1968,16 @@ export interface paths {
          */
         get: operations["admin_get_asset_api_scenario_admin_packs__pack_key__assets__asset_id__get"];
         put?: never;
-        post?: never;
+        /**
+         * Admin Replace Asset
+         * @description **替换**一张场景图片：`asset_id` 不变（编辑器里的 JSON 引用不用改），只换字节与文案。
+         *
+         *     声明变了就重新保存一次内容（version +1；声明没变则幂等）。
+         */
+        post: operations["admin_replace_asset_api_scenario_admin_packs__pack_key__assets__asset_id__post"];
         /**
          * Admin Delete Asset
-         * @description 管理侧：撤下一张资源（声明从新修订移除；若已无修订引用则连字节一起删）。
+         * @description 管理侧：撤下一张资源（声明从当前内容里去掉，字节一并删除）。
          */
         delete: operations["admin_delete_asset_api_scenario_admin_packs__pack_key__assets__asset_id__delete"];
         options?: never;
@@ -1945,70 +1996,10 @@ export interface paths {
         put?: never;
         /**
          * Admin Upload Asset
-         * @description 管理侧：上传一张场景图片 → 存字节 + **追加一个声明了它的新修订**。
+         * @description 管理侧：上传一张场景图片 → 存字节 + 把声明写进当前内容。
          */
         post: operations["admin_upload_asset_api_scenario_admin_packs__pack_key__assets_post"];
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/scenario/admin/packs/{pack_key}/generated": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Admin Generated Assets
-         * @description 管理侧：某个情境包下 DM 现场生成物的清单（按 pack 过滤后分页，不含字节）。
-         */
-        get: operations["admin_generated_assets_api_scenario_admin_packs__pack_key__generated_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/scenario/admin/generated/{asset_id}/content": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Admin Generated Content
-         * @description 管理侧预览：按生成物 id 取字节。
-         */
-        get: operations["admin_generated_content_api_scenario_admin_generated__asset_id__content_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/scenario/admin/generated/{asset_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Admin Delete Generated
-         * @description 管理侧：删除一条生成物（字节随之回收）。
-         */
-        delete: operations["admin_delete_generated_api_scenario_admin_generated__asset_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2044,48 +2035,10 @@ export interface paths {
         /**
          * Admin Session Detail
          * @description 管理侧：单次会话的完整回放（视图 + 报告 + 每回合解析/结算/交付 + 关注点投影）。
+         *
+         *     视图按**这一局自带的内容快照**回放：病例今天被改成什么样都不影响历史回放。
          */
         get: operations["admin_session_detail_api_scenario_admin_sessions__session_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/scenario/admin/archives": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Admin Archives
-         * @description 管理侧：旧机制会话的归档清单（历史只读）。
-         */
-        get: operations["admin_archives_api_scenario_admin_archives_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/scenario/admin/archives/{session_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Admin Archive Detail
-         * @description 管理侧：单份归档的完整内容（视图 / 报告 / 回放 / 原始事件），**不重算、不补生成报告**。
-         */
-        get: operations["admin_archive_detail_api_scenario_admin_archives__session_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3165,6 +3118,21 @@ export interface components {
              */
             cohort_label?: string | null;
         };
+        /** Body_admin_replace_asset_api_scenario_admin_packs__pack_key__assets__asset_id__post */
+        Body_admin_replace_asset_api_scenario_admin_packs__pack_key__assets__asset_id__post: {
+            /** File */
+            file: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /**
+             * Alt
+             * @default
+             */
+            alt: string;
+        };
         /** Body_admin_upload_asset_api_scenario_admin_packs__pack_key__assets_post */
         Body_admin_upload_asset_api_scenario_admin_packs__pack_key__assets_post: {
             /** Asset Id */
@@ -3181,21 +3149,11 @@ export interface components {
              * @default
              */
             alt: string;
-            /**
-             * Suggest When
-             * @default
-             */
-            suggest_when: string;
         };
         /** Body_admin_upload_pack_api_scenario_admin_packs_post */
         Body_admin_upload_pack_api_scenario_admin_packs_post: {
             /** File */
             file: string;
-            /**
-             * Note
-             * @default
-             */
-            note: string;
         };
         /** Body_submit_feedback_api_feedback_post */
         Body_submit_feedback_api_feedback_post: {
@@ -4267,11 +4225,6 @@ export interface components {
             /** Message */
             message?: string | null;
         };
-        /**
-         * PackState
-         * @enum {string}
-         */
-        PackState: "experimental" | "reviewed";
         /** PaginatedResponse[AssignmentListItem] */
         PaginatedResponse_AssignmentListItem_: {
             /** Items */
@@ -5013,11 +4966,6 @@ export interface components {
              */
             alt: string;
             /**
-             * Suggest When
-             * @default
-             */
-            suggest_when: string;
-            /**
              * Filename
              * @default
              */
@@ -5040,13 +4988,11 @@ export interface components {
         };
         /**
          * ScenarioAdminAssetUpload
-         * @description 上传一张场景图片的结果（上传即追加一个新修订）。
+         * @description 上传一张场景图片的结果（内容里补上声明 → 当前内容版本 +1）。
          */
         ScenarioAdminAssetUpload: {
             /** Key */
             key: string;
-            /** Revision No */
-            revision_no: number;
             asset: components["schemas"]["ScenarioAdminAsset"];
         };
         /** ScenarioAdminEvent */
@@ -5146,11 +5092,6 @@ export interface components {
              * @default recoverable
              */
             failure: string;
-            /**
-             * Image Generation
-             * @default disabled
-             */
-            image_generation: string;
         };
         /** ScenarioAdminPack */
         ScenarioAdminPack: {
@@ -5158,19 +5099,23 @@ export interface components {
             key: string;
             /** Title */
             title: string;
-            /** State */
-            state: string;
             /**
              * One Line
              * @default
              */
             one_line: string;
-            /** Revision Id */
-            revision_id?: number | null;
-            /** Revision No */
-            revision_no?: number | null;
-            /** Revisions */
-            revisions?: components["schemas"]["ScenarioAdminRevision"][];
+            /**
+             * Version
+             * @default 0
+             */
+            version: number;
+            /**
+             * Published
+             * @default false
+             */
+            published: boolean;
+            /** Published At */
+            published_at?: string | null;
             /** Assets */
             assets?: components["schemas"]["ScenarioAdminAsset"][];
             overview?: components["schemas"]["ScenarioAdminOverview"] | null;
@@ -5180,111 +5125,29 @@ export interface components {
              */
             sessions: number;
         };
-        /**
-         * ScenarioAdminPackConvert
-         * @description 旧修订 → 当前形状草稿的**显式**转换结果（不静默裁剪、不宣称语义兼容）。
-         */
-        ScenarioAdminPackConvert: {
-            /** Content */
-            content?: {
-                [key: string]: unknown;
-            };
-            /** Notes */
-            notes?: string[];
-            /** Problems */
-            problems?: components["schemas"]["ScenarioPackProblem"][];
-            /**
-             * From Schema Version
-             * @default 0
-             */
-            from_schema_version: number;
-            /**
-             * To Schema Version
-             * @default 0
-             */
-            to_schema_version: number;
-        };
-        /** ScenarioAdminPackSource */
-        ScenarioAdminPackSource: {
+        /** ScenarioAdminPackDelete */
+        ScenarioAdminPackDelete: {
             /** Key */
             key: string;
-            /** Title */
-            title: string;
-            /** State */
-            state: string;
-            /** Revision Id */
-            revision_id: number;
-            /** Revision No */
-            revision_no: number;
-            /**
-             * Note
-             * @default
-             */
-            note: string;
-            /** Content */
-            content?: {
-                [key: string]: unknown;
-            };
-            /** Problems */
-            problems?: components["schemas"]["ScenarioPackProblem"][];
-            /** Revisions */
-            revisions?: components["schemas"]["ScenarioAdminRevision"][];
-            /**
-             * Schema Version
-             * @default 0
-             */
-            schema_version: number;
-            /**
-             * Current Schema Version
-             * @default 0
-             */
-            current_schema_version: number;
-            /**
-             * Compatible
-             * @default true
-             */
-            compatible: boolean;
-            /**
-             * Legacy
-             * @default false
-             */
-            legacy: boolean;
+            /** Deleted Assets */
+            deleted_assets: number;
         };
         /** ScenarioAdminPackUpload */
         ScenarioAdminPackUpload: {
             /** Key */
             key: string;
-            /** Revision Id */
-            revision_id: number;
-            /** Revision No */
-            revision_no: number;
+            /** Version */
+            version: number;
             /** Created */
             created: boolean;
             /** Assets Pending */
             assets_pending?: string[];
-        };
-        /** ScenarioAdminRevision */
-        ScenarioAdminRevision: {
-            /** Id */
-            id: number;
-            /** No */
-            no: number;
-            /**
-             * Note
-             * @default
-             */
-            note: string;
         };
         /** ScenarioAdminSessionDetail */
         ScenarioAdminSessionDetail: {
             session: components["schemas"]["ScenarioAdminSessionRow"];
             view: components["schemas"]["ScenarioView"];
             report?: components["schemas"]["ScenarioReport"] | null;
-            /**
-             * Archived
-             * @default false
-             */
-            archived: boolean;
             /** Problems */
             problems?: string[];
             /** Focus */
@@ -5316,8 +5179,8 @@ export interface components {
             pack_key: string;
             /** Pack Title */
             pack_title: string;
-            /** Pack Revision Id */
-            pack_revision_id: number;
+            /** Pack Version */
+            pack_version: number;
             /** Status */
             status: string;
             /** Turn */
@@ -5328,11 +5191,6 @@ export interface components {
             summary?: {
                 [key: string]: number;
             } | null;
-            /**
-             * Read Only
-             * @default false
-             */
-            read_only: boolean;
             /**
              * Trial
              * @default false
@@ -5457,88 +5315,6 @@ export interface components {
              */
             label: string;
         };
-        /** ScenarioArchiveDetail */
-        ScenarioArchiveDetail: {
-            summary: components["schemas"]["ScenarioArchiveSummary"];
-            view: components["schemas"]["ScenarioView"];
-            report?: components["schemas"]["ScenarioReport"] | null;
-            /** Legacy Report */
-            legacy_report?: {
-                [key: string]: unknown;
-            } | null;
-            /** Focus */
-            focus?: components["schemas"]["ScenarioAdminFocusTurn"][];
-            /** Turns */
-            turns?: components["schemas"]["ScenarioAdminTurnReplay"][];
-            raw?: components["schemas"]["ScenarioArchiveRaw"];
-        };
-        /** ScenarioArchiveList */
-        ScenarioArchiveList: {
-            /** Total */
-            total: number;
-            /** Items */
-            items?: components["schemas"]["ScenarioArchiveSummary"][];
-        };
-        /** ScenarioArchiveRaw */
-        ScenarioArchiveRaw: {
-            /** Events */
-            events?: components["schemas"]["ScenarioAdminEvent"][];
-            /** Pack Revision */
-            pack_revision?: {
-                [key: string]: unknown;
-            };
-        };
-        /** ScenarioArchiveRef */
-        ScenarioArchiveRef: {
-            /** Archived At */
-            archived_at?: string | null;
-            /**
-             * Shape Version
-             * @default 1
-             */
-            shape_version: number;
-            /**
-             * Ended Reason
-             * @default
-             */
-            ended_reason: string;
-        };
-        /** ScenarioArchiveSummary */
-        ScenarioArchiveSummary: {
-            /** Session Id */
-            session_id: number;
-            /** Pack Key */
-            pack_key: string;
-            /** Pack Revision Id */
-            pack_revision_id: number;
-            /**
-             * Shape Version
-             * @default 1
-             */
-            shape_version: number;
-            /** Archived At */
-            archived_at?: string | null;
-            /**
-             * Status
-             * @default completed
-             */
-            status: string;
-            /**
-             * Turn
-             * @default 0
-             */
-            turn: number;
-            /**
-             * Ended Reason
-             * @default
-             */
-            ended_reason: string;
-            /**
-             * Has Report
-             * @default false
-             */
-            has_report: boolean;
-        };
         /**
          * ScenarioAssessment
          * @description 判读与分数：**次级区域**，明确是场景规则反馈，不冒充能力判定。
@@ -5568,11 +5344,6 @@ export interface components {
              * @default
              */
             alt: string;
-            /**
-             * Suggest When
-             * @default
-             */
-            suggest_when: string;
             /** Url */
             url?: string | null;
         };
@@ -5762,54 +5533,6 @@ export interface components {
             /** Current Seq */
             current_seq?: number | null;
         };
-        /** ScenarioGeneratedAsset */
-        ScenarioGeneratedAsset: {
-            /** Id */
-            id: number;
-            /** Session Id */
-            session_id: number;
-            /** Pack Key */
-            pack_key: string;
-            /** Pack Revision Id */
-            pack_revision_id: number;
-            /**
-             * Kind
-             * @default image
-             */
-            kind: string;
-            /**
-             * Prompt
-             * @default
-             */
-            prompt: string;
-            /**
-             * Mime Type
-             * @default
-             */
-            mime_type: string;
-            /**
-             * File Size
-             * @default 0
-             */
-            file_size: number;
-            /**
-             * Sha256
-             * @default
-             */
-            sha256: string;
-            /** Created At */
-            created_at?: string | null;
-        };
-        /** ScenarioGeneratedList */
-        ScenarioGeneratedList: {
-            /** Items */
-            items?: components["schemas"]["ScenarioGeneratedAsset"][];
-            /**
-             * Total
-             * @default 0
-             */
-            total: number;
-        };
         /** ScenarioHudSlot */
         ScenarioHudSlot: {
             /** Slot */
@@ -5912,12 +5635,20 @@ export interface components {
             /** Sources */
             sources?: string[];
         };
+        /**
+         * ScenarioNewPackRequest
+         * @description 新建（空白骨架）或复制一个病例：只给身份字段，内容由平台生成/拷贝。
+         */
+        ScenarioNewPackRequest: {
+            /** Key */
+            key: string;
+            /** Title */
+            title: string;
+        };
         /** ScenarioOpenSessionRequest */
         ScenarioOpenSessionRequest: {
             /** Pack Key */
             pack_key?: string | null;
-            /** Revision Id */
-            revision_id?: number | null;
             /**
              * Trial
              * @default false
@@ -5930,7 +5661,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "lost" | "ended_by_student" | "cutover";
+            status: "lost" | "ended_by_student";
             /**
              * Reason
              * @default
@@ -5945,6 +5676,44 @@ export interface components {
             lost: boolean;
         };
         /**
+         * ScenarioPackContent
+         * @description **当前内容**（编辑器读/存共用一份响应）：读给内容，存回新版本与遗留问题。
+         */
+        ScenarioPackContent: {
+            /** Key */
+            key: string;
+            /** Title */
+            title: string;
+            /**
+             * One Line
+             * @default
+             */
+            one_line: string;
+            /**
+             * Version
+             * @default 0
+             */
+            version: number;
+            /**
+             * Published
+             * @default false
+             */
+            published: boolean;
+            /** Published At */
+            published_at?: string | null;
+            /** Content */
+            content?: {
+                [key: string]: unknown;
+            };
+            /** Problems */
+            problems?: components["schemas"]["ScenarioPackProblem"][];
+            /**
+             * Changed
+             * @default false
+             */
+            changed: boolean;
+        };
+        /**
          * ScenarioPackContentRequest
          * @description 编辑器提交的完整 pack 内容（原始 dict；形状由**加载期同一套校验**负责）。
          */
@@ -5953,30 +5722,6 @@ export interface components {
             content?: {
                 [key: string]: unknown;
             };
-            /**
-             * Note
-             * @default
-             */
-            note: string;
-        };
-        /**
-         * ScenarioPackConvertRequest
-         * @description 把**某个历史修订**转成当前形状草稿：只认 `revision_id`（服务端读那一版内容转换）。
-         *
-         *     没有"直接 POST content"这条入口——转换的输入必须是**库里真实存在的那一版**，
-         *     否则编辑器会拿到一份与任何修订都不对应的退化草稿（前端 helper 一直只发 `revision_id`）。
-         */
-        ScenarioPackConvertRequest: {
-            /** Revision Id */
-            revision_id: number;
-        };
-        /** ScenarioPackPatchRequest */
-        ScenarioPackPatchRequest: {
-            state?: components["schemas"]["PackState"] | null;
-            /** Title */
-            title?: string | null;
-            /** One Line */
-            one_line?: string | null;
         };
         /** ScenarioPackProblem */
         ScenarioPackProblem: {
@@ -5994,14 +5739,23 @@ export interface components {
             key: string;
             /** Title */
             title: string;
-            /** State */
-            state: string;
-            /** One Line */
+            /**
+             * One Line
+             * @default
+             */
             one_line: string;
-            /** Revision Id */
-            revision_id?: number | null;
-            /** Revision No */
-            revision_no?: number | null;
+            /**
+             * Version
+             * @default 0
+             */
+            version: number;
+            /**
+             * Published
+             * @default false
+             */
+            published: boolean;
+            /** Published At */
+            published_at?: string | null;
             /**
              * Player Role
              * @default
@@ -6013,7 +5767,10 @@ export interface components {
              */
             place: string;
         };
-        /** ScenarioPackValidation */
+        /**
+         * ScenarioPackValidation
+         * @description 保存前校验的结果；`will_change` = 这次保存会不会让 version +1。
+         */
         ScenarioPackValidation: {
             /** Ok */
             ok: boolean;
@@ -6024,17 +5781,15 @@ export interface components {
             /** Latest Sha */
             latest_sha?: string | null;
             /**
-             * Will Append
+             * Will Change
              * @default false
              */
-            will_append: boolean;
-            /** Next Revision No */
-            next_revision_no?: number | null;
+            will_change: boolean;
             /**
-             * Pack Schema Version
+             * Version
              * @default 0
              */
-            pack_schema_version: number;
+            version: number;
         };
         /** ScenarioReport */
         ScenarioReport: {
@@ -6116,8 +5871,8 @@ export interface components {
             pack_key: string;
             /** Pack Title */
             pack_title: string;
-            /** Pack Revision Id */
-            pack_revision_id: number;
+            /** Pack Version */
+            pack_version: number;
             /** Status */
             status: string;
             /** Turn */
@@ -6128,11 +5883,6 @@ export interface components {
             summary?: {
                 [key: string]: number;
             } | null;
-            /**
-             * Read Only
-             * @default false
-             */
-            read_only: boolean;
             /**
              * Trial
              * @default false
@@ -6150,17 +5900,7 @@ export interface components {
             /** Status */
             status: string;
             report?: components["schemas"]["ScenarioReport"] | null;
-            /** Legacy Report */
-            legacy_report?: {
-                [key: string]: unknown;
-            } | null;
             view: components["schemas"]["ScenarioView"];
-            /**
-             * Read Only
-             * @default false
-             */
-            read_only: boolean;
-            archive?: components["schemas"]["ScenarioArchiveRef"] | null;
         };
         /** ScenarioSituation */
         ScenarioSituation: {
@@ -6188,17 +5928,6 @@ export interface components {
             /** Seq */
             seq: number;
             result: components["schemas"]["ScenarioTurnResult"];
-        };
-        /** ScenarioSseDelivery */
-        ScenarioSseDelivery: {
-            /** Request Id */
-            request_id: string;
-            /**
-             * Pending
-             * @default true
-             */
-            pending: boolean;
-            delivery: components["schemas"]["SceneDelivery"];
         };
         /** ScenarioSseError */
         ScenarioSseError: {
@@ -6310,8 +6039,6 @@ export interface components {
             timeline?: components["schemas"]["ScenarioTimelineEntry"][];
             /** Dims */
             dims?: components["schemas"]["ScenarioDim"][];
-            /** Nudges */
-            nudges?: string[];
             /** Assets */
             assets?: components["schemas"]["ScenarioAsset"][];
             /** Images */
@@ -6333,8 +6060,11 @@ export interface components {
              * @default
              */
             player_role: string;
-            /** Revision Id */
-            revision_id?: number | null;
+            /**
+             * Version
+             * @default 0
+             */
+            version: number;
         };
         /** ScenarioViewSession */
         ScenarioViewSession: {
@@ -6355,11 +6085,6 @@ export interface components {
              */
             seq: number;
             /**
-             * Read Only
-             * @default false
-             */
-            read_only: boolean;
-            /**
              * Trial
              * @default false
              */
@@ -6367,7 +6092,7 @@ export interface components {
         };
         /**
          * SceneDelivery
-         * @description 演出阶段的输出。**没有** effects / reveals / facts / notes / 委派字段（docs/23 §4.4）。
+         * @description 演出阶段的输出。**没有** effects / reveals / facts / notes / 委派字段（docs/scenario.md）。
          */
         SceneDelivery: {
             /** Messages */
@@ -7001,7 +6726,7 @@ export interface components {
         TargetKind: "actor" | "device" | "scene";
         /**
          * TargetRef
-         * @description 类型化目标引用：**永远带 kind**，不靠裸 id 跨命名空间匹配（docs/23 §4.2）。
+         * @description 类型化目标引用：**永远带 kind**，不靠裸 id 跨命名空间匹配（docs/scenario.md）。
          *
          *     加载期另外禁止 actor/device/scene 三个命名空间出现重复 id——两层一起兜住类型碰撞。
          */
@@ -11549,7 +11274,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ScenarioSsePhase"] | components["schemas"]["ScenarioSseDelivery"] | components["schemas"]["ScenarioSseCommitted"] | components["schemas"]["ScenarioSseError"];
+                    "application/json": components["schemas"]["ScenarioSsePhase"] | components["schemas"]["ScenarioSseCommitted"] | components["schemas"]["ScenarioSseError"];
                     "text/event-stream": unknown;
                 };
             };
@@ -11631,12 +11356,12 @@ export interface operations {
             };
         };
     };
-    get_asset_api_scenario_assets__revision_id___asset_id__get: {
+    get_asset_api_scenario_assets__pack_key___asset_id__get: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                revision_id: number;
+                pack_key: string;
                 asset_id: string;
             };
             cookie?: never;
@@ -11716,11 +11441,9 @@ export interface operations {
             };
         };
     };
-    admin_pack_source_api_scenario_admin_packs__pack_key__source_get: {
+    admin_pack_content_api_scenario_admin_packs__pack_key__content_get: {
         parameters: {
-            query?: {
-                revision_id?: number | null;
-            };
+            query?: never;
             header?: never;
             path: {
                 pack_key: string;
@@ -11735,7 +11458,42 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ScenarioAdminPackSource"];
+                    "application/json": components["schemas"]["ScenarioPackContent"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_save_pack_content_api_scenario_admin_packs__pack_key__content_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pack_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScenarioPackContentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScenarioPackContent"];
                 };
             };
             /** @description Validation Error */
@@ -11784,53 +11542,16 @@ export interface operations {
             };
         };
     };
-    admin_convert_pack_api_scenario_admin_packs__pack_key__convert_post: {
+    admin_new_blank_pack_api_scenario_admin_packs_blank_post: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                pack_key: string;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ScenarioPackConvertRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScenarioAdminPackConvert"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    admin_save_pack_revision_api_scenario_admin_packs__pack_key__revisions_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                pack_key: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ScenarioPackContentRequest"];
+                "application/json": components["schemas"]["ScenarioNewPackRequest"];
             };
         };
         responses: {
@@ -11854,7 +11575,7 @@ export interface operations {
             };
         };
     };
-    admin_patch_pack_api_scenario_admin_packs__pack_key__patch: {
+    admin_duplicate_pack_api_scenario_admin_packs__pack_key__duplicate_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -11865,7 +11586,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ScenarioPackPatchRequest"];
+                "application/json": components["schemas"]["ScenarioNewPackRequest"];
             };
         };
         responses: {
@@ -11875,9 +11596,102 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ScenarioAdminPackUpload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_publish_pack_api_scenario_admin_packs__pack_key__publish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pack_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScenarioAdminPack"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_unpublish_pack_api_scenario_admin_packs__pack_key__unpublish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pack_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScenarioAdminPack"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_delete_pack_api_scenario_admin_packs__pack_key__delete: {
+        parameters: {
+            query?: {
+                confirm?: boolean;
+            };
+            header?: never;
+            path: {
+                pack_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScenarioAdminPackDelete"];
                 };
             };
             /** @description Validation Error */
@@ -11910,6 +11724,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_replace_asset_api_scenario_admin_packs__pack_key__assets__asset_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pack_key: string;
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_admin_replace_asset_api_scenario_admin_packs__pack_key__assets__asset_id__post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScenarioAdminAssetUpload"];
                 };
             };
             /** @description Validation Error */
@@ -11992,105 +11842,6 @@ export interface operations {
             };
         };
     };
-    admin_generated_assets_api_scenario_admin_packs__pack_key__generated_get: {
-        parameters: {
-            query?: {
-                session_id?: number | null;
-                limit?: number;
-                offset?: number;
-            };
-            header?: never;
-            path: {
-                pack_key: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScenarioGeneratedList"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    admin_generated_content_api_scenario_admin_generated__asset_id__content_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                asset_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    admin_delete_generated_api_scenario_admin_generated__asset_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                asset_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     admin_sessions_api_scenario_admin_sessions_get: {
         parameters: {
             query?: {
@@ -12143,70 +11894,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScenarioAdminSessionDetail"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    admin_archives_api_scenario_admin_archives_get: {
-        parameters: {
-            query?: {
-                pack_key?: string | null;
-                limit?: number;
-                offset?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScenarioArchiveList"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    admin_archive_detail_api_scenario_admin_archives__session_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                session_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScenarioArchiveDetail"];
                 };
             };
             /** @description Validation Error */

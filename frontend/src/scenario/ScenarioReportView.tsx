@@ -20,7 +20,6 @@ export function tierLabel(anchor: string): string {
 const OUTCOME_LABEL: Record<string, string> = {
 	lost: "已达到不可逆结局",
 	ended_by_student: "你主动结束了本次情境",
-	cutover: "机制切换，本局已封存",
 };
 
 /**
@@ -29,20 +28,16 @@ const OUTCOME_LABEL: Record<string, string> = {
  * 顺序是：结局与处境 → 关键时刻（原话与证据）→ 值得再想的一处决策 → 全部经历 →
  * 判读详情（次级、折叠）。分数不再占据首屏，也不冒充能力诊断；没有证据就不声称因果。
  *
- * 旧机制会话的报告**不能套新形状**：`legacy_report` 是原样留档的旧报告，
- * 这里只读地展开它，不重算、不改写、不补生成（`docs/23` §9.1）。
+ * 没有报告就说没有结算，绝不替它补生成一份（`docs/23` §9.1）。
  */
 export default function ScenarioReportView({
 	report,
-	legacyReport = null,
 	view,
 	actions,
 	showWeights = false,
 }: {
-	/** 新形状报告；旧机制会话为 `null`（见 `legacyReport`）。 */
+	/** 结算报告；未结算为 `null`。 */
 	report: ScenarioReport | null;
-	/** 切换前会话的原报告：**原样留档**，只读展示。 */
-	legacyReport?: Record<string, unknown> | null;
 	view: ScenarioView;
 	actions: React.ReactNode;
 	/** 管理侧回放：显示权重与数值明细（学生侧恒为 false）。 */
@@ -57,25 +52,11 @@ export default function ScenarioReportView({
 			<div className="sc-report">
 				<div className="sc-report-head">
 					<div className="sc-report-title">{view.pack.title}</div>
-					<div className="sc-report-sub">
-						{legacyReport !== null ? "机制切换前的本局记录" : "本局未结算"}
-					</div>
+					<div className="sc-report-sub">本局没有结算</div>
 				</div>
-				{legacyReport === null ? (
-					<div className="sc-empty">
-						这一局没有留下结算。已有对话与资料仍可回看。
-					</div>
-				) : (
-					<section className="sc-legacy" aria-label="旧机制原报告（原样留档）">
-						<div className="sc-panel-head">
-							<span>机制切换前的原报告</span>
-							<span>原样留档 · 未重算</span>
-						</div>
-						<pre className="sc-legacy-json">
-							{JSON.stringify(legacyReport, null, 2)}
-						</pre>
-					</section>
-				)}
+				<div className="sc-empty">
+					这一局没有留下结算。已有对话与资料仍可回看。
+				</div>
 				<div className="sc-report-actions">{actions}</div>
 			</div>
 		);

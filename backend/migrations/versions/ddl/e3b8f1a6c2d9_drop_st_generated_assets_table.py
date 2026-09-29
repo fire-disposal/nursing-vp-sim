@@ -1,30 +1,48 @@
-"""create_st_generated_assets_table
+"""drop st_generated_assets —— 绘画 AI / 生成物链退役收尾
 
-情境训练（experimental，docs/scenario.md）的 **DM 现场生成物**表：会话里按需生成的图片字节。
+用户已裁定放弃「绘画者 AI」功能：`ImageProvider` / `store_generated_asset` /
+管理侧三个 `/admin/generated*` 端点 / ops 指标 `generated_images_24h` 全部删除，
+`st_generated_assets` 因此不再有任何写入者，本迁移把该表（含 4 个索引与去重唯一约束）
+一并删除。历史建表迁移（``b7d0e2f4a6c8``）保持原样，以维持 alembic 链完整。
 
-与 `st_assets` 同构（`LargeBinary` 存字节、运行时不依赖文件系统），但属于**一次会话**：
-`session_id` / `pack_revision_id` 与其余 `st_*` 一样只存整数标识、不加外键（隔离红线，docs/scenario.md）。
-去重口径：同一会话内同一份字节只留一行（`uq_st_generated_assets_session_sha`）。
-本次改造同时**删掉磁盘缓存**（`SCENARIO_IMAGE_CACHE_DIR`）：库里一行 = 一张图，删除即回收。
+**保留**的图片链路是另一回事：pack 声明的资源走 ``st_assets``（上传 / 展示 / `present`），
+与本表无关，不受本迁移影响。
 
-Revision ID: b7d0e2f4a6c8
-Revises: c9d0e1f2a3b4
-Create Date: 2026-09-27
+``upgrade`` 带存在性守卫，重复执行或库中本就无表都不会报错。``downgrade`` 按退役时的
+表形状（``b7d0e2f4a6c8``）重建空表，同样带守卫。
 
+Revision ID: e3b8f1a6c2d9
+Revises: c7e1a9b3d5f2
+Create Date: 2026-09-29
 """
 
 from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy import inspect
 
-revision: str = "b7d0e2f4a6c8"
-down_revision: str | Sequence[str] | None = "c9d0e1f2a3b4"
+revision: str = "e3b8f1a6c2d9"
+down_revision: str | Sequence[str] | None = "c7e1a9b3d5f2"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    insp = inspect(op.get_bind())
+    if "st_generated_assets" not in insp.get_table_names():
+        return
+    # `drop_table` 连带删掉表上的索引与约束，**不要**先逐个 `drop_index`：
+    # `inspect().get_indexes()` 也会列出唯一约束背后的索引，单独 DROP 会被 PostgreSQL 拒绝
+    # （`DependentObjectsStillExist: cannot drop index … because constraint … requires it`），
+    # 于是整条 `alembic upgrade head` 在全新库上直接失败（CI 的 base→head 往返就是这么炸的）。
+    op.drop_table("st_generated_assets")
+
+
+def downgrade() -> None:
+    insp = inspect(op.get_bind())
+    if "st_generated_assets" in insp.get_table_names():
+        return
     op.create_table(
         "st_generated_assets",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
@@ -50,10 +68,3 @@ def upgrade() -> None:
     op.create_index("ix_st_generated_assets_session", "st_generated_assets", ["session_id"], unique=False)
     op.create_index("ix_st_generated_assets_pack", "st_generated_assets", ["pack_key"], unique=False)
     op.create_index("ix_st_generated_assets_kind_sha", "st_generated_assets", ["kind", "sha256"], unique=False)
-
-
-def downgrade() -> None:
-    op.drop_index("ix_st_generated_assets_kind_sha", table_name="st_generated_assets")
-    op.drop_index("ix_st_generated_assets_pack", table_name="st_generated_assets")
-    op.drop_index("ix_st_generated_assets_session", table_name="st_generated_assets")
-    op.drop_table("st_generated_assets")

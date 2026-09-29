@@ -154,7 +154,6 @@ function ScenarioCard({ data }: { data: DiagnoseResponse }) {
 		["开局 (24h)", s?.opened_24h ?? 0],
 		["进行中", s?.active ?? 0],
 		["已结束", s?.completed ?? 0],
-		["只读/归档会话", s?.read_only_sessions ?? 0],
 		["请求 (24h)", s?.requests_24h ?? 0],
 		["时间单位 (24h)", s?.time_cost_24h ?? 0],
 		["时间单位/请求", s?.avg_time_cost_per_request_24h ?? "—"],
@@ -163,7 +162,6 @@ function ScenarioCard({ data }: { data: DiagnoseResponse }) {
 		["澄清 (24h)", s?.clarifications_24h ?? 0],
 		["提示 (24h)", s?.hints_24h ?? 0],
 		["DM 失败 (24h)", s?.llm_failures_24h ?? 0],
-		["生成图 (24h)", s?.generated_images_24h ?? 0],
 		["限流命中 (24h)", s?.rate_limited_24h ?? 0],
 	];
 	return (

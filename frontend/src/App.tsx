@@ -37,9 +37,6 @@ const queryClient = new QueryClient({
 const Login = lazy(() => import("@/pages/Login"));
 const Showcase = lazy(() => import("@/showcase/ShowcasePage"));
 const FaceLab = lazy(() => import("@/pages/face-lab/FaceLabPage"));
-// 临床推理模拟：运行期已下线（docs/18 冻结；2026-09-28 关闭入口与路由），代码保留在
-// frontend/src/simulations/**（组件与单测原样保留，仅不再挂到路由）。
-// const SimulationConsole = lazy(() => import("@/simulations/SimulationConsole"));
 
 function ForceLogoutListener() {
 	const navigate = useNavigate();
@@ -90,11 +87,6 @@ export default function App() {
 									<Route path="/login" element={<Login />} />
 									<Route path="/showcase" element={<Showcase />} />
 									<Route path="/face-demo" element={<FaceLab />} />
-									{/* 临床推理模拟：运行期已下线（docs/18 冻结扩展、运行期暴露关闭；2026-09-28
-									    移除登录页入口 + 注释本路由与后端注册），代码保留在
-									    frontend/src/simulations/** 与 backend/modules/simulations/**。
-									<Route path="/simulation" element={<SimulationConsole />} />
-									*/}
 									<Route element={<ProtectedRoute />}>
 										<Route element={<Layout />}>
 											<Route index element={<Navigate to="/training" replace />} />

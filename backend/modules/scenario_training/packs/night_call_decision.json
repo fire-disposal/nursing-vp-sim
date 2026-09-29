@@ -1,17 +1,9 @@
 {
-  "pack_schema_version": 3,
   "key": "night-call-decision",
   "title": "夜班电话：用几项数据决定下一步",
-  "state": "experimental",
   "one_line": "凌晨 02:10，值班室电话把你叫醒——病区护士在电话那头等你下决定。",
   "player": {
-    "role": "值班医生",
-    "can": [
-      "ask",
-      "act",
-      "document",
-      "summon"
-    ]
+    "role": "值班医生"
   },
   "setting": {
     "place": "值班室",
@@ -129,9 +121,6 @@
           "value": 1
         }
       ],
-      "perceptible_by": [
-        "nurse"
-      ],
       "targets": [
         {
           "kind": "actor",
@@ -145,9 +134,6 @@
       "label": "问腹部体征与疼痛部位",
       "reveals": [
         "c_abdomen"
-      ],
-      "perceptible_by": [
-        "nurse"
       ],
       "targets": [
         {
@@ -163,9 +149,6 @@
       "reveals": [
         "c_urine"
       ],
-      "perceptible_by": [
-        "nurse"
-      ],
       "targets": [
         {
           "kind": "actor",
@@ -179,9 +162,6 @@
       "label": "问既往史与近期进食",
       "reveals": [
         "c_history"
-      ],
-      "perceptible_by": [
-        "nurse"
       ],
       "targets": [
         {
@@ -232,9 +212,6 @@
           "value": 4.2
         }
       ],
-      "perceptible_by": [
-        "nurse"
-      ],
       "targets": [
         {
           "kind": "actor",
@@ -255,9 +232,6 @@
           "value": 1
         }
       ],
-      "perceptible_by": [
-        "nurse"
-      ],
       "targets": [
         {
           "kind": "actor",
@@ -277,9 +251,6 @@
           "op": "incr",
           "value": 2
         }
-      ],
-      "perceptible_by": [
-        "nurse"
       ],
       "targets": [
         {
@@ -617,20 +588,6 @@
         "title": "已下医嘱",
         "source": "action"
       }
-    ],
-    "nudges": [
-      {
-        "when": {
-          "all": [
-            {
-              "kind": "turns_without_action",
-              "affordance_id": "order_tests",
-              "turns": 2
-            }
-          ]
-        },
-        "direction": "先要齐能改变判断的证据"
-      }
     ]
   },
   "failure": "recoverable",
@@ -638,7 +595,6 @@
     "患者不在你的视野内",
     "你只能通过电话决策"
   ],
-  "image_generation": "disabled",
   "rubric": [
     {
       "id": "dp_gather",

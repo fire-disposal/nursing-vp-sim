@@ -1,8 +1,7 @@
 import { Alert, Loader, SegmentedControl, Stack, Tabs, Text } from "@mantine/core";
-import { IconAlertTriangle, IconArchive, IconChartBar, IconPackages } from "@tabler/icons-react";
+import { IconAlertTriangle, IconChartBar, IconFolderOpen } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
-import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
 import { queryKeys } from "@/api/query-keys";
@@ -14,7 +13,6 @@ import { getApiErrorMessage } from "@/utils/error";
 // 管理侧回放复用学生侧的场景/舞台组件（`sc-*` 类），样式只有这一份来源。
 // 不引进来时，这些类在 `/scenario-admin` 直接访问（不经由 /scenario）会整片失样式。
 import "../scenario.css";
-import AdminArchivesPanel from "./AdminArchivesPanel";
 import AdminCaseListPanel from "./AdminCaseListPanel";
 import AdminCaseWorkspace, {
 	type CaseBlock,
@@ -27,24 +25,23 @@ import AdminStatsPanel from "./AdminStatsPanel";
 type Area = "cases" | "data";
 
 /**
- * 「会话 / 统计 / 归档」区的分块（跨病例视图，按病例筛选是可选项，不是前提）。
+ * 「会话 / 统计」区的分块（跨病例视图，按病例筛选是可选项，不是前提）。
  *
  * 与病例工作区的分块词表**分开**：这里的分块权限都是 `stats_view`（与后端 `/admin/**`
- * 数据面的 `_DataViewer` 依赖逐字一致：`/admin/sessions`、`/admin/stats`、`/admin/archives`）。
- * 「归档」因此不是病例工作区的块，也不会出现在工作区页签里。
+ * 数据面的 `_DataViewer` 依赖逐字一致：`/admin/sessions`、`/admin/stats`）。
  */
-type DataBlock = "sessions" | "stats" | "archives";
-const DATA_BLOCKS: DataBlock[] = ["sessions", "stats", "archives"];
+type DataBlock = "sessions" | "stats";
+const DATA_BLOCKS: DataBlock[] = ["sessions", "stats"];
 
 /**
- * 情境训练 · 管理侧 —— 隐藏路由 `/scenario-admin`，不出现在导航。
+ * 病例管理 —— 隐藏路由 `/scenario-admin`，不出现在导航。
  *
  * ── 结构（2026-09-28 重做）────────────────────────────────────────────
  * 顶层只有两个区，**按作用域分**，不再把"按病例"和"全局"摊平成五个平铺页签：
  *
- * - **病例**：病例列表 → 每个病例一个**工作区**（概览 / 修订 / 资源 / 生成物 / 会话 / 统计）。
- *   病例只有一处选择：工作区头部那一个（写进地址栏 `?case=`）。资源里选过谁、
- *   生成物里翻到第几页、会话里展开过谁，都在同一个病例上——不存在"切页签选择就没了"。
+ * - **病例**：病例列表 → 每个病例一个**工作区**（概览 / 编辑 / 图片 / 会话 / 统计）。
+ *   病例只有一处选择：工作区头部那一个（写进地址栏 `?case=`）。图片里选过谁、
+ *   会话里展开过谁，都在同一个病例上——不存在"切页签选择就没了"。
  * - **会话 / 统计**：跨病例视图（会话列表带**可选**的病例筛选；统计是全局汇总）。
  *
  * 权限口径不变：内容用 `case_manage`、数据用 `stats_view`。两者都缺 → 403 页；
@@ -59,8 +56,6 @@ export default function ScenarioAdminPage() {
 	const canContent = permissions.includes("case_manage");
 	const canData = permissions.includes("stats_view");
 	const [searchParams, setSearchParams] = useSearchParams();
-	/** 从「生成物」点会话号跳进「会话」块时带着的那一次会话（块内据此自动展开）。 */
-	const [focusSession, setFocusSession] = useState<number | null>(null);
 
 	/**
 	 * 病例清单**只有这一份**（页面级）：工作区的每个块都从这里拿病例，
@@ -78,12 +73,12 @@ export default function ScenarioAdminPage() {
 		return (
 			<>
 				<PageHeader
-					title="情境训练 · 管理"
-					subtitle="情境包、资源与情境数据"
-					icon={IconPackages}
+					title="病例管理"
+					subtitle="病例、图片与情境数据"
+					icon={IconFolderOpen}
 				/>
 				<Text size="sm" c="dimmed" mb="xs">
-					这个页面需要「病例内容管理」或「数据查看」权限：前者管情境包与图片，后者看会话与统计。
+					这个页面需要「病例内容管理」或「数据查看」权限：前者管病例与图片，后者看会话与统计。
 				</Text>
 				<Forbidden />
 			</>
@@ -111,7 +106,7 @@ export default function ScenarioAdminPage() {
 	const blocks = visibleCaseBlocks(permissions);
 	const blockParam = searchParams.get("block");
 	// 数据区（跨病例）与病例工作区是两套分块词表：各自的合法值各自回落，互不借用。
-	// 地址栏仍是唯一真源——`?block=archives` 贴在 `?area=data` 上才有意义，非法值一律回落。
+	// 地址栏仍是唯一真源——非法值一律回落到第一个数据块。
 	const dataBlock: DataBlock =
 		blockParam !== null && (DATA_BLOCKS as string[]).includes(blockParam)
 			? (blockParam as DataBlock)
@@ -144,9 +139,9 @@ export default function ScenarioAdminPage() {
 	return (
 		<Stack gap="md">
 			<PageHeader
-				title="情境训练 · 管理"
+				title="病例管理"
 				subtitle="病例内容在各自的工作区里管；会话与统计可以跨病例看"
-				icon={IconPackages}
+				icon={IconFolderOpen}
 			/>
 
 			{canData && (
@@ -182,17 +177,8 @@ export default function ScenarioAdminPage() {
 						<Tabs.Tab value="stats" leftSection={<IconChartBar size={15} />}>
 							统计
 						</Tabs.Tab>
-						<Tabs.Tab value="archives" leftSection={<IconArchive size={15} />}>
-							归档
-						</Tabs.Tab>
 					</Tabs.List>
-					{dataBlock === "stats" ? (
-						<AdminStatsPanel />
-					) : dataBlock === "archives" ? (
-						<AdminArchivesPanel />
-					) : (
-						<AdminSessionsPanel focusSessionId={focusSession} />
-					)}
+					{dataBlock === "stats" ? <AdminStatsPanel /> : <AdminSessionsPanel />}
 				</Tabs>
 			) : packsQuery.isLoading ? (
 				<Stack align="center" py="xl">
@@ -246,11 +232,6 @@ export default function ScenarioAdminPage() {
 					block={block}
 					onBlock={(next) => navigateWith({ block: next }, true)}
 					onBack={() => navigateWith({ case: null, block: null })}
-					onOpenSession={(sessionId) => {
-						setFocusSession(sessionId);
-						navigateWith({ block: "sessions" }, true);
-					}}
-					focusSessionId={focusSession}
 				/>
 			)}
 		</Stack>

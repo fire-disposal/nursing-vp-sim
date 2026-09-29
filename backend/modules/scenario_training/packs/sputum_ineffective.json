@@ -1,19 +1,9 @@
 {
-  "pack_schema_version": 3,
   "key": "sputum-ineffective",
   "title": "吸痰无效：血氧上不来",
-  "state": "experimental",
   "one_line": "夜班，患者痰多却吸不出来，血氧一路往下掉。",
   "player": {
-    "role": "夜班护士",
-    "can": [
-      "ask",
-      "observe",
-      "measure",
-      "act",
-      "document",
-      "summon"
-    ]
+    "role": "夜班护士"
   },
   "setting": {
     "place": "呼吸内科病房",
@@ -113,9 +103,6 @@
       "reveals": [
         "c_tube_blood"
       ],
-      "perceptible_by": [
-        "patient"
-      ],
       "effects": [],
       "targets": [
         {
@@ -129,9 +116,6 @@
       "id": "increase_o2",
       "type": "act",
       "label": "调高氧流量",
-      "perceptible_by": [
-        "patient"
-      ],
       "effects": [],
       "targets": [
         {
@@ -188,9 +172,6 @@
       "id": "bag_valve",
       "type": "act",
       "label": "球囊面罩加压给氧",
-      "perceptible_by": [
-        "patient"
-      ],
       "effects": [
         {
           "target": "scene",
@@ -584,20 +565,6 @@
         "title": "已处置",
         "source": "action"
       }
-    ],
-    "nudges": [
-      {
-        "when": {
-          "all": [
-            {
-              "kind": "action_count_gte",
-              "affordance_id": "suction",
-              "count": 2
-            }
-          ]
-        },
-        "direction": "同一措施两次无效：重新评估原因"
-      }
     ]
   },
   "failure": "irreversible",
@@ -607,11 +574,9 @@
       "kind": "image",
       "path": "room-panel.png",
       "title": "夜班病房",
-      "alt": "夜班病房：床旁吸引器与氧气装置就在手边",
-      "suggest_when": "开场时让学生对所处环境有画面感"
+      "alt": "夜班病房：床旁吸引器与氧气装置就在手边"
     }
   ],
-  "image_generation": "disabled",
   "failure_when": {
     "all": [
       {

@@ -18,7 +18,6 @@ import {
 	makeTurnResult,
 	makeView,
 	sseCommitted,
-	sseDelivery,
 	sseError,
 	ssePhase,
 } from "./fixtures";
@@ -30,8 +29,8 @@ import { chooseMode, chooseTarget, submitLine } from "./intent";
  * 走**真实控制台**：只把网络调用换成替身，事件按后端契约逐个推给组件；因此这里证明的
  * 是"组件收到这个帧会怎样呈现"，而不是替身自己回声。
  *
- * 只钉四件事：阶段文案来自真实阶段枚举；`delivery` 是**未提交草稿**，永不成为内容；
- * `committed` 渲染权威视图并结束忙碌；可重试错误保留学生输入。
+ * 只钉三件事：阶段文案来自真实阶段枚举；`committed` 渲染权威视图并结束忙碌；
+ * 可重试错误保留学生输入。
  */
 
 const mocks = vi.hoisted(() => ({
@@ -138,7 +137,6 @@ function committedView(studentText: string) {
 			turn: 2,
 			lost: false,
 			seq: 6,
-			read_only: false,
 			trial: false,
 		},
 		messages: [
@@ -227,42 +225,6 @@ describe("阶段状态：只给真实阶段", () => {
 		const text = document.querySelector(".sc-streaming")?.textContent ?? "";
 		expect(text).toMatch(/正在处理/);
 		expect(text).not.toMatch(/正在理解|正在结算|正在生成|正在校验|正在提交/);
-	});
-});
-
-describe("delivery 是未提交草稿", () => {
-	const DRAFT_TEXT = "未提交草稿里的话";
-
-	it("delivery 帧的文本永不进入 DOM（包括 delivery→error 的失败尝试）", async () => {
-		const user = userEvent.setup();
-		const stream = await speak(user, "帮他坐起来一点。");
-
-		// 提交中：显示的是学生自己的待定行（不是世界已发生的事）
-		const pending = document.querySelector('.sc-turn[data-pending="true"]');
-		expect(pending).not.toBeNull();
-		expect(
-			within(pending as HTMLElement).getByText("帮他坐起来一点。"),
-		).toBeInTheDocument();
-
-		await push(stream, sseDelivery());
-		expect(screen.queryByText(DRAFT_TEXT)).toBeNull();
-		// 草稿不当事实：待定行还在，世界没有新内容
-		expect(document.querySelector('.sc-turn[data-pending="true"]')).not.toBeNull();
-
-		await push(stream, {
-			...sseError("delivery_failed", "本次生成失败"),
-			request_id: stream.request.request_id,
-		});
-		stream.settle();
-
-		// 失败后：草稿仍未出现，待定行收走，错误说明"未提交"
-		await waitFor(() =>
-			expect(document.querySelector('.sc-turn[data-pending="true"]')).toBeNull(),
-		);
-		expect(screen.queryByText(DRAFT_TEXT)).toBeNull();
-		const alert = screen.getByRole("alert");
-		expect(alert.textContent).toMatch(/未提交/);
-		expect(alert.textContent).toMatch(/输入已保留/);
 	});
 });
 

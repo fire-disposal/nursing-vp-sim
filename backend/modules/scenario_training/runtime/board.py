@@ -1,6 +1,6 @@
 """线索板（白板）：**只读、按需具现**的事实区。
 
-来源只有两类（docs/23 §5.2：**DM 不再写白板**）：
+来源只有两类（docs/scenario.md：**DM 不再写白板**）：
 - `pack`：作者写好的内容（已揭示线索的文本；已采集事实的意图文本）；
 - `world`：平台从事件流推导（读数、已处置动作、已可见的现场细节）。
 
@@ -77,29 +77,13 @@ def _fact_entries(pack: ScenarioPack, world: World) -> list[ScenarioBoardEntry]:
     """已确认的事实：**证据先于结论**——判据是线索已揭示或动作已用过（`facts_observed`）。
 
     文本取作者写在 `FactSpec.intent` 里的那句话；它只在这条事实的观察条件成立后才出现，
-    因此白板上的「已确认」始终有对应证据（`evidence` 列出那些线索/动作）。
-    旧事件流里 DM 声明过的事实（`declared_facts`）原样保留在板上——历史不重解释。
+    因此白板上的「已确认」始终有对应证据（`evidence` 列出那些线索/动作）。DM 不声明事实，
+    板上不会出现一句没有证据的「已确认」。
     """
     observed = facts_observed(pack, world)
     out: list[ScenarioBoardEntry] = []
-    seen: set[str] = set()
-    for index, fact in enumerate(world.declared_facts):
-        fact_id = str(fact.get("fact_id") or "")
-        text = _clean(fact.get("fact"), 40)
-        if not text:
-            continue
-        seen.add(fact_id)
-        out.append(
-            ScenarioBoardEntry(
-                id=f"fact:{fact_id or index}",
-                kind="fact",
-                text=text,
-                source="pack",
-                evidence=_clean(fact.get("evidence"), 60),
-            )
-        )
     for fact in pack.facts:
-        if fact.id not in observed or fact.id in seen:
+        if fact.id not in observed:
             continue
         cues = pack.cue_items([cue_id for cue_id in fact.cue_ids if cue_id in world.revealed])
         acts = [aff.label for item in fact.affordance_ids if (aff := pack.affordance(item))]
@@ -177,7 +161,7 @@ def build_board(pack: ScenarioPack, world: World) -> ScenarioBoard:
             entries = _action_entries(pack, world)
         entries = _dedupe(entries)
         if section.source == "noticed" and not entries:
-            # 新机制里 DM 不再登记"即兴细节"（docs/23 §5.2）：这个版块在新会话里没有生产者，
+            # 新机制里 DM 不再登记"即兴细节"（docs/scenario.md）：这个版块在新会话里没有生产者，
             # 不渲染一个永远空着的版块（旧会话折入的历史条目照常显示）。
             continue
         sections.append(

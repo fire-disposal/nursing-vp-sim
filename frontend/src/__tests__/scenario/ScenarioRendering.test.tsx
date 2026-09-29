@@ -77,7 +77,7 @@ const HISTORY: ScenarioMessage[] = [
 
 function historyView(overrides: Partial<ScenarioView> = {}): ScenarioView {
 	return makeView({
-		session: { id: 12, status: "active", turn: 3, lost: false, seq: 9, read_only: false, trial: false },
+		session: { id: 12, status: "active", turn: 3, lost: false, seq: 9, trial: false },
 		messages: HISTORY,
 		...overrides,
 	});
@@ -145,7 +145,7 @@ describe("场景画面区：完整历史按时间单位成组", () => {
 describe("场景画面区：四类消息的形状与可读标签", () => {
 	function semanticsView(): ScenarioView {
 		return makeView({
-			session: { id: 12, status: "active", turn: 1, lost: false, seq: 4, read_only: false, trial: false },
+			session: { id: 12, status: "active", turn: 1, lost: false, seq: 4, trial: false },
 			messages: [
 				makeMessage({ id: "n1", role: "scene", kind: "narration", text: "监护仪在响。", turn: 1 }),
 				makeMessage({
@@ -331,7 +331,7 @@ describe("场景画面区：图片的两种诚实表现", () => {
 			<ScenarioStage
 				view={makeView({
 					assets: [
-						{ id: "a_room", title: "病房环境", alt: "", suggest_when: "", url: "/api/scenario/assets/7/a_room" },
+						{ id: "a_room", title: "病房环境", alt: "", url: "/api/scenario/assets/7/a_room" },
 					],
 				})}
 			/>,

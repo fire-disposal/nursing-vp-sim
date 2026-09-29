@@ -933,25 +933,6 @@
 	display: block;
 }
 
-/* 管理侧生成物缩略图（AdminGeneratedPanel）：固定小尺寸，点开预览 */
-.sc-thumb {
-	display: block;
-	width: 56px;
-	height: 36px;
-	padding: 0;
-	border: 1px solid var(--mantine-color-default-border);
-	background: var(--mantine-color-default);
-	cursor: pointer;
-	overflow: hidden;
-}
-
-.sc-thumb img {
-	width: 100%;
-	height: 100%;
-	object-fit: cover;
-	display: block;
-}
-
 /* ── 设备面：仪表读数（不是警报器） ── */
 .sc-devices {
 	display: flex;
@@ -1220,13 +1201,6 @@
 	line-height: var(--sc-lh-tight);
 	color: var(--sc-text);
 }
-/* ── 提示条（nudges：只给方向；DM 的口吻，走中性表面 + 强调色左条） ── */
-.sc-nudges {
-	display: flex;
-	flex-direction: column;
-	gap: var(--sc-1);
-}
-
 /*
  * 保底说明：这一回合的世界回应出自既定情境（不是当场生成的）。
  * 一句话、不解释机制——它是学生对自己读到的内容来源的唯一交代（docs/20 §13）。
@@ -1237,19 +1211,6 @@
 	background: var(--sc-surface);
 	color: var(--sc-dim);
 	font-size: var(--sc-fs-meta);
-	border-radius: var(--sc-radius-container);
-}
-
-.sc-nudge {
-	display: flex;
-	align-items: flex-start;
-	gap: var(--sc-2);
-	padding: var(--sc-2) var(--sc-3);
-	border-left: 3px solid var(--sc-accent);
-	background: var(--sc-surface);
-	color: var(--sc-text);
-	font-size: var(--sc-fs-sm);
-	line-height: var(--sc-lh-body);
 	border-radius: var(--sc-radius-container);
 }
 
@@ -2048,11 +2009,6 @@ button.sc-panel-head:hover {
 	-webkit-line-clamp: 2;
 	-webkit-box-orient: vertical;
 	overflow: hidden;
-}
-
-/* 没有可用修订的包：整卡不可点，标题一并弱化（不给一行占位说明） */
-.sc-pack[data-usable="false"] .sc-pack-title {
-	color: var(--sc-dim);
 }
 
 /* 学生语义徽章成排放在标题下（与 /training 卡片的 CapBadges 行同位、同 4px 间距） */
@@ -2964,24 +2920,6 @@ button.sc-panel-head:hover {
 /* 判读是次级信息：分数不再占据首屏的视觉重量 */
 .sc-assessment .sc-score-value {
 	font-size: var(--sc-fs-lg);
-}
-
-/* 旧机制原报告：原样留档、只读、可滚动、等宽 */
-.sc-legacy {
-	padding: var(--sc-3);
-	border: 1px solid var(--sc-line);
-	border-radius: var(--sc-radius-container);
-}
-
-.sc-legacy-json {
-	margin: 0;
-	max-height: 40vh;
-	overflow: auto;
-	font-size: var(--sc-fs-meta);
-	line-height: var(--sc-lh-tight);
-	white-space: pre-wrap;
-	overflow-wrap: anywhere;
-	color: var(--sc-dim);
 }
 
 /* 白板条目的次级行：来源引用 + 来源回合 */

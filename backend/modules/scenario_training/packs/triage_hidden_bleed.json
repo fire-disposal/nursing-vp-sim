@@ -1,19 +1,9 @@
 {
-  "pack_schema_version": 3,
   "key": "triage-hidden-bleed",
   "title": "预检分诊：说「腰闪了」的那个人",
-  "state": "experimental",
   "one_line": "他扶着墙走进预检台，说自己只是搬东西闪了腰，想开点膏药就回家。",
   "player": {
-    "role": "预检分诊护士",
-    "can": [
-      "ask",
-      "observe",
-      "measure",
-      "act",
-      "document",
-      "summon"
-    ]
+    "role": "预检分诊护士"
   },
   "setting": {
     "place": "急诊预检台",
@@ -152,9 +142,6 @@
       "reveals": [
         "c_shoulder"
       ],
-      "perceptible_by": [
-        "patient"
-      ],
       "targets": [
         {
           "kind": "actor",
@@ -168,9 +155,6 @@
       "label": "看他捂的位置、轻轻触一下左侧",
       "reveals": [
         "c_guarding"
-      ],
-      "perceptible_by": [
-        "patient"
       ],
       "targets": [
         {
@@ -201,10 +185,6 @@
           "value": true
         }
       ],
-      "perceptible_by": [
-        "patient",
-        "colleague"
-      ],
       "time_cost": 1
     },
     {
@@ -218,9 +198,6 @@
           "op": "set",
           "value": "yellow"
         }
-      ],
-      "perceptible_by": [
-        "patient"
       ],
       "time_cost": 1
     },
@@ -236,9 +213,6 @@
           "value": "ortho"
         }
       ],
-      "perceptible_by": [
-        "patient"
-      ],
       "time_cost": 1
     },
     {
@@ -252,9 +226,6 @@
           "op": "set",
           "value": "home"
         }
-      ],
-      "perceptible_by": [
-        "patient"
       ],
       "time_cost": 1
     },
@@ -579,20 +550,6 @@
         "title": "已处置",
         "source": "action"
       }
-    ],
-    "nudges": [
-      {
-        "when": {
-          "all": [
-            {
-              "kind": "turns_without_action",
-              "affordance_id": "measure_vitals",
-              "turns": 2
-            }
-          ]
-        },
-        "direction": "先测他的生命体征"
-      }
     ]
   },
   "failure": "irreversible",
@@ -610,7 +567,6 @@
     "他极可能是腹内出血",
     "『闪了腰』是误归因"
   ],
-  "image_generation": "disabled",
   "rubric": [
     {
       "id": "dp_zone",

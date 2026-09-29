@@ -28,7 +28,9 @@ def two_beds() -> ScenarioPack:
 
 
 def _slots(pack: ScenarioPack, world=None) -> list[dict]:
-    view = build_view(pack, world or initial_world(pack), session_id=1, status="active", revision_id=1)
+    view = build_view(
+        pack, world or initial_world(pack), session_id=1, status="active", pack_key="sputum-ineffective", version=1
+    )
     return view.hud
 
 

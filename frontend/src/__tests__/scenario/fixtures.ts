@@ -26,10 +26,10 @@ import type {
 export const PACK: ScenarioPackSummary = {
 	key: "sputum_ineffective",
 	title: "术后低氧",
-	state: "experimental",
 	one_line: "术后第二天，患者呼吸费力。",
-	revision_id: 7,
-	revision_no: 3,
+	version: 3,
+	published: true,
+	published_at: "2026-02-01T00:00:00Z",
 	player_role: "夜班护士",
 	place: "呼吸内科病房",
 };
@@ -71,8 +71,8 @@ export function makeAffordance(
 /** 完整学生视图。默认：3 张床都在场，第 1 回合有一段旁白 + 一句患者台词。 */
 export function makeView(overrides: Partial<ScenarioView> = {}): ScenarioView {
 	return {
-		session: { id: 12, status: "active", turn: 1, lost: false, seq: 4, read_only: false, trial: false },
-		pack: { key: PACK.key, title: PACK.title, player_role: "责任护士", revision_id: 7 },
+		session: { id: 12, status: "active", turn: 1, lost: false, seq: 4, trial: false },
+		pack: { key: PACK.key, title: PACK.title, player_role: "责任护士", version: PACK.version },
 		situation: {
 			place: "外科病房",
 			time_hint: "术后第 2 天 08:40",
@@ -103,7 +103,6 @@ export function makeView(overrides: Partial<ScenarioView> = {}): ScenarioView {
 		free_input: true,
 		timeline: [{ turn: 1, kind: "world", label: "监护仪在响。" }],
 		dims: [],
-		nudges: [],
 		assets: [],
 		images: [],
 		board: { sections: [], entry_count: 0, editable: false },
@@ -123,7 +122,7 @@ export function makeTurnResult(overrides: Partial<ScenarioTurnResult> = {}): Sce
 		time_cost: 0,
 		outcome: "speech",
 		messages: [],
-		view: makeView({ session: { id: 12, status: "active", turn: 2, lost: false, seq: 6, read_only: false, trial: false } }),
+		view: makeView({ session: { id: 12, status: "active", turn: 2, lost: false, seq: 6, trial: false } }),
 		...overrides,
 	};
 }
@@ -135,7 +134,7 @@ export function makeLookup(overrides: Partial<ScenarioRequestLookup> = {}): Scen
 export function makeSessionState(
 	overrides: Partial<ScenarioSessionState> = {},
 ): ScenarioSessionState {
-	return { session_id: 12, status: "active", view: makeView(), read_only: false, ...overrides };
+	return { session_id: 12, status: "active", view: makeView(), ...overrides };
 }
 
 export function makeSessionResponse(
@@ -159,7 +158,7 @@ export function makeReport(overrides: Partial<ScenarioReport> = {}): ScenarioRep
 		reflection: "当时还有哪条线索没有核查？",
 		assessment: {
 			summary: { strong: 1, adequate: 0, missed: 1 },
-			score: { rate: 0.5, weighted_sum: 50, total_weight: 100, criteria: [] },
+			score: { rate: 0.5, weighted_sum: 50, total_weight: 100 },
 			criteria: [],
 			dims: [],
 		},
@@ -175,7 +174,7 @@ export function makeCloseResponse(
 		session_id: 12,
 		report: makeReport(),
 		view: makeView({
-			session: { id: 12, status: "completed", turn: 3, lost: false, seq: 9, read_only: true, trial: false },
+			session: { id: 12, status: "completed", turn: 3, lost: false, seq: 9, trial: false },
 		}),
 		...overrides,
 	};
@@ -185,15 +184,6 @@ export function makeCloseResponse(
 
 export function ssePhase(phase: ScenarioTurnPhase): ScenarioStreamEvent {
 	return { kind: "phase", request_id: "req-1", phase };
-}
-
-export function sseDelivery(): ScenarioStreamEvent {
-	return {
-		kind: "delivery",
-		request_id: "req-1",
-		pending: true,
-		delivery: { messages: [{ text: "未提交草稿里的话", actor: null }] },
-	} as unknown as ScenarioStreamEvent;
 }
 
 export function sseCommitted(result: ScenarioTurnResult): ScenarioStreamEvent {

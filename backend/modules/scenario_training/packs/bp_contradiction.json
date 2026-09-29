@@ -1,18 +1,9 @@
 {
-  "pack_schema_version": 3,
   "key": "bp-contradiction",
   "title": "入院检查：量出来像高血压，患者坚决否认",
-  "state": "experimental",
   "one_line": "一次入院检查：患者说他身体好得很，血压计不这么认为。",
   "player": {
-    "role": "入院责任护士",
-    "can": [
-      "ask",
-      "observe",
-      "measure",
-      "act",
-      "document"
-    ]
+    "role": "入院责任护士"
   },
   "setting": {
     "place": "内科病房",
@@ -131,8 +122,14 @@
         {
           "target": "scene",
           "key": "bp_sys",
-          "op": "decr",
-          "value": 2
+          "op": "set",
+          "value": 166
+        },
+        {
+          "target": "scene",
+          "key": "bp_dia",
+          "op": "set",
+          "value": 96
         }
       ],
       "params": {
@@ -157,8 +154,14 @@
         {
           "target": "scene",
           "key": "bp_sys",
-          "op": "decr",
-          "value": 2
+          "op": "set",
+          "value": 164
+        },
+        {
+          "target": "scene",
+          "key": "bp_dia",
+          "op": "set",
+          "value": 94
         }
       ],
       "params": {
@@ -183,9 +186,6 @@
           "value": 1
         }
       ],
-      "perceptible_by": [
-        "patient"
-      ],
       "targets": [
         {
           "kind": "actor",
@@ -208,9 +208,6 @@
           "value": 1
         }
       ],
-      "perceptible_by": [
-        "patient"
-      ],
       "targets": [
         {
           "kind": "actor",
@@ -224,8 +221,7 @@
       "label": "查看既往就诊记录",
       "reveals": [
         "c_record"
-      ],
-      "perceptible_by": []
+      ]
     },
     {
       "id": "document",
@@ -558,27 +554,12 @@
         "title": "已处置",
         "source": "action"
       }
-    ],
-    "nudges": [
-      {
-        "when": {
-          "all": [
-            {
-              "kind": "action_count_gte",
-              "affordance_id": "ask_history",
-              "count": 2
-            }
-          ]
-        },
-        "direction": "看既往记录和床头抽屉"
-      }
     ]
   },
   "failure": "recoverable",
   "hidden_from_player": [
     "他可能在被漏诊或已自行停药的高血压"
   ],
-  "image_generation": "disabled",
   "rubric": [
     {
       "id": "dp_conflict",

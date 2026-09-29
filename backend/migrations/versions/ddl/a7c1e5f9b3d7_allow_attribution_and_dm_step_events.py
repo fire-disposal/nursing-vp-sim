@@ -2,11 +2,11 @@
 
 同一批的两个新事件种类：
 
-1. `action_attributed`（docs/21 §4.1）：学生改为**自由表达**为主之后，动作在记录里不再天然带
+1. `action_attributed`（docs/scenario.md）：学生改为**自由表达**为主之后，动作在记录里不再天然带
    `affordance_id`。DM 的输出新增 `interpretation.affordance_id`，引擎在写完 `student_action` 之后
    把它的解读**回填**到该回合的动作记录上（判读/白板/维度因此不必各自认词）。回填是一次**状态写入**
    （它改变 `world.actions` 的推导结果），所以照本轨的规矩入事件流：新种类而不是改写旧事件。
-2. `dm_step`（docs/21 §四）：DM 的**受限多步循环**的一步（`world.state` / `actor.knowledge` /
+2. `dm_step`（docs/scenario.md四）：DM 的**受限多步循环**的一步（`world.state` / `actor.knowledge` /
    `history.lastN` / `note.write`）。每步都落事件，供教师回放与 `/api/diagnose` 统计；
    学生不可见（`note.write` 只是 DM 的草稿纸）。
 

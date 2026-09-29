@@ -320,17 +320,12 @@ def _actions_measure(params: dict[str, Any], world: World) -> tuple[Any, str]:
     return turn, f"目标动作集合（{len(wanted)} 项）首用于{turn_word(turn)}"
 
 
-def _fact_collected(fact: Any, world: World) -> bool:
-    """判读只读**世界事实**：线索是否揭示、动作是否发生；DM 的自述仅作补充证据。"""
-    return any(entry.get("fact_id") == fact.id for entry in world.declared_facts)
-
-
 def _facts_measure(pack: ScenarioPack, world: World) -> tuple[Any, str]:
     critical = [fact for fact in pack.facts if fact.critical]
     if not critical:
         return 1.0, "包未声明必采事实，覆盖率按满值记"
     observed = facts_observed(pack, world)
-    covered = [fact for fact in critical if fact.id in observed or _fact_collected(fact, world)]
+    covered = [fact for fact in critical if fact.id in observed]
     return len(covered) / len(critical), f"必采事实已采集 {len(covered)}/{len(critical)} 项"
 
 

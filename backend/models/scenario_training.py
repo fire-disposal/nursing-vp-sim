@@ -1,10 +1,14 @@
-"""情境训练（experimental）· `st_*` 表。
+"""情境训练 · `st_*` 表。
 
-隔离硬红线（docs/20 §2.4）：本轨只读写 `st_*`；**不建指向老表的 FK**、不做跨表 JOIN、不写老表。
-因此 `user_id` / `pack_revision_id` 只存整数标识、不加外键——账号与 LLM 基础设施共享，
-**数据不耦合**：删改老表结构不会波及本轨，本轨的坏实验也碰不到老数据。
+**内容只有一份，没有修订系统**：
+- `st_packs.content` 是病例的**当前内容**（保存即覆盖），`version` 是每次保存递增的整数；
+- `st_sessions` 在开局时把当时的内容**快照到自己的行里**（`pack_content` + `pack_version`），
+  因此判读与回放读会话自带的那份，**不受后来改内容影响**——可复现性不靠"多行不可变修订"，
+  靠"会话自带一份"。同一条理由也让"形状版本门"（旧修订不能开新局）彻底消失：
+  内容在写入时已通过校验，运行时读到的必然合法。
 
-事件日志（append-only）是本轨的状态载体：世界状态由事件推导，便于反应链、回放与经历量化。
+事件日志（append-only）仍是世界状态的载体：世界由事件推导，便于回放与判读。
+`user_id` / `pack_key` 只存标识、不加外键——与老系统数据不耦合。
 """
 
 from __future__ import annotations
@@ -21,7 +25,6 @@ from sqlalchemy import (
     Integer,
     LargeBinary,
     String,
-    Text,
     UniqueConstraint,
     text,
 )
@@ -32,12 +35,8 @@ from core.database import Base
 from models._base import TimestampMixin
 
 SESSION_STATUSES = ("active", "completed", "abandoned")
-PACK_STATES = ("experimental", "reviewed")
 
-# 事件种类（docs/23 §8.2）：
-# - `EVENT_KINDS`：**新机制唯一会写入**的种类；一个业务回合只追加一条 `turn_committed`；
-# - `LEGACY_EVENT_KINDS`：旧机制写过的种类。**只读回放要能折入它们**，且历史行绝不能因为
-#   约束收紧而变得不可读/不可复制（约束是"能写入什么"，不是"历史长什么样"）。
+# 事件种类：**唯一会写入**的这五种；一个业务回合只追加一条 `turn_committed`。
 EVENT_KINDS = (
     "session_opened",
     "turn_committed",
@@ -46,65 +45,35 @@ EVENT_KINDS = (
     "session_closed",
 )
 
-LEGACY_EVENT_KINDS = (
-    "student_action",
-    "action_attributed",
-    "dm_step",
-    "dm_turn",
-    "anchor_satisfied",
-    "anchor_blocked",
-    "anchor_proposal_rejected",
-    "effects_applied",
-    "cues_revealed",
-    "entity_line",
-    "judge_result",
-)
-
-ALL_EVENT_KINDS = EVENT_KINDS + LEGACY_EVENT_KINDS
-
 REQUEST_KINDS = ("turn", "close")
 
 
 class StPack(Base, TimestampMixin):
-    """一套情境（逻辑容器）。内容在 `st_pack_revisions`，可热载。"""
+    """一个病例：**当前内容**（可覆盖）+ 整数版本 + 是否上架。
+
+    **没有 title / one_line 列**：展示字段就是内容里的 `title` / `one_line`（一份内容一个真源），
+    改名只能通过保存内容 —— 否则"行里的标题"和"内容里的标题"会各说各话，作者改一个被另一个覆盖。
+    """
 
     __tablename__ = "st_packs"
     __table_args__ = (
         UniqueConstraint("key", name="uq_st_packs_key"),
-        Index("ix_st_packs_state", "state"),
-        CheckConstraint(
-            "state IN ('experimental', 'reviewed')",
-            name="ck_st_packs_state",
-        ),
+        Index("ix_st_packs_published", "published"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     key: Mapped[str] = mapped_column(String(120), nullable=False)
-    title: Mapped[str] = mapped_column(String(200), nullable=False)
-    state: Mapped[str] = mapped_column(String(16), nullable=False, server_default=text("'experimental'"))
-    one_line: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
-
-
-class StPackRevision(Base, TimestampMixin):
-    """不可变的内容修订。会话只认自己钉住的那一版（热载不影响进行中的会话）。"""
-
-    __tablename__ = "st_pack_revisions"
-    __table_args__ = (
-        UniqueConstraint("pack_id", "revision_no", name="uq_st_pack_revisions_pack_rev"),
-        Index("ix_st_pack_revisions_pack", "pack_id"),
-    )
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    pack_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    revision_no: Mapped[int] = mapped_column(Integer, nullable=False)
-    pack_schema_version: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
+    #: 病例内容（形状见 `modules.scenario_training.schema.ScenarioPack`）。保存即覆盖。
     content: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
-    content_sha: Mapped[str] = mapped_column(String(64), nullable=False)
-    note: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    #: 保存次数（从 1 起）。只作标识与展示，不是"修订"——没有不可变历史、没有形状版本。
+    version: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
+    #: 上架状态：学生列表只列 `published=true`；下架不删数据（老会话照常可读、可继续）。
+    published: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class StSession(Base, TimestampMixin):
-    """一次情境遭遇。`pack_revision_id` 在开启时冻结。"""
+    """一次情境遭遇：开局时把内容快照进来，此后与病例的后续修改无关。"""
 
     __tablename__ = "st_sessions"
     __table_args__ = (
@@ -118,19 +87,21 @@ class StSession(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    pack_revision_id: Mapped[int] = mapped_column(Integer, nullable=False)
     pack_key: Mapped[str] = mapped_column(String(120), nullable=False)
+    #: 开局时病例的 `version`（展示用："你在 v7 上玩的"）。
+    pack_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    #: 开局时病例内容的**快照**：回放、判读、报告都读它。
+    pack_content: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     status: Mapped[str] = mapped_column(String(16), nullable=False, server_default=text("'active'"))
     report: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     meta: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
 
 
 class StAsset(Base, TimestampMixin):
-    """场景资源包的**字节**（图片等），按 `(pack_key, asset_id)` 存放。
+    """病例图片的**字节**，按 `(pack_key, asset_id)` 存放。
 
-    运行时的唯一来源是这里：pack 修订只声明"有哪些资源、叫什么、什么时候值得展示"，
-    字节由本表提供（管理侧上传，或安装时从仓库文件播种，见 `assets.seed_from_pack`）。
-    与反馈系统的图片存储同构（`LargeBinary`），不引入文件系统依赖。
+    字节由本表提供（管理侧上传，或安装时从仓库文件播种，见 `assets.seed_from_pack`）；
+    病例内容只声明"有哪些图片、叫什么"。与反馈系统的图片存储同构，不引入文件系统依赖。
     """
 
     __tablename__ = "st_assets"
@@ -150,38 +121,6 @@ class StAsset(Base, TimestampMixin):
     content: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
 
 
-class StGeneratedAsset(Base, TimestampMixin):
-    """DM 运行期**按需生成**的资源字节（目前是图片）。
-
-    与 `st_assets` 同构（字节存库、运行时不读文件系统），但**属于一次会话**：生成发生在会话里，
-    提示词来自该会话的 DM 回合，`session_id` / `pack_revision_id` 与其余 `st_*` 一样只存整数标识、不加 FK。
-
-    去重口径：**同一会话内同一份字节只留一行**（`uq_st_generated_assets_session_sha`）——
-    重复请求同一张图命中已有行，不重复存；删掉行即回收字节（无生命周期 = 无孤儿文件）。
-    """
-
-    __tablename__ = "st_generated_assets"
-    __table_args__ = (
-        UniqueConstraint("session_id", "sha256", name="uq_st_generated_assets_session_sha"),
-        Index("ix_st_generated_assets_session", "session_id"),
-        Index("ix_st_generated_assets_pack", "pack_key"),
-        Index("ix_st_generated_assets_kind_sha", "kind", "sha256"),
-    )
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    session_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    pack_key: Mapped[str] = mapped_column(String(120), nullable=False)
-    pack_revision_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    kind: Mapped[str] = mapped_column(String(16), nullable=False, server_default=text("'image'"))
-    prompt: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
-    mime_type: Mapped[str] = mapped_column(
-        String(40), nullable=False, server_default=text("'application/octet-stream'")
-    )
-    file_size: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
-    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
-    content: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
-
-
 class StEvent(Base):
     """只追加的事件。「世界状态」= 事件流的推导结果，不另存一份可变状态。"""
 
@@ -190,7 +129,7 @@ class StEvent(Base):
         UniqueConstraint("session_id", "seq", name="uq_st_events_session_seq"),
         Index("ix_st_events_session_kind", "session_id", "kind"),
         CheckConstraint(
-            "kind IN (" + ", ".join(f"'{kind}'" for kind in ALL_EVENT_KINDS) + ")",
+            "kind IN (" + ", ".join(f"'{kind}'" for kind in EVENT_KINDS) + ")",
             name="ck_st_events_kind",
         ),
     )
@@ -207,9 +146,9 @@ class StSessionRequest(Base):
     """**请求身份**：一次会改变会话记录的请求（回合 / 澄清 / 求提示 / 结束）的唯一登记。
 
     存在于数据库提交边界（不是只靠前端 busy）：
-    - `session_id + request_id` 唯一 → 「相同 ID 与相同输入重发返回已提交结果；相同 ID 不同输入拒绝」；
-    - `input_sha` 是**输入身份**（不含 `request_id` 与 `expected_seq`）；
-    - `result` 存**已提交的原结果**（含权威视图）→ 断流后按同一 request_id 取回，不必重跑 LLM。
+    - `session_id + request_id` 唯一 → 相同 ID 同输入重发返回已提交结果，同 ID 异输入拒绝；
+    - `input_sha` 是输入身份（不含 `request_id` 与 `expected_seq`）；
+    - `result` 存已提交的原结果（含权威视图）→ 断流后按同一 request_id 取回，不必重跑 LLM。
     """
 
     __tablename__ = "st_session_requests"
@@ -226,32 +165,3 @@ class StSessionRequest(Base):
     input_sha: Mapped[str] = mapped_column(String(64), nullable=False)
     seq: Mapped[int] = mapped_column(Integer, nullable=False)
     result: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
-
-
-class StSessionArchive(Base):
-    """旧机制会话的**不可变归档投影**（docs/23 §9）。
-
-    按原 `session_id` 唯一；原始 `st_sessions` / `st_events` / `st_pack_revisions` **原样保留**，
-    这里只存"当时那份实现算出来的视图 / 报告 / 回放投影 + 形状版本"，因此旧引擎不必在线读历史，
-    历史也不会被新实现重新解释。旧局本来没有报告就留空（**绝不补生成一份新成绩**）。
-    """
-
-    __tablename__ = "st_session_archives"
-    __table_args__ = (
-        UniqueConstraint("session_id", name="uq_st_session_archives_session"),
-        Index("ix_st_session_archives_pack", "pack_key"),
-        CheckConstraint("shape_version >= 1", name="ck_st_session_archives_shape"),
-    )
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    session_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    pack_key: Mapped[str] = mapped_column(String(120), nullable=False)
-    pack_revision_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    shape_version: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
-    status: Mapped[str] = mapped_column(String(16), nullable=False, server_default=text("'completed'"))
-    turn: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
-    ended_reason: Mapped[str] = mapped_column(String(32), nullable=False, server_default=text("''"))
-    has_report: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
-    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
-    note: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
-    archived_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("NOW()"), nullable=False)

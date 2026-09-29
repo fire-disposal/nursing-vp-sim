@@ -22,7 +22,7 @@ import logging
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import case, func, or_, text
+from sqlalchemy import case, func, text
 from sqlalchemy.orm import Session
 
 from core.audit import ACTION_SCENARIO_RATE_LIMITED
@@ -30,7 +30,7 @@ from core.exceptions import ValidationError
 from core.statuses import LLMCallStatus
 from models import LLMCallLog, TrainingRecord, VoiceCallLog, VoiceConfig
 from models.audit import AuditLog
-from models.scenario_training import StEvent, StGeneratedAsset, StSession, StSessionArchive
+from models.scenario_training import StEvent, StSession
 
 log = logging.getLogger(__name__)
 
@@ -260,7 +260,7 @@ def query_sessions(db: Session) -> int:
 
 
 def query_scenario(db: Session, day_ago: datetime) -> dict:
-    """情境训练（`st_*`）的 24h 观察面 + 即时会话数（docs/23 §8.2 唯一回合管线口径）。
+    """情境训练（`st_*`）的 24h 观察面 + 即时会话数（docs/scenario.md 唯一回合管线口径）。
 
     只读、只聚合，不触碰老系统的任何表；`st_*` 表在功能未上线/未加迁移的环境可能不存在
     → 调用方（`build_dashboard`）负责降级，这里只管查询。
@@ -279,9 +279,7 @@ def query_scenario(db: Session, day_ago: datetime) -> dict:
       ——它们**不推进情境时间**，故与 `requests_24h` 分列。
     - `llm_failures_24h`：情境两阶段（`st_intent` / `st_dm`）在 `llm_call_logs` 里窗口内
       `status != success` 的调用数——失败没有世界事件，只有日志来源，故不取 `st_events`。
-    - `active` / `completed` / `read_only_sessions`：即时状态计数（见块上的 `state_window`），
-      不受 24h 窗口影响。`read_only_sessions` = 被封存的旧局（`meta.read_only`）或已有归档
-      （`st_session_archives`）的会话数。
+    - `active` / `completed`：即时状态计数（见块上的 `state_window`），不受 24h 窗口影响。
     - `rate_limited_24h`：`audit_logs` 里 `scenario.rate_limited` 的行数（见
       `core/rate_limits._scenario_limited`）——多 worker 安全的唯一取数来源。
     """
@@ -329,21 +327,6 @@ def query_scenario(db: Session, day_ago: datetime) -> dict:
         .scalar()
         or 0
     )
-    read_only_sessions = (
-        db.query(func.count(StSession.id))
-        .filter(
-            or_(
-                StSession.meta["read_only"].astext == "true",
-                StSession.id.in_(db.query(StSessionArchive.session_id)),
-            )
-        )
-        .scalar()
-        or 0
-    )
-
-    generated_images_24h = (
-        db.query(func.count(StGeneratedAsset.id)).filter(StGeneratedAsset.created_at >= day_ago).scalar() or 0
-    )
     rate_limited_24h = (
         db.query(func.count(AuditLog.id))
         .filter(AuditLog.action == ACTION_SCENARIO_RATE_LIMITED, AuditLog.created_at >= day_ago)
@@ -366,8 +349,6 @@ def query_scenario(db: Session, day_ago: datetime) -> dict:
         "clarifications_24h": int(clarifications_24h),
         "hints_24h": int(hints_24h),
         "llm_failures_24h": int(llm_failures_24h),
-        "read_only_sessions": int(read_only_sessions),
-        "generated_images_24h": int(generated_images_24h),
         "rate_limited_24h": int(rate_limited_24h),
     }
 
@@ -503,8 +484,6 @@ def query_scenario_safe(db: Session, day_ago: datetime) -> dict:
             "clarifications_24h": 0,
             "hints_24h": 0,
             "llm_failures_24h": 0,
-            "read_only_sessions": 0,
-            "generated_images_24h": 0,
             "rate_limited_24h": 0,
         }
 

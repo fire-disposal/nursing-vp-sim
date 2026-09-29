@@ -28,14 +28,12 @@ export type ScenarioCriterion = Schemas["ScenarioCriterion"];
 export type ScenarioScore = Schemas["ScenarioScore"];
 export type ScenarioReport = Schemas["ScenarioReport"];
 export type ScenarioOpenSessionRequest = Schemas["ScenarioOpenSessionRequest"];
-export type ScenarioArchiveRef = Schemas["ScenarioArchiveRef"];
 export type ScenarioSessionResponse = Schemas["ScenarioSessionResponse"];
 export type ScenarioSessionState = Schemas["ScenarioSessionState"];
 export type ScenarioTurnRequest = Schemas["ScenarioTurnRequest"];
 export type ScenarioTurnResult = Schemas["ScenarioTurnResult"];
 export type ScenarioRequestLookup = Schemas["ScenarioRequestLookup"];
 export type ScenarioSsePhase = Schemas["ScenarioSsePhase"];
-export type ScenarioSseDelivery = Schemas["ScenarioSseDelivery"];
 export type ScenarioSseCommitted = Schemas["ScenarioSseCommitted"];
 export type ScenarioSseError = Schemas["ScenarioSseError"];
 /** SSE 阶段词表（封闭枚举，来自生成物；前端只翻译，不自造阶段名）。 */
@@ -47,12 +45,21 @@ export type ScenarioErrorInfo = Schemas["ScenarioErrorInfo"];
 export type ScenarioActionInput = Omit<ScenarioTurnRequest, "request_id" | "expected_seq">;
 export type ScenarioSessionRow = Schemas["ScenarioSessionRow"];
 export type ScenarioAdminSessionRow = Schemas["ScenarioAdminSessionRow"];
-export type ScenarioAdminRevision = Schemas["ScenarioAdminRevision"];
 export type ScenarioAdminOverview = Schemas["ScenarioAdminOverview"];
 export type ScenarioAdminAsset = Schemas["ScenarioAdminAsset"];
 export type ScenarioAdminPack = Schemas["ScenarioAdminPack"];
 export type ScenarioAdminPackUpload = Schemas["ScenarioAdminPackUpload"];
+export type ScenarioAdminPackDelete = Schemas["ScenarioAdminPackDelete"];
 export type ScenarioAdminAssetUpload = Schemas["ScenarioAdminAssetUpload"];
+/**
+ * 撤下一张资源的结果（后端这条路由没有声明 `response_model`，生成物里是裸 dict →
+ * 前端按真实返回的字段声明，见 `router.admin_delete_asset`）。
+ */
+export interface ScenarioAdminAssetDeleteResult {
+	key: string;
+	version: number;
+	assets: ScenarioAdminAsset[];
+}
 export type ScenarioAdminEvent = Schemas["ScenarioAdminEvent"];
 export type ScenarioAdminSessionList = Schemas["ScenarioAdminSessionList"];
 export type ScenarioAdminSessionDetail = Schemas["ScenarioAdminSessionDetail"];
@@ -60,23 +67,14 @@ export type ScenarioAdminFocusTurn = Schemas["ScenarioAdminFocusTurn"];
 export type ScenarioAdminTurnReplay = Schemas["ScenarioAdminTurnReplay"];
 export type ScenarioAdminStatsBucket = Schemas["ScenarioAdminStatsBucket"];
 export type ScenarioAdminStats = Schemas["ScenarioAdminStats"];
-export type ScenarioGeneratedAsset = Schemas["ScenarioGeneratedAsset"];
-export type ScenarioGeneratedList = Schemas["ScenarioGeneratedList"];
 export type ScenarioPackProblem = Schemas["ScenarioPackProblem"];
 export type ScenarioPackValidation = Schemas["ScenarioPackValidation"];
-export type ScenarioAdminPackSource = Schemas["ScenarioAdminPackSource"];
-export type ScenarioArchiveSummary = Schemas["ScenarioArchiveSummary"];
-export type ScenarioArchiveList = Schemas["ScenarioArchiveList"];
-export type ScenarioArchiveRaw = Schemas["ScenarioArchiveRaw"];
-export type ScenarioArchiveDetail = Schemas["ScenarioArchiveDetail"];
-export type ScenarioPackState = Schemas["PackState"];
-export type ScenarioAnchor = Schemas["Anchor"];
+/** 编辑器读/存共用的一份响应：当前内容 + 版本 + 遗留问题。 */
+export type ScenarioPackContent = Schemas["ScenarioPackContent"];
+export type ScenarioNewPackRequest = Schemas["ScenarioNewPackRequest"];
 export type ScenarioChannelStatus = ScenarioDeviceChannel["status"];
 export type ScenarioDeviceKind = ScenarioDevice["kind"];
-export interface ScenarioGeneratedQuery { limit?: number; offset?: number; session_id?: number | null }
 export interface ScenarioAdminSessionQuery { pack_key?: string | null; status?: string | null; limit?: number; offset?: number }
-/** 归档列表的查询参数（后端是 `Query(...)`，不是请求体模型 → 前端自己声明，见 handoff §13.4）。 */
-export interface ScenarioAdminArchiveQuery { pack_key?: string | null; limit?: number; offset?: number }
 
 /** 上传请求体：multipart 的字段名与生成物一致，只有 `file` 在浏览器里是 `File`（生成物是二进制字符串）。 */
 export type ScenarioPackUploadInput = Omit<
@@ -89,6 +87,12 @@ export type ScenarioAssetUploadInput = Omit<
 	"file"
 > & { file: File };
 
+/** 替换一张已声明的图片：`asset_id` 在路径上，请求体只有字节与文案。 */
+export type ScenarioAssetReplaceInput = Omit<
+	Schemas["Body_admin_replace_asset_api_scenario_admin_packs__pack_key__assets__asset_id__post"],
+	"file"
+> & { file: File };
+
 // --------------------------------------------------------------------------- //
 // 调用
 // --------------------------------------------------------------------------- //
@@ -98,6 +102,7 @@ export const listScenarioPacks = () =>
 		.get<ScenarioPackSummary[]>("/scenario/packs" satisfies ApiPath as string)
 		.then((r) => r.data);
 
+/** 开新局**只按 `pack_key`**：后端把这份病例的当前内容快照进会话行，之后改病例不影响这一局。 */
 export const createScenarioSession = (
 	payload: ScenarioOpenSessionRequest = { trial: false },
 ) =>
@@ -129,16 +134,14 @@ export const getScenarioRequest = (sessionId: number, requestId: string) =>
 // --------------------------------------------------------------------------- //
 
 /**
- * SSE 的四种事件：`kind` 是前端加上的传输判别键（SSE 把事件名放在 `event:` 行，
- * `data:` 里没有它），载荷本身**逐字**取生成物里的 `ScenarioSse{Phase,Delivery,Committed,Error}`。
+ * SSE 的三种事件：`kind` 是前端加上的传输判别键（SSE 把事件名放在 `event:` 行，
+ * `data:` 里没有它），载荷本身**逐字**取生成物里的 `ScenarioSse{Phase,Committed,Error}`。
  *
- * **`delivery` 是已通过结构校验但尚未提交的草稿**：无论它看起来多完整，都不代表世界已经变化，
- * 一律不得渲染成事实（失败回合也可能先收到 delivery 再收到 error）。提交前学生只看到
- * 阶段状态与待发送的自己的消息（`docs/23` §4.5）。
+ * 只有这三种：服务端曾多发一个"已校验但未提交的草稿"事件（`delivery`），前端从收到的那一刻
+ * 就把它丢掉、从不渲染——**发出来即被丢弃的东西不该留在协议里**，已整条删除（`docs/23` §4.5）。
  */
 export type ScenarioStreamEvent =
 	| ({ kind: "phase" } & ScenarioSsePhase)
-	| ({ kind: "delivery" } & ScenarioSseDelivery)
 	| ({ kind: "committed" } & ScenarioSseCommitted)
 	| ({ kind: "error" } & ScenarioSseError);
 
@@ -166,7 +169,7 @@ export async function streamScenarioTurn(
 	const consume = (frame: string) => {
 		const lines = frame.split("\n");
 		const kind = lines.find((line) => line.startsWith("event:"))?.slice(6).trim();
-		if (!kind || !["phase", "delivery", "committed", "error"].includes(kind)) return;
+		if (!kind || !["phase", "committed", "error"].includes(kind)) return;
 		const data = lines.filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trimStart()).join("\n");
 		onEvent({ ...JSON.parse(data), kind } as ScenarioStreamEvent);
 	};
@@ -220,11 +223,10 @@ export const listAdminScenarioPacks = () =>
 		)
 		.then((r) => r.data);
 
-/** 上传（或覆盖）一份情境包 JSON —— 服务端按内容追加新修订（内容未变即幂等）。 */
+/** 上传一份情境包 JSON —— 它成为这份病例的**当前内容**（默认上架）。 */
 export const uploadAdminScenarioPack = (payload: ScenarioPackUploadInput) => {
 	const form = new FormData();
 	form.append("file", payload.file);
-	form.append("note", payload.note ?? "");
 	return api
 		.post<ScenarioAdminPackUpload>(
 			"/scenario/admin/packs" satisfies ApiPath as string,
@@ -233,18 +235,59 @@ export const uploadAdminScenarioPack = (payload: ScenarioPackUploadInput) => {
 		.then((r) => r.data);
 };
 
-export const patchAdminScenarioPack = (
-	packKey: string,
-	payload: Schemas["ScenarioPackPatchRequest"],
-) =>
+// --------------------------------------------------------------------------- //
+// 病例管理（系统侧闭环：新建 / 复制 / 上架下架 / 删除）
+// --------------------------------------------------------------------------- //
+
+/** 新建一个**最小可运行**的病例骨架（不是空对象）：拿到后直接用编辑器改。 */
+export const createBlankScenarioPack = (payload: ScenarioNewPackRequest) =>
 	api
-		.patch<{ key: string; state: string; title: string; one_line: string }>(
-			`/scenario/admin/packs/${packKey}` as ApiPath,
+		.post<ScenarioAdminPackUpload>(
+			"/scenario/admin/packs/blank" satisfies ApiPath as string,
 			payload,
 		)
 		.then((r) => r.data);
 
-/** 上传一张场景图片：**上传即追加一个新修订**（声明与字节一起版本化）。 */
+/** 复制一个病例（做变式）：新病例的第 1 个版本就是源病例当前版本的内容。 */
+export const duplicateAdminScenarioPack = (
+	packKey: string,
+	payload: ScenarioNewPackRequest,
+) =>
+	api
+		.post<ScenarioAdminPackUpload>(
+			`/scenario/admin/packs/${packKey}/duplicate` as ApiPath,
+			payload,
+		)
+		.then((r) => r.data);
+
+/** 上架：学生列表从此能看到它（校验不过会返回 422 problems[]）。两个方向都幂等。 */
+export const publishAdminScenarioPack = (packKey: string) =>
+	api
+		.post<ScenarioAdminPack>(
+			`/scenario/admin/packs/${packKey}/publish` as ApiPath,
+			{},
+		)
+		.then((r) => r.data);
+
+/** 下架：学生不再能开新局；已有会话与记录照常。 */
+export const unpublishAdminScenarioPack = (packKey: string) =>
+	api
+		.post<ScenarioAdminPack>(
+			`/scenario/admin/packs/${packKey}/unpublish` as ApiPath,
+			{},
+		)
+		.then((r) => r.data);
+
+/** 删除病例：只有**没有任何会话**时才允许；`confirm` 是防手滑，二次确认由界面负责。 */
+export const deleteAdminScenarioPack = (packKey: string) =>
+	api
+		.delete<ScenarioAdminPackDelete>(
+			`/scenario/admin/packs/${packKey}` as ApiPath,
+			{ params: { confirm: true } },
+		)
+		.then((r) => r.data);
+
+/** 上传一张场景图片：存字节 + 把声明写进当前内容（声明变了 version 就 +1）。 */
 export const uploadAdminScenarioAsset = (
 	packKey: string,
 	payload: ScenarioAssetUploadInput,
@@ -254,7 +297,6 @@ export const uploadAdminScenarioAsset = (
 	form.append("file", payload.file);
 	form.append("title", payload.title ?? "");
 	form.append("alt", payload.alt ?? "");
-	form.append("suggest_when", payload.suggest_when ?? "");
 	return api
 		.post<ScenarioAdminAssetUpload>(
 			`/scenario/admin/packs/${packKey}/assets` as ApiPath,
@@ -263,18 +305,37 @@ export const uploadAdminScenarioAsset = (
 		.then((r) => r.data);
 };
 
+/** 替换一张已声明的图片：`asset_id` 不变（内容里的 JSON 引用不用改），只换字节与文案。 */
+export const replaceAdminScenarioAsset = (
+	packKey: string,
+	assetId: string,
+	payload: ScenarioAssetReplaceInput,
+) => {
+	const form = new FormData();
+	form.append("file", payload.file);
+	form.append("title", payload.title ?? "");
+	form.append("alt", payload.alt ?? "");
+	return api
+		.post<ScenarioAdminAssetUpload>(
+			`/scenario/admin/packs/${packKey}/assets/${encodeURIComponent(assetId)}` as ApiPath,
+			form,
+		)
+		.then((r) => r.data);
+};
+
+/** 撤下一张资源：声明从当前内容里去掉，字节一并删除。 */
 export const deleteAdminScenarioAsset = (packKey: string, assetId: string) =>
 	api
-		.delete<{ key: string; revision_no: number; assets: ScenarioAdminAsset[] }>(
+		.delete<ScenarioAdminAssetDeleteResult>(
 			`/scenario/admin/packs/${packKey}/assets/${assetId}` as ApiPath,
 		)
 		.then((r) => r.data);
 
 /**
- * 管理侧资源预览地址：**按 pack key** 取字节（不是修订 id），可直接交给 `AuthImage`。
+ * 场景资源地址：**按 pack key** 取字节（不是修订 id），可直接交给 `AuthImage`。
  */
-export function adminScenarioAssetSrc(packKey: string, assetId: string): string {
-	return `/scenario/admin/packs/${encodeURIComponent(packKey)}/assets/${encodeURIComponent(assetId)}`;
+export function scenarioAssetSrc(packKey: string, assetId: string): string {
+	return `/scenario/assets/${encodeURIComponent(packKey)}/${encodeURIComponent(assetId)}`;
 }
 
 // --------------------------------------------------------------------------- //
@@ -296,13 +357,11 @@ export type ScenarioPackValue =
 /** 一份 pack 内容（顶层是一张表）。 */
 export type ScenarioPackDoc = { [key: string]: ScenarioPackValue };
 
-
-/** 编辑器：读某个病例某一修订的原始内容（`revisionId` 省略 = 最新修订）。 */
-export const getAdminScenarioPackSource = (packKey: string, revisionId?: number) =>
+/** 编辑器：读这份病例的**当前内容**（存回去就走 `POST` 同一个端点）。 */
+export const getAdminScenarioPackContent = (packKey: string) =>
 	api
-		.get<ScenarioAdminPackSource>(
-			`/scenario/admin/packs/${packKey}/source` as ApiPath,
-			revisionId === undefined ? undefined : { params: { revision_id: revisionId } },
+		.get<ScenarioPackContent>(
+			`/scenario/admin/packs/${packKey}/content` as ApiPath,
 		)
 		.then((r) => r.data);
 
@@ -315,21 +374,18 @@ export const validateAdminScenarioPack = (packKey: string, content: ScenarioPack
 		)
 		.then((r) => r.data);
 
-/** 编辑器保存：**追加新修订**（内容未变则幂等复用，返回 `created=false`）。 */
-export const saveAdminScenarioPackRevision = (
-	packKey: string,
-	content: ScenarioPackDoc,
-	note: string,
-) =>
+/**
+ * 编辑器保存：**覆盖当前内容**（内容未变则幂等复用，不涨 version，返回 `changed=false`）。
+ *
+ * 校验不过时后端返回 422 + `problems[]`，`changed`/`version` 不会被伪造出来。
+ */
+export const saveAdminScenarioPackContent = (packKey: string, content: ScenarioPackDoc) =>
 	api
-		.post<ScenarioAdminPackUpload>(
-			`/scenario/admin/packs/${packKey}/revisions` as ApiPath,
-			{ content, note },
+		.post<ScenarioPackContent>(
+			`/scenario/admin/packs/${packKey}/content` as ApiPath,
+			{ content },
 		)
 		.then((r) => r.data);
-
-export const convertAdminScenarioPack = (packKey: string, revisionId: number) =>
-	api.post<Schemas["ScenarioAdminPackConvert"]>(`/scenario/admin/packs/${packKey}/convert` as ApiPath, { revision_id: revisionId }).then((r) => r.data);
 
 export const listAdminScenarioSessions = (
 	query: ScenarioAdminSessionQuery = {},
@@ -352,60 +408,6 @@ export const getAdminScenarioSession = (sessionId: number) =>
 	api
 		.get<ScenarioAdminSessionDetail>(
 			`/scenario/admin/sessions/${sessionId}` as ApiPath,
-		)
-		.then((r) => r.data);
-
-/** 某个病例下 DM 生成物的**服务端分页**（`total` 是该病例下的总数）。 */
-export const listAdminGeneratedAssets = (
-	packKey: string,
-	query: ScenarioGeneratedQuery = {},
-) =>
-	api
-		.get<ScenarioGeneratedList>(
-			`/scenario/admin/packs/${packKey}/generated` as ApiPath,
-			{
-				params: {
-					limit: query.limit ?? 20,
-					offset: query.offset ?? 0,
-					session_id: query.session_id ?? undefined,
-				},
-			},
-		)
-		.then((r) => r.data);
-
-export const deleteAdminGeneratedAsset = (id: number) =>
-	api
-		.delete<{ deleted: number; id: number }>(
-			`/scenario/admin/generated/${id}` as ApiPath,
-		)
-		.then((r) => r.data);
-
-/** 生成物预览地址（管理侧，需登录态）：可直接交给 `AuthImage`。 */
-export const adminGeneratedAssetSrc = (id: number) =>
-	`/scenario/admin/generated/${id}/content`;
-
-/** 历史归档（**只读**）：机制切换前的旧局投影，按原会话 id 唯一。 */
-export const listAdminScenarioArchives = (
-	query: ScenarioAdminArchiveQuery = {},
-) =>
-	api
-		.get<ScenarioArchiveList>(
-			"/scenario/admin/archives" satisfies ApiPath as string,
-			{
-				params: {
-					pack_key: query.pack_key ?? undefined,
-					limit: query.limit,
-					offset: query.offset,
-				},
-			},
-		)
-		.then((r) => r.data);
-
-/** 归档详情：`report` 是新形状或 null；旧局原报告原样放在 `legacy_report`，**绝不重算**。 */
-export const getAdminScenarioArchive = (sessionId: number) =>
-	api
-		.get<ScenarioArchiveDetail>(
-			`/scenario/admin/archives/${sessionId}` as ApiPath,
 		)
 		.then((r) => r.data);
 

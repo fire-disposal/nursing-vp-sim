@@ -10,14 +10,11 @@ import type {
 	ScenarioAdminSessionRow,
 	ScenarioAdminStatsBucket,
 	ScenarioAdminTurnReplay,
-	ScenarioGeneratedAsset,
 	ScenarioView,
 } from "@/api/scenario";
 import AdminAssetsPanel from "@/scenario/admin/AdminAssetsPanel";
 import AdminCaseOverviewPanel from "@/scenario/admin/AdminCaseOverviewPanel";
-import AdminCaseRevisionsPanel from "@/scenario/admin/AdminCaseRevisionsPanel";
 import AdminFocusPanel from "@/scenario/admin/AdminFocusPanel";
-import AdminGeneratedPanel from "@/scenario/admin/AdminGeneratedPanel";
 import AdminSessionsPanel from "@/scenario/admin/AdminSessionsPanel";
 import AdminStatsPanel from "@/scenario/admin/AdminStatsPanel";
 import ScenarioStage from "@/scenario/ScenarioStage";
@@ -46,15 +43,12 @@ vi.mock("@/components/ui/auth-image", async () => {
 
 const mocks = vi.hoisted(() => ({
 	listAdminScenarioPacks: vi.fn(),
-	patchAdminScenarioPack: vi.fn(),
-	uploadAdminScenarioPack: vi.fn(),
 	uploadAdminScenarioAsset: vi.fn(),
+	replaceAdminScenarioAsset: vi.fn(),
 	deleteAdminScenarioAsset: vi.fn(),
 	listAdminScenarioSessions: vi.fn(),
 	getAdminScenarioSession: vi.fn(),
 	getAdminScenarioStats: vi.fn(),
-	listAdminGeneratedAssets: vi.fn(),
-	deleteAdminGeneratedAsset: vi.fn(),
 }));
 
 vi.mock("@/api/scenario", async () => {
@@ -62,15 +56,12 @@ vi.mock("@/api/scenario", async () => {
 	return {
 		...actual,
 		listAdminScenarioPacks: mocks.listAdminScenarioPacks,
-		patchAdminScenarioPack: mocks.patchAdminScenarioPack,
-		uploadAdminScenarioPack: mocks.uploadAdminScenarioPack,
 		uploadAdminScenarioAsset: mocks.uploadAdminScenarioAsset,
+		replaceAdminScenarioAsset: mocks.replaceAdminScenarioAsset,
 		deleteAdminScenarioAsset: mocks.deleteAdminScenarioAsset,
 		listAdminScenarioSessions: mocks.listAdminScenarioSessions,
 		getAdminScenarioSession: mocks.getAdminScenarioSession,
 		getAdminScenarioStats: mocks.getAdminScenarioStats,
-		listAdminGeneratedAssets: mocks.listAdminGeneratedAssets,
-		deleteAdminGeneratedAsset: mocks.deleteAdminGeneratedAsset,
 	};
 });
 
@@ -80,18 +71,17 @@ function pack(): ScenarioAdminPack {
 	return {
 		key: PACK_KEY,
 		title: "吸痰无效：血氧上不来",
-		state: "experimental",
 		one_line: "夜班，患者痰多却吸不出来。",
-		revision_id: 6,
-		revision_no: 6,
-		revisions: [{ id: 6, no: 6, note: "cli install" }],
+		version: 3,
+		published: true,
+		published_at: "2026-09-29T12:00:00Z",
 		overview: {
 			player_role: "夜班护士",
 			place: "呼吸内科病房",
 			time_hint: "凌晨 02:10",
 			resources: ["床旁吸引器", "氧气装置"],
 			actors: [{ id: "patient", role: "患者", presence: "on_site" }],
-			// 教学关注点声明（锚点任务机已删除）：作者视角只有 id + 意图
+			// 教学关注点声明：作者视角只有 id + 意图
 			teaching_focus: [{ id: "f_assess", intent: "先核对呼吸音再决定吸痰" }],
 			cues: 6,
 			affordances: 8,
@@ -100,7 +90,6 @@ function pack(): ScenarioAdminPack {
 			criteria: 5,
 			criteria_weight: 100,
 			failure: "irreversible",
-			image_generation: "disabled",
 		},
 		assets: [
 			{
@@ -108,7 +97,6 @@ function pack(): ScenarioAdminPack {
 				kind: "image",
 				title: "病房环境",
 				alt: "",
-				suggest_when: "",
 				filename: "room-panel.png",
 				mime_type: "image/png",
 				file_size: 797,
@@ -119,33 +107,17 @@ function pack(): ScenarioAdminPack {
 	};
 }
 
-function generated(id: number): ScenarioGeneratedAsset {
-	return {
-		id,
-		session_id: 100 + id,
-		pack_key: PACK_KEY,
-		pack_revision_id: 6,
-		kind: "image",
-		prompt: `夜班病房，患者半坐位喘着，第 ${id} 张`,
-		mime_type: "image/png",
-		file_size: 12_345,
-		sha256: "abcdef0123456789",
-		created_at: "2026-09-27T14:05:00+08:00",
-	};
-}
-
 function sessionRow(id: number): ScenarioAdminSessionRow {
 	return {
 		id,
 		user_id: 1,
 		pack_key: PACK_KEY,
 		pack_title: "吸痰无效：血氧上不来",
-		pack_revision_id: 6,
+		pack_version: 3,
 		status: "completed",
 		turn: 2,
 		lost: false,
 		summary: null,
-		read_only: false,
 		trial: false,
 		created_at: "2026-09-27T14:05:00+08:00",
 		updated_at: "2026-09-27T14:05:00+08:00",
@@ -159,7 +131,6 @@ function sessionDetail(
 		session: sessionRow(7),
 		view: makeView(),
 		report: null,
-		archived: false,
 		problems: [],
 		focus: [],
 		turns: [],
@@ -345,11 +316,12 @@ function renderWithProviders(ui: React.ReactElement) {
 	);
 }
 
-/** 打开一次会话的回放（详情面板按外部带过来的 id 自动展开）。 */
+/** 打开一次会话的回放：列表那一行的「回放」→ 详情面板展开。 */
 async function openDetail(detail: ScenarioAdminSessionDetail) {
 	mocks.listAdminScenarioSessions.mockResolvedValue({ total: 1, items: [sessionRow(7)] });
 	mocks.getAdminScenarioSession.mockResolvedValue(detail);
-	renderWithProviders(<AdminSessionsPanel focusSessionId={7} />);
+	renderWithProviders(<AdminSessionsPanel />);
+	await userEvent.click(await screen.findByRole("button", { name: "回放" }));
 	await screen.findByText(/会话 #7/);
 }
 
@@ -357,165 +329,10 @@ beforeEach(() => {
 	mocks.listAdminScenarioPacks.mockResolvedValue([pack()]);
 	mocks.listAdminScenarioSessions.mockResolvedValue({ total: 0, items: [] });
 	mocks.getAdminScenarioStats.mockResolvedValue({ packs: [] });
-	mocks.listAdminGeneratedAssets.mockResolvedValue({ items: [generated(1)], total: 1 });
 });
 
 afterEach(() => {
 	vi.clearAllMocks();
-});
-
-describe("生成物面板：分页 / 筛选 / 删除 / 状态", () => {
-	it("服务端分页：默认 20/页 offset=0，翻到第 2 页请求 offset=20", async () => {
-		const user = userEvent.setup();
-		mocks.listAdminGeneratedAssets.mockResolvedValue({
-			items: [generated(1)],
-			total: 45,
-		});
-		renderWithProviders(
-			<AdminGeneratedPanel pack={pack()} />,
-		);
-
-		await waitFor(() => {
-			expect(mocks.listAdminGeneratedAssets).toHaveBeenCalledWith(PACK_KEY, {
-				limit: 20,
-				offset: 0,
-				session_id: null,
-			});
-		});
-		expect(await screen.findByText(/第 1\/3 页/)).toBeInTheDocument();
-
-		await user.click(screen.getByRole("button", { name: "2" }));
-		await waitFor(() => {
-			expect(mocks.listAdminGeneratedAssets).toHaveBeenCalledWith(PACK_KEY, {
-				limit: 20,
-				offset: 20,
-				session_id: null,
-			});
-		});
-	});
-
-	it("按会话筛选：session_id 带进请求；清空恢复全量", async () => {
-		const user = userEvent.setup();
-		renderWithProviders(
-			<AdminGeneratedPanel pack={pack()} />,
-		);
-		await screen.findByRole("row", { name: /夜班病房/ });
-
-		await user.type(screen.getByLabelText("按会话筛选"), "101");
-		await waitFor(() => {
-			expect(mocks.listAdminGeneratedAssets).toHaveBeenCalledWith(PACK_KEY, {
-				limit: 20,
-				offset: 0,
-				session_id: 101,
-			});
-		});
-
-		await user.clear(screen.getByLabelText("按会话筛选"));
-		await waitFor(() => {
-			expect(mocks.listAdminGeneratedAssets).toHaveBeenLastCalledWith(PACK_KEY, {
-				limit: 20,
-				offset: 0,
-				session_id: null,
-			});
-		});
-	});
-
-	it("删除要二次确认，确认后删并刷新当前页", async () => {
-		const user = userEvent.setup();
-		mocks.deleteAdminGeneratedAsset.mockResolvedValue({ deleted: 1, id: 1 });
-		renderWithProviders(
-			<AdminGeneratedPanel pack={pack()} />,
-		);
-
-		const row = await screen.findByRole("row", { name: /夜班病房/ });
-		expect(mocks.listAdminGeneratedAssets).toHaveBeenCalledTimes(1);
-		await user.click(within(row).getByRole("button", { name: "删除" }));
-
-		// 二次确认：没确认前不删
-		expect(mocks.deleteAdminGeneratedAsset).not.toHaveBeenCalled();
-		expect(await screen.findByText(/删除生成物 #1/)).toBeInTheDocument();
-		await user.click(screen.getByRole("button", { name: "确认删除" }));
-
-		await waitFor(() => {
-			expect(mocks.deleteAdminGeneratedAsset).toHaveBeenCalledWith(1);
-		});
-		// 刷新当前页（而不是只把那一行从内存里抹掉）
-		await waitFor(() => {
-			expect(mocks.listAdminGeneratedAssets).toHaveBeenCalledTimes(2);
-		});
-	});
-
-	it("当前页删空 → 回退一页（不停在空列表上）", async () => {
-		const user = userEvent.setup();
-		mocks.listAdminGeneratedAssets.mockResolvedValue({
-			items: [generated(21)],
-			total: 21,
-		});
-		mocks.deleteAdminGeneratedAsset.mockResolvedValue({ deleted: 1, id: 21 });
-		renderWithProviders(
-			<AdminGeneratedPanel pack={pack()} />,
-		);
-		await screen.findByText(/第 1\/2 页/);
-
-		await user.click(screen.getByRole("button", { name: "2" }));
-		await waitFor(() => {
-			expect(mocks.listAdminGeneratedAssets).toHaveBeenLastCalledWith(PACK_KEY, {
-				limit: 20,
-				offset: 20,
-				session_id: null,
-			});
-		});
-
-		const row = await screen.findByRole("row", { name: /夜班病房/ });
-		await user.click(within(row).getByRole("button", { name: "删除" }));
-		await user.click(screen.getByRole("button", { name: "确认删除" }));
-
-		await waitFor(() => {
-			expect(mocks.listAdminGeneratedAssets).toHaveBeenLastCalledWith(PACK_KEY, {
-				limit: 20,
-				offset: 0,
-				session_id: null,
-			});
-		});
-	});
-
-	it("空态按病例语境说话", async () => {
-		mocks.listAdminGeneratedAssets.mockResolvedValue({ items: [], total: 0 });
-		renderWithProviders(
-			<AdminGeneratedPanel pack={pack()} />,
-		);
-		expect(await screen.findByText("该病例还没有 DM 生成物。")).toBeInTheDocument();
-	});
-
-	it("接口不存在（404）给明确说明 + 可重试，不白屏、不吐英文", async () => {
-		const user = userEvent.setup();
-		mocks.listAdminGeneratedAssets.mockRejectedValue({
-			isAxiosError: true,
-			response: { status: 404, data: {} },
-			message: "Request failed with status code 404",
-		});
-		renderWithProviders(
-			<AdminGeneratedPanel pack={pack()} />,
-		);
-
-		expect(
-			await screen.findByText(/生成物接口在当前环境不可用/),
-		).toBeInTheDocument();
-		await user.click(screen.getByRole("button", { name: "重试" }));
-		await waitFor(() => {
-			expect(mocks.listAdminGeneratedAssets).toHaveBeenCalledTimes(2);
-		});
-	});
-
-	it("会话 id 可跳到会话回放", async () => {
-		const user = userEvent.setup();
-		const onOpenSession = vi.fn();
-		renderWithProviders(
-			<AdminGeneratedPanel pack={pack()} onOpenSession={onOpenSession} />,
-		);
-		await user.click(await screen.findByRole("button", { name: "#101" }));
-		expect(onOpenSession).toHaveBeenCalledWith(101);
-	});
 });
 
 describe("会话面板：服务端分页", () => {
@@ -542,10 +359,13 @@ describe("会话面板：服务端分页", () => {
 		});
 	});
 
-	it("会话详情按外部带过来的 id 自动展开", async () => {
+	it("会话详情按外部带过来的 id 自动展开；行上标的是用例版本号（不是修订 id）", async () => {
 		await openDetail(sessionDetail());
 		expect(mocks.getAdminScenarioSession).toHaveBeenCalledWith(7);
 		expect(await screen.findByText(/回放视图（只读）/)).toBeInTheDocument();
+		// `pack_version` 是用这一局开始时那份内容的版本号：列表里如实写「版本 #3」
+		expect(screen.getByText(/版本 #3/)).toBeInTheDocument();
+		expect(document.body.textContent ?? "").not.toContain("修订");
 	});
 });
 
@@ -716,8 +536,8 @@ describe("会话回放：逐请求来源回放", () => {
 	});
 });
 
-describe("会话详情：报告三态与诊断问题", () => {
-	it("新形状报告 → 按复盘页渲染（结局 / 关键时刻 / 判读），不是原始 JSON", async () => {
+describe("会话详情：报告两态与诊断问题", () => {
+	it("有报告 → 按复盘页渲染（结局 / 关键时刻 / 判读），不是原始 JSON", async () => {
 		await openDetail(sessionDetail({ report: makeReport(), turns: [] }));
 
 		expect(screen.getByText("结算（新机制）")).toBeInTheDocument();
@@ -725,29 +545,13 @@ describe("会话详情：报告三态与诊断问题", () => {
 		const keyTurns = screen.getByRole("region", { name: "关键时刻" });
 		expect(within(keyTurns).getByText("我先看看他的呼吸。")).toBeInTheDocument();
 		expect(screen.queryByText(/只读留档/)).toBeNull();
-		expect(screen.queryByText(/这次会话未结算/)).toBeNull();
+		expect(screen.queryByText(/这次会话没有结算/)).toBeNull();
 	});
 
-	it("只有切换前的旧报告 → 原样只读留档，绝不翻译成新形状", async () => {
-		await openDetail({
-			...sessionDetail({ report: null }),
-			// `legacy_report` 不在后端的管理回放模型里；真出现时必须原样留档（见 AdminSessionsPanel 注释）
-			legacy_report: { mechanism: "anchors", anchors_satisfied: 2 },
-		} as ScenarioAdminSessionDetail & { legacy_report: Record<string, unknown> });
-
-		expect(screen.getByText("切换前的原始报告（只读留档）")).toBeInTheDocument();
-		// 原文照登：旧字段名一个字都不改
-		expect(screen.getByText(/"anchors_satisfied": 2/)).toBeInTheDocument();
-		// 不假装它是新形状，也不说它未结算
-		expect(screen.queryByText("结算（新机制）")).toBeNull();
-		expect(screen.queryByRole("region", { name: "关键时刻" })).toBeNull();
-		expect(screen.queryByText(/这次会话未结算/)).toBeNull();
-	});
-
-	it("既没有报告也没有旧报告 → 如实写未结算", async () => {
+	it("没有报告 → 如实写未结算，不替它补一份", async () => {
 		await openDetail(sessionDetail({ report: null }));
 
-		expect(screen.getByText(/这次会话未结算/)).toBeInTheDocument();
+		expect(screen.getByText(/这次会话没有结算/)).toBeInTheDocument();
 		expect(screen.queryByText("结算（新机制）")).toBeNull();
 		expect(screen.queryByText(/只读留档/)).toBeNull();
 	});
@@ -781,13 +585,34 @@ describe("会话详情：报告三态与诊断问题", () => {
 });
 
 describe("病例概览：声明了什么（不复制 DM 的真相）", () => {
+	it("头一块报的是版本与上架状态（没有「审阅状态」这回事）", () => {
+		renderWithProviders(<AdminCaseOverviewPanel pack={pack()} />);
+
+		expect(screen.getByText("已上架")).toBeInTheDocument();
+		expect(screen.getByText(/版本 #3/)).toBeInTheDocument();
+		expect(screen.getByText(/上架于 2026-09-29T12:00:00Z/)).toBeInTheDocument();
+		// 已删的概念不该回来
+		expect(screen.queryByText(/实验版/)).toBeNull();
+		expect(screen.queryByText(/已审/)).toBeNull();
+		expect(screen.queryByText(/修订/)).toBeNull();
+	});
+
+	it("未上架的病例：写「未上架」，且不给上架时间", () => {
+		renderWithProviders(
+			<AdminCaseOverviewPanel pack={{ ...pack(), published: false, published_at: null }} />,
+		);
+
+		expect(screen.getByText("未上架")).toBeInTheDocument();
+		expect(screen.queryByText(/上架于/)).toBeNull();
+	});
+
 	it("教学关注点声明成表：id + 意图，并写明「已处理」不等于能力达标", () => {
 		renderWithProviders(<AdminCaseOverviewPanel pack={pack()} />);
 
-		expect(screen.getByText(/教学关注点（1）/)).toBeInTheDocument();
-		expect(screen.getByText("f_assess")).toBeInTheDocument();
+		expect(screen.getByText("要练什么")).toBeInTheDocument();
+		expect(screen.getByRole("columnheader", { name: "教学关注点" })).toBeInTheDocument();
 		expect(screen.getByText("先核对呼吸音再决定吸痰")).toBeInTheDocument();
-		expect(screen.getByText(/不等于能力达标/)).toBeInTheDocument();
+		expect(screen.getByText(/不代表学生是否达标/)).toBeInTheDocument();
 		// 锚点任务机的东西不该回来
 		expect(screen.queryByText(/锚点/)).toBeNull();
 	});
@@ -802,27 +627,20 @@ describe("病例概览：声明了什么（不复制 DM 的真相）", () => {
 		).toBeInTheDocument();
 	});
 
-	it("assets 可选：缺就是「没有声明资源」，不硬读", () => {
-		const bare = { ...pack(), revisions: undefined, assets: undefined };
+	it("assets 可选：缺就是「没有声明图片」，不硬读", () => {
+		const bare = { ...pack(), assets: undefined };
 		renderWithProviders(<AdminCaseOverviewPanel pack={bare} />);
 
-		expect(screen.getByText("资源：0 张，已上传 0 张")).toBeInTheDocument();
+		expect(screen.getByText(/图片：0 张，已上传 0 张/)).toBeInTheDocument();
 	});
 
-	it("最新修订加载不出来 → 说明看不到声明内容，而不是空表", () => {
+	it("当前内容读不出来（overview 缺）→ 说明看不到声明内容，而不是空表", () => {
 		const bare = { ...pack(), overview: undefined };
 		renderWithProviders(<AdminCaseOverviewPanel pack={bare} />);
 
 		expect(
-			screen.getByText(/这份病例还没有可读的修订/),
+			screen.getByText(/这份病例还没有可读的内容/),
 		).toBeInTheDocument();
-	});
-
-	it("修订历史缺失（revisions 未声明）→ 空态，不是空白表", async () => {
-		const bare = { ...pack(), revisions: undefined };
-		renderWithProviders(<AdminCaseRevisionsPanel pack={bare} />);
-
-		expect(await screen.findByText("这份病例还没有任何修订。")).toBeInTheDocument();
 	});
 });
 
@@ -872,77 +690,13 @@ describe("统计：关注点处理比", () => {
 	});
 });
 
-describe("修订面板：发布（改状态）要过确认框", () => {
-	it("「发布（标记为已审）」要确认；取消则不落库，确认后才改", async () => {
-		const user = userEvent.setup();
-		renderWithProviders(<AdminCaseRevisionsPanel pack={pack()} />);
-
-		await user.click(await screen.findByRole("button", { name: "发布（标记为已审）" }));
-
-		expect(mocks.patchAdminScenarioPack).not.toHaveBeenCalled();
-		expect(
-			await screen.findByText(/把「吸痰无效：血氧上不来」标记为已审？/),
-		).toBeInTheDocument();
-		await user.click(screen.getByRole("button", { name: "取消" }));
-		expect(mocks.patchAdminScenarioPack).not.toHaveBeenCalled();
-
-		await user.click(screen.getByRole("button", { name: "发布（标记为已审）" }));
-		await user.click(await screen.findByRole("button", { name: "改状态" }));
-		await waitFor(() => {
-			expect(mocks.patchAdminScenarioPack).toHaveBeenCalledWith(PACK_KEY, {
-				state: "reviewed",
-			});
-		});
-	});
-
-	it("修订历史逐条列出「变了什么」，当前修订有标记", async () => {
-		const withHistory = pack();
-		withHistory.revisions = [
-			{ id: 8, no: 4, note: "asset:a_room by 20" },
-			{ id: 7, no: 3, note: "drop asset:a_verify" },
-			{ id: 6, no: 2, note: "" },
-		];
-		withHistory.revision_id = 8;
-		withHistory.revision_no = 4;
-		renderWithProviders(<AdminCaseRevisionsPanel pack={withHistory} />);
-
-		const rows = await screen.findAllByRole("row");
-		expect(screen.getByText("asset:a_room by 20")).toBeInTheDocument();
-		expect(screen.getByText("drop asset:a_verify")).toBeInTheDocument();
-		// 空说明不编词：如实一个占位
-		expect(within(rows[3]).getByText("—")).toBeInTheDocument();
-		// 当前修订只有一条，标在 #4 那一行
-		expect(screen.getAllByText("当前")).toHaveLength(1);
-		expect(within(rows[1]).getByText("当前")).toBeInTheDocument();
-	});
-
-	it("已审的病例：入口是「退回实验版」，确认文案跟着变", async () => {
-		const user = userEvent.setup();
-		const reviewed = pack();
-		reviewed.state = "reviewed";
-		renderWithProviders(<AdminCaseRevisionsPanel pack={reviewed} />);
-
-		expect(
-			screen.queryByRole("button", { name: "发布（标记为已审）" }),
-		).toBeNull();
-		await user.click(screen.getByRole("button", { name: "退回实验版" }));
-		expect(await screen.findByText(/标记为实验版？/)).toBeInTheDocument();
-		await user.click(screen.getByRole("button", { name: "改状态" }));
-		await waitFor(() => {
-			expect(mocks.patchAdminScenarioPack).toHaveBeenCalledWith(PACK_KEY, {
-				state: "experimental",
-			});
-		});
-	});
-});
-
 describe("场景缩略图：取不到字节不留空框", () => {
 	/** 缩略图测试用视图：两张图，其中一张（a_missing）取不到字节。 */
 	function assetView(): ScenarioView {
 		return makeView({
 			assets: [
-				{ id: "a_room", title: "病房环境", alt: "", url: "/api/scenario/assets/6/a_room", suggest_when: "" },
-				{ id: "a_missing", title: "还没上传的图", alt: "", url: "/api/scenario/assets/6/a_missing", suggest_when: "" },
+				{ id: "a_room", title: "病房环境", alt: "", url: `/api/scenario/assets/${PACK_KEY}/a_room` },
+				{ id: "a_missing", title: "还没上传的图", alt: "", url: `/api/scenario/assets/${PACK_KEY}/a_missing` },
 			],
 		});
 	}
@@ -964,27 +718,6 @@ describe("场景缩略图：取不到字节不留空框", () => {
 		expect(within(failed).getByRole("button", { name: "重试图片" })).toBeInTheDocument();
 	});
 
-	it("生成图取不到字节：不留空框，也不写「该图已被清理」这种平台口吻", async () => {
-		const view = makeView({
-			assets: [
-				{
-					id: "gen:abc123",
-					title: "DM 生成图",
-					alt: "",
-					url: "/api/scenario/assets/6/gen:abc123",
-					suggest_when: "",
-				},
-			],
-		});
-		const { container } = render(<ScenarioStage view={view} />);
-		await waitFor(() => {
-			expect(container.querySelectorAll(".sc-asset")).toHaveLength(0);
-		});
-		expect(container.textContent).not.toContain("该图已被清理");
-		// 失败的是"这一次取不到字节"，不是"这张图不存在"
-		expect(container.textContent).toContain("DM 生成图：图片加载失败");
-	});
-
 	it("全部取不到字节 → 整条缩略图区不渲染", async () => {
 		const view = assetView();
 		view.assets = (view.assets ?? []).filter((asset) => asset.id !== "a_room");
@@ -995,15 +728,15 @@ describe("场景缩略图：取不到字节不留空框", () => {
 	});
 });
 
-describe("资源面板：assets 可选", () => {
-	it("未声明 assets → 说清楚没有资源，而不是一张空表", () => {
+describe("图片面板：assets 可选", () => {
+	it("未声明 assets → 说清楚没有声明任何图片，而不是一张空表", () => {
 		renderWithProviders(<AdminAssetsPanel pack={{ ...pack(), assets: undefined }} />);
 
-		expect(screen.getByText("这个病例没有声明任何资源。")).toBeInTheDocument();
-		expect(screen.queryByRole("columnheader", { name: "资源" })).toBeNull();
+		expect(screen.getByText(/这个病例没有声明任何图片/)).toBeInTheDocument();
+		expect(screen.queryByRole("columnheader", { name: "图片" })).toBeNull();
 	});
 
-	it("声明的资源逐条列出，字节状态如实标（缺字节的不能预览）", () => {
+	it("声明的图片逐条列出，字节状态如实标（缺字节的不能预览）", () => {
 		const withMissing = pack();
 		withMissing.assets = [
 			...(withMissing.assets ?? []),
@@ -1012,7 +745,6 @@ describe("资源面板：assets 可选", () => {
 				kind: "image",
 				title: "还没上传的图",
 				alt: "口咽部",
-				suggest_when: "吸痰前",
 				filename: "",
 				mime_type: "",
 				file_size: 0,

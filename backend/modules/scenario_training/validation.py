@@ -1,6 +1,6 @@
 """pack 的**加载期**校验：形状由 pydantic 管，这里管引用闭合、词表闭合与可达性。
 
-原则：坏包在**加载时**失败，不在会话中途炸（docs/20 §九）。校验只报问题、不修改内容；
+原则：坏包在**加载时**失败，不在会话中途炸（docs/scenario.md九）。校验只报问题、不修改内容；
 本轨的包校验是**检查器**不是门禁（`state="experimental"` 允许犯错，仅记录风险）。
 """
 
@@ -80,8 +80,6 @@ def _presentation_trigger_sites(pack: ScenarioPack) -> list[tuple[Trigger | None
         sites.append((device.visible_when, f"device {device.id}"))
         for channel in device.channels:
             sites.append((channel.visible_when, f"device {device.id}/{channel.ref}"))
-    for nudge in pack.presentation.nudges:
-        sites.append((nudge.when, f"nudge {nudge.direction}"))
     return sites
 
 
@@ -101,7 +99,7 @@ def _trigger_sites(pack: ScenarioPack) -> list[tuple[Trigger | None, str]]:
 
 
 def _check_triggers(pack: ScenarioPack) -> list[str]:
-    """**空触发条件禁止保存**（docs/23 §4.3.5）：不能同时被文档解释成恒真、代码解释成恒假。
+    """**空触发条件禁止保存**（docs/scenario.md）：不能同时被文档解释成恒真、代码解释成恒假。
 
     省略整个 `visible_when`（= 一直在）是允许的；显式写一个 `all: []` 不行。
     """
@@ -116,7 +114,7 @@ def _check_targets(pack: ScenarioPack, index: _Index) -> list[str]:
     """目标引用的类型与命名空间：`TargetRef` 必须命中本包；actor/device/scene **不得同名**。
 
     `Affordance.targets` 用的是带 kind 的引用，但仍禁止三个命名空间出现重复 id——
-    两层一起兜住"裸 id 跨类型碰撞"（docs/23 §4.2）。
+    两层一起兜住"裸 id 跨类型碰撞"（docs/scenario.md）。
     """
     problems: list[str] = []
     devices = {device.id for device in pack.presentation.devices}
@@ -178,7 +176,7 @@ def _logic_keys(pack: ScenarioPack) -> set[str]:
 
 
 def _check_dm_writable(pack: ScenarioPack, index: _Index) -> list[str]:
-    """人物状态可写集（docs/23 §5.1）：平台能机器查的边界全部在这里。
+    """人物状态可写集（docs/scenario.md）：平台能机器查的边界全部在这里。
 
     1. 键必须已登记且属于该角色；
     2. **不得是设备通道读数**（设备状态永远不在写集）；
@@ -266,14 +264,11 @@ def _check_effects(pack: ScenarioPack, index: _Index, effects: list[Any], where:
 
 
 def _check_affordance_refs(index: _Index, affordance: Affordance, where: str) -> list[str]:
-    """揭示的线索与感知者都必须在本包内。"""
+    """揭示的线索必须在本包内。"""
     problems: list[str] = []
     for cue_id in affordance.reveals:
         if cue_id not in index.cues:
             problems.append(f"{where}: 揭示了未知线索 {cue_id}")
-    for actor_id in affordance.perceptible_by:
-        if actor_id not in index.actors:
-            problems.append(f"{where}: 感知者未知 {actor_id}")
     return problems
 
 
@@ -290,8 +285,6 @@ def _check_affordance(pack: ScenarioPack, index: _Index, affordance: Affordance)
     where = f"affordance {affordance.id}"
     params = affordance.params or {}
     problems: list[str] = []
-    if affordance.type not in pack.player.can:
-        problems.append(f"{where}: 类型 {affordance.type} 不在 player.can 中")
     problems += _check_affordance_refs(index, affordance, where)
     problems += _check_effects(pack, index, affordance.effects, where)
     problems += _check_affordance_cost(affordance, where)

@@ -1,6 +1,6 @@
 """create_st_assets_table
 
-情境训练（experimental，docs/20）的场景资源字节表：按 `(pack_key, asset_id)` 存图片等资源，
+情境训练（experimental，docs/scenario.md）的场景资源字节表：按 `(pack_key, asset_id)` 存图片等资源，
 与反馈图片同构（`LargeBinary`），运行时不依赖文件系统；管理侧上传，安装时从仓库文件播种。
 
 Revision ID: c9d0e1f2a3b4

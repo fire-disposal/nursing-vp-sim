@@ -66,7 +66,8 @@ _DELIVERY_SYSTEM = """你是这场情境的主持人。处境**已经结算完�
 6. **多对象可以同时有诉求**：不要替学生排优先级，不要因为他在处理一件事就让另一件事消失。
 7. `sources` 只能引用「可见事件」一节里逐字给出的 ref；`assets` 只能引用「可用资源」一节逐字给出的 id；
    `highlights` 只能引用可见事件里的 ref。拿不准就留空。
-8. 时间用**相对说法**推进（"过了一会儿""这会儿"），不要编造具体分钟数。
+8. 时间用**相对说法**推进（"过了一会儿""这会儿"），不要编造具体分钟数——但**只有本回合真的推进了时间**
+   才可以这么写（见第 10 条）。
 9. 篇幅克制：一般 1–4 条消息，具体、能读；不要每轮都同样的句式；不要复述已经说过的话。
 10. **时间由包声明决定，不归你管**：说话、观察、测量**不消耗时间**（信息获取理所当然）。
     本回合消耗的时间单位会明确告诉你（0 = 没有花时间）——**0 时不得描写时间流逝**（不许写"过了一会儿"
@@ -339,3 +340,21 @@ def retry_messages(messages: list[dict[str, str]], problem: str) -> None:
             "content": f"上一次输出不可用：{problem}\n请只按给定 JSON 形状重新输出一次，不要解释、不要加字段。",
         }
     )
+
+
+#: 引用类错误的提示词：**说模型的方言**（同 `op` 的 add/incr 归一），不要求模型迁就平台的报错格式。
+_REF_RULE = (
+    "引用必须写成带命名空间的形式：`cue:<线索 id>`（已揭示的线索）、`reaction:<反应 id>`（已触发的反应）、"
+    "`effect:<状态键>`（已暴露的读数）、`action:<动作 id>`（学生已用过的动作）。"
+)
+
+
+def ref_fix_hint(problem: str, allowed_refs: set[str]) -> str:
+    """把引用类校验错误翻成**模型能照做**的一句（其他错误原样返回）。"""
+    if not problem.startswith(("delivery_unknown_source", "delivery_ambiguous_source", "delivery_unknown_highlight")):
+        return problem
+    examples = "、".join(f"`{ref}`" for ref in sorted(allowed_refs)[:6])
+    hint = f"{problem}。{_REF_RULE}"
+    if examples:
+        hint += f"本回合可用的引用例如：{examples}（不限于这些）。"
+    return hint

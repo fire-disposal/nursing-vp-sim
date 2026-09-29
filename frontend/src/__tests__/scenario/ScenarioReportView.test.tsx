@@ -5,13 +5,13 @@ import ScenarioReportView from "@/scenario/ScenarioReportView";
 import { makeReport, makeView } from "./fixtures";
 
 /**
- * 复盘页（`report` 是新形状）：**先看事情，再看评价**（`docs/23` §7.7）。
+ * 复盘页（`report` 是新形状）：**先看事情，再看评价**（`docs/scenario.md` §7.7）。
  *
  * 断言只针对**层级与取舍**：结局读得出真实终态、关键时刻带学生原话+证据+变化、
  * 反思有才渲染、分数与判读退到次级折叠区（且在关键时刻之后）。不钉具体句子措辞。
  */
 
-/** 终态视图：已结束、只读（报告页天然是回看态）。 */
+/** 终态视图：已结束（报告页天然是回看态）。 */
 function finishedView() {
 	return makeView({
 		session: {
@@ -20,25 +20,13 @@ function finishedView() {
 			turn: 3,
 			lost: false,
 			seq: 9,
-			read_only: true,
 			trial: false,
 		},
 	});
 }
 
-function renderReport(
-	report: ScenarioReport | null,
-	view = finishedView(),
-	legacyReport: Record<string, unknown> | null = null,
-) {
-	return render(
-		<ScenarioReportView
-			report={report}
-			legacyReport={legacyReport}
-			view={view}
-			actions={null}
-		/>,
-	);
+function renderReport(report: ScenarioReport | null, view = finishedView()) {
+	return render(<ScenarioReportView report={report} view={view} actions={null} />);
 }
 
 const MAIN_BLOCK_ORDER = [
@@ -53,7 +41,6 @@ describe("复盘页：先看事情，再看评价", () => {
 	it.each([
 		["lost", /不可逆/],
 		["ended_by_student", /主动结束/],
-		["cutover", /机制切换/],
 	] as const)("结局按真实终态读出：%s", (status, pattern) => {
 		renderReport(
 			makeReport({
@@ -112,7 +99,7 @@ describe("复盘页：先看事情，再看评价", () => {
 			makeReport({
 				assessment: {
 					summary: { strong: 1, adequate: 0, missed: 1 },
-					score: { rate: 0.5, weighted_sum: 50, total_weight: 100, criteria: [] },
+					score: { rate: 0.5, weighted_sum: 50, total_weight: 100 },
 					criteria: [
 						{
 							id: "dp_priority",
@@ -177,7 +164,7 @@ describe("复盘页：先看事情，再看评价", () => {
 			makeReport({
 				assessment: {
 					summary: { strong: 0, adequate: 0, missed: 0 },
-					score: { rate: null, weighted_sum: 0, total_weight: 0, criteria: [] },
+					score: { rate: null, weighted_sum: 0, total_weight: 0 },
 					criteria: [],
 					dims: [],
 				},
@@ -190,50 +177,12 @@ describe("复盘页：先看事情，再看评价", () => {
 	});
 });
 
-describe("旧机制会话的报告", () => {
-	const LEGACY = {
-		anchor_count: 3,
-		score: { rate: 0.42 },
-		nested: { deep: [1, 2] },
-	};
-
-	it("原样只读展开，不套新形状、不重算、不隐藏字段", () => {
-		const { container } = renderReport(null, finishedView(), LEGACY);
-
-		// 标出这是切换前的本局记录，而不是"本局未结算"
-		expect(document.querySelector(".sc-report-sub")?.textContent).toMatch(
-			/切换前/,
-		);
-		const section = screen.getByLabelText("旧机制原报告（原样留档）");
-		const pre = section.querySelector("pre") as HTMLElement;
-		// 逐字留档：解析后形状与原文一致（含学生面根本不认识的内层字段）
-		expect(pre.textContent).toBe(JSON.stringify(LEGACY, null, 2));
-
-		// 绝不当作 ScenarioReport 解析：新形状的区块一个都不出现
-		expect(screen.queryByLabelText("关键时刻")).toBeNull();
-		expect(screen.queryByLabelText("判读详情")).toBeNull();
-		expect(screen.queryByLabelText("得分率")).toBeNull();
-		// 也不重算旧报告的分数（0.42 不得被换算成 42%）
-		expect(container.textContent).not.toMatch(/42%/);
-	});
-
-	it("只读：没有任何可编辑控件", () => {
-		const { container } = renderReport(null, finishedView(), LEGACY);
-		expect(
-			container.querySelectorAll(
-				'input, textarea, select, [contenteditable="true"]',
-			),
-		).toHaveLength(0);
-	});
-});
-
 describe("两种报告都没有", () => {
 	it("显示未结算态，不假装有复盘", () => {
-		renderReport(null, finishedView(), null);
+		renderReport(null, finishedView());
 
-		expect(screen.getByText(/未结算/)).toBeInTheDocument();
+		expect(screen.getByText(/本局没有结算/)).toBeInTheDocument();
 		expect(screen.getByText(/没有留下结算/)).toBeInTheDocument();
 		expect(screen.queryByLabelText("关键时刻")).toBeNull();
-		expect(screen.queryByLabelText("旧机制原报告（原样留档）")).toBeNull();
 	});
 });

@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { queryKeys } from "@/api/query-keys";
 import { closeScenarioSession, createScenarioSession, getScenarioRequest, getScenarioSession, isScenarioUnavailable, listMyScenarioSessions, listScenarioPacks, ScenarioHttpError, streamScenarioTurn,
-	type ScenarioActionInput, type ScenarioArchiveRef, type ScenarioCloseRequest, type ScenarioErrorInfo, type ScenarioPackSummary, type ScenarioReport, type ScenarioSessionState, type ScenarioTurnRequest, type ScenarioTurnResult, type ScenarioView } from "@/api/scenario";
+	type ScenarioActionInput, type ScenarioCloseRequest, type ScenarioErrorInfo, type ScenarioPackSummary, type ScenarioReport, type ScenarioSessionState, type ScenarioTurnRequest, type ScenarioTurnResult, type ScenarioView } from "@/api/scenario";
 import { useConfirm } from "@/components/ui/confirm";
 import { getApiErrorMessage } from "@/utils/error";
 import ActionBar, { type ScenarioIntent } from "./ActionBar";
@@ -22,8 +22,8 @@ type SavedRequest = { request: ScenarioTurnRequest; label: string; restoreText: 
 /** 冲突的处置方式不同，所以按语义分组，不按 HTTP 状态码分组（`docs/23` §8.1）。 */
 /** 序号过期：刷新到最新处境后**同一个请求身份**可以重发（提交只会成功一次）。 */
 const SEQUENCE_CONFLICTS = ["session_conflict"];
-/** 会话已不可写：刷新后转只读，不再提供重发。 */
-const READONLY_CODES = ["session_closed", "session_archived"];
+/** 会话已结束：提交被拒后刷新到最新状态，不再提供重发。 */
+const CLOSED_CODE = "session_closed";
 /** 请求自身不一致（目标/动作/选项）：改完输入要**换新身份**，同 id 只会再被拒。 */
 const SHAPE_CODES = [
 	"unknown_target",
@@ -54,9 +54,6 @@ export default function ScenarioConsole() {
 	const urlId = searchParams.get("session");
 	const [view, setView] = useState<ScenarioView | null>(null);
 	const [report, setReport] = useState<ScenarioReport | null>(null);
-	const [legacyReport, setLegacyReport] = useState<Record<string, unknown> | null>(null);
-	const [archive, setArchive] = useState<ScenarioArchiveRef | null>(null);
-	const [readOnly, setReadOnly] = useState(false);
 	const [reportOpen, setReportOpen] = useState(false);
 	const [opening, setOpening] = useState(false);
 	const [busy, setBusy] = useState(false);
@@ -82,13 +79,10 @@ export default function ScenarioConsole() {
 	const packsQuery = useQuery({ queryKey: queryKeys.scenario.packs(), queryFn: listScenarioPacks, retry: false });
 	const historyQuery = useQuery({ queryKey: queryKeys.scenario.mySessions(), queryFn: listMyScenarioSessions, retry: false });
 
-	/** 会话状态（`GET /sessions/{id}` 或刷新后的重取）落到界面：报告、只读与归档都只认服务端。 */
+	/** 会话状态（`GET /sessions/{id}` 或刷新后的重取）落到界面：报告只认服务端。 */
 	function applySessionState(state: ScenarioSessionState) {
 		setView(state.view);
 		setReport(state.report ?? null);
-		setLegacyReport(state.legacy_report ?? null);
-		setArchive(state.archive ?? null);
-		setReadOnly(state.read_only || state.view.session.read_only);
 	}
 
 	// 草稿与未决的请求身份在刷新或离开训练页之后仍然有效。
@@ -102,7 +96,7 @@ export default function ScenarioConsole() {
 		if (id === loadedIdRef.current) return;
 		abortRef.current?.abort();
 		loadedIdRef.current = id;
-		setView(null); setReport(null); setLegacyReport(null); setArchive(null); setReadOnly(false);
+		setView(null); setReport(null);
 		setReportOpen(false); setError(null); setPending(null); setRetry(null); setUncertain(false); setSideOpen(false);
 		setFreeText(""); setIntent(EMPTY_INTENT); setOpenAffordanceId(null); setHintText(null); setHighlightTurn(null);
 		setPhase(null);
@@ -179,7 +173,6 @@ export default function ScenarioConsole() {
 				if (event.kind === "phase") setPhase(event.phase);
 				else if (event.kind === "committed") { settled = true; applyResult(event.result, resend); }
 				else if (event.kind === "error") { settled = true; void handleFailure(event.error, resend, id); }
-				// delivery 是**已校验但未提交**的草稿：不进学生的世界，也不当事实展示。
 			}, controller.signal);
 			if (!settled && !controller.signal.aborted) await recover(id, resend);
 		} catch (err) {
@@ -213,7 +206,7 @@ export default function ScenarioConsole() {
 			setError(`${info.message} 已刷新到最新处境（时间单位 ${data.view.session.turn}）。你的输入还在，可再次发送。`);
 			return;
 		}
-		if (READONLY_CODES.includes(info.code)) {
+		if (info.code === CLOSED_CODE) {
 			const data = await getScenarioSession(id);
 			if (loadedIdRef.current !== id) return;
 			applySessionState(data);
@@ -241,7 +234,7 @@ export default function ScenarioConsole() {
 		failBeforeCommit(info, saved);
 	}
 	async function submitAction(action: ScenarioActionInput) {
-		if (!view || readOnly || busyRef.current || uncertain) return;
+		if (!view || busyRef.current || uncertain) return;
 		const affordances = view.affordances ?? [];
 		const affordance = action.affordance_id ? affordances.find((item) => item.id === action.affordance_id) : undefined;
 		if (affordance?.confirm && !await confirm({ title: affordance.label, message: "这个动作不可逆。", confirmLabel: "确认尝试", danger: true })) return;
@@ -253,27 +246,27 @@ export default function ScenarioConsole() {
 	async function start(pack: ScenarioPackSummary) {
 		if (busyRef.current) return;
 		busyRef.current = true; setBusy(true); setOpening(true); setError(null);
-		try { const data = await createScenarioSession({ pack_key: pack.key, revision_id: pack.revision_id, trial: false }); setSearchParams({ session: String(data.session_id) }); void historyQuery.refetch(); }
+		try { const data = await createScenarioSession({ pack_key: pack.key, trial: false }); setSearchParams({ session: String(data.session_id) }); void historyQuery.refetch(); }
 		catch (err) { setError(getApiErrorMessage(err, "开启情境失败")); }
 		finally { busyRef.current = false; setBusy(false); setOpening(false); }
 	}
 	/** 结束请求与在途动作按同一序号串行提交；响应丢失时用**同一个身份**查回来，不重开一次。 */
 	async function close() {
-		if (!view || busyRef.current || uncertain || readOnly) return;
+		if (!view || busyRef.current || uncertain) return;
 		if (!closeRequestRef.current && !await confirm({ title: "结束本次情境？", message: "结束后只能回看，不能继续这一局。若只想离开，可从应用导航退出，稍后继续。", confirmLabel: "结束本次", danger: true })) return;
 		busyRef.current = true; setBusy(true);
 		const request = closeRequestRef.current ?? { request_id: crypto.randomUUID(), expected_seq: view.session.seq };
 		closeRequestRef.current = request;
 		try {
 			const data = await closeScenarioSession(view.session.id, request);
-			setView(data.view); setReport(data.report); setLegacyReport(null); setReadOnly(data.view.session.read_only); setReportOpen(true);
+			setView(data.view); setReport(data.report); setReportOpen(true);
 			closeRequestRef.current = null; setError(null); void historyQuery.refetch();
 		} catch {
 			try {
 				const lookup = await getScenarioRequest(view.session.id, request.request_id);
 				if (lookup.kind === "close" && lookup.state === "committed" && lookup.close_result) {
 					const data = lookup.close_result;
-					setView(data.view); setReport(data.report); setLegacyReport(null); setReadOnly(data.view.session.read_only); setReportOpen(true);
+					setView(data.view); setReport(data.report); setReportOpen(true);
 					closeRequestRef.current = null; setError(null); void historyQuery.refetch();
 				} else if (lookup.state === "failed" && lookup.error) {
 					closeRequestRef.current = null;
@@ -291,22 +284,20 @@ export default function ScenarioConsole() {
 		document.getElementById(`sc-turn-${turn}`)?.scrollIntoView({ block: "start" });
 	};
 	if (isScenarioUnavailable(packsQuery.error)) return <div className="sc-root"><div className="sc-gate">情境训练当前未开启</div></div>;
-	if (view && (report !== null || legacyReport !== null) && reportOpen) return <div className="sc-root" data-view="report"><ScenarioReportView report={report} legacyReport={legacyReport} view={view} actions={<><button type="button" className="sc-btn" onClick={() => setReportOpen(false)}>回看对话</button><button type="button" className="sc-btn" onClick={() => { const pack = packsQuery.data?.find((item) => item.key === view.pack.key); if (pack) void start(pack); }} disabled={busy}>再练一次</button><button type="button" className="sc-btn" onClick={leave}>返回场景列表</button></>} /></div>;
+	if (view && report !== null && reportOpen) return <div className="sc-root" data-view="report"><ScenarioReportView report={report} view={view} actions={<><button type="button" className="sc-btn" onClick={() => setReportOpen(false)}>回看对话</button><button type="button" className="sc-btn" onClick={() => { const pack = packsQuery.data?.find((item) => item.key === view.pack.key); if (pack) void start(pack); }} disabled={busy}>再练一次</button><button type="button" className="sc-btn" onClick={leave}>返回场景列表</button></>} /></div>;
 	if (!view) return <div className="sc-root" data-view="open"><div className="sc-gate sc-gate-wide"><section className="sc-open" aria-label="情境训练">
 		<h2 className="sc-open-title">选一个情境开始</h2>
 		{(opening || packsQuery.isLoading) && <div role="status">正在读取情境…</div>}
 		{error && <div className="sc-error" role="alert">{error}<button type="button" className="sc-btn" onClick={leave}>回到场景列表</button></div>}
 		{packsQuery.error && <div className="sc-error" role="alert">情境列表读取失败<button type="button" className="sc-btn" onClick={() => packsQuery.refetch()}>重试</button></div>}
-		<div className="sc-packs">{packsQuery.data?.map((pack) => <article className="sc-pack" key={pack.key}><div className="sc-pack-head"><h3 className="sc-pack-title">{pack.title}</h3><p className="sc-pack-one-line">{pack.one_line}</p></div><div className="sc-pack-badges">{[pack.player_role, pack.place].filter(Boolean).map((text) => <span className="sc-badge" key={text}>{text}</span>)}</div><div className="sc-pack-actions"><button type="button" className="sc-btn sc-btn-lg sc-pack-start" disabled={busy || pack.revision_id === null} aria-label={`开始「${pack.title}」`} onClick={() => start(pack)}><IconPlayerPlay size={14} aria-hidden="true" />开始</button></div></article>)}</div>
-		<section className="sc-history" aria-label="我的情境经历"><div className="sc-section-head"><IconHistory size={16} aria-hidden="true" /><span>我的情境经历</span></div>{historyQuery.isError && <button type="button" className="sc-btn" onClick={() => historyQuery.refetch()}>经历读取失败，重试</button>}<div className="sc-history-list">{(historyExpanded ? historyQuery.data : historyQuery.data?.slice(0, 8))?.map((row) => <button type="button" key={row.id} className="sc-history-item" disabled={busy} onClick={() => setSearchParams({ session: String(row.id) })}><span className="sc-history-title">{row.pack_title}</span><span className="sc-history-meta">{row.read_only ? "机制切换 · 仅可回看" : sessionRowMeta(row)}</span></button>)}</div>{(historyQuery.data?.length ?? 0) > 8 && <button type="button" className="sc-ghost-btn" onClick={() => setHistoryExpanded((value) => !value)}>{historyExpanded ? "收起" : "查看全部经历"}</button>}</section>
+		<div className="sc-packs">{packsQuery.data?.map((pack) => <article className="sc-pack" key={pack.key}><div className="sc-pack-head"><h3 className="sc-pack-title">{pack.title}</h3><p className="sc-pack-one-line">{pack.one_line}</p></div><div className="sc-pack-badges">{[pack.player_role, pack.place].filter(Boolean).map((text) => <span className="sc-badge" key={text}>{text}</span>)}</div><div className="sc-pack-actions"><button type="button" className="sc-btn sc-btn-lg sc-pack-start" disabled={busy} aria-label={`开始「${pack.title}」`} onClick={() => start(pack)}><IconPlayerPlay size={14} aria-hidden="true" />开始</button></div></article>)}</div>
+		<section className="sc-history" aria-label="我的情境经历"><div className="sc-section-head"><IconHistory size={16} aria-hidden="true" /><span>我的情境经历</span></div>{historyQuery.isError && <button type="button" className="sc-btn" onClick={() => historyQuery.refetch()}>经历读取失败，重试</button>}<div className="sc-history-list">{(historyExpanded ? historyQuery.data : historyQuery.data?.slice(0, 8))?.map((row) => <button type="button" key={row.id} className="sc-history-item" disabled={busy} onClick={() => setSearchParams({ session: String(row.id) })}><span className="sc-history-title">{row.pack_title}</span><span className="sc-history-meta">{sessionRowMeta(row)}</span></button>)}</div>{(historyQuery.data?.length ?? 0) > 8 && <button type="button" className="sc-ghost-btn" onClick={() => setHistoryExpanded((value) => !value)}>{historyExpanded ? "收起" : "查看全部经历"}</button>}</section>
 	</section></div></div>;
-	const finished = view.session.status !== "active";
-	const locked = readOnly || finished;
-	const reportAvailable = report !== null || legacyReport !== null;
-	const archiveNote = archive === null ? null : `已归档（形状 v${archive.shape_version}${archive.ended_reason !== "" ? ` · ${archive.ended_reason}` : ""}）`;
+	const locked = view.session.status !== "active";
+	const reportAvailable = report !== null;
 	return <div className="sc-root" data-view="session" data-lost={view.session.lost}>
 		<div className="sc-topbar"><span className="sc-topbar-title" title={view.pack.title}>{view.pack.title}</span><span className="sc-topbar-meta">{view.session.trial ? "试跑 · " : ""}{view.session.turn === 0 ? "时间未前进" : `已过 ${view.session.turn} 个时间单位`}</span><span className="sc-topbar-end"><button ref={sideToggleRef} type="button" className="sc-btn" aria-expanded={sideOpen} onClick={() => setSideOpen((value) => !value)}>资料／回看</button>{!locked && <button type="button" className="sc-ghost-btn" disabled={busy || uncertain} onClick={close}>结束本次</button>}</span></div>
-		{locked && <div className="sc-note">{archive !== null ? "机制切换，旧局仅可回看" : finished ? "本次情境已结束" : "本局只能回看"}；已有记录保留。{archiveNote !== null && ` ${archiveNote}。`}{reportAvailable && <button type="button" className="sc-btn" onClick={() => setReportOpen(true)}>查看复盘</button>}<button type="button" className="sc-btn" onClick={leave}>返回列表</button></div>}
+		{locked && <div className="sc-note">本次情境已结束；已有记录保留。{reportAvailable && <button type="button" className="sc-btn" onClick={() => setReportOpen(true)}>查看复盘</button>}<button type="button" className="sc-btn" onClick={leave}>返回列表</button></div>}
 		<VisuallyHidden role="status" aria-live="polite">{announcement}</VisuallyHidden>
 		<div className="sc-main"><div className="sc-column">
 			<ScenarioStage view={view} pending={pending} phase={busy ? phase : null} highlightTurn={highlightTurn} onLocateTurn={locateTurn} actorStrip="unaddressable" showResources />

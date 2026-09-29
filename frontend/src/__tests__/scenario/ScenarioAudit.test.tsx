@@ -87,7 +87,7 @@ function baseTurnResult(overrides: Partial<ScenarioTurnResult> = {}): ScenarioTu
 		outcome: "performed",
 		messages: [],
 		view: makeView({
-			session: { id: 12, status: "active", turn: 2, lost: false, seq: 5, read_only: false, trial: false },
+			session: { id: 12, status: "active", turn: 2, lost: false, seq: 5, trial: false },
 		}),
 		...overrides,
 	});
@@ -122,12 +122,11 @@ function historyRow(overrides: Partial<ScenarioSessionRow> = {}): ScenarioSessio
 		user_id: 1,
 		pack_key: PACK.key,
 		pack_title: PACK.title,
-		pack_revision_id: PACK.revision_id ?? 7,
+		pack_version: PACK.version,
 		status: "active",
 		turn: 3,
 		lost: false,
 		summary: null,
-		read_only: false,
 		trial: false,
 		created_at: "2026-09-27T14:00:00+08:00",
 		updated_at: "2026-09-27T14:05:00+08:00",
@@ -212,7 +211,7 @@ describe("H1：只有 pack 列表 404 才算「功能未开启」", () => {
 		expect(await screen.findByText(PACK.title)).toBeInTheDocument();
 	});
 
-	it("恢复会话时 404（会话/修订没了）→ 也只是普通错误", async () => {
+	it("恢复会话时 404（会话没了）→ 也只是普通错误", async () => {
 		const user = userEvent.setup();
 		mocks.listMyScenarioSessions.mockResolvedValue([historyRow()]);
 		mocks.getScenarioSession.mockRejectedValue(notFound("会话不存在"));
@@ -228,24 +227,6 @@ describe("H1：只有 pack 列表 404 才算「功能未开启」", () => {
 		expect(document.querySelector('.sc-root[data-view="open"]')).not.toBeNull();
 	});
 
-	it("没有可用修订的包：不可点（也不写一行占位说明）", async () => {
-		const user = userEvent.setup();
-		mocks.listScenarioPacks.mockResolvedValue([
-			{ ...PACK, revision_id: null, revision_no: null },
-		]);
-		renderConsole();
-
-		const button = await screen.findByRole("button", { name: /术后低氧/ });
-		expect(button).toBeDisabled();
-		expect(button).toHaveAccessibleName(`开始「${PACK.title}」`);
-		// 不能用还要解释一遍是平台口吻：没有可点的修订就不给一行占位说明，
-		// 但这一份病例本身照旧如实列在那里（不可点 ≠ 从列表里消失）
-		expect(screen.queryByText(/该病例没有可用修订/)).toBeNull();
-		expect(screen.getByText(PACK.one_line)).toBeInTheDocument();
-
-		await user.click(button);
-		expect(mocks.createScenarioSession).not.toHaveBeenCalled();
-	});
 });
 
 describe("H2：失败不把后端原文/机器话吐给学生", () => {
@@ -422,7 +403,7 @@ describe("M3：会话进地址栏（?session=）", () => {
 		mocks.getScenarioSession.mockResolvedValue(
 			makeSessionState({
 				view: makeView({
-					session: { id: 12, status: "active", turn: 4, lost: false, seq: 8, read_only: false, trial: false },
+					session: { id: 12, status: "active", turn: 4, lost: false, seq: 8, trial: false },
 				}),
 			}),
 		);

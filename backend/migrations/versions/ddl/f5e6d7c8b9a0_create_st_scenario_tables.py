@@ -1,6 +1,6 @@
 """create_st_scenario_tables
 
-情境训练（experimental，docs/20）的 `st_*` 表：pack 容器、不可变修订、会话、只追加事件。
+情境训练（experimental，docs/scenario.md）的 `st_*` 表：pack 容器、不可变修订、会话、只追加事件。
 
 隔离硬红线：本轨只读写 `st_*`，**不建指向老表的 FK**（`user_id` / `pack_revision_id` 只存
 整数标识），不做跨表 JOIN、不写老表——老表结构变动不会波及本轨。

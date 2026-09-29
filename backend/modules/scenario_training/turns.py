@@ -2,7 +2,7 @@
 
 这一份是**唯一**的回合词汇表：解析阶段的输出（`IntentResolution`）、结算阶段的产物
 （`ResolvedTurn`）、演出阶段的输出（`SceneDelivery`）都在这里定义。平台与两个模型阶段
-共用同一组模型生成 JSON schema，**不另写一份散文枚举规范**（docs/23 §4.2）。
+共用同一组模型生成 JSON schema，**不另写一份散文枚举规范**（docs/scenario.md）。
 
 依赖方向：本模块只依赖 `schema.py`（包声明）与 pydantic；`dm/**` 与 `runtime/**` 都可以导入它，
 反向不成立——因此不会出现导入环。
@@ -181,7 +181,7 @@ class DeliveryMessage(BaseModel):
 
 
 class SceneDelivery(BaseModel):
-    """演出阶段的输出。**没有** effects / reveals / facts / notes / 委派字段（docs/23 §4.4）。"""
+    """演出阶段的输出。**没有** effects / reveals / facts / notes / 委派字段（docs/scenario.md）。"""
 
     model_config = ConfigDict(extra="forbid")
 

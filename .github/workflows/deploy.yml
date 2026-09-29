@@ -533,8 +533,7 @@ jobs:
           required = {
               'opened_24h', 'active', 'completed', 'requests_24h', 'time_cost_24h',
               'avg_time_cost_per_request_24h', 'model_calls_24h', 'avg_model_calls_per_request_24h',
-              'clarifications_24h', 'hints_24h', 'llm_failures_24h', 'read_only_sessions',
-              'generated_images_24h', 'rate_limited_24h',
+              'clarifications_24h', 'hints_24h', 'llm_failures_24h', 'rate_limited_24h',
           }
           removed = {'dm_steps_24h', 'dm_avg_steps_24h', 'fallbacks_24h'}
           if not isinstance(scenario, dict) or not required <= set(scenario):

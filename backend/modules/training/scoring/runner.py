@@ -98,7 +98,7 @@ def classify_stuck_records(db: Session, records: Sequence[TrainingRecord]) -> di
       不再自动重跑（避免故障期每 10 分钟循环烧 LLM 预算），改由用户手动重试。
 
     两者年龄/意图确实不同（无存活任务 vs. 任务疑似存活），故保留该终态差异
-    （见 docs/01-architecture.md §评分流程）。
+    （见 docs/architecture.md §评分流程）。
     """
     record_ids = [record.id for record in records]
     if not record_ids:

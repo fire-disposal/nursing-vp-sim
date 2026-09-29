@@ -196,11 +196,47 @@ def _reject_leak(text: str, leaks: list[str]) -> None:
         raise StageError(f"delivery_leak:{hit[:24]}")
 
 
+#: 引用（`sources` / `highlights`）的命名空间前缀。模型有时只写裸 id（`c_results`），
+#: 平台**说模型的方言**（同 `op` 的 `add`/`incr` 归一）：一个裸 id 只要能唯一对上某个已声明、
+#: 已可见的引用，就按那个命名空间采纳——安全边界不变（这些 id 必须本来就在白名单里）。
+_REF_PREFIXES = ("cue:", "reaction:", "effect:", "action:", "event:")
+
+
 def _reject_unknown_refs(kind: str, refs: list[str], allowed: set[str]) -> None:
-    """引用（来源 / 资源 / 高亮）必须已在学生这一侧可见。"""
+    """引用（资源等**无命名空间**的 id）必须已在学生这一侧可见。"""
     unknown = [ref for ref in refs if ref not in allowed]
     if unknown:
         raise StageError(f"delivery_unknown_{kind}:{','.join(unknown)[:40]}")
+
+
+def _normalize_ref(ref: str, allowed: set[str]) -> str:
+    """把一条引用归一成**带命名空间**的形式；无法唯一确定就报错（不猜）。
+
+    - 原样命中白名单 → 直接采纳；
+    - 否则逐个前缀试：**恰好命中一个** → 采纳（模型丢了前缀）；
+    - 命中 0 个 → 返回原样，由调用方按未授权处理（整条拒绝）；
+    - 命中 ≥2 个 → `delivery_ambiguous_source`（同一 id 在多个命名空间里都可见，平台不替模型选）。
+    """
+    if ref in allowed:
+        return ref
+    hits = [f"{prefix}{ref}" for prefix in _REF_PREFIXES if f"{prefix}{ref}" in allowed]
+    if len(hits) == 1:
+        return hits[0]
+    if len(hits) > 1:
+        raise StageError(f"delivery_ambiguous_source:{ref}（可指 {' 或 '.join(hits)}）")
+    return ref
+
+
+def _normalize_refs(kind: str, refs: list[str], allowed: set[str]) -> list[str]:
+    """归一 + **去重（保持首次出现顺序）**；归一无解/未授权 → 整条拒绝。"""
+    out: list[str] = []
+    for ref in refs:
+        normalized = _normalize_ref(ref, allowed)
+        if normalized not in allowed:
+            raise StageError(f"delivery_unknown_{kind}:{normalized}")
+        if normalized not in out:
+            out.append(normalized)
+    return out
 
 
 def _checked_message(
@@ -222,10 +258,8 @@ def _checked_message(
         if not as_role:
             raise StageError(f"delivery_unknown_speaker:{speaker}")
         ephemeral = True  # 临时角色：有显示名、无状态写权限
-    _reject_unknown_refs("source", message.sources, allowed_refs)
-    return DeliveryMessage(
-        speaker=speaker, as_role=as_role, ephemeral=ephemeral, text=text, sources=list(message.sources)
-    )
+    sources = _normalize_refs("source", message.sources, allowed_refs)
+    return DeliveryMessage(speaker=speaker, as_role=as_role, ephemeral=ephemeral, text=text, sources=sources)
 
 
 def _checked_hint(hint: str, leaks: list[str]) -> str | None:
@@ -271,13 +305,13 @@ def validate_delivery(
         if text is not None:
             hints.append(text)
 
+    highlights = _normalize_refs("highlight", delivery.highlights, allowed_refs)
     _reject_unknown_refs("asset", delivery.assets, declared_assets)
-    _reject_unknown_refs("highlight", delivery.highlights, allowed_refs)
     return SceneDelivery(
         messages=messages,
         hints=hints,
         assets=list(delivery.assets),
-        highlights=list(delivery.highlights),
+        highlights=highlights,
     )
 
 

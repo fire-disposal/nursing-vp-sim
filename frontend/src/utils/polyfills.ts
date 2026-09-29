@@ -12,7 +12,7 @@
  * - `crypto.randomUUID` 需要 Chromium 92 / Firefox 95 / Safari 15.4，训练会话的
  *   消息 id 依赖它（trainingStore / useToolBridge）。
  * 这些都是内置 API，打包器只会降级语法、不会补 API，只能显式垫片。
- * 浏览器下限与残留风险见 docs/09-operations.md「浏览器下限」。
+ * 浏览器下限与残留风险见 docs/operations.md「浏览器下限」。
  */
 
 if (typeof Object.hasOwn !== "function") {

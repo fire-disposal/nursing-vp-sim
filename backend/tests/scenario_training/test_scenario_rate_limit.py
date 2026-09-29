@@ -100,8 +100,8 @@ def app_client(pg_session, monkeypatch, audit_calls):
 @pytest.fixture
 def installed(pg_session):
     pack = pack_loader.load_pack_file(PACK_KEY)
-    _, revision, _ = pack_loader.install(pg_session, pack)
-    return pack, revision
+    pack_loader.install(pg_session, pack)
+    return pack
 
 
 def test_action_limit_hits_are_human_and_audited(app_client, installed, audit_calls) -> None:

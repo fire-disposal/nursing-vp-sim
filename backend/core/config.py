@@ -42,7 +42,7 @@ LOGIN_LOCKOUT_ENABLED = os.getenv("LOGIN_LOCKOUT_ENABLED", "false").lower() == "
 LOGIN_MAX_FAILED_ATTEMPTS = int(os.getenv("LOGIN_MAX_FAILED_ATTEMPTS", "5"))
 LOGIN_LOCK_SECONDS = int(os.getenv("LOGIN_LOCK_SECONDS", "900"))  # 15 分钟
 
-# 情境训练（正式特性，docs/20）：与正式训练**资源隔离**、不替代老系统；本变量是它的**运行时开关
+# 情境训练（正式特性，docs/scenario.md）：与正式训练**资源隔离**、不替代老系统；本变量是它的**运行时开关
 # （kill switch）**——生产由 `deploy/.env`（服务器 `/opt/nursing-vp-sim/.env`）置 `true` 开启，
 # 见 docs/ops/scenario-training.md。
 # 关闭时 `/api/scenario/**` 一律 404（不是 403：不暴露功能存在），对学生界面零可见。
@@ -56,7 +56,7 @@ SCENARIO_TRAINING_ENABLED = os.getenv("SCENARIO_TRAINING_ENABLED", "false").lowe
 SCENARIO_OPEN_LIMIT_PER_DAY = int(os.getenv("SCENARIO_OPEN_LIMIT_PER_DAY", "20"))
 SCENARIO_ACTION_LIMIT_PER_5MIN = int(os.getenv("SCENARIO_ACTION_LIMIT_PER_5MIN", "30"))
 
-# DM 的**受限多步循环**步数上限（docs/21 §四）：DM 可以先调只读工具看环境，再产出信封。
+# DM 的**受限多步循环**步数上限（docs/scenario.md四）：DM 可以先调只读工具看环境，再产出信封。
 # 每一步 = 一次 LLM 调用（工具协议写在提示词里，见 dm/tools.py），因此这个数**直接是成本旋钮**：
 # 3 步 ≈ 最坏情况每回合多 3 次调用；置 0 即回到"一次交付"的单步模式（延迟/成本敏感的部署可用）。
 SCENARIO_DM_MAX_STEPS = max(0, int(os.getenv("SCENARIO_DM_MAX_STEPS", "3")))

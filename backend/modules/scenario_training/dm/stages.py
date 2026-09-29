@@ -28,7 +28,7 @@ from .contract import (
     validate_delivery,
     validate_intent,
 )
-from .prompt import build_delivery_messages, build_intent_messages, retry_messages
+from .prompt import build_delivery_messages, build_intent_messages, ref_fix_hint, retry_messages
 
 PURPOSE_INTENT = "st_intent"
 PURPOSE_DELIVERY = "st_dm"
@@ -145,9 +145,10 @@ async def run_delivery(
         except StageError as exc:
             # 越界（未知说话人/未授权引用/泄底）与空交付都是**整条拒绝**：
             # 只在这条有界纠偏里重来一次，第二次仍不合格就不提交（不"剥掉非法部分再照说"）。
+            # 反馈要**能教模型照做**：引用类错误附带命名空间要求与本回合可用引用（平台说模型的方言）。
             problems.append(str(exc)[:160])
             if attempt + 1 < _ATTEMPTS:
-                retry_messages(messages, str(exc)[:160])
+                retry_messages(messages, ref_fix_hint(str(exc)[:160], allowed_refs)[:400])
                 continue
             raise StageFailure("delivery_failed", problems) from exc
         return clean, problems

@@ -186,7 +186,6 @@ def test_dims_snapshot_values() -> None:
     pack = _pack()
     world = _world(pack, [(1, "measure_spo2", None), (2, "suction", None), (3, "bag_valve", None)])
     world.state["scene.spo2"] = 84
-    world.declared_facts.extend([{"fact_id": "f_low_spo2"}, {"fact_id": "f_bloody_sputum"}])
 
     snapshot = dims_snapshot(pack, world)
     assert [entry["id"] for entry in snapshot] == [dim.id for dim in pack.dims]

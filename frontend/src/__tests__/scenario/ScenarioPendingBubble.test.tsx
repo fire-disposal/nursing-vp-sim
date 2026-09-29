@@ -83,7 +83,7 @@ function forRequest(event: ScenarioStreamEvent, requestId: string): ScenarioStre
 
 function baseView(overrides: Partial<ScenarioView> = {}): ScenarioView {
 	return makeView({
-		session: { id: 12, status: "active", turn: 1, lost: false, seq: 4, read_only: false, trial: false },
+		session: { id: 12, status: "active", turn: 1, lost: false, seq: 4, trial: false },
 		...overrides,
 	});
 }
@@ -91,7 +91,7 @@ function baseView(overrides: Partial<ScenarioView> = {}): ScenarioView {
 /** 一次成功的行动之后的权威视图：学生的原话在，世界的回应跟在它后面。 */
 function committedView(text: string): ScenarioView {
 	return makeView({
-		session: { id: 12, status: "active", turn: 2, lost: false, seq: 6, read_only: false, trial: false },
+		session: { id: 12, status: "active", turn: 2, lost: false, seq: 6, trial: false },
 		messages: [
 			makeMessage({ id: "m1.0", role: "scene", kind: "narration", text: "监护仪在响。", turn: 1 }),
 			makeMessage({

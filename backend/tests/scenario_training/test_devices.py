@@ -194,7 +194,9 @@ def test_board_yields_readings_shown_on_a_device(two_beds: ScenarioPack) -> None
 
 
 def test_view_exposes_devices(sputum: ScenarioPack) -> None:
-    view = build_view(sputum, initial_world(sputum), session_id=1, status="active", revision_id=1)
+    view = build_view(
+        sputum, initial_world(sputum), session_id=1, status="active", pack_key="sputum-ineffective", version=1
+    )
     assert view.devices[0].id == "bedside_monitor"
     assert "monitor" not in view  # 旧的单例字段已移除
 

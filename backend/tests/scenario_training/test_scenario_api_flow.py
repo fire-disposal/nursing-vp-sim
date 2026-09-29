@@ -67,7 +67,7 @@ def api(pg_session, monkeypatch):
     monkeypatch.setattr(scenario_router, "check_scenario_action_limit", _no_rate_limit)
     pack_loader.reset_cache()
     pack = pack_loader.load_pack_file(PACK_KEY)
-    _, revision, _ = pack_loader.install(pg_session, pack)
+    case_row, _changed = pack_loader.install(pg_session, pack)
     holder = {"user": _FakeUser(), "llm": _ScriptedLLM()}
     before = dict(app.dependency_overrides)
 
@@ -79,7 +79,7 @@ def api(pg_session, monkeypatch):
     original = getattr(app.state, "llm_client", None)
     app.state.llm_client = holder["llm"]
     try:
-        yield TestClient(app), holder, pg_session, pack, revision
+        yield TestClient(app), holder, pg_session, pack, case_row
     finally:
         app.dependency_overrides.clear()
         app.dependency_overrides.update(before)
@@ -87,9 +87,10 @@ def api(pg_session, monkeypatch):
         pack_loader.reset_cache()
 
 
-def _open(client, holder, revision) -> tuple[int, int]:
+def _open(client, holder, case_row) -> tuple[int, int]:
+    """开一局：用病例的**当前内容**（会话自带快照，此后改内容不影响这一局）。"""
     holder["user"] = _FakeUser()
-    response = client.post("/api/scenario/sessions", json={"revision_id": revision.id})
+    response = client.post("/api/scenario/sessions", json={"pack_key": case_row.key})
     assert response.status_code == 200, response.text
     body = response.json()
     return body["session_id"], body["view"]["session"]["seq"]
@@ -102,8 +103,8 @@ def _turn(client, session_id: int, seq: int, **body: Any):
 
 def test_opening_and_structured_turn_settle_once(api) -> None:
     """开场（turn 0）→ 结构化动作（turn 1）：结算差量来自包声明，演出不写世界。"""
-    client, holder, db, _pack, revision = api
-    session_id, seq = _open(client, holder, revision)
+    client, holder, db, _pack, case_row = api
+    session_id, seq = _open(client, holder, case_row)
     assert seq == 1
     llm: _ScriptedLLM = holder["llm"]
     llm.delivery = {"messages": [{"speaker": "patient", "text": "……"}], "hints": [], "assets": [], "highlights": []}
@@ -127,15 +128,52 @@ def test_opening_and_structured_turn_settle_once(api) -> None:
     assert body["view"]["session"]["seq"] == 2
 
 
+def test_bare_source_id_still_commits_the_turn(api) -> None:
+    """模型把 `sources` 写成裸 id 时，归一后照常提交（回归：night-call 的 order_tests 6/6 被拒）。
+
+    事故形状：交付里 `sources: ["c_left_absent"]`（少了 `cue:`），旧的严格校验整条拒绝 →
+    学生看到「本回合没有生成成功，世界未改变」。裸 id 能唯一对上已声明、已可见的引用时按命名空间采纳。
+    """
+    client, holder, db, _pack, case_row = api
+    session_id, seq = _open(client, holder, case_row)
+    llm: _ScriptedLLM = holder["llm"]
+    llm.delivery = {
+        "messages": [
+            {
+                "speaker": None,
+                "text": "你贴着胸壁听了一会儿：左边那侧安静得不对。",
+                "sources": ["c_left_absent", "c_left_absent"],
+            }
+        ],
+        "hints": [],
+        "assets": [],
+        "highlights": ["c_left_absent"],
+    }
+
+    result = _turn(client, session_id, seq, kind="action", affordance_id="auscultate")
+    assert result.status_code == 200, result.text
+    body = result.json()
+    assert body["outcome"] == "performed"
+    assert body["seq"] == 2
+    events = db.query(StEvent).filter(StEvent.session_id == session_id).all()
+    assert [event.kind for event in events] == ["session_opened", "turn_committed"]
+    payload = events[1].payload
+    assert payload["reveals"] == ["c_left_absent"]
+    # 归一 + 去重：落库的交付引用是带命名空间的形式，且只出现一次
+    delivered = [message for message in payload["messages"] if "你贴着胸壁听了一会儿" in message["text"]]
+    assert delivered, payload["messages"]
+    assert delivered[0]["sources"] == ["cue:c_left_absent"]
+
+
 def test_free_speech_and_button_reach_the_same_settlement(api) -> None:
     """同意图两入口同结算：各自新开一局，说话（言语动作）与按按钮得到相同效果/揭示/时间代价。"""
-    client, holder, _db, _pack, revision = api
+    client, holder, _db, _pack, case_row = api
     holder["llm"].intent = {"kind": "action", "affordance_id": "call_doctor", "utterance": ""}
-    free_session, free_seq = _open(client, holder, revision)
+    free_session, free_seq = _open(client, holder, case_row)
     free = _turn(client, free_session, free_seq, kind="speech", text="我喊一句：医生过来看一下！")
     assert free.status_code == 200, free.text
 
-    button_session, button_seq = _open(client, holder, revision)
+    button_session, button_seq = _open(client, holder, case_row)
     button = _turn(client, button_session, button_seq, kind="action", affordance_id="call_doctor")
     assert button.status_code == 200, button.text
 
@@ -146,8 +184,8 @@ def test_free_speech_and_button_reach_the_same_settlement(api) -> None:
 
 def test_speech_cannot_be_attributed_to_a_physical_action(api) -> None:
     """说话**绝不**等于已完成物理处置：物理动作不能被说话通道归属（本轮按交流结算）。"""
-    client, holder, _db, _pack, revision = api
-    session_id, seq = _open(client, holder, revision)
+    client, holder, _db, _pack, case_row = api
+    session_id, seq = _open(client, holder, case_row)
     holder["llm"].intent = {"kind": "action", "affordance_id": "auscultate", "utterance": ""}
     result = _turn(client, session_id, seq, kind="speech", text="我先听一下两肺。")
     assert result.status_code == 200, result.text
@@ -160,10 +198,10 @@ def test_speech_cannot_be_attributed_to_a_physical_action(api) -> None:
 
 def test_speech_to_unreachable_actor_is_blocked_and_consumes_a_turn(api) -> None:
     """已知但当下不可达的实际尝试 = blocked（消耗一个回合），且**不静默换人**。"""
-    client, holder, db, _pack, _revision = api
+    client, holder, db, _pack, _case_row = api
     pack = pack_loader.load_pack_file("night-call-decision")
-    _, revision, _ = pack_loader.install(db, pack)
-    session_id, seq = _open(client, holder, revision)
+    pack_loader.install(db, pack)
+    session_id, seq = _open(client, holder, pack)
     holder["llm"].intent = {
         "kind": "speech",
         "target": {"kind": "actor", "id": "patient"},
@@ -190,8 +228,8 @@ def test_speech_to_unreachable_actor_is_blocked_and_consumes_a_turn(api) -> None
 
 def test_unknown_target_and_affordance_are_request_errors_without_a_turn(api) -> None:
     """形状问题（未知目标/动作）→ 422，**不消耗回合、不写世界**；错误只能有 code+message。"""
-    client, holder, db, _pack, revision = api
-    session_id, seq = _open(client, holder, revision)
+    client, holder, db, _pack, case_row = api
+    session_id, seq = _open(client, holder, case_row)
     bad_target = _turn(client, session_id, seq, kind="speech", text="喂？", target={"kind": "actor", "id": "nobody"})
     assert bad_target.status_code == 422
     detail = bad_target.json()["detail"]
@@ -205,10 +243,10 @@ def test_unknown_target_and_affordance_are_request_errors_without_a_turn(api) ->
 
 def test_multi_target_action_asks_for_the_object_without_advancing(api) -> None:
     """多对象歧义 → 澄清（确定性、无模型调用、不推进）；给了对象才结算。"""
-    client, holder, db, _pack, revision = api
+    client, holder, db, _pack, case_row = api
     pack = pack_loader.load_pack_file("two-beds-priority")
-    _, beds_revision, _ = pack_loader.install(db, pack)
-    session_id, seq = _open(client, holder, beds_revision)
+    pack_loader.install(db, pack)
+    session_id, seq = _open(client, holder, pack)
     before_calls = len(holder["llm"].calls)
     ambiguous = _turn(client, session_id, seq, kind="action", affordance_id="reassure_a")
     assert ambiguous.status_code == 200, ambiguous.text
@@ -236,8 +274,8 @@ def test_multi_target_action_asks_for_the_object_without_advancing(api) -> None:
 
 def test_hint_is_read_only_and_does_not_advance_the_turn(api) -> None:
     """求提示：走只读交付路径（记录 + 来源），**不推进世界、不消耗回合**。"""
-    client, holder, db, _pack, revision = api
-    session_id, seq = _open(client, holder, revision)
+    client, holder, db, _pack, case_row = api
+    session_id, seq = _open(client, holder, case_row)
     holder["llm"].delivery = {
         "messages": [{"speaker": None, "text": "先想想眼前哪一条信息最不一致。"}],
         "hints": ["先想想眼前哪一条信息最不一致。"],
@@ -259,8 +297,8 @@ def test_hint_is_read_only_and_does_not_advance_the_turn(api) -> None:
 
 def test_unmodeled_attempt_is_honest_and_not_a_clinical_error(api) -> None:
     """未建模尝试 → `unmodeled` + 引擎直出说明；不算临床错误、不找个最接近的动作蒙过去。"""
-    client, holder, _db, _pack, revision = api
-    session_id, seq = _open(client, holder, revision)
+    client, holder, _db, _pack, case_row = api
+    session_id, seq = _open(client, holder, case_row)
     holder["llm"].intent = {"kind": "action", "affordance_id": None, "utterance": ""}
     result = _turn(client, session_id, seq, kind="action", text="我要给他做气管插管。")
     assert result.status_code == 200, result.text
@@ -274,8 +312,8 @@ def test_unmodeled_attempt_is_honest_and_not_a_clinical_error(api) -> None:
 
 def test_same_request_id_is_idempotent_and_different_input_is_rejected(api) -> None:
     """同 id 同输入 → 原结果、**至多提交一次**；同 id 异输入 → 409 request_conflict。"""
-    client, holder, db, _pack, revision = api
-    session_id, seq = _open(client, holder, revision)
+    client, holder, db, _pack, case_row = api
+    session_id, seq = _open(client, holder, case_row)
     first = _turn(client, session_id, seq, request_id="same", kind="action", affordance_id="suction")
     assert first.status_code == 200, first.text
     events_after_first = db.query(StEvent).filter(StEvent.session_id == session_id).count()
@@ -293,8 +331,8 @@ def test_same_request_id_is_idempotent_and_different_input_is_rejected(api) -> N
 
 def test_stale_expected_seq_is_rejected_with_current_seq(api) -> None:
     """过期基线 → 409 session_conflict 且带 current_seq；不写世界。"""
-    client, holder, db, _pack, revision = api
-    session_id, seq = _open(client, holder, revision)
+    client, holder, db, _pack, case_row = api
+    session_id, seq = _open(client, holder, case_row)
     assert _turn(client, session_id, seq, kind="action", affordance_id="suction").status_code == 200
     stale = _turn(client, session_id, seq, request_id="r2", kind="action", affordance_id="measure_spo2")
     assert stale.status_code == 409
@@ -306,8 +344,8 @@ def test_stale_expected_seq_is_rejected_with_current_seq(api) -> None:
 
 def test_request_lookup_states_after_a_lost_response(api) -> None:
     """提交后断流：按 request_id 取回原结果；没提交过的 id 是 `unknown`（不是失败）。"""
-    client, holder, _db, _pack, revision = api
-    session_id, seq = _open(client, holder, revision)
+    client, holder, _db, _pack, case_row = api
+    session_id, seq = _open(client, holder, case_row)
     committed = _turn(client, session_id, seq, request_id="lost", kind="action", affordance_id="auscultate")
     assert committed.status_code == 200
     lookup = client.get(f"/api/scenario/sessions/{session_id}/requests/lost")
@@ -327,8 +365,8 @@ def test_request_lookup_states_after_a_lost_response(api) -> None:
 
 def test_close_is_idempotent_and_report_leads_with_the_experience(api) -> None:
     """结束：报告先给结局/关键回合/反思，分数在 `assessment`；同 id 重复关闭返回同一结果。"""
-    client, holder, db, _pack, revision = api
-    session_id, seq = _open(client, holder, revision)
+    client, holder, db, _pack, case_row = api
+    session_id, seq = _open(client, holder, case_row)
     seq = _turn(client, session_id, seq, kind="action", affordance_id="suction").json()["seq"]
     closed = client.post(f"/api/scenario/sessions/{session_id}/close", json={"request_id": "c1", "expected_seq": seq})
     assert closed.status_code == 200, closed.text
@@ -348,8 +386,8 @@ def test_close_is_idempotent_and_report_leads_with_the_experience(api) -> None:
 
 def test_student_view_never_carries_internal_fields(api) -> None:
     """学生响应不含拒绝诊断、教学关注点、隐藏真相与内部提案。"""
-    client, holder, _db, _pack, revision = api
-    session_id, seq = _open(client, holder, revision)
+    client, holder, _db, _pack, case_row = api
+    session_id, seq = _open(client, holder, case_row)
     body = _turn(client, session_id, seq, kind="action", affordance_id="suction").json()
     serialized = json.dumps(body, ensure_ascii=False)
     for forbidden in ("teaching_focus", "truth", "problems", "a_see_the_plug", "admired", "social_updates"):
@@ -365,7 +403,6 @@ def test_student_view_never_carries_internal_fields(api) -> None:
         "free_input",
         "timeline",
         "dims",
-        "nudges",
         "assets",
         "images",
         "board",
@@ -378,8 +415,8 @@ def test_student_view_never_carries_internal_fields(api) -> None:
 
 def test_person_state_proposal_requires_a_qualified_key(api) -> None:
     """人物状态提案：全限定键生效且受上限约束；裸键被拒并记账（不静默生效）。"""
-    client, holder, _db, pack, revision = api
-    session_id, seq = _open(client, holder, revision)
+    client, holder, _db, pack, case_row = api
+    session_id, seq = _open(client, holder, case_row)
     holder["llm"].intent = {
         "kind": "speech",
         "social_updates": [
@@ -402,8 +439,8 @@ def test_person_state_proposal_requires_a_qualified_key(api) -> None:
 
 def test_time_ruler_only_moves_on_declared_cost(api) -> None:
     """时间尺子：说话/观察不花时间；只有声明 `time_cost` 的动作让 `turn` 前进。"""
-    client, holder, _db, _pack, revision = api
-    session_id, seq = _open(client, holder, revision)
+    client, holder, _db, _pack, case_row = api
+    session_id, seq = _open(client, holder, case_row)
     # 纯交流 ×3：turn 不变、seq 每次 +1
     for index in range(3):
         spoke = _turn(client, session_id, seq, request_id=f"s{index}", kind="speech", text="他还在喘。")
@@ -433,7 +470,6 @@ def test_blocked_costly_action_still_spends_time() -> None:
 
     pack = ScenarioPack.model_validate(
         {
-            "pack_schema_version": 3,
             "key": "cost-probe",
             "title": "耗时探针",
             "player": {"role": "护士"},
@@ -468,8 +504,8 @@ def test_blocked_costly_action_still_spends_time() -> None:
 
 def test_pure_exchange_never_farms_information(api) -> None:
     """防刷：同一时间单位内任意多次纯交流不得新增线索/读数/事实，也不触发时间阈值恶化。"""
-    client, holder, db, _pack, revision = api
-    session_id, seq = _open(client, holder, revision)
+    client, holder, db, _pack, case_row = api
+    session_id, seq = _open(client, holder, case_row)
     from modules.scenario_training.runtime import session as session_mod
 
     before = session_mod.replay(db, session_id, _pack)
@@ -499,7 +535,6 @@ def test_identical_set_is_recorded_as_a_reading_not_a_change() -> None:
     def _probe(effects: list[dict]) -> tuple:
         pack = ScenarioPack.model_validate(
             {
-                "pack_schema_version": 3,
                 "key": "reading-probe",
                 "title": "读数探针",
                 "player": {"role": "护士"},

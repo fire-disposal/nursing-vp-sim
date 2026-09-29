@@ -161,12 +161,9 @@ export const queryKeys = {
 			session: (sessionId: number | null | undefined) =>
 				[...queryKeys.scenario.admin.all, "session", sessionId ?? null] as const,
 			stats: () => [...queryKeys.scenario.admin.all, "stats"] as const,
-			/** 生成物：分页/筛选都进 key（换页即换请求，不共用缓存）。 */
-			generated: (params: Record<string, unknown>) =>
-				[...queryKeys.scenario.admin.all, "generated", params] as const,
-			/** 场景编辑器：一份原始内容（换病例或换修订即换 key）。 */
-			source: (packKey: string, revisionId: number | null) =>
-				[...queryKeys.scenario.admin.all, "source", packKey, revisionId] as const,
+			/** 场景编辑器：这份病例的**当前内容**（一个病例一份，换病例即换 key）。 */
+			content: (packKey: string) =>
+				[...queryKeys.scenario.admin.all, "content", packKey] as const,
 		},
 	},
 } as const;

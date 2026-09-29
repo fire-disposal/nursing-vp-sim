@@ -1,7 +1,7 @@
 /**
  * 场景编辑器的**表单页签**：只暴露必须由人决定的字段，按 pack 结构分节。
  *
- * 取向（docs/22 P0-3）：
+ * 取向（docs/scenario.md P0-3）：
  * - 列表字段（线索/在场者/动作/事实/判据/维度/教学关注点/设备）一律可增删排序；
  * - 其余字段**保持原值**、折叠在一处（作者看不到就等于不存在），要改它们去「JSON 原始」页签；
  * - 节内的校验问题来自后端（`POST .../validate`），这里只**归位**不重算——
@@ -35,7 +35,7 @@ export const PACK_SECTIONS: { id: string; label: string; prefixes: string[] }[] 
 	{ id: "cues", label: "线索与事实", prefixes: ["setting.cues", "facts"] },
 	{ id: "rubric", label: "判读", prefixes: ["rubric", "dims"] },
 	{ id: "teaching_focus", label: "教学关注点", prefixes: ["teaching_focus"] },
-	{ id: "presentation", label: "呈现", prefixes: ["presentation", "assets", "image_generation", "failure"] },
+	{ id: "presentation", label: "呈现", prefixes: ["presentation", "assets", "failure"] },
 ];
 
 /** 一条校验问题属于哪一节（认不出 → `null`，只在顶部摘要里列出）。 */
@@ -695,16 +695,6 @@ export default function PackForm({
 								</Text>
 							</>
 						)}
-					/>
-					<Select
-						label="图像生成"
-						description="关闭 = 不产生任何生成成本"
-						data={[
-							{ value: "disabled", label: "关闭" },
-							{ value: "allowed", label: "允许 DM 请求生成" },
-						]}
-						value={textAt(doc, "image_generation") || "disabled"}
-						onChange={(value) => value && onChange(setIn(doc, ["image_generation"], value))}
 					/>
 				</Stack>
 			</Section>

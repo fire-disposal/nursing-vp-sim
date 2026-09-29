@@ -1,6 +1,6 @@
 """会话：**唯一回合管线**（解析 → 结算 → 演出 → 提交）+ 开启 / 澄清 / 求提示 / 结束 / 结果查询。
 
-三条纪律（docs/23 §4.1/§4.5）：
+三条纪律（docs/scenario.md）：
 1. **固定顺序**：`check_request` → 结算 → 演出 → 校验 → 原子提交；按钮与自由表达走同一条路；
 2. **事务只包提交**：模型等待期间**不持有数据库事务**——读完立刻 `rollback()` 结束隐式事务，
    此后只使用纯值（id / 序号 / World 快照），绝不触碰已过期 ORM 实例的属性（那会触发懒加载重新占事务）；
@@ -79,10 +79,6 @@ class SessionClosed(RuntimeError):
     """会话已结束，不能再提交动作。"""
 
 
-class SessionArchived(RuntimeError):
-    """旧机制会话只读（机制切换后仅可回看）。"""
-
-
 class SeqConflict(RuntimeError):
     """`expected_seq` 过期：客户端拿的是旧世界。"""
 
@@ -100,7 +96,6 @@ class TurnHooks:
     """传输层（SSE）观察点：**只观察，不参与结算**（HTTP 与 SSE 共用同一执行器）。"""
 
     on_phase: Any = None  # Callable[[str], Awaitable[None]]
-    on_delivery: Any = None  # Callable[[SceneDelivery, int], Awaitable[None]]
 
 
 @dataclass
@@ -162,25 +157,6 @@ def replay(db: OrmSession, session_id: int, pack: ScenarioPack) -> World:
 
 def session_meta(session: StSession) -> dict[str, Any]:
     return dict(session.meta or {})
-
-
-def session_read_only(session: StSession) -> bool:
-    """只读 = 机制切换时被封存的旧局（`meta.read_only`），**或**已有归档的旧局。"""
-    if session_meta(session).get("read_only"):
-        return True
-    return has_archive(session)
-
-
-def has_archive(session: StSession) -> bool:
-    """该会话是否已有归档（机制切换前落下的旧局）。"""
-    from sqlalchemy.orm import object_session
-
-    from models.scenario_training import StSessionArchive
-
-    db = object_session(session)
-    if db is None:
-        return False
-    return db.execute(select(StSessionArchive.id).where(StSessionArchive.session_id == session.id)).first() is not None
 
 
 # --------------------------------------------------------------------------- #
@@ -331,14 +307,18 @@ async def create_session(
     db: OrmSession,
     *,
     user_id: int,
-    revision_id: int,
+    pack_key: str,
+    pack_version: int,
+    content: dict[str, Any],
     pack: ScenarioPack,
     llm: LLMClient,
     trial: bool = False,
 ) -> tuple[StSession, list[str]]:
     """开启一次情境：**先**在事务外做开场演出，**再**用一个短事务落行与开场事件。
 
-    开场基线按「尚未评估」处理：初始就成立的反应在这里结算一次（docs/23 §4.3.5）。
+    会话行携带开局时的**内容快照**（`pack_content` + `pack_version`）：此后病例怎么改都不影响这一局。
+
+    开场基线按「尚未评估」处理：初始就成立的反应在这里结算一次（docs/scenario.md）。
     """
     world = initial_world(pack)
     fired, effects, reveals = fire_reactions(pack, world, world.clone(), initial=True)
@@ -370,7 +350,7 @@ async def create_session(
     payload = {
         "schema": EVENT_SCHEMA_VERSION,
         "pack_key": pack.key,
-        "revision_id": revision_id,
+        "pack_version": pack_version,
         "player_role": pack.player.role,
         "trial": trial,
         "effects": [item.model_dump(mode="json") for item in effects],
@@ -384,10 +364,11 @@ async def create_session(
     with unit_of_work(db, conflict_detail="开启情境失败"):
         session = StSession(
             user_id=user_id,
-            pack_revision_id=revision_id,
-            pack_key=pack.key,
+            pack_key=pack_key,
+            pack_version=pack_version,
+            pack_content=content,
             status="active",
-            meta={"pack_schema_version": pack.pack_schema_version, **({"trial": True} if trial else {})},
+            meta={**({"trial": True} if trial else {})},
         )
         db.add(session)
         db.flush()
@@ -408,19 +389,19 @@ def _view_for(
     world: World,
     *,
     session_id: int,
-    revision_id: int,
+    pack_key: str,
+    version: int,
     trial: bool,
     status: str = "active",
-    read_only: bool = False,
 ):
     return build_view(
         pack,
         world,
         session_id=session_id,
         status=status,
-        revision_id=revision_id,
+        pack_key=pack_key,
+        version=version,
         dims=dims_snapshot(pack, world),
-        read_only=read_only,
         trial=trial,
     )
 
@@ -463,7 +444,8 @@ def _clarification(
     intent: IntentResolution,
     *,
     session_id: int,
-    revision_id: int,
+    pack_key: str,
+    version: int,
     trial: bool,
     base_seq: int,
     models: ModelsUsed,
@@ -479,7 +461,7 @@ def _clarification(
         request_id=request.request_id,
     )
     world.seq = seq
-    view = _view_for(pack, world, session_id=session_id, revision_id=revision_id, trial=trial)
+    view = _view_for(pack, world, session_id=session_id, pack_key=pack_key, version=version, trial=trial)
     payload = {
         "schema": EVENT_SCHEMA_VERSION,
         "request_id": request.request_id,
@@ -510,7 +492,8 @@ async def _hint(
     request: ScenarioTurnRequest,
     *,
     session_id: int,
-    revision_id: int,
+    pack_key: str,
+    version: int,
     trial: bool,
     base_seq: int,
     llm: LLMClient,
@@ -530,7 +513,7 @@ async def _hint(
         request_id=request.request_id,
     )
     world.seq = seq
-    view = _view_for(pack, world, session_id=session_id, revision_id=revision_id, trial=trial)
+    view = _view_for(pack, world, session_id=session_id, pack_key=pack_key, version=version, trial=trial)
     payload = {
         "schema": EVENT_SCHEMA_VERSION,
         "request_id": request.request_id,
@@ -561,7 +544,8 @@ async def _turn(
     request: ScenarioTurnRequest,
     *,
     session_id: int,
-    revision_id: int,
+    pack_key: str,
+    version: int,
     trial: bool,
     base_seq: int,
     llm: LLMClient,
@@ -616,7 +600,8 @@ async def _turn(
             request,
             intent,
             session_id=session_id,
-            revision_id=revision_id,
+            pack_key=pack_key,
+            version=version,
             trial=trial,
             base_seq=base_seq,
             models=models,
@@ -647,8 +632,6 @@ async def _turn(
     models.delivery = 1
     problems += delivery_problems
     await _phase(hooks, "validating")
-    if hooks is not None and hooks.on_delivery is not None:
-        await hooks.on_delivery(delivery, seq)
     messages = [_message_payload(message) for message in delivery.messages]
     attach_delivery(
         world,
@@ -663,7 +646,7 @@ async def _turn(
         if image not in world.images:
             world.images.append(image)
     world.seq = seq
-    view = _view_for(pack, world, session_id=session_id, revision_id=revision_id, trial=trial)
+    view = _view_for(pack, world, session_id=session_id, pack_key=pack_key, version=version, trial=trial)
     payload = {
         "schema": EVENT_SCHEMA_VERSION,
         "request_id": request.request_id,
@@ -701,18 +684,11 @@ async def _turn(
     return payload, result
 
 
-def _require_writable(session: StSession, session_id: int) -> tuple[int, dict[str, Any]]:
-    """写操作准入：只读旧局 → `SessionArchived`；非 active → `SessionClosed`。
-
-    **只读判定先于状态判定**：机制切换时封存的旧局是 `abandoned + read_only`，
-    它该得到 `session_archived`（旧局只能回看），而不是"这次情境已经结束"。
-    """
-    meta = session_meta(session)
-    if meta.get("read_only") or has_archive(session):
-        raise SessionArchived(f"session {session_id} is read-only")
+def _require_writable(session: StSession, session_id: int) -> dict[str, Any]:
+    """写操作准入：非 active → `SessionClosed`；否则返回会话 meta。"""
     if session.status != "active":
         raise SessionClosed(f"session {session_id} status={session.status}")
-    return session.pack_revision_id, meta
+    return session_meta(session)
 
 
 def _stored_or_none(
@@ -751,8 +727,10 @@ async def submit_turn(
 ) -> ScenarioTurnResult:
     """执行一次学生请求并**原子提交**；失败不推进（调用方负责把异常翻成 HTTP/SSE 语义）。"""
     session_id = session.id
-    revision_id, meta = _require_writable(session, session_id)
+    meta = _require_writable(session, session_id)
     trial = bool(meta.get("trial"))
+    pack_key = session.pack_key
+    version = session.pack_version
     sha = input_sha(request)
 
     stored_result = _stored_or_none(db, session_id, request, sha)
@@ -774,7 +752,8 @@ async def submit_turn(
                 world,
                 request,
                 session_id=session_id,
-                revision_id=revision_id,
+                pack_key=pack_key,
+                version=version,
                 trial=trial,
                 base_seq=base_seq,
                 llm=llm,
@@ -786,7 +765,8 @@ async def submit_turn(
                 world,
                 request,
                 session_id=session_id,
-                revision_id=revision_id,
+                pack_key=pack_key,
+                version=version,
                 trial=trial,
                 base_seq=base_seq,
                 llm=llm,
@@ -805,12 +785,14 @@ async def submit_turn(
         )
         raise
     except Exception:
+        # 内部异常（不是供应商/生成失败）：如实说是服务端自己的问题，且**不可重试**——
+        # 同一个请求重发只会再撞一次同样的 bug，把学生引去"再点一次"是不诚实的。
         _live_set(
             session_id,
             request.request_id,
             _Live(
                 "failed",
-                ScenarioErrorInfo(code="delivery_failed", message="本回合没有生成成功，世界未改变", retryable=True),
+                ScenarioErrorInfo(code="internal_error", message="服务端异常，本次未提交", retryable=False),
             ),
         )
         raise
@@ -855,9 +837,8 @@ def submit_close(
     session_id = session.id
     status = session.status
     meta = session_meta(session)
-    revision_id = session.pack_revision_id
-    if meta.get("read_only") or has_archive(session):
-        raise SessionArchived(f"session {session_id} is read-only")
+    pack_key = session.pack_key
+    version = session.pack_version
     trial = bool(meta.get("trial"))
     sha = input_sha({"request_id": request_id})
     if status != "active":
@@ -883,7 +864,15 @@ def submit_close(
     if expected_seq != base_seq:
         raise SeqConflict(base_seq)
 
-    view = _view_for(pack, world, session_id=session_id, revision_id=revision_id, trial=trial, status="completed")
+    view = _view_for(
+        pack,
+        world,
+        session_id=session_id,
+        pack_key=pack_key,
+        version=version,
+        trial=trial,
+        status="completed",
+    )
     report = build_report(pack, world, view=view)
     response = ScenarioCloseResponse(session_id=session_id, report=report, view=view)
     from .world import project_focus
@@ -980,7 +969,7 @@ def session_row(session: StSession, pack_title: str, turn: int) -> dict[str, Any
         "user_id": session.user_id,
         "pack_key": session.pack_key,
         "pack_title": pack_title,
-        "pack_revision_id": session.pack_revision_id,
+        "pack_version": session.pack_version,
         "status": session.status,
         "turn": turn or report.get("turn"),
         "lost": report.get("lost") if report.get("lost") is not None else outcome.get("lost"),
@@ -989,7 +978,6 @@ def session_row(session: StSession, pack_title: str, turn: int) -> dict[str, Any
             if isinstance(report, dict)
             else None
         ),
-        "read_only": bool(meta.get("read_only")),
         "trial": bool(meta.get("trial")),
         "created_at": session.created_at.isoformat() if session.created_at else None,
         "updated_at": session.updated_at.isoformat() if session.updated_at else None,
@@ -997,13 +985,16 @@ def session_row(session: StSession, pack_title: str, turn: int) -> dict[str, Any
 
 
 def session_turns(db: OrmSession, session_ids: list[int]) -> dict[int, int]:
-    """每个会话**实际跑到第几回合**（一次分组查询；`turn_committed` 的 `turn` 与回放同源）。"""
+    """每个会话**实际跑到第几回合**（一次分组查询；`turn_committed` 的 `turn` 与回放同源）。
+
+    只认新机制的 `turn_committed`：旧机制的 `dm_turn` / `student_action` 已不在读集里。
+    """
     if not session_ids:
         return {}
     found: dict[int, int] = {}
     for session_id, turn in db.execute(
         select(StEvent.session_id, func.max(StEvent.payload["turn"].as_integer()))
-        .where(StEvent.session_id.in_(session_ids), StEvent.kind.in_((KIND_TURN, "dm_turn", "student_action")))
+        .where(StEvent.session_id.in_(session_ids), StEvent.kind == KIND_TURN)
         .group_by(StEvent.session_id)
     ).all():
         found[int(session_id)] = int(turn or 0)
@@ -1013,7 +1004,6 @@ def session_turns(db: OrmSession, session_ids: list[int]) -> dict[int, int]:
 __all__ = [
     "RequestConflict",
     "SeqConflict",
-    "SessionArchived",
     "SessionClosed",
     "TurnHooks",
     "TurnRejected",
@@ -1026,7 +1016,6 @@ __all__ = [
     "replay",
     "request_lookup",
     "reset_live_registry",
-    "session_read_only",
     "session_row",
     "session_turns",
     "submit_close",

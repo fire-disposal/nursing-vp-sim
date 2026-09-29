@@ -17,7 +17,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { queryKeys } from "@/api/query-keys";
 import {
-	type ScenarioAdminSessionDetail,
 	getAdminScenarioSession,
 	listAdminScenarioPacks,
 	listAdminScenarioSessions,
@@ -40,18 +39,16 @@ const PAGE_SIZE = 50;
 const OUTCOME_STATUS: Record<string, string> = {
 	lost: "不可逆结局",
 	ended_by_student: "学生主动结束",
-	cutover: "切换时封存",
 };
 
 /**
- * 会话：列表（可按病例 / 状态筛选）+ 单次回放（学生视图 + 报告 / 旧报告留档 + **教学关注点
- * 投影与逐请求来源回放** + **诊断问题** + 事件流）。
+ * 会话：列表（可按病例 / 状态筛选）+ 单次回放（学生视图 + 报告 + **教学关注点投影与逐请求来源回放**
+ * + **诊断问题** + 事件流）。
  *
  * 这里是**唯一**能看到原始诊断串的地方（`dm_parse:*`、`leaked_fact_term:*`…）：
  * 学生侧只会看到一句"这一段由系统保底生成"。回放视图不可交互（不给在场者按钮）。
  *
- * 报告三态不合并：新形状（`report`）/ 切换前的旧报告原样留档（`legacy_report`，若后端给）/
- * 未结算——旧报告绝不被改写成新形状或重新判读。
+ * 报告两态：有 `report`（结算报告）就原样展示，没有就写「未结算」——绝不替它补生成一份。
  *
  * 两种用法，同一个组件：
  * - **病例工作区**（`lockPack`）：病例由工作区头部给定，**没有病例选择器**——同一个病例不
@@ -62,14 +59,11 @@ const OUTCOME_STATUS: Record<string, string> = {
 export default function AdminSessionsPanel({
 	packKey = null,
 	lockPack = false,
-	focusSessionId = null,
 }: {
 	/** 锁定的病例（`lockPack` 时生效）；不锁时是病例筛选的初始值（`null` = 全部）。 */
 	packKey?: string | null;
 	/** true = 病例已由调用方锁定，不显示病例选择器（病例工作区用）。 */
 	lockPack?: boolean;
-	/** 从别处（生成物面板）带过来的会话：进来就直接展开它的回放。 */
-	focusSessionId?: number | null;
 } = {}) {
 	const [filterPack, setFilterPack] = useState<string | null>(packKey);
 	/** 锁定时一律用外部给的那个病例；否则用筛选框里的选择。 */
@@ -100,35 +94,17 @@ export default function AdminSessionsPanel({
 	useEffect(() => {
 		setPage(1);
 	}, [effectivePack, status]);
-	useEffect(() => {
-		if (focusSessionId !== null) setSelectedId(focusSessionId);
-	}, [focusSessionId]);
-
 	const packs = packsQuery.data ?? [];
 	const rows = listQuery.data?.items ?? [];
 	const detail = detailQuery.data ?? null;
-	// 生成物里 `problems` / `events` / `view.messages` 都是可选字段：用空数组兜住，
+	// `problems` / `events` / `view.messages` 都是可选字段：用空数组兜住，
 	// 界面按"没有"渲染，不把 undefined 当 0，也不交给下游去猜。
 	const problems = detail?.problems ?? [];
 	const events = detail?.events ?? [];
 	const messages = detail?.view.messages ?? [];
-	/**
-	 * `legacy_report` **不**在后端管理回放的模型里（`api_models.ScenarioAdminSessionDetail`
-	 * 只有 `report`；`router._split_report` 把切换前的旧报告整份丢掉，只有学生侧
-	 * `ScenarioSessionState` 与 `/admin/archives/{id}` 会带 `legacy_report`）。这里按"可能出现"
-	 * 读：真有旧报告就**原样**只读留档（不翻译成新形状、不重新判读），没有就落到「未结算」。
-	 */
-	const legacyReport =
-		(
-			detail as
-				| (ScenarioAdminSessionDetail & {
-						legacy_report?: Record<string, unknown> | null;
-					})
-				| null
-		)?.legacy_report ?? null;
+	/** 分页读数：总数来自服务端，页数按同一页长折算（总数为 0 时也至少算 1 页）。 */
 	const total = listQuery.data?.total ?? 0;
 	const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-
 	return (
 		<Stack gap="md">
 			<Group align="flex-end" gap="sm" wrap="wrap">
@@ -207,7 +183,7 @@ export default function AdminSessionsPanel({
 										<Table.Td>
 											<Text size="sm">{row.pack_title}</Text>
 											<Text size="xs" c="dimmed">
-												{row.pack_key} · 修订 {row.pack_revision_id}
+												{row.pack_key} · 版本 #{row.pack_version}
 											</Text>
 										</Table.Td>
 									)}
@@ -356,19 +332,9 @@ export default function AdminSessionsPanel({
 										showWeights
 									/>
 								</div>
-							) : legacyReport !== null ? (
-								<Stack gap="xs">
-									<Text size="sm" fw={600}>
-										切换前的原始报告（只读留档）
-									</Text>
-									<Text size="xs" c="dimmed">
-										这是机制切换前写下的报告原文：原样展示，不翻译成新形状、不重新判读、不改写。
-									</Text>
-									<Code block>{JSON.stringify(legacyReport, null, 2)}</Code>
-								</Stack>
 							) : (
 								<Text size="sm" c="dimmed">
-									这次会话未结算：没有报告，也没有切换前的报告留档——下面是它此刻的视图。
+									这次会话没有结算：没有留下报告——下面是它此刻的视图。
 								</Text>
 							)}
 

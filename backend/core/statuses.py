@@ -104,15 +104,3 @@ def normalize_questionnaire_trigger(value: object) -> str:
     if isinstance(value, str) and value in QuestionnaireTrigger:
         return value
     return QuestionnaireTrigger.BEFORE_TRAINING.value
-
-
-class SimulationStatus(StrEnum):
-    """SimulationSession.state.case_status — 临床推理模拟会话的结局状态（唯一真值）。
-
-    真值只存于 ``state`` JSONB（``build_snapshot`` / 前端读取的就是它）；
-    曾与之并存的 ``simulation_sessions.status`` 列已删除，避免双写漂移。
-    """
-
-    ACTIVE = "ACTIVE"
-    SUCCESS = "SUCCESS"
-    FAILURE = "FAILURE"

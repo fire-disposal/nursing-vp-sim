@@ -3,7 +3,7 @@
 本模块是「情境训练」实验特性的一部分，与 `modules/training/**` 完全隔离：
 只允许依赖标准库、三方库、`infra/**`、`modules.auth` 与自身（见 tests/scenario_training）。
 
-词汇表（实用主义定稿，docs/20 §六）：
+词汇表（实用主义定稿，docs/scenario.md六）：
 - **动作类型（封闭 6 种）**：ask / observe / measure / act / document / summon
 - **效果操作（封闭 3 种）**：set / incr / decr —— 只能改本 pack 自己登记的状态键
 - **触发子句（封闭 7 种）**：动作与状态谓词，由**动作**驱动，不由墙钟驱动
@@ -22,14 +22,6 @@ from enum import StrEnum
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-
-PACK_SCHEMA_VERSION = 3
-"""包声明形状版本。**删除/重命名字段必须升版**：历史修订要永远可读（见 pack_loader 的裁剪加载）。
-v2：移除 `Cue.revealed_by` / `Player.attention_per_turn` / `Affordance.ineffective`（改由 reveals 与效果表达）。
-v3（docs/23）：删除 `anchors` 任务状态机（改成 `teaching_focus` + 既有 reactions）；
-    `Affordance.targets` 声明动作可作用的目标；`Actor.dm_writable` 声明可被 DM 提议的人物状态；
-    板来源去掉 `note`（DM 不再写白板）。
-"""
 
 # --------------------------------------------------------------------------- #
 # 封闭词汇表
@@ -141,11 +133,6 @@ class PanelType(StrEnum):
     COVERAGE = "coverage"
 
 
-class PackState(StrEnum):
-    EXPERIMENTAL = "experimental"  # 允许犯错：可直接分发，门禁只报风险
-    REVIEWED = "reviewed"
-
-
 # --------------------------------------------------------------------------- #
 # 动作与效果
 # --------------------------------------------------------------------------- #
@@ -160,7 +147,7 @@ class TargetKind(StrEnum):
 
 
 class TargetRef(BaseModel):
-    """类型化目标引用：**永远带 kind**，不靠裸 id 跨命名空间匹配（docs/23 §4.2）。
+    """类型化目标引用：**永远带 kind**，不靠裸 id 跨命名空间匹配（docs/scenario.md）。
 
     加载期另外禁止 actor/device/scene 三个命名空间出现重复 id——两层一起兜住类型碰撞。
     """
@@ -241,7 +228,6 @@ class Affordance(BaseModel):
     # 空 = 目标不参与结算，只作归属与展示（自由发问、全场级动作）。
     targets: list[TargetRef] = Field(default_factory=list)
     effects: list[Effect] = Field(default_factory=list)
-    perceptible_by: list[str] = Field(default_factory=list)
     reveals: list[str] = Field(default_factory=list)
     # **消耗多少情境时间单位**（`turn` = 时间单位累计值，不是请求次数）：
     # 0 = 瞬时（说话/观察/测量——信息获取理所当然，不消耗时间）；正数 = 这次尝试占用的时间。
@@ -279,7 +265,7 @@ class Reaction(BaseModel):
 
 
 class DmWritableKey(BaseModel):
-    """包允许 DM **提议**改动的人物状态键（docs/23 §5.1）。
+    """包允许 DM **提议**改动的人物状态键（docs/scenario.md）。
 
     默认没有 DM 可写状态。只用于「跨回合确实需要影响的人物关系」——信任、舒适、配合一类；
     **数值、测量结果、风险结局、设备状态与动作完成状态永远不在这个写集**。
@@ -333,7 +319,6 @@ class Asset(BaseModel):
     path: str = ""  # 仓库播种来源：assets/<pack_key>/<path>（可留空，由管理侧上传字节）
     title: str = ""
     alt: str = ""  # 无障碍与"看不到图也能用"
-    suggest_when: str = ""  # 给 DM 的自然语言提示：什么时候值得展示（不是触发器）
 
 
 class Setting(BaseModel):
@@ -346,16 +331,15 @@ class Setting(BaseModel):
 
 
 class Player(BaseModel):
-    """学生也是场景中的角色。"""
+    """学生也是场景中的角色（只有"你是谁"这一件事；能做什么由 `affordances` 声明）。"""
 
     model_config = ConfigDict(extra="forbid")
 
     role: str
-    can: list[AffordanceType] = Field(default_factory=lambda: list(AffordanceType))
 
 
 # --------------------------------------------------------------------------- #
-# 教学关注点（取代叙事锚点任务机，docs/23 §6）
+# 教学关注点（取代叙事锚点任务机，docs/scenario.md）
 # --------------------------------------------------------------------------- #
 
 
@@ -454,19 +438,12 @@ class HudSlot(BaseModel):
     visible_when: Trigger | None = None
 
 
-class Nudge(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    when: Trigger
-    direction: str  # 只给方向，不给条目
-
-
 class BoardSection(BaseModel):
     """线索板的一个版块（只读投影；学生不能直接编辑）。
 
     来源是**封闭词汇**：`cue`（已揭示的现场线索）、`state`（读数，随需求出现）、
     `noticed`（本回合引擎登记、已可见的现场细节）、`fact`（已确认的事实 + 证据）、
-    `action`（已处置）。DM 不再写白板（docs/23 §5.2）：没有 `note` 来源。
+    `action`（已处置）。DM 不再写白板（docs/scenario.md）：没有 `note` 来源。
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -520,7 +497,6 @@ class Presentation(BaseModel):
     hud: list[HudSlot] = Field(default_factory=list)
     board: list[BoardSection] = Field(default_factory=list)
     devices: list[Device] = Field(default_factory=list)
-    nudges: list[Nudge] = Field(default_factory=list)
     panels: list[PanelType] = Field(default_factory=list)
 
 
@@ -530,21 +506,19 @@ class Presentation(BaseModel):
 
 
 class ScenarioPack(BaseModel):
-    """一份可版本化、可热载、只被解释不被编译的声明。不含分数。"""
+    """一份病例：**当前内容**（没有形状版本、没有修订号）。"""
 
     model_config = ConfigDict(extra="forbid")
 
-    pack_schema_version: int = PACK_SCHEMA_VERSION
     key: str
     title: str
-    state: PackState = PackState.EXPERIMENTAL
     one_line: str = ""
 
     player: Player
     setting: Setting
     actors: list[Actor]
     state_keys: dict[str, Any] = Field(default_factory=dict)  # <target>.<key> -> 初值
-    # 仅 DM 的**解析阶段**可见的真相（学生不可见；演出阶段拿不到它，见 docs/23 §4.4）
+    # 仅 DM 的**解析阶段**可见的真相（学生不可见；演出阶段拿不到它，见 docs/scenario.md）
     truth: list[str] = Field(default_factory=list)
 
     affordances: list[Affordance]
@@ -561,8 +535,6 @@ class ScenarioPack(BaseModel):
 
     # 场景资源包内可展示的预定义资源（图片）；DM 只能引用这里声明过的 id
     assets: list[Asset] = Field(default_factory=list)
-    # 是否允许 DM 请求**绘画者 AI**生成图片（默认关闭：作者显式开启才产生成本）
-    image_generation: Literal["disabled", "allowed"] = "disabled"
 
     failure: Literal["recoverable", "irreversible"] = "recoverable"
     # 不可逆失败的条件（由 pack 声明；无时钟，只看动作与状态）

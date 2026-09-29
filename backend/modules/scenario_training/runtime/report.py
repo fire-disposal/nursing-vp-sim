@@ -96,7 +96,7 @@ def reflection(results: list[DecisionResult]) -> str | None:
     if not scored:
         return None
     worst = min(scored, key=lambda item: (item.score, -item.weight))
-    return f"回看「{worst.title}」这一处：{worst.detail}。如果重来一次，你会在哪一步做出不同的选择？"
+    return f"回看「{worst.title}」。这条记录是：{worst.detail}。如果重来一次，你会在哪一步换一种做法？"
 
 
 def _criterion(item: dict[str, Any]) -> ScenarioCriterion:
@@ -140,11 +140,6 @@ def build_report(pack: ScenarioPack, world: World, *, view: ScenarioView) -> Sce
         ),
         timeline=list(view.timeline),
     )
-
-
-def cutover_outcome(turn: int) -> ScenarioOutcome:
-    """机制切换时封存旧局的结局：**不补成学生主动完成**（docs/23 §9.3）。"""
-    return ScenarioOutcome(status="cutover", reason="mechanism_cutover", turn=turn, lost=False)
 
 
 def timeline_of(view: ScenarioView) -> list[ScenarioTimelineEntry]:

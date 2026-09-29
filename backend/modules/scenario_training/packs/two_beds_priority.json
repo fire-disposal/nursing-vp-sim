@@ -1,19 +1,9 @@
 {
-  "pack_schema_version": 3,
   "key": "two-beds-priority",
   "title": "两床同铃：会叫的能等，不叫的危重",
-  "state": "experimental",
   "one_line": "夜班，两床同时按铃：一个喊得整条走廊都听见，一个只说了句「有点闷」。",
   "player": {
-    "role": "夜班护士",
-    "can": [
-      "ask",
-      "observe",
-      "measure",
-      "act",
-      "document",
-      "summon"
-    ]
+    "role": "夜班护士"
   },
   "setting": {
     "place": "呼吸内科病房（夜班）",
@@ -163,10 +153,6 @@
           "value": 1
         }
       ],
-      "perceptible_by": [
-        "bed_a",
-        "family_a"
-      ],
       "targets": [
         {
           "kind": "actor",
@@ -190,9 +176,6 @@
           "op": "incr",
           "value": 1
         }
-      ],
-      "perceptible_by": [
-        "bed_b"
       ],
       "targets": [
         {
@@ -256,10 +239,6 @@
           "value": 2
         }
       ],
-      "perceptible_by": [
-        "bed_a",
-        "family_a"
-      ],
       "targets": [
         {
           "kind": "actor",
@@ -291,9 +270,6 @@
           "value": 2
         }
       ],
-      "perceptible_by": [
-        "bed_a"
-      ],
       "targets": [
         {
           "kind": "actor",
@@ -313,9 +289,6 @@
           "op": "incr",
           "value": 5
         }
-      ],
-      "perceptible_by": [
-        "bed_b"
       ],
       "targets": [
         {
@@ -631,20 +604,6 @@
         "title": "已处置",
         "source": "action"
       }
-    ],
-    "nudges": [
-      {
-        "when": {
-          "all": [
-            {
-              "kind": "turns_without_action",
-              "affordance_id": "visit_b",
-              "turns": 2
-            }
-          ]
-        },
-        "direction": "先到 B 床看看"
-      }
     ]
   },
   "failure": "irreversible",
@@ -662,7 +621,6 @@
     "B 床正在静默低氧并出现意识改变",
     "呼声音量与危险程度无关"
   ],
-  "image_generation": "disabled",
   "rubric": [
     {
       "id": "dp_priority",
