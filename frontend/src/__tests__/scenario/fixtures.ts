@@ -198,3 +198,19 @@ export function sseError(code: string, message: string): ScenarioStreamEvent {
 		error: { code, message, retryable: true },
 	};
 }
+
+/**
+ * 导出 zip 的最小夹具：与后端 `case_folder.zip_bytes` **同形**（deflate 压缩、成员名带一层
+ * 病例根目录、含一张图片的非文本字节）。编辑器「原始」页签读的就是导出包里的 `case.toml`/`case.md`，
+ * 这里给一份可复现的等价字节，真产物由后端产出。
+ */
+const CASE_ZIP_BASE64 =
+	"UEsDBBQAAAAIAAAAIQDWBY48HgAAAB4AAAAOAAAAZGVtby9jYXNlLnRvbWzLTq1UsFVQSknNzVfiKsksyUkFcZ/tmfJ8yS4lLgBQSwMEFAAAAAgAAAAhANyvqAQYAAAAFQAAAAwAAABkZW1vL2Nhc2UubWRTVlZ4uqTl6aJmLq6nS+Y871/7uKGJCwBQSwMEFAAAAAgAAAAhABpBvxUFAAAAAwAAABEAAABkZW1vL2ltZy9yb29tLnBuZwvwcwcAUEsBAhQDFAAAAAgAAAAhANYFjjweAAAAHgAAAA4AAAAAAAAAAAAAAIABAAAAAGRlbW8vY2FzZS50b21sUEsBAhQDFAAAAAgAAAAhANyvqAQYAAAAFQAAAAwAAAAAAAAAAAAAAIABSgAAAGRlbW8vY2FzZS5tZFBLAQIUAxQAAAAIAAAAIQAaQb8VBQAAAAMAAAARAAAAAAAAAAAAAACAAYwAAABkZW1vL2ltZy9yb29tLnBuZ1BLBQYAAAAAAwADALUAAADAAAAAAAA=";
+
+/** 上面那串字节 → Blob（测试里当"后端导出的 zip"用）。 */
+export function caseZipBlob(): Blob {
+	const binary = atob(CASE_ZIP_BASE64);
+	const bytes = new Uint8Array(binary.length);
+	for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+	return new Blob([bytes]);
+}

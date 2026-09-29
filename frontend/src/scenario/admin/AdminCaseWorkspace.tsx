@@ -1,21 +1,14 @@
 import { Badge, Button, Code, Group, Paper, Tabs, Text } from "@mantine/core";
-import {
-	IconArrowLeft,
-	IconChartBar,
-	IconDatabase,
-	IconInfoCircle,
-	IconPencil,
-} from "@tabler/icons-react";
+import { IconArrowLeft, IconChartBar, IconInfoCircle, IconPencil } from "@tabler/icons-react";
 import type { ComponentType } from "react";
 import type { ScenarioAdminPack } from "@/api/scenario";
-import AdminAssetsPanel from "./AdminAssetsPanel";
 import AdminCaseEditorPanel from "./AdminCaseEditorPanel";
 import AdminCaseOverviewPanel from "./AdminCaseOverviewPanel";
 import AdminSessionsPanel from "./AdminSessionsPanel";
 import AdminStatsPanel from "./AdminStatsPanel";
 
 /** 病例工作区的分块。 */
-export type CaseBlock = "overview" | "editor" | "assets" | "sessions" | "stats";
+export type CaseBlock = "overview" | "editor" | "sessions" | "stats";
 
 /**
  * 分块与**权限键**的对应（与后端逐字一致：内容面 `case_manage`，数据面 `stats_view`）。
@@ -31,7 +24,6 @@ export const CASE_BLOCKS: {
 }[] = [
 	{ id: "overview", label: "概览", permission: "case_manage", icon: IconInfoCircle },
 	{ id: "editor", label: "编辑", permission: "case_manage", icon: IconPencil },
-	{ id: "assets", label: "图片", permission: "case_manage", icon: IconDatabase },
 	{ id: "sessions", label: "会话", permission: "stats_view", icon: IconChartBar },
 	{ id: "stats", label: "统计", permission: "stats_view", icon: IconChartBar },
 ];
@@ -51,6 +43,9 @@ export function visibleCaseBlocks(permissions: string[]): CaseBlock[] {
  *
  * 病例的新模型很简单：**当前内容 + 整数 `version`（内容变了才 +1）+ 是否上架**。
  * 没有"历史版本"这回事——所以块里也没有历史版本，头部只报版本与上架状态。
+ *
+ * **图片与散文不是单独的块**：它们都是"当前内容"的一部分，跟着编辑器的那几张页签走
+ * （表单 / 散文 / 图片 / 原始）——同一个事实只有一处编辑入口。
  */
 export default function AdminCaseWorkspace({
 	pack,
@@ -116,7 +111,6 @@ export default function AdminCaseWorkspace({
 				    分页/展开态带过来，也不会同时发几块的请求 */}
 				{current === "overview" && <AdminCaseOverviewPanel pack={pack} />}
 				{current === "editor" && <AdminCaseEditorPanel pack={pack} />}
-				{current === "assets" && <AdminAssetsPanel pack={pack} />}
 				{current === "sessions" && <AdminSessionsPanel packKey={pack.key} lockPack />}
 				{current === "stats" && <AdminStatsPanel packKey={pack.key} />}
 			</Tabs>

@@ -1,55 +1,24 @@
 /**
- * 场景编辑器的**文档层**：pack 内容的读写、原始文本互转、改动摘要。
+ * 场景编辑器的**文档层**：pack 内容的读取、不可变写入、改动摘要。
  *
- * 这里只有纯函数（没有 React、没有请求），所以双向同步与"哪些字段会变"这两件事
- * 都能直接单测——界面只负责把它们接起来。
+ * 这里只有纯函数（没有 React、没有请求），所以"哪些字段会变"能直接单测。
  *
- * 三条约定：
+ * 两条约定：
  * - 内容是一棵普通 JSON 树（`ScenarioPackDoc`），形状由**后端**校验；前端不复刻校验器。
- * - 「JSON 原始」页签里的文本就是 `JSON.stringify(content, null, 2)`：
- *   互转无损（含 `null`——模型把"缺省"与显式 `null` 视为同一件事，所以不必也不该改写它）。
  * - 任何写操作都返回**新对象**（不可变），React 的脏检查与改动摘要都靠它。
  */
 
 import type { ScenarioPackDoc, ScenarioPackValue } from "@/api/scenario";
 
-/** 内容 → 原始文本（**唯一**的写法：两空格缩进，便于人读与 diff）。 */
-export function toJsonText(doc: ScenarioPackDoc): string {
-	return JSON.stringify(doc, null, 2);
-}
-
-/**
- * 原始文本 → 内容。
- *
- * 只接受**一张表**（与后端契约一致：pack 顶层是对象）：数组/标量一律报错，
- * 免得作者把半截数组粘进来、表单却静默变成空。
- */
-export function fromJsonText(text: string): ScenarioPackDoc {
-	const parsed: unknown = JSON.parse(text);
-	if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-		throw new Error("顶层必须是一个对象（JSON 里用 { } 包起来）");
-	}
-	return parsed as ScenarioPackDoc;
-}
-
 /**
  * 后端返回的内容（`{[key: string]: unknown}`）是不是编辑器能读的内容。
  *
- * 判据只到**顶层**（与 `fromJsonText` 一致）：必须是一张表；缺省/数组/标量一律 `false`，
+ * 判据只到**顶层**：必须是一张表；缺省/数组/标量一律 `false`，
  * 调用方据此显示"没有可编辑的内容"，而不是把 `undefined` 塞进表单状态再到处判空。
  * 深层的字段形状由**后端**那同一套校验负责，前端不复刻。
  */
 export function isPackDocShaped(value: unknown): value is ScenarioPackDoc {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-/** 把解析失败翻成一句可读的中文（尽量带行号；`JSON.parse` 的原文折在最后）。 */
-export function describeJsonError(error: unknown): string {
-	const raw = error instanceof Error ? error.message : String(error);
-	const located = raw.match(/line (\d+) column (\d+)/);
-	if (located) return `第 ${located[1]} 行第 ${located[2]} 列：${raw}`;
-	const position = raw.match(/position (\d+)/);
-	return position ? `第 ${position[1]} 个字符处：${raw}` : raw;
 }
 
 type Key = string | number;
@@ -69,6 +38,19 @@ export function setIn<T extends Node>(root: T, path: Key[], value: Node): T {
 	return { ...source, [head]: rest.length === 0 ? value : setIn(current, rest, value) } as unknown as T;
 }
 
+/**
+ * 不可变删除：删掉一张表里的一个键（`deleteIn(doc, ["state_keys", key])`）。
+ * 列表项不走它（列表有顺序，用 `removeAt`）。
+ */
+export function deleteIn(doc: ScenarioPackDoc, path: Key[]): ScenarioPackDoc {
+	const parent = nodeAt(doc, ...path.slice(0, -1));
+	const head = path[path.length - 1];
+	if (parent === undefined || parent === null || typeof parent !== "object" || Array.isArray(parent)) return doc;
+	const next = { ...(parent as Record<string, Node>) };
+	delete next[String(head)];
+	return path.length === 1 ? (next as ScenarioPackDoc) : setIn(doc, path.slice(0, -1), next);
+}
+
 /** 不可变列表操作（列表字段的增删排序都走它）。 */
 export function moveIn<T>(list: readonly T[], from: number, to: number): T[] {
 	if (to < 0 || to >= list.length) return [...list];
@@ -80,12 +62,6 @@ export function moveIn<T>(list: readonly T[], from: number, to: number): T[] {
 
 export function removeAt<T>(list: readonly T[], index: number): T[] {
 	return list.filter((_, position) => position !== index);
-}
-
-export function insertAt<T>(list: readonly T[], index: number, item: T): T[] {
-	const next = [...list];
-	next.splice(index, 0, item);
-	return next;
 }
 
 /** 把两条路径拼成一条（跳过空段），例如 `["setting","cues"]` + `1` + `"text"`。 */
@@ -128,6 +104,16 @@ export function diffPaths(before: Node | undefined, after: Node | undefined, bas
 
 function isTable(value: Node | undefined): value is Record<string, ScenarioPackValue> {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+/** 按路径取一个原始值（缺失 → `undefined`）。写"自由的标量"（状态键初值、效果值…）用它。 */
+export function nodeAt(doc: ScenarioPackDoc, ...path: Key[]): Node | undefined {
+	let current: Node | undefined = doc;
+	for (const key of path) {
+		if (current === null || typeof current !== "object") return undefined;
+		current = Array.isArray(current) ? current[key as number] : (current as Record<string, Node>)[key];
+	}
+	return current;
 }
 
 /** 从内容里安全取出一张子表（缺失/类型不符 → 空表）。 */

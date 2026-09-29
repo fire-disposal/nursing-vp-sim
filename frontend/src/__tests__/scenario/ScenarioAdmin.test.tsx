@@ -34,7 +34,9 @@ vi.mock("@/components/Toast", () => ({
 
 const mocks = vi.hoisted(() => ({
 	listAdminScenarioPacks: vi.fn(),
-	uploadAdminScenarioPack: vi.fn(),
+	importAdminScenarioPack: vi.fn(),
+	downloadAdminStandardCase: vi.fn(),
+	exportAdminScenarioPack: vi.fn(),
 	uploadAdminScenarioAsset: vi.fn(),
 	replaceAdminScenarioAsset: vi.fn(),
 	deleteAdminScenarioAsset: vi.fn(),
@@ -56,7 +58,9 @@ vi.mock("@/api/scenario", async () => {
 	return {
 		...actual,
 		listAdminScenarioPacks: mocks.listAdminScenarioPacks,
-		uploadAdminScenarioPack: mocks.uploadAdminScenarioPack,
+		importAdminScenarioPack: mocks.importAdminScenarioPack,
+		downloadAdminStandardCase: mocks.downloadAdminStandardCase,
+		exportAdminScenarioPack: mocks.exportAdminScenarioPack,
 		uploadAdminScenarioAsset: mocks.uploadAdminScenarioAsset,
 		replaceAdminScenarioAsset: mocks.replaceAdminScenarioAsset,
 		deleteAdminScenarioAsset: mocks.deleteAdminScenarioAsset,
@@ -130,7 +134,6 @@ function packContent(overrides: Partial<ScenarioPackContent> = {}): ScenarioPack
 		published: true,
 		published_at: "2026-09-29T12:00:00Z",
 		content: {
-			pack_schema_version: 3,
 			key: PACK_KEY,
 			title: "术后低氧",
 			one_line: "术后第二天，患者呼吸费力。",
@@ -141,6 +144,16 @@ function packContent(overrides: Partial<ScenarioPackContent> = {}): ScenarioPack
 			facts: [],
 			rubric: [],
 			presentation: {},
+			assets: [
+				{
+					id: "a_room",
+					kind: "image",
+					file: "room-panel.png",
+					title: "病房环境",
+					alt: "夜班病房",
+					reveal_with: [],
+				},
+			],
 		},
 		problems: [],
 		changed: false,
@@ -163,20 +176,18 @@ async function openCase(user: UserEvent) {
 	await screen.findByRole("button", { name: "返回病例列表" });
 }
 
-/** 往 Mantine FileInput 的 file input 里塞一个文件（点击打开系统对话框在 jsdom 里做不到）。 */
-function attachFile(user: UserEvent, file: File) {
-	const input = document.querySelector(
-		'input[type="file"]',
-	) as HTMLInputElement | null;
-	if (!input) throw new Error("没有找到文件输入");
-	return user.upload(input, file);
-}
-
 beforeEach(() => {
 	mocks.listAdminScenarioPacks.mockResolvedValue([pack(false)]);
 	mocks.listAdminScenarioSessions.mockResolvedValue({ total: 0, items: [] });
 	mocks.getAdminScenarioStats.mockResolvedValue({ packs: [] });
 	mocks.getAdminScenarioPackContent.mockResolvedValue(packContent());
+	mocks.importAdminScenarioPack.mockResolvedValue({
+		key: "tpl-case",
+		title: "模板病例",
+		version: 1,
+		changed: true,
+		problems: [],
+	});
 	mocks.createBlankScenarioPack.mockResolvedValue({
 		key: "night-shift-2",
 		version: 1,
@@ -223,16 +234,16 @@ describe("管理侧：权限门", () => {
 		// 两个区都在（病例清单本身走数据口径 `/admin/packs`）；默认落在数据区
 		expect(await screen.findByRole("tab", { name: "会话" })).toBeInTheDocument();
 		await user.click(screen.getByRole("radio", { name: "病例" }));
-		// 没有内容权限 → 连上传入口都不给
-		expect(screen.queryByRole("button", { name: "上传" })).toBeNull();
+		// 没有内容权限 → 连"添加病例"那几条入口都不给
+		expect(screen.queryByRole("button", { name: "导入" })).toBeNull();
+		expect(screen.queryByRole("button", { name: "下载标准模板" })).toBeNull();
 
 		await openCase(user);
 		expect(await screen.findByRole("tab", { name: "会话" })).toBeInTheDocument();
 		expect(screen.getByRole("tab", { name: "统计" })).toBeInTheDocument();
 		expect(screen.queryByRole("tab", { name: "概览" })).toBeNull();
 		expect(screen.queryByRole("tab", { name: "编辑" })).toBeNull();
-		expect(screen.queryByRole("tab", { name: "图片" })).toBeNull();
-		expect(mocks.uploadAdminScenarioPack).not.toHaveBeenCalled();
+		expect(mocks.importAdminScenarioPack).not.toHaveBeenCalled();
 	});
 
 	it("只有 case_manage → 没有「会话 / 统计」区，病例工作区里只有内容块", async () => {
@@ -246,7 +257,8 @@ describe("管理侧：权限门", () => {
 		await openCase(user);
 		expect(await screen.findByRole("tab", { name: "概览" })).toBeInTheDocument();
 		expect(screen.getByRole("tab", { name: "编辑" })).toBeInTheDocument();
-		expect(screen.getByRole("tab", { name: "图片" })).toBeInTheDocument();
+		// 图片与散文是「编辑」里的页签，不再是并列的工作区块
+		expect(screen.queryByRole("tab", { name: "图片" })).toBeNull();
 		expect(screen.queryByRole("tab", { name: "会话" })).toBeNull();
 		expect(mocks.listAdminScenarioSessions).not.toHaveBeenCalled();
 	});
@@ -283,8 +295,9 @@ describe("管理侧：病例选择只有一处、清单只有一份", () => {
 			within(head).getByRole("button", { name: "返回病例列表" }),
 		).toBeInTheDocument();
 
-		// 「图片」块里没有病例下拉（旧的重复选择器就长在这里）
-		await user.click(screen.getByRole("tab", { name: "图片" }));
+		// 「编辑」块里没有病例下拉（旧的重复选择器就长在这里）
+		await user.click(screen.getByRole("tab", { name: "编辑" }));
+		expect(await screen.findByRole("tab", { name: "表单" })).toBeInTheDocument();
 		expect(screen.queryByLabelText("按病例筛选")).toBeNull();
 
 		// 「会话」块里也没有病例筛选（它锁在头部的那个病例上）
@@ -302,7 +315,6 @@ describe("管理侧：病例选择只有一处、清单只有一份", () => {
 		renderWithProviders(<ScenarioAdminPage />);
 
 		await openCase(user);
-		await user.click(screen.getByRole("tab", { name: "图片" }));
 		await user.click(screen.getByRole("tab", { name: "编辑" }));
 		await user.click(screen.getByRole("tab", { name: "概览" }));
 
@@ -372,8 +384,23 @@ describe("管理侧：病例选择只有一处、清单只有一份", () => {
 	});
 });
 
-describe("管理侧：上传图片后列表变已上传（同一个病例、同一份清单）", () => {
-	it("上传成功 → 图片进病例、工作区头部与图片清单都变已上传", async () => {
+describe("管理侧：图片在「编辑」的「图片」页签里管（同一个病例、同一份清单）", () => {
+	/** 进工作区 → 编辑 → 图片（图片是编辑器的一张页签，不是并列的工作区块）。 */
+	async function openImages(user: UserEvent) {
+		await openCase(user);
+		await user.click(await screen.findByRole("tab", { name: "编辑" }));
+		await user.click(await screen.findByRole("tab", { name: "图片" }));
+	}
+
+	/** 选一张图（Modal 里的文件输入）。 */
+	async function pickImage(user: UserEvent, name: string) {
+		const dialog = await screen.findByRole("dialog");
+		const input = dialog.querySelector('input[type="file"]') as HTMLInputElement;
+		await user.upload(input, new File([new Uint8Array([137, 80, 78, 71])], name, { type: "image/png" }));
+		return dialog;
+	}
+
+	it("上传成功 → 图片有字节了，工作区头部与图片行都变已上传", async () => {
 		const user = userEvent.setup();
 		let uploaded = false;
 		mocks.listAdminScenarioPacks.mockImplementation(() =>
@@ -385,21 +412,12 @@ describe("管理侧：上传图片后列表变已上传（同一个病例、同�
 		});
 
 		renderWithProviders(<ScenarioAdminPage />);
-		await openCase(user);
-		await user.click(await screen.findByRole("tab", { name: "图片" }));
+		await openImages(user);
 
-		const before = await screen.findByRole("row", { name: /a_room/ });
-		expect(within(before).getByText("未上传")).toBeInTheDocument();
-		expect(within(before).getByRole("button", { name: "预览" })).toBeDisabled();
-
-		await attachFile(
-			user,
-			new File([new Uint8Array([137, 80, 78, 71])], "room.png", {
-				type: "image/png",
-			}),
-		);
-		await user.type(screen.getByLabelText(/图片编号/), "a_room");
-		await user.click(screen.getByRole("button", { name: "上传并保存" }));
+		expect(await screen.findByText("未上传")).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "上传字节" }));
+		const dialog = await pickImage(user, "room.png");
+		await user.click(within(dialog).getByRole("button", { name: "上传" }));
 
 		await waitFor(() => {
 			expect(mocks.uploadAdminScenarioAsset).toHaveBeenCalled();
@@ -408,15 +426,12 @@ describe("管理侧：上传图片后列表变已上传（同一个病例、同�
 		expect(key).toBe(PACK_KEY);
 		expect(payload.asset_id).toBe("a_room");
 		expect(payload.file).toBeInstanceOf(File);
+		// 文案跟声明的当前值走（不是让作者再打一遍）
+		expect(payload.title).toBe("病房环境");
+		expect(payload.alt).toBe("夜班病房");
 
 		// 清单重新取一次：同一个病例的那一条现在有字节了（头部版本号也跟着变）
-		const after = await screen.findByRole("row", { name: /a_room/ });
-		await waitFor(() => {
-			expect(within(after).getByText("已上传")).toBeInTheDocument();
-		});
-		expect(within(after).queryByText("未上传")).toBeNull();
-		expect(within(after).getByRole("button", { name: "预览" })).toBeEnabled();
-		// 工作区头部与图片块说的是同一个版本号（一份真源，不是两处各记一个）
+		await waitFor(() => expect(screen.getByText("已上传")).toBeInTheDocument());
 		expect(screen.getAllByText(/版本 #4/).length).toBeGreaterThan(0);
 	});
 
@@ -426,18 +441,10 @@ describe("管理侧：上传图片后列表变已上传（同一个病例、同�
 		mocks.replaceAdminScenarioAsset.mockResolvedValue({ key: PACK_KEY, asset: asset(true) });
 
 		renderWithProviders(<ScenarioAdminPage />);
-		await openCase(user);
-		await user.click(await screen.findByRole("tab", { name: "图片" }));
+		await openImages(user);
 
-		const row = await screen.findByRole("row", { name: /a_room/ });
-		await user.click(within(row).getByRole("button", { name: "替换图片" }));
-
-		const dialog = await screen.findByRole("dialog");
-		const modalInput = dialog.querySelector('input[type="file"]') as HTMLInputElement;
-		await user.upload(
-			modalInput,
-			new File([new Uint8Array([1, 2, 3])], "new.png", { type: "image/png" }),
-		);
+		await user.click(await screen.findByRole("button", { name: "换一张" }));
+		const dialog = await pickImage(user, "new.png");
 		await user.click(within(dialog).getByRole("button", { name: "保存" }));
 
 		await waitFor(() => {
@@ -450,23 +457,34 @@ describe("管理侧：上传图片后列表变已上传（同一个病例、同�
 		expect(mocks.uploadAdminScenarioAsset).not.toHaveBeenCalled();
 	});
 
-	it("删除图片要二次确认，确认后调用删除", async () => {
+	it("声明有改动时字节按钮停用（字节挂的是已保存的那一版）", async () => {
+		const user = userEvent.setup();
+		mocks.listAdminScenarioPacks.mockResolvedValue([pack(true)]);
+		renderWithProviders(<ScenarioAdminPage />);
+		await openImages(user);
+
+		const alt = await screen.findByLabelText("替代文本");
+		await user.type(alt, "改一处");
+		await waitFor(() =>
+			expect(screen.getByRole("button", { name: "换一张" })).toBeDisabled(),
+		);
+	});
+
+	it("删除图片要二次确认，确认后调删除（声明也从这一版内容里去掉）", async () => {
 		const user = userEvent.setup();
 		mocks.listAdminScenarioPacks.mockResolvedValue([pack(true)]);
 		mocks.deleteAdminScenarioAsset.mockResolvedValue({
 			key: PACK_KEY,
 			version: 5,
-			assets: [asset(false)],
+			assets: [],
 		});
 
 		renderWithProviders(<ScenarioAdminPage />);
-		await openCase(user);
-		await user.click(await screen.findByRole("tab", { name: "图片" }));
+		await openImages(user);
 
-		const row = await screen.findByRole("row", { name: /a_room/ });
-		await user.click(within(row).getByRole("button", { name: "删除" }));
+		await user.click(await screen.findByRole("button", { name: "删除这张图" }));
 		expect(
-			await screen.findByText(/删除后，这个病例里不再有「病房环境」（编号 a_room）/),
+			await screen.findByText(/删除后病例里不再有「病房环境」/),
 		).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "确认删除" }));
 
@@ -601,7 +619,13 @@ describe("管理侧：时间语义（turn = 情境时间单位，不是请求计
 		renderWithProviders(<ScenarioAdminPage />);
 		await openCase(user);
 
-		for (const name of ["概览", "编辑", "图片", "会话"]) {
+		for (const name of ["概览", "编辑", "会话"]) {
+			await user.click(await screen.findByRole("tab", { name }));
+			expect(document.body.textContent ?? "").not.toContain("回合");
+		}
+		// 编辑器里的几张页签也走一遍（同一口径：没有"回合"）
+		await user.click(await screen.findByRole("tab", { name: "编辑" }));
+		for (const name of ["表单", "散文", "图片"]) {
 			await user.click(await screen.findByRole("tab", { name }));
 			expect(document.body.textContent ?? "").not.toContain("回合");
 		}
@@ -754,31 +778,35 @@ describe("管理侧：病例的系统侧闭环（新建 / 复制 / 删除）", (
 		expect(message).toContain("这个病例已有 3 局记录，可下架但不可删除");
 	});
 
-	it("上传病例 JSON：请求体只有 file（没有备注字段）", async () => {
+	it("导入病例：problems 当提示渲染（不是失败），入口按相对路径整包传", async () => {
 		const user = userEvent.setup();
-		mocks.uploadAdminScenarioPack.mockResolvedValue({
-			key: PACK_KEY,
-			version: 4,
-			created: true,
-			assets_pending: ["a_missing"],
+		mocks.importAdminScenarioPack.mockResolvedValue({
+			key: "tpl-case",
+			title: "模板病例",
+			version: 1,
+			changed: true,
+			problems: ["忽略了 2 个不在 tpl-case/ 下的文件", "缺图片字节：room-panel.png"],
 		});
 
 		renderWithProviders(<ScenarioAdminPage />);
-		await screen.findByRole("button", { name: "上传" });
+		await screen.findByRole("button", { name: "导入" });
+		// 第一个 file 输入是压缩包那一个（文件夹入口是另一个隐藏输入）
 		const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-		await user.upload(
-			input,
-			new File(["{}"], "pack.json", { type: "application/json" }),
-		);
-		await user.click(screen.getByRole("button", { name: "上传" }));
+		await user.upload(input, new File(["PK"], "tpl-case.zip", { type: "application/zip" }));
+		await user.click(screen.getByRole("button", { name: "导入" }));
 
 		await waitFor(() => {
-			expect(mocks.uploadAdminScenarioPack).toHaveBeenCalled();
+			expect(mocks.importAdminScenarioPack).toHaveBeenCalled();
 		});
-		// 请求体只有 file：备注（note）已经不在契约里，屏幕上也没有那个输入框
-		const [payload] = mocks.uploadAdminScenarioPack.mock.calls[0] as [{ file: File }];
-		expect(payload).toEqual({ file: expect.any(File) });
-		expect(Object.keys(payload)).toEqual(["file"]);
-		expect(screen.queryByLabelText(/备注/)).toBeNull();
+		const [files] = mocks.importAdminScenarioPack.mock.calls[0] as [File[]];
+		expect(files.map((file) => file.name)).toEqual(["tpl-case.zip"]);
+
+		// 提示不是失败：照原话列出来，成功那句话照常
+		expect(
+			await screen.findByText("忽略了 2 个不在 tpl-case/ 下的文件"),
+		).toBeInTheDocument();
+		expect(screen.getByText("缺图片字节：room-panel.png")).toBeInTheDocument();
+		expect(mocks.toastSuccess).toHaveBeenCalled();
+		expect(mocks.toastError).not.toHaveBeenCalled();
 	});
 });

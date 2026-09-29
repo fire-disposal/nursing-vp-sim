@@ -933,12 +933,16 @@ async def admin_upload_asset(
     except assets_mod.AssetRejected as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     stored = f"{asset_id}.webp"
+    # 已存在的声明要**保留它自己的字段**（尤其 reveal_with 闸门）——上传只更新字节与文件名，
+    # 不重建声明；表单显式给了 title/alt 才覆盖。
+    existing = next((item for item in pack.assets if item.id == asset_id), None)
     declaration = Asset(
         id=asset_id,
         kind="image",
         file=stored,
-        title=title or asset_id,
-        alt=alt or title or asset_id,
+        title=title or (existing.title if existing else "") or asset_id,
+        alt=alt or (existing.alt if existing else "") or title or asset_id,
+        reveal_with=list(existing.reveal_with) if existing else [],
     )
     updated = pack.model_copy(update={"assets": [*(item for item in pack.assets if item.id != asset_id), declaration]})
     problems = validate_pack(updated)

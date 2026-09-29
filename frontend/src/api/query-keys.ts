@@ -164,6 +164,9 @@ export const queryKeys = {
 			/** 场景编辑器：这份病例的**当前内容**（一个病例一份，换病例即换 key）。 */
 			content: (packKey: string) =>
 				[...queryKeys.scenario.admin.all, "content", packKey] as const,
+			/** 编辑器「原始」页签：导出 zip 里解出来的 `case.toml` / `case.md` 原文。 */
+			source: (packKey: string) =>
+				[...queryKeys.scenario.admin.all, "source", packKey] as const,
 		},
 	},
 } as const;

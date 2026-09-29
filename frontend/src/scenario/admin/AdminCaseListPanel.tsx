@@ -1,4 +1,5 @@
 import {
+	Alert,
 	Badge,
 	Button,
 	Code,
@@ -13,34 +14,76 @@ import {
 	TextInput,
 	Tooltip,
 } from "@mantine/core";
+import { IconInfoCircle } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { queryKeys } from "@/api/query-keys";
 import {
 	type ScenarioAdminPack,
 	createBlankScenarioPack,
 	deleteAdminScenarioPack,
 	duplicateAdminScenarioPack,
-	uploadAdminScenarioPack,
+	importAdminScenarioPack,
 } from "@/api/scenario";
 import { toast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 import { getApiErrorDetail } from "@/utils/error";
+import { downloadStandardCase, exportCaseFolder } from "./transfer";
 import { usePackPublish } from "./usePackPublish";
 
 /**
  * 病例列表 —— 管理侧「病例」区的**根**：一行一个病例，进入它的工作区。
  *
- * 这里**不是**五个平铺页签之一，而是唯一的病例入口：图片、会话、统计
+ * 这里**不是**五个平铺页签之一，而是唯一的病例入口：图片、散文、会话、统计
  * 全都在"某个病例的工作区"里，所以不再有"选了病例再切页签、选择就没了"这种事。
  *
  * 病例的模型只有三件事：**当前内容**、整数 `version`（内容变了才 +1）、**是否上架**。
  * 所以这一行也只报这三件事加两处计数（会话 / 图片）。
  *
- * 系统侧闭环：新建空白 / 复制 / 上架下架 / 删除。删除的边界由后端定死——
+ * 开一份新病例的三条路（都不需要作者写文件格式）：
+ * - **标准模板**：下载一个最小可跑病例的文件夹压缩包（`key`/`title` 可预填）；
+ * - **导入**：一个 zip，或直接选一个文件夹（后端按相对路径找 `case.toml`）；
+ * - **新建空白**：平台给一份最小骨架，直接在编辑器里写。
+ * 导入返回的 `problems` 是**提示**（忽略了哪些多余文件、缺哪张图），不是失败——照原话渲染出来。
+ *
+ * 系统侧闭环：复制 / 上架下架 / 删除 / 导出。删除的边界由后端定死——
  * **有会话就不能删**（会话自带内容快照，但病例是这些会话的归属）：界面上灰掉并说明原因，
  * 后端若仍返回 409（别人刚开了一局）也照原话转述，不翻译成"删除失败请重试"。
  */
+
+/** `<input webkitdirectory>` 是浏览器属性、React 的类型里没有它，所以挂载时用 DOM 设上去。 */
+function DirectoryPicker({
+	value,
+	onPick,
+}: {
+	value: File[];
+	onPick: (files: File[]) => void;
+}) {
+	const input = useRef<HTMLInputElement>(null);
+	useEffect(() => {
+		input.current?.setAttribute("webkitdirectory", "");
+		input.current?.setAttribute("directory", "");
+	}, []);
+	return (
+		<Group gap="xs" align="center">
+			<Button variant="default" onClick={() => input.current?.click()}>
+				选择文件夹
+			</Button>
+			<Text size="xs" c="dimmed">
+				{value.length === 0 ? "选一个病例文件夹（含 case.toml）" : `${value.length} 个文件`}
+			</Text>
+			<input
+				ref={input}
+				type="file"
+				multiple
+				hidden
+				data-testid="case-directory-input"
+				onChange={(event) => onPick([...(event.currentTarget.files ?? [])])}
+			/>
+		</Group>
+	);
+}
+
 export default function AdminCaseListPanel({
 	packs,
 	loading,
@@ -51,10 +94,14 @@ export default function AdminCaseListPanel({
 	loading: boolean;
 	/** 进入某个病例的工作区（由页面切到工作区并写进地址栏）。 */
 	onOpen: (packKey: string) => void;
-	/** 内容权限：没有它时连上传入口都不显示（后端也会拒，前端不该更宽松）。 */
+	/** 内容权限：没有它时连导入/下载入口都不显示（后端也会拒，前端不该更宽松）。 */
 	canContent: boolean;
 }) {
-	const [file, setFile] = useState<File | null>(null);
+	const [zip, setZip] = useState<File | null>(null);
+	const [folder, setFolder] = useState<File[]>([]);
+	const [importNotes, setImportNotes] = useState<string[]>([]);
+	const [templateKey, setTemplateKey] = useState("");
+	const [templateTitle, setTemplateTitle] = useState("");
 	const [blankKey, setBlankKey] = useState("");
 	const [blankTitle, setBlankTitle] = useState("");
 	/** 正在复制的源病例（`null` = 复制对话框没开）。 */
@@ -116,6 +163,42 @@ export default function AdminCaseListPanel({
 		onError: (e) => toast.error(getApiErrorDetail(e, "删除病例失败")),
 	});
 
+	const importMutation = useMutation({
+		mutationFn: (files: File[]) => importAdminScenarioPack(files),
+		onSuccess: (data) => {
+			// `problems` 是宽容导入的**提示**（多余文件、缺图…），照原话列出来，不当失败
+			setImportNotes(data.problems ?? []);
+			setZip(null);
+			setFolder([]);
+			toast.success(
+				data.changed
+					? `${data.key}：已导入为版本 #${data.version}`
+					: `${data.key}：内容与当前版本一致，没有新增版本`,
+				{ description: data.title },
+			);
+			void invalidate();
+		},
+		onError: (e) => {
+			setImportNotes([]);
+			toast.error(getApiErrorDetail(e, "导入病例失败"));
+		},
+	});
+
+	const templateMutation = useMutation({
+		mutationFn: () => downloadStandardCase(templateKey, templateTitle),
+		onSuccess: () =>
+			toast.success("标准模板已下载", {
+				description: "解压后就是一个病例文件夹（case.toml / case.md / img/），改完从「导入」传回来。",
+			}),
+		onError: (e) => toast.error(getApiErrorDetail(e, "下载标准模板失败")),
+	});
+
+	const exportMutation = useMutation({
+		mutationFn: (key: string) => exportCaseFolder(key),
+		onSuccess: () => toast.success("病例已导出", { description: "压缩包里是 case.toml / case.md / img/。" }),
+		onError: (e) => toast.error(getApiErrorDetail(e, "导出病例失败")),
+	});
+
 	/** 上架/下架都要二次确认：这一步决定学生看不看得到。 */
 	const flipPublished = async (key: string, title: string, next: boolean) => {
 		const ok = await confirm({
@@ -145,55 +228,86 @@ export default function AdminCaseListPanel({
 		setDupTitle(`${pack.title}（副本）`);
 	};
 
-	const uploadMutation = useMutation({
-		mutationFn: uploadAdminScenarioPack,
-		onSuccess: (data) => {
-			const pending = data.assets_pending ?? [];
-			toast.success(
-				data.created
-					? `${data.key}：已保存为版本 #${data.version}`
-					: `${data.key}：内容与当前版本一致，没有新增版本`,
-				{
-					description:
-						pending.length > 0
-							? `还有 ${pending.length} 张图片没有上传，进这个病例的「图片」里传。`
-							: undefined,
-				},
-			);
-			setFile(null);
-			void invalidate();
-		},
-		onError: (e) => toast.error(getApiErrorDetail(e, "上传病例失败")),
-	});
+	const importFiles = zip !== null ? [zip] : folder;
 
 	return (
 		<Stack gap="md">
 			{canContent && (
 				<Paper withBorder p="md">
 					<Text fw={600} mb={4}>
-						上传病例（JSON）
+						添加病例
 					</Text>
 					<Text size="xs" c="dimmed" mb="sm">
-						上传就是保存：它成为这份病例的「当前内容」，内容变了版本 +1（一样的内容重传不涨版本）。
-						已经在跑的会话仍用它们开始时的内容。图片的字节不在这里——传进病例工作区的「图片」。
+						一份病例 = 一个文件夹（`case.toml` + `case.md` + `img/`）。下模板、改好、导入回来，
+						整条路都不用在这里写格式；导入后剩下的都在工作区的编辑器里用表单改。
 					</Text>
-					<Group align="flex-end" gap="sm" wrap="wrap">
-						<FileInput
-							label="病例 JSON"
-							placeholder="选择 .json 文件"
-							accept="application/json,.json"
-							value={file}
-							onChange={setFile}
-							w={280}
-						/>
-						<Button
-							onClick={() => file && uploadMutation.mutate({ file })}
-							disabled={!file}
-							loading={uploadMutation.isPending}
-						>
-							上传
-						</Button>
-					</Group>
+					<Stack gap="md">
+						<Group align="flex-end" gap="sm" wrap="wrap">
+							<TextInput
+								label="标准模板的 key"
+								description="可作为新病例的编号"
+								placeholder="new-case"
+								value={templateKey}
+								onChange={(event) => setTemplateKey(event.currentTarget.value)}
+								w={200}
+							/>
+							<TextInput
+								label="标准模板的标题"
+								placeholder="新病例"
+								value={templateTitle}
+								onChange={(event) => setTemplateTitle(event.currentTarget.value)}
+								w={240}
+							/>
+							<Button
+								variant="light"
+								loading={templateMutation.isPending}
+								onClick={() => templateMutation.mutate()}
+							>
+								下载标准模板
+							</Button>
+						</Group>
+
+						<Group align="flex-end" gap="sm" wrap="wrap">
+							<FileInput
+								label="压缩包"
+								placeholder="选择 .zip"
+								description="一个病例一个 zip"
+								accept="application/zip,.zip"
+								value={zip}
+								onChange={(file) => {
+									setZip(file);
+									if (file !== null) setFolder([]);
+								}}
+								w={220}
+							/>
+							<DirectoryPicker
+								value={folder}
+								onPick={(files) => {
+									setFolder(files);
+									if (files.length > 0) setZip(null);
+								}}
+							/>
+							<Button
+								loading={importMutation.isPending}
+								disabled={importFiles.length === 0}
+								onClick={() => importMutation.mutate(importFiles)}
+							>
+								导入
+							</Button>
+						</Group>
+
+						{importNotes.length > 0 && (
+							<Alert color="blue" variant="light" icon={<IconInfoCircle size={16} />} title="导入提示">
+								<Stack gap={2}>
+									{importNotes.map((note) => (
+										<Text size="xs" key={note}>
+											{note}
+										</Text>
+									))}
+								</Stack>
+							</Alert>
+						)}
+					</Stack>
 				</Paper>
 			)}
 
@@ -238,7 +352,7 @@ export default function AdminCaseListPanel({
 				</Group>
 			) : packs.length === 0 ? (
 				<Text size="sm" c="dimmed">
-					还没有病例。{canContent ? "先上传一份病例 JSON。" : ""}
+					还没有病例。{canContent ? "可以从标准模板开始，或导入一个病例文件夹。" : ""}
 				</Text>
 			) : (
 				<Table.ScrollContainer minWidth={960}>
@@ -300,10 +414,7 @@ export default function AdminCaseListPanel({
 												</Text>
 											) : (
 												<Group gap={6}>
-													<Badge
-														color={missing > 0 ? "orange" : "green"}
-														variant="light"
-													>
+													<Badge color={missing > 0 ? "orange" : "green"} variant="light">
 														{uploaded}/{assets.length} 已上传
 													</Badge>
 													{missing > 0 && (
@@ -327,11 +438,7 @@ export default function AdminCaseListPanel({
 										</Table.Td>
 										<Table.Td>
 											<Group gap="xs" wrap="wrap">
-												<Button
-													size="compact-sm"
-													variant="light"
-													onClick={() => onOpen(pack.key)}
-												>
+												<Button size="compact-sm" variant="light" onClick={() => onOpen(pack.key)}>
 													进入工作区
 												</Button>
 												{canContent && (
@@ -340,11 +447,7 @@ export default function AdminCaseListPanel({
 															size="compact-sm"
 															variant={pack.published ? "default" : "filled"}
 															onClick={() =>
-																void flipPublished(
-																	pack.key,
-																	pack.title,
-																	!pack.published,
-																)
+																void flipPublished(pack.key, pack.title, !pack.published)
 															}
 														>
 															{pack.published ? "下架" : "上架"}
@@ -356,6 +459,19 @@ export default function AdminCaseListPanel({
 														>
 															复制
 														</Button>
+														<Tooltip label="下载病例文件夹（case.toml / case.md / img/），可离线改再导入">
+															<Button
+																size="compact-sm"
+																variant="light"
+																loading={
+																	exportMutation.isPending &&
+																	exportMutation.variables === pack.key
+																}
+																onClick={() => exportMutation.mutate(pack.key)}
+															>
+																导出
+															</Button>
+														</Tooltip>
 														<Tooltip
 															label={
 																blockedBySessions

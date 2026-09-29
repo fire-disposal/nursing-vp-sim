@@ -1,33 +1,21 @@
 /**
- * 病例编辑器的面板：两个页签（表单 / JSON 原始）双向同步，保存就是保存。
+ * 病例编辑器的面板：四张页签（表单 / 散文 / 图片 / 原始），保存就是保存。
  *
  * 三条不变量：
  * - **只编辑当前内容**：读走 `GET .../content`，存走 `POST .../content`。没有"改历史版本"这条路，
  *   也没有历史版本可列——病例就是「当前内容 + 整数 version」。内容变了 version +1，
  *   一样的内容重存不涨版本（后端返回 `changed=false` 时界面照实说，不假装存了新版本）。
- * - **一份文本、一份树**：表单改的是 `doc`，「JSON 原始」页签改的是文本；文本解析成功才写回 `doc`，
- *   解析失败**只保留文本 + 显示可读错误**，表单内容不动（不会把作者打的半截 JSON 变成空表单）。
+ * - **一份数据、一份编辑态**：表单、散文、图片声明改的都是同一个 `doc`；
+ *   「原始」页签是**只读**原文（后端导出 zip 里的 TOML/MD），不参与回写——
+ *   要改结构就去表单，要离线改就导出文件夹再导入。
  * - **校验只有一套**：保存前调 `POST .../validate`（与安装/加载同一套），
- *   失败时每条问题都带字段路径，界面把问题归位到节 + 顶部摘要，不重算判据。
+ *   失败时每条问题都带字段路径，界面把问题归位到**页签 + 节**，不重算判据。
  *
  * 一个出口：**保存并试跑** —— 先保存，再用这份病例开一局 `trial` 会话，
  * 然后跳到学生侧控制台（`/scenario?session=<id>`；与学生自己开始一局走同一条路由）。
  */
 
-import {
-	Alert,
-	Badge,
-	Button,
-	Code,
-	Group,
-	Loader,
-	Paper,
-	Stack,
-	Tabs,
-	Text,
-	Tooltip,
-} from "@mantine/core";
-import Editor from "@monaco-editor/react";
+import { Alert, Badge, Button, Code, Group, Loader, Paper, Stack, Tabs, Text, Tooltip } from "@mantine/core";
 import {
 	IconAlertTriangle,
 	IconDeviceFloppy,
@@ -51,11 +39,12 @@ import {
 import { toast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 import { getApiErrorDetail } from "@/utils/error";
-import PackForm, { PACK_SECTIONS, sectionForPath } from "./editor/PackForm";
-import { describeJsonError, diffPaths, fromJsonText, isPackDocShaped, toJsonText } from "./editor/packDoc";
-
-/** 原始文本改动后的解析防抖（打字时不必每个字符都重解析）。 */
-const PARSE_DEBOUNCE_MS = 250;
+import AssetsForm from "./editor/AssetsForm";
+import PackForm from "./editor/PackForm";
+import ProseForm from "./editor/ProseForm";
+import RawSource from "./editor/RawSource";
+import { isPackDocShaped, diffPaths } from "./editor/packDoc";
+import { issuesOf, PACK_SECTIONS, type PackSectionTab, sectionForPath } from "./editor/sections";
 
 /** 顶部摘要最多列几条改动字段（其余折成"+N"）。 */
 const MAX_LISTED_CHANGES = 12;
@@ -68,21 +57,22 @@ function changesSummary(changes: string[]): string {
 	return `${changes.slice(0, MAX_LISTED_CHANGES).join("、")} 等 ${changes.length} 处`;
 }
 
-/** 问题按节归位的结果：`null` 键 = 认不出属于哪一节（只在顶部摘要里列）。 */
+/** 问题按节归位的结果：认不出属于哪一节的那些只在顶部摘要里列。 */
 function groupProblems(problems: ScenarioPackProblem[]): {
-	groups: { section: string; label: string }[];
+	groups: { section: string; label: string; tab: PackSectionTab }[];
 	rest: ScenarioPackProblem[];
 } {
-	const groups: { section: string; label: string }[] = [];
+	const groups: { section: string; label: string; tab: PackSectionTab }[] = [];
 	const rest: ScenarioPackProblem[] = [];
 	for (const problem of problems) {
 		const section = sectionForPath(problem.path);
-		if (section === null) {
+		const hit = PACK_SECTIONS.find((item) => item.id === section);
+		if (hit === undefined) {
 			rest.push(problem);
 			continue;
 		}
-		if (!groups.some((item) => item.section === section)) {
-			groups.push({ section, label: PACK_SECTIONS.find((item) => item.id === section)?.label ?? section });
+		if (!groups.some((item) => item.section === hit.id)) {
+			groups.push({ section: hit.id, label: hit.label, tab: hit.tab });
 		}
 	}
 	return { groups, rest };
@@ -95,14 +85,11 @@ export default function AdminCaseEditorPanel({ pack }: { pack: ScenarioAdminPack
 	const [tab, setTab] = useState<string | null>("form");
 	const [doc, setDoc] = useState<ScenarioPackDoc | null>(null);
 	const [baseline, setBaseline] = useState<ScenarioPackDoc | null>(null);
-	const [rawText, setRawText] = useState("");
-	const [rawError, setRawError] = useState<string | null>(null);
 	const [problems, setProblems] = useState<ScenarioPackProblem[]>([]);
 	/** 服务端记的内容版本：保存成功后以后端返回的为准，界面不自己 +1。 */
 	const [version, setVersion] = useState<number | null>(null);
 	/** 刚才那次校验的结果：服务端算的"这次保存会不会涨版本"，界面不猜。 */
 	const [planned, setPlanned] = useState<ScenarioPackValidation | null>(null);
-	const parseTimer = useRef<number | null>(null);
 	/** 已经载入过的那一份（`key:version`）：同一个版本的后台刷新不冲掉作者正在改的内容。 */
 	const loadedFor = useRef<string | null>(null);
 
@@ -114,7 +101,7 @@ export default function AdminCaseEditorPanel({ pack }: { pack: ScenarioAdminPack
 	const source = contentQuery.data;
 
 	// 载入即重建基线。这一个请求就是"当前内容"，没有换版本这回事：
-	// 只有服务端的内容版本真的变了（别处存过），才重新载入并重建基线。
+	// 只有服务端的内容版本真的变了（别处存过、图片字节传过），才重新载入并重建基线。
 	useEffect(() => {
 		if (!source) return;
 		const stamp = `${source.key}:${source.version}`;
@@ -124,19 +111,9 @@ export default function AdminCaseEditorPanel({ pack }: { pack: ScenarioAdminPack
 		setVersion(source.version);
 		setDoc(content);
 		setBaseline(content);
-		setRawText(content === null ? "" : toJsonText(content));
-		setRawError(null);
 		setProblems(source.problems ?? []);
 		setPlanned(null);
 	}, [source]);
-
-	// 组件卸载时清掉待解析的定时器（防抖不做清理会在卸载后再 setState）。
-	useEffect(
-		() => () => {
-			if (parseTimer.current !== null) clearTimeout(parseTimer.current);
-		},
-		[],
-	);
 
 	const changes = useMemo(
 		() => (doc === null || baseline === null ? [] : diffPaths(baseline, doc)),
@@ -147,30 +124,11 @@ export default function AdminCaseEditorPanel({ pack }: { pack: ScenarioAdminPack
 	/** 这次要存的是什么改动（确认框与校验提示共用一句，避免两处说法不一致）。 */
 	const changedText = changes.length > 0 ? changesSummary(changes) : "无";
 
-	/** 表单改一处：树与原始文本同时更新（表单页签下本来就看不到文本，不存在光标争夺）。 */
-	const applyFormChange = (next: ScenarioPackDoc) => {
+	/** 任何一处改动都走它：树变了、旧的问题与校验结果就作废（它们说的不是这一版）。 */
+	const applyChange = (next: ScenarioPackDoc) => {
 		setDoc(next);
-		setRawText(toJsonText(next));
-		setRawError(null);
 		setProblems([]);
 		setPlanned(null);
-	};
-
-	/** 原始文本改一处：防抖后解析；成功才写回树，失败只留文本 + 错误。 */
-	const applyRawChange = (text: string) => {
-		setRawText(text);
-		if (parseTimer.current !== null) clearTimeout(parseTimer.current);
-		parseTimer.current = setTimeout(() => {
-			try {
-				setDoc(fromJsonText(text));
-				setRawError(null);
-				setProblems([]);
-				setPlanned(null);
-			} catch (error) {
-				// 保留文本与树：作者正在打的这半截不算数，等打完再解析
-				setRawError(describeJsonError(error));
-			}
-		}, PARSE_DEBOUNCE_MS);
 	};
 
 	/** 试跑：用这份病例开会话（`trial=true`），再跳到学生侧控制台。 */
@@ -231,7 +189,6 @@ export default function AdminCaseEditorPanel({ pack }: { pack: ScenarioAdminPack
 			if (saved !== null) {
 				setDoc(saved);
 				setBaseline(saved);
-				setRawText(toJsonText(saved));
 			} else {
 				setBaseline(doc);
 			}
@@ -265,11 +222,19 @@ export default function AdminCaseEditorPanel({ pack }: { pack: ScenarioAdminPack
 	if (doc === null) {
 		return (
 			<Alert color="red" variant="light" icon={<IconAlertTriangle size={16} />}>
-				这份病例的内容不是一张可编辑的 JSON 表（顶层必须是一个对象），编辑器读不出字段；
-				请在「JSON 原始」里核对它的来源。
+				这份病例的内容不是一张可编辑的表（顶层必须是一个对象），编辑器读不出字段；
+				请用「导出」下载它的原始文件核对来源。
 			</Alert>
 		);
 	}
+
+	/** 跳到某一节：先切到它所在的页签，再滚到那一节。 */
+	const jumpTo = (section: string, target: PackSectionTab) => {
+		setTab(target);
+		window.requestAnimationFrame(() => {
+			document.getElementById(`pack-section-${section}`)?.scrollIntoView({ block: "start" });
+		});
+	};
 
 	return (
 		<Stack gap="md">
@@ -292,20 +257,18 @@ export default function AdminCaseEditorPanel({ pack }: { pack: ScenarioAdminPack
 						<Tooltip label={dirty ? "先校验再保存" : "还没有任何改动"} disabled={dirty}>
 							<Button
 								leftSection={<IconDeviceFloppy size={15} />}
-								disabled={!dirty || rawError !== null}
+								disabled={!dirty}
 								loading={validateMutation.isPending || saveMutation.isPending}
 								onClick={() => validateMutation.mutate({ content: doc, mode: "save" })}
 							>
 								保存
 							</Button>
 						</Tooltip>
-						{/* 试跑**不必先有改动**：内容没变就直接用当前版本开局（确认框里会这么说）。
-						    只有草稿解析失败时才禁用——否则"想试跑当前版本"就得先改一个字，那是假的限制。 */}
+						{/* 试跑**不必先有改动**：内容没变就直接用当前版本开局（确认框里会这么说）。 */}
 						<Tooltip label="先保存，再用这份病例开一局试跑（不会计入统计）；内容没变就直接用当前内容开局">
 							<Button
 								variant="default"
 								leftSection={<IconPlayerPlay size={15} />}
-								disabled={rawError !== null}
 								loading={saveMutation.isPending}
 								onClick={() => validateMutation.mutate({ content: doc, mode: "trial" })}
 							>
@@ -320,12 +283,6 @@ export default function AdminCaseEditorPanel({ pack }: { pack: ScenarioAdminPack
 				</Text>
 			</Paper>
 
-			{rawError !== null && (
-				<Alert color="orange" variant="light" icon={<IconAlertTriangle size={16} />}>
-					JSON 解析失败（表单内容保持上一次能解析的版本，不会被清空）：{rawError}
-				</Alert>
-			)}
-
 			{problems.length > 0 && (
 				<Alert color="red" variant="light" icon={<IconAlertTriangle size={16} />} title="校验未通过">
 					<Stack gap={4}>
@@ -334,16 +291,11 @@ export default function AdminCaseEditorPanel({ pack }: { pack: ScenarioAdminPack
 								<Button
 									variant="subtle"
 									size="compact-xs"
-									onClick={() => {
-										setTab("form");
-										document.getElementById(`pack-section-${group.section}`)?.scrollIntoView({ block: "start" });
-									}}
+									onClick={() => jumpTo(group.section, group.tab)}
 								>
 									跳到「{group.label}」
 								</Button>
-								<Text size="xs">
-									{problems.filter((problem) => sectionForPath(problem.path) === group.section).length} 处
-								</Text>
+								<Text size="xs">{issuesOf(problems, group.section).length} 处</Text>
 							</Group>
 						))}
 						{grouped.rest.map((problem) => (
@@ -364,36 +316,23 @@ export default function AdminCaseEditorPanel({ pack }: { pack: ScenarioAdminPack
 			<Tabs value={tab} onChange={setTab}>
 				<Tabs.List mb="md" className="sc-admin-tabs">
 					<Tabs.Tab value="form">表单</Tabs.Tab>
-					<Tabs.Tab value="json">JSON 原始</Tabs.Tab>
+					<Tabs.Tab value="prose">散文</Tabs.Tab>
+					<Tabs.Tab value="assets">图片</Tabs.Tab>
+					<Tabs.Tab value="raw">原始</Tabs.Tab>
 				</Tabs.List>
 
-				{tab === "form" && <PackForm doc={doc} onChange={applyFormChange} problems={problems} />}
-				{tab === "json" && (
-					<Stack gap="xs">
-						<Text size="xs" c="dimmed">
-							这就是这份病例的原始内容（与团队上传统一份 JSON）。改动会与「表单」页签同步：
-							表单改动会按统一缩进重排这段文本（注释不保留——JSON 本来也不允许注释）。
-						</Text>
-						<Paper withBorder style={{ height: "calc(100vh - 340px)", minHeight: 420, overflow: "hidden" }}>
-							<Editor
-								height="100%"
-								defaultLanguage="json"
-								value={rawText}
-								onChange={(value) => applyRawChange(value ?? "")}
-								theme="vs-dark"
-								options={{
-									minimap: { enabled: false },
-									lineNumbers: "on",
-									scrollBeyondLastLine: false,
-									fontSize: 13,
-									tabSize: 2,
-									formatOnPaste: true,
-									automaticLayout: true,
-								}}
-							/>
-						</Paper>
-					</Stack>
+				{tab === "form" && <PackForm doc={doc} onChange={applyChange} problems={problems} />}
+				{tab === "prose" && <ProseForm doc={doc} onChange={applyChange} problems={problems} />}
+				{tab === "assets" && (
+					<AssetsForm
+						doc={doc}
+						onChange={applyChange}
+						problems={problems}
+						pack={pack}
+						dirty={dirty}
+					/>
 				)}
+				{tab === "raw" && <RawSource packKey={pack.key} />}
 			</Tabs>
 		</Stack>
 	);

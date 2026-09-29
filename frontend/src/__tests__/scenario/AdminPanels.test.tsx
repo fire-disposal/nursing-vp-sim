@@ -9,7 +9,6 @@ import type {
 	ScenarioAdminSessionRow,
 	ScenarioView,
 } from "@/api/scenario";
-import AdminAssetsPanel from "@/scenario/admin/AdminAssetsPanel";
 import AdminCaseOverviewPanel from "@/scenario/admin/AdminCaseOverviewPanel";
 import AdminSessionsPanel from "@/scenario/admin/AdminSessionsPanel";
 import AdminStatsPanel from "@/scenario/admin/AdminStatsPanel";
@@ -39,9 +38,6 @@ vi.mock("@/components/ui/auth-image", async () => {
 
 const mocks = vi.hoisted(() => ({
 	listAdminScenarioPacks: vi.fn(),
-	uploadAdminScenarioAsset: vi.fn(),
-	replaceAdminScenarioAsset: vi.fn(),
-	deleteAdminScenarioAsset: vi.fn(),
 	listAdminScenarioSessions: vi.fn(),
 	getAdminScenarioSession: vi.fn(),
 	getAdminScenarioStats: vi.fn(),
@@ -52,9 +48,6 @@ vi.mock("@/api/scenario", async () => {
 	return {
 		...actual,
 		listAdminScenarioPacks: mocks.listAdminScenarioPacks,
-		uploadAdminScenarioAsset: mocks.uploadAdminScenarioAsset,
-		replaceAdminScenarioAsset: mocks.replaceAdminScenarioAsset,
-		deleteAdminScenarioAsset: mocks.deleteAdminScenarioAsset,
 		listAdminScenarioSessions: mocks.listAdminScenarioSessions,
 		getAdminScenarioSession: mocks.getAdminScenarioSession,
 		getAdminScenarioStats: mocks.getAdminScenarioStats,
@@ -328,42 +321,5 @@ describe("场景缩略图：取不到字节不留空框", () => {
 		await waitFor(() => {
 			expect(container.querySelectorAll(".sc-asset")).toHaveLength(0);
 		});
-	});
-});
-
-describe("图片面板：assets 可选", () => {
-	it("未声明 assets → 说清楚没有声明任何图片，而不是一张空表", () => {
-		renderWithProviders(<AdminAssetsPanel pack={{ ...pack(), assets: undefined }} />);
-
-		expect(screen.getByText(/这个病例没有声明任何图片/)).toBeInTheDocument();
-		expect(screen.queryByRole("columnheader", { name: "图片" })).toBeNull();
-	});
-
-	it("声明的图片逐条列出，字节状态如实标（缺字节的不能预览）", () => {
-		const withMissing = pack();
-		withMissing.assets = [
-			...(withMissing.assets ?? []),
-			{
-				id: "a_missing",
-				kind: "image",
-				title: "还没上传的图",
-				alt: "口咽部",
-				filename: "",
-				mime_type: "",
-				file_size: 0,
-				uploaded: false,
-			},
-		];
-		renderWithProviders(<AdminAssetsPanel pack={withMissing} />);
-
-		const uploaded = screen.getByRole("row", { name: /病房环境/ });
-		expect(within(uploaded).getByText("a_room")).toBeInTheDocument();
-		expect(within(uploaded).getByText("已上传")).toBeInTheDocument();
-		expect(within(uploaded).getByRole("button", { name: "预览" })).not.toBeDisabled();
-
-		// 作者写了、库里还没有 → 学生端取图会 404：状态写实，预览关掉
-		const missing = screen.getByRole("row", { name: /还没上传的图/ });
-		expect(within(missing).getByText("未上传")).toBeInTheDocument();
-		expect(within(missing).getByRole("button", { name: "预览" })).toBeDisabled();
 	});
 });

@@ -48,6 +48,8 @@ export type ScenarioAdminOverview = Schemas["ScenarioAdminOverview"];
 export type ScenarioAdminAsset = Schemas["ScenarioAdminAsset"];
 export type ScenarioAdminPack = Schemas["ScenarioAdminPack"];
 export type ScenarioAdminPackUpload = Schemas["ScenarioAdminPackUpload"];
+/** 导入一个病例的结果：`problems` 是**宽容导入**的提示（不是失败，失败是 422）。 */
+export type ScenarioAdminPackImport = Schemas["ScenarioAdminPackImport"];
 export type ScenarioAdminPackDelete = Schemas["ScenarioAdminPackDelete"];
 export type ScenarioAdminAssetUpload = Schemas["ScenarioAdminAssetUpload"];
 /**
@@ -75,11 +77,6 @@ export type ScenarioDeviceKind = ScenarioDevice["kind"];
 export interface ScenarioAdminSessionQuery { pack_key?: string | null; status?: string | null; limit?: number; offset?: number }
 
 /** 上传请求体：multipart 的字段名与生成物一致，只有 `file` 在浏览器里是 `File`（生成物是二进制字符串）。 */
-export type ScenarioPackUploadInput = Omit<
-	Schemas["Body_admin_upload_pack_api_scenario_admin_packs_post"],
-	"file"
-> & { file: File };
-
 export type ScenarioAssetUploadInput = Omit<
 	Schemas["Body_admin_upload_asset_api_scenario_admin_packs__pack_key__assets_post"],
 	"file"
@@ -221,17 +218,38 @@ export const listAdminScenarioPacks = () =>
 		)
 		.then((r) => r.data);
 
-/** 上传一份情境包 JSON —— 它成为这份病例的**当前内容**（默认上架）。 */
-export const uploadAdminScenarioPack = (payload: ScenarioPackUploadInput) => {
+/**
+ * 导入一个病例：一个 zip，或一个目录的全部文件。
+ *
+ * 目录上传时后端按 `filename` 里的**相对路径**定位 `case.toml` 所在的根目录，
+ * 所以每个文件必须带上 `webkitRelativePath`（zip 走单字段，路径由后端自己解）。
+ */
+export const importAdminScenarioPack = (files: File[]) => {
 	const form = new FormData();
-	form.append("file", payload.file);
+	for (const file of files) {
+		form.append("files", file, file.webkitRelativePath || file.name);
+	}
 	return api
-		.post<ScenarioAdminPackUpload>(
-			"/scenario/admin/packs" satisfies ApiPath as string,
+		.post<ScenarioAdminPackImport>(
+			"/scenario/admin/packs/import" satisfies ApiPath as string,
 			form,
 		)
 		.then((r) => r.data);
 };
+
+/** 标准模板（后端硬编码的最小可运行病例：`case.toml` + `case.md`）——返回 zip 字节，落盘由调用方做。 */
+export const downloadAdminStandardCase = (key: string, title: string) =>
+	api.get<Blob>("/scenario/admin/cases/standard.zip" satisfies ApiPath as string, {
+		params: { key: key.trim() || "new-case", title: title.trim() || "新病例" },
+		responseType: "blob",
+	});
+
+/** 导出这份病例为一个文件夹压缩包（`case.toml` + `case.md` + `img/`，**无损**）——返回 zip 字节。 */
+export const exportAdminScenarioPack = (packKey: string) =>
+	api.get<Blob>(
+		`/scenario/admin/packs/${packKey}/export.zip` as ApiPath,
+		{ responseType: "blob" },
+	);
 
 // --------------------------------------------------------------------------- //
 // 病例管理（系统侧闭环：新建 / 复制 / 上架下架 / 删除）

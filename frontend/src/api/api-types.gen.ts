@@ -1797,11 +1797,71 @@ export interface paths {
          */
         get: operations["admin_packs_api_scenario_admin_packs_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scenario/admin/packs/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
         /**
-         * Admin Upload Pack
-         * @description 管理侧：上传（或覆盖）一份情境包 JSON → 成为当前内容（默认上架）。
+         * Admin Import Pack
+         * @description **导入一个病例**：zip / 一组按相对路径传来的文件（`webkitdirectory`）/ 单个 `case.toml`。
+         *
+         *     宽容导入：多出来的文件忽略并提示、没有 `case.md` 就当作散文全空；`case.toml` 即 meta
+         *     （`key` 以它为准）。内容通过**加载期同一套校验**才落库；已存在的 key → `version + 1`。
+         *     图片按声明播种进 `st_assets`（字节原样，不重编码）。
          */
-        post: operations["admin_upload_pack_api_scenario_admin_packs_post"];
+        post: operations["admin_import_pack_api_scenario_admin_packs_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scenario/admin/packs/{pack_key}/export.zip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin Export Pack
+         * @description **导出**这个病例为一个文件夹压缩包（`case.toml` + `case.md` + `img/`，**无损**）。
+         */
+        get: operations["admin_export_pack_api_scenario_admin_packs__pack_key__export_zip_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scenario/admin/cases/standard.zip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin Standard Case
+         * @description 下载**标准模板**：最小可运行病例（带占位注释），改完可以直接从导入端点传回来。
+         */
+        get: operations["admin_standard_case_api_scenario_admin_cases_standard_zip_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1970,9 +2030,10 @@ export interface paths {
         put?: never;
         /**
          * Admin Replace Asset
-         * @description **替换**一张场景图片：`asset_id` 不变（编辑器里的 JSON 引用不用改），只换字节与文案。
+         * @description **替换**一张场景图片：`asset_id` 不变（编辑器里的引用不用改），只换字节与文案。
          *
-         *     声明变了就重新保存一次内容（version +1；声明没变则幂等）。
+         *     上传入口**归一**（剥元数据 + WebP），因此声明里的文件名也跟着改成入库的名字——
+         *     文件夹导出时 `img/<file>` 与字节的格式始终一致。
          */
         post: operations["admin_replace_asset_api_scenario_admin_packs__pack_key__assets__asset_id__post"];
         /**
@@ -1997,6 +2058,8 @@ export interface paths {
         /**
          * Admin Upload Asset
          * @description 管理侧：上传一张场景图片 → 存字节 + 把声明写进当前内容。
+         *
+         *     上传入口**归一**（剥元数据 + WebP），声明的文件名就是入库的名字（`<asset_id>.webp`）。
          */
         post: operations["admin_upload_asset_api_scenario_admin_packs__pack_key__assets_post"];
         delete?: never;
@@ -3160,6 +3223,11 @@ export interface components {
              */
             cohort_label?: string | null;
         };
+        /** Body_admin_import_pack_api_scenario_admin_packs_import_post */
+        Body_admin_import_pack_api_scenario_admin_packs_import_post: {
+            /** Files */
+            files: string[];
+        };
         /** Body_admin_replace_asset_api_scenario_admin_packs__pack_key__assets__asset_id__post */
         Body_admin_replace_asset_api_scenario_admin_packs__pack_key__assets__asset_id__post: {
             /** File */
@@ -3191,11 +3259,6 @@ export interface components {
              * @default
              */
             alt: string;
-        };
-        /** Body_admin_upload_pack_api_scenario_admin_packs_post */
-        Body_admin_upload_pack_api_scenario_admin_packs_post: {
-            /** File */
-            file: string;
         };
         /** Body_submit_feedback_api_feedback_post */
         Body_submit_feedback_api_feedback_post: {
@@ -5119,6 +5182,25 @@ export interface components {
             key: string;
             /** Deleted Assets */
             deleted_assets: number;
+        };
+        /**
+         * ScenarioAdminPackImport
+         * @description 导入一个病例（zip / 一组文件 / 单个 case.toml）的结果。
+         *
+         *     `problems` 是**宽容导入**留下的提示（忽略了哪些多余文件、缺哪张图、哪些键不认得），
+         *     不是失败：失败一律 422 且带可读原因。
+         */
+        ScenarioAdminPackImport: {
+            /** Key */
+            key: string;
+            /** Title */
+            title: string;
+            /** Version */
+            version: number;
+            /** Changed */
+            changed: boolean;
+            /** Problems */
+            problems?: string[];
         };
         /** ScenarioAdminPackUpload */
         ScenarioAdminPackUpload: {
@@ -11404,7 +11486,7 @@ export interface operations {
             };
         };
     };
-    admin_upload_pack_api_scenario_admin_packs_post: {
+    admin_import_pack_api_scenario_admin_packs_import_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -11413,7 +11495,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "multipart/form-data": components["schemas"]["Body_admin_upload_pack_api_scenario_admin_packs_post"];
+                "multipart/form-data": components["schemas"]["Body_admin_import_pack_api_scenario_admin_packs_import_post"];
             };
         };
         responses: {
@@ -11423,7 +11505,70 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ScenarioAdminPackUpload"];
+                    "application/json": components["schemas"]["ScenarioAdminPackImport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_export_pack_api_scenario_admin_packs__pack_key__export_zip_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pack_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_standard_case_api_scenario_admin_cases_standard_zip_get: {
+        parameters: {
+            query?: {
+                key?: string;
+                title?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
