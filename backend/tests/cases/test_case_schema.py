@@ -11,7 +11,6 @@ from modules.training.activities import activity_config
 from modules.training.profile import HISTORY_TAKING
 from schemas.case_schema import (
     CaseDataSchema,
-    assert_valid_case_data,
     validate_case_data,
 )
 
@@ -53,7 +52,7 @@ class TestCaseDataSchema:
 
     def test_validate_case_data_strict_raises(self):
         with pytest.raises(ValidationError):
-            assert_valid_case_data({"name": ""})
+            validate_case_data({"name": ""}, strict=True)
 
     def test_validate_case_data_non_strict_returns_raw(self):
         result = validate_case_data({"name": ""}, strict=False)

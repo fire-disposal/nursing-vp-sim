@@ -1,4 +1,4 @@
-"""内容身份派生（docs/ideas/prompt-context-versioning.md §四）。
+"""内容身份派生。
 
 不变量：
 

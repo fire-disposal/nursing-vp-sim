@@ -55,7 +55,7 @@ class TrainingRecord(Base):
     scoring_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     time_limit: Mapped[int] = mapped_column(Integer, default=20)
     case_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    #: 本次训练固化的 Workflow（docs/15 §二、§九）：训练开始时由**钉住的 CaseRevision** 解析
+    #: 本次训练固化的 Workflow：训练开始时由**钉住的 CaseRevision** 解析
     #: 写入（``modules/training/workflows.workflow_for_case_revision``），之后不再变；运行期
     #: 一律 ``workflows.workflow_for_record(record)`` 读取，不再 import 任何 workflow 常量。
     #: server_default 只服务判别列落地前的存量行回填（迁移 f5a6b7c8d9e0 之后新增；当时唯一
@@ -63,7 +63,7 @@ class TrainingRecord(Base):
     workflow_id: Mapped[str] = mapped_column(
         String(50), nullable=False, default="history_taking", server_default=text("'history_taking'")
     )
-    #: 本次训练固化的病例版本（docs/15 §六）：复盘/评分按它来的版本解释 case_snapshot。
+    #: 本次训练固化的病例版本：复盘/评分按它来的版本解释 case_snapshot。
     #: 旧记录为 NULL（只有 case_snapshot，迁移前就固化了内容），新记录一律有值。
     case_revision_id: Mapped[int | None] = mapped_column(
         Integer,
@@ -76,13 +76,13 @@ class TrainingRecord(Base):
     #: 记录级冻结：策略是代码派生的，记录创建时定版；历史记录为 NULL = 不可知（不回填）。
     context_policy_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
     # 乐观并发号（工具/变更写操作原子自增，旧值 409）——**不是**内容版本，
-    # 与 CaseRevision.revision_no（病例内容修订）同名不同义，见 docs/17 §2.2。
+    # 与 CaseRevision.revision_no（病例内容修订）同名不同义。
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
     assignment_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("assignments.id", ondelete="SET NULL"), nullable=True
     )
     is_overdue: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
-    #: 这条训练**是不是一次学生练习**（docs/15 §五）：true 计入教学统计、作业次数、排行榜与学生练习历史；
+    #: 这条训练**是不是一次学生练习**：true 计入教学统计、作业次数、排行榜与学生练习历史；
     #: false = 教师/管理员在自己账号里的试跑、演示与判例。判定规则见
     #: ``modules/training/participation.is_student_practice``（按发起者是否具备教学/复核权限）。
     #: server_default 取 true（"是练习"），因为只有显式识别的教师侧发起才该被排除在外。
@@ -133,11 +133,10 @@ class Score(Base):
     model_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
     #: prompt_snapshot 的**形状**版本（v1 扁平 / v2 segments）。形状不是内容版本：
     #: 改名是为了消除「prompt_version 被读成提示词内容第几版」的同名异义
-    #: （docs/review/tech-debt-audit-2026-09-14.md PIP-8）。
     prompt_schema_version: Mapped[int | None] = mapped_column(Integer, nullable=True, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
 
-    # ── 评分契约（docs/16 §四/八）──
+    # ── 评分契约──
     # raw_total: Σ条目原始分（0..raw_max），NULL = 旧口径历史分（不可逆）
     # mapping_version: 映射曲线版本（0=旧口径，1=现行线性映射）
     # fallback: {kind, note, attempts} 兜底/降级标记——非 NULL 时必须 UI 呈现且不进排行榜
@@ -150,7 +149,7 @@ class Score(Base):
     reviewed_total: Mapped[float | None] = mapped_column(Float, nullable=True)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    # ── 本批次新增（docs/19 §4.2 第 6 条、§4.4）──
+    # ── 本批次新增──
     # raw_detail_scores: **原始刻度**的逐项评分（条目分/上限/状态/证据引用）。
     #   detail_scores 保持展示投影（既有消费方零改动），两者不再互相反推。
     #   NULL = 本批次之前的历史分（无原始精度，不可无损重算）。

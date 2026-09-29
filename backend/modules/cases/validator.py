@@ -58,7 +58,7 @@ HISTORY_TAKING_ID = HISTORY_TAKING.id
 # 值 = 消费模块。新增病例字段时必须同步登记；不在清单内的字段 = 死字段。
 
 CONSUMED_FIELDS: dict[str, str] = {
-    # 元数据三键：只在 cases 列保存（docs/15 §六），病例文件里的声明由 seed/写入侧落到列
+    # 元数据三键：只在 cases 列保存，病例文件里的声明由 seed/写入侧落到列
     "name": "cases.name（文件声明 → 列；case_data 落库前剥离）",
     "difficulty": "cases.difficulty（同上；训练列表与难度校准读列）",
     "time_limit": "cases.time_limit_minutes（唯一口径 core/time_limits.resolve_time_limit_minutes）",
@@ -79,7 +79,7 @@ CONSUMED_FIELDS: dict[str, str] = {
     "example_dialogues": "few-shot (context/examples.py)",
     "activities": "Activity 声明（activities.<id>.config → ACTIVITY_BINDINGS / manifest）",
     "workflow": "训练入口解析（modules/training/workflows：CaseRevision 决定 → 记录冻结 workflow_id）",
-    # 临床判断训练（docs/15 §十六）：六个声明面只属于 clinical_reasoning 病例，
+    # 临床判断训练：六个声明面只属于 clinical_reasoning 病例，
     # 消费端 = 发布门禁（本模块 _check_clinical_reasoning）+ 后续切片的阶段链/证据/评分。
     "scenario": "clinical_reasoning 病例场景（发布门禁 _check_clinical_reasoning）",
     "findings": "clinical_reasoning 可获取证据目录（发布门禁 + Slice 2 证据获取）",
@@ -91,7 +91,7 @@ CONSUMED_FIELDS: dict[str, str] = {
     "hidden_info": "cases/prompt_format（病例生成侧文本块）",
     "scene": "训练开始/复盘：case_data.scene → runtime_state.scene（router/session.py）+ prompt_builder 注入",
     "variant_of": "校验器去重登记",
-    # 教学蓝图（docs/19 §3.2）：目标/线索/覆盖项/家族关系/审阅留痕，
+    # 教学蓝图：目标/线索/覆盖项/家族关系/审阅留痕，
     # 消费端 = 发布门禁（本模块 _check_blueprint）+ 后续评分适用项与变式迁移。
     "blueprint": "history_taking 教学蓝图（发布门禁 _check_blueprint + 后续评分适用项/变式迁移）",
 }
@@ -191,7 +191,7 @@ def _i(msg: str, fld: str = "") -> CaseIssue:
 
 
 def _check_completion_declaration(c: dict, issues: list[CaseIssue]) -> None:
-    """病例声明的交卷门禁（``completion.required_artifacts``，docs/15 §五）。
+    """病例声明的交卷门禁（``completion.required_artifacts``）。
 
     只允许**本 workflow 已登记**的产物种类。写错一个词，运行期解析器会按白名单静默忽略，
     于是"病例作者以为要求提交"与"学生那边其实没有门禁"各说各话——错误必须在发布期可见。
@@ -233,12 +233,12 @@ def _check_completion_declaration(c: dict, issues: list[CaseIssue]) -> None:
 
 
 #: 体征参考人群闭集 —— 从 ``patient_info.vitals_age_group`` 的声明派生（唯一真源在
-#: ``schemas.case_schema.VitalsAgeGroup``，docs/15 §四 体征参考人群）。
+#: ``schemas.case_schema.VitalsAgeGroup``）。
 _VITALS_AGE_GROUPS: tuple[str, ...] = get_args(VitalsAgeGroup)
 
 
 def _check_vitals_age_group(c: dict, issues: list[CaseIssue]) -> None:
-    """``patient_info.vitals_age_group`` 的取值（docs/15 §四 体征参考人群）。
+    """``patient_info.vitals_age_group`` 的取值。
 
     拼错的枚举**不会**让运行期报错，只会静默回落"按年龄推定"——对儿科代诉病例
     等于把患儿的体征拿去和成人参考范围比，学生看到错误的"低于/高于参考范围"。
@@ -467,7 +467,7 @@ def _check_dead_fields(c: dict, issues: list[CaseIssue]) -> None:
 
 
 def _check_activities(c: dict, issues: list[CaseIssue]) -> None:
-    """Activity 声明质量门禁（docs/15 §四/§十）。
+    """Activity 声明质量门禁。
 
     病例只能声明内核认识的 Activity；声明了但配置不可用 = 「配置了却不可达」，
     必须在**发布前**报错，而不是在运行时静默变成一块死面板。
@@ -477,8 +477,7 @@ def _check_activities(c: dict, issues: list[CaseIssue]) -> None:
             _e(
                 "缺少 activities 声明：该病例没有任何可用 Activity",
                 "activities",
-                "按 activities.<id>.config 声明（docs/15 §四），如 "
-                '{"activities": {"physical_exam": {"config": {...}}}}',
+                '按 activities.<id>.config 声明，如 {"activities": {"physical_exam": {"config": {...}}}}',
             )
         )
         return
@@ -509,7 +508,7 @@ def _check_activities(c: dict, issues: list[CaseIssue]) -> None:
 
 
 def _check_workflow(c: dict, issues: list[CaseIssue]) -> None:
-    """workflow 声明质量门禁（docs/15 §二、§十六）。
+    """workflow 声明质量门禁。
 
     病例只能声明**已登记**的 workflow：声明了内核不认识的工作区 = 发布出去也进不去，
     必须在发布前报错，而不是等学员开始训练时才解析失败（与 ``_check_activities`` 同策）。
@@ -583,19 +582,8 @@ def _check_activity_config(activity_id: str, config: Any, field: str, issues: li
             issues.append(_e(f"{field}.config 必须是对象或布尔（当前类型 {type(config).__name__}）", f"{field}.config"))
         return
 
-    if activity_id == "nursing_diagnosis":
-        if not isinstance(config, dict):
-            issues.append(_e(f"{field}.config 必须是对象", f"{field}.config"))
-        issues.append(
-            _w(
-                f"{field} 只写 runtime_state、无正式产物（docs/15 §三禁止），不得进入生产 manifest",
-                field,
-                "并入护理评估的结构化字段后删除该声明",
-            )
-        )
 
-
-# ── 临床判断训练病例门禁（docs/15 §十六）─────────────────────────────────
+# ── 临床判断训练病例门禁 ─────────────────────────────────
 # 只在病例声明 ``workflow: "clinical_reasoning"`` 时生效；不套用到问诊病例。
 # 每条 error 都指向作者可见的 JSON 路径（field）+ 可执行的修复方向（fix_hint）。
 
@@ -1048,7 +1036,7 @@ def _check_clinical_rubric(c: dict, content: _ClinicalContent, issues: list[Case
 
 
 def _check_clinical_reasoning(c: dict, issues: list[CaseIssue]) -> None:
-    """``clinical_reasoning`` 病例的内容门禁（docs/15 §十六）。
+    """``clinical_reasoning`` 病例的内容门禁。
 
     规则都是**结构可判**的：证据可达性、引用完整性、目标与锚点互相覆盖。「关键证据拿不到」
     「目标没有锚点」这类问题不能留到运行期才发现 —— 学生的判断会建立在不可能获取的证据上，
@@ -1092,7 +1080,7 @@ def _check_clinical_content_declaration(c: dict, issues: list[CaseIssue]) -> Non
     )
 
 
-# ── 教学蓝图门禁（docs/19 §3.2）───────────────────────────────────────────
+# ── 教学蓝图门禁 ───────────────────────────────────────────
 # 蓝图是 ``history_taking`` 病例的声明面（临床判断病例有自己的六个声明面）。规则都是
 # **结构可判**的：目标不能空、线索 id 唯一、覆盖清单必须解析到真实引用、不适用项必须是
 # 真 rubric 条目、家族关系自洽、教师审阅必须留痕。发布前拦下 —— 蓝图决定「评什么、不评
@@ -1100,10 +1088,10 @@ def _check_clinical_content_declaration(c: dict, issues: list[CaseIssue]) -> Non
 
 BLUEPRINT_FIELD = "blueprint"
 
-#: 蓝图里必须解析成「线索 id 或 required_inquiries 原文」的清单（docs/19 §3.2 第 4 条）。
+#: 蓝图里必须解析成「线索 id 或 required_inquiries 原文」的清单。
 _BLUEPRINT_REF_LISTS: tuple[str, ...] = ("must_cover", "situational", "key_omissions")
 
-#: 迁移变式 ``transfer_of`` 指向的病例角色（docs/19 §3.2 第 6 条）—— 取值来自蓝图声明
+#: 迁移变式 ``transfer_of`` 指向的病例角色—— 取值来自蓝图声明
 #: （``schemas.case_schema.BlueprintVariantRole``），不在这里手抄一份。
 PRACTICE_ROLE = BlueprintVariantRole.PRACTICE.value
 
@@ -1118,7 +1106,7 @@ def _blueprint_list(bp: dict, key: str) -> list:
 
 
 def _check_blueprint_objectives(bp: dict, issues: list[CaseIssue]) -> None:
-    """蓝图必须说明本次能评什么（docs/19 §3.2 第 1 条）。"""
+    """蓝图必须说明本次能评什么。"""
     if any(isinstance(v, str) and v.strip() for v in _blueprint_list(bp, "learning_objectives")):
         return
     issues.append(
@@ -1189,7 +1177,7 @@ def _rubric_item_ids(case_data: dict | None = None) -> set[str]:
 
 
 def _check_blueprint_not_applicable(bp: dict, case_data: dict, issues: list[CaseIssue]) -> None:
-    """不适用项必须是真 rubric 条目，且不得同时被声明为关键遗漏（docs/19 §3.2 第 4/7 条）。"""
+    """不适用项必须是真 rubric 条目，且不得同时被声明为关键遗漏。"""
     valid = _rubric_item_ids(case_data)
     omissions = {e for e in _blueprint_list(bp, "key_omissions") if isinstance(e, str)}
     for i, entry in enumerate(_blueprint_list(bp, "not_applicable_items")):
@@ -1216,7 +1204,7 @@ def _check_blueprint_not_applicable(bp: dict, case_data: dict, issues: list[Case
 
 
 def _check_blueprint_variant(bp: dict, issues: list[CaseIssue]) -> None:
-    """家族关系自洽：practice 要声明家族，transfer 还要指向练习病例（docs/19 §3.2 第 6 条）。"""
+    """家族关系自洽：practice 要声明家族，transfer 还要指向练习病例。"""
     role = bp.get("variant_role")
     family_id = bp.get("family_id")
     has_family = isinstance(family_id, str) and bool(family_id.strip())
@@ -1250,7 +1238,7 @@ def _check_blueprint_variant(bp: dict, issues: list[CaseIssue]) -> None:
 
 
 def _check_blueprint_review(bp: dict, issues: list[CaseIssue]) -> None:
-    """``teacher_reviewed`` 必须留审阅人 —— 临床裁定不能无名（docs/19 §3.2 第 7 条）。"""
+    """``teacher_reviewed`` 必须留审阅人 —— 临床裁定不能无名。"""
     review = bp.get("review")
     if not isinstance(review, dict) or review.get("editorial_state") != BlueprintEditorialState.TEACHER_REVIEWED:
         return
@@ -1267,7 +1255,7 @@ def _check_blueprint_review(bp: dict, issues: list[CaseIssue]) -> None:
 
 
 def _check_blueprint(c: dict, issues: list[CaseIssue]) -> None:
-    """教学蓝图的发布门禁（docs/19 §3.2）。
+    """教学蓝图的发布门禁。
 
     蓝图只属于 ``history_taking`` 病例：临床判断病例有自己的声明面，蓝图放进去不会被任何
     消费端读取 —— 与其静默失效，不如发布前点名（与 ``_check_clinical_content_declaration``
@@ -1277,7 +1265,7 @@ def _check_blueprint(c: dict, issues: list[CaseIssue]) -> None:
     if raw is None:
         return
     if not isinstance(raw, dict):
-        issues.append(_e("blueprint 必须是对象（docs/19 §3.2）", BLUEPRINT_FIELD, "键见 schemas/case_schema.py"))
+        issues.append(_e("blueprint 必须是对象", BLUEPRINT_FIELD, "键见 schemas/case_schema.py"))
         return
     declared = declared_workflow_id(c)
     if declared is not None and declared != HISTORY_TAKING_ID:
@@ -1348,7 +1336,7 @@ _VITAL_SANITY_BOUNDS: dict[str, tuple[float, float]] = {
 
 
 def _check_scene(c: dict, issues: list[CaseIssue]) -> None:
-    """病例 ``scene`` 的形状与取值范围（docs/15 §六 场景注入）。
+    """病例 ``scene`` 的形状与取值范围。
 
     没有这条规则时，场景写错（枚举值拼错、``vitals.hr`` 写成字符串）能**通过发布**：
     运行期 ``prompt_builder._resolve_scene_text`` 会静默退化（整段场景不注入），
@@ -1416,7 +1404,7 @@ def _physical_exam_config(c: dict) -> dict:
 def validate_case(case_data: dict) -> CaseReport:
     """校验单个病例，返回报告（纯函数）。
 
-    规则按病例声明的 workflow 分流（docs/15 §十六）：``clinical_reasoning`` 病例走临床判断
+    规则按病例声明的 workflow 分流：``clinical_reasoning`` 病例走临床判断
     门禁（证据可达性 / 引用完整性 / 锚点覆盖），其余病例（含未声明 —— 唯一**可开始**的
     workflow 是 history_taking）走原有问诊规则。两套规则不互相套用：临床判断病例没有示例
     对话与必询项，问诊病例没有证据目录。共用规则（时长、死字段、难度校准）对两者都生效。
@@ -1473,7 +1461,7 @@ def _check_duplicate_patients(reports: dict[str, CaseReport], cases: dict[str, d
 
 
 def _check_blueprint_families(reports: dict[str, CaseReport], cases: dict[str, dict]) -> None:
-    """迁移变式的 ``transfer_of`` 必须指向同家族的 practice 病例（docs/19 §3.2 第 6 条）。
+    """迁移变式的 ``transfer_of`` 必须指向同家族的 practice 病例。
 
     单病例规则只能判「字段写没写」；「指向的那条病例是不是练习病例」只有跨病例才可见。
     与 ``_check_duplicate_patients`` 同策：不自洽只降为 warning —— 内容还在，关系需要人确认。

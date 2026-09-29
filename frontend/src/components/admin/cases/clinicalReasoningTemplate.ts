@@ -15,7 +15,7 @@ import type { CaseJsonValue } from "./CaseEditorState";
 /** 与后端注册表一致的 workflow id（`modules/training/profile.py::CLINICAL_REASONING`）。 */
 export const CLINICAL_REASONING_WORKFLOW_ID = "clinical_reasoning";
 
-/** 病例元数据键（只落 cases 列，docs/15 §六）：插入模板时保留作者已填的值。 */
+/** 病例元数据键（只落 cases 列）：插入模板时保留作者已填的值。 */
 const METADATA_KEYS = ["name", "difficulty", "time_limit", "description"] as const;
 
 export interface ClinicalReasoningFieldHint {
@@ -25,7 +25,7 @@ export interface ClinicalReasoningFieldHint {
 	requirement: string;
 }
 
-/** JSON 视图里逐条列出的期望字段（docs/15 §十六）。 */
+/** JSON 视图里逐条列出的期望字段。 */
 export const CLINICAL_REASONING_FIELD_HINTS: ClinicalReasoningFieldHint[] = [
 	{ path: "workflow", label: "工作区声明", requirement: '必须是 "clinical_reasoning"，否则病例会被当成问诊病例' },
 	{ path: "scenario", label: "场景", requirement: "title / setting / summary 非空" },

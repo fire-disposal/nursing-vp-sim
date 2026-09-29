@@ -1,5 +1,5 @@
 /**
- * 教学蓝图（docs/19 §3.2）作者面。
+ * 教学蓝图作者面。
  *
  * 契约归属：键名 / 枚举 / 默认值以 ``backend/schemas/case_schema.py`` 的 ``CaseBlueprint`` 为唯一
  * owner；形状由保存路径的 pydantic 校验与发布门禁（``modules/cases/validator.py::_check_blueprint``）
@@ -172,7 +172,7 @@ export default function BlueprintEditor({ state, dispatch, disabled }: Props) {
 				<div>
 					<Text size="sm" fw={600}>教学蓝图</Text>
 					<Text size="xs" c="dimmed">
-						声明本病例能评什么、关键线索与获取途径、覆盖/遗漏边界与家族关系（docs/19 §3.2）。留空即不声明。
+						声明本病例能评什么、关键线索与获取途径、覆盖/遗漏边界与家族关系。留空即不声明。
 					</Text>
 				</div>
 				<Badge variant="light" color={enabled ? "brand" : "gray"} size="sm">

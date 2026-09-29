@@ -5,7 +5,7 @@ Validation only — never rewrites the payload: unknown keys (``activities.*``,
 New data: strict validation (raises HTTP 422).
 Existing data: warn-only (strict=False), always passes through.
 
-元数据单源（docs/15 §六）：``name`` / ``difficulty`` / ``time_limit`` 只存在于 ``cases``
+元数据单源：``name`` / ``difficulty`` / ``time_limit`` 只存在于 ``cases``
 列，``case_data`` 落库前由 :func:`strip_case_metadata` 剥离（读路径早已统一到列）。
 """
 
@@ -27,8 +27,8 @@ from core.time_limits import (
 
 log = logging.getLogger(__name__)
 
-#: 病例元数据键：只落在 ``cases`` 列，``case_data`` 不再重复保存（docs/15 §六）。
-#: ``training_type`` 不在此列：该字段整体退场（列已 drop，docs/15 §九），不再是任何
+#: 病例元数据键：只落在 ``cases`` 列，``case_data`` 不再重复保存。
+#: ``training_type`` 不在此列：该字段整体退场（列已 drop），不再是任何
 #: 东西的元数据。它若出现在入参里就按未知键原样往返，并由病例审计
 #: （``modules/cases/validator.LEGACY_FIELDS``）点名 —— 宁可被报告，也不静默丢弃。
 #: 对存量旧值的唯一解释路径是数据迁移 ``e6b2c3d4e5f6``（单向，冻结副本）。
@@ -46,7 +46,7 @@ def strip_case_metadata(data: dict) -> dict:
 # 否则会被静默丢弃。未声明的顶层键由 CaseDataSchema 的 extra="allow" 兜住。
 _INNER_CFG = ConfigDict(extra="allow")
 
-#: 体征参考人群闭集（docs/15 §四）：这里声明取值，发布门禁
+#: 体征参考人群闭集：这里声明取值，发布门禁
 #: （``modules/cases/validator._check_vitals_age_group``）从本别名派生可选项清单 ——
 #: 闭集只有这一处，不在两个文件里各抄一份。
 VitalsAgeGroup = Literal["pediatric", "adult", "elderly"]
@@ -83,7 +83,7 @@ class PersonalityConfig(BaseModel):
 
 
 # ── 临床判断训练（``workflow: "clinical_reasoning"``）病例内容 ─────────────
-# docs/15 §十六：Clinical Judgment Drill 是独立 workflow，不是第二套聊天/RPG。它的病例
+# Clinical Judgment Drill 是独立 workflow，不是第二套聊天/RPG。它的病例
 # 由六个声明组成：scenario（场景）/ findings（可获取证据目录）/ initial（初始可见与隐藏）/
 # progression（未处置的状态变化）/ objectives（must_notice/must_act/must_communicate）/
 # rubric（确定性锚点与权重）。
@@ -121,7 +121,7 @@ class ClinicalTriggerKind(StrEnum):
 
 
 class ClinicalRubricRule(StrEnum):
-    """确定性锚点判定规则 —— 能算的不用 LLM 判（docs/15 §十六）。"""
+    """确定性锚点判定规则 —— 能算的不用 LLM 判。"""
 
     FINDING_OBSERVED = "finding_observed"
     OBJECTIVE_MET = "objective_met"
@@ -249,7 +249,7 @@ class ClinicalRubric(BaseModel):
     anchors: list[ClinicalRubricAnchor] = []
 
 
-# ── 教学蓝图（docs/19 §3.2）─────────────────────────────────────────────────
+# ── 教学蓝图 ─────────────────────────────────────────────────
 # ``history_taking`` 病例的教学蓝图：本次训练能评什么、关键线索怎么拿到、哪些条目
 # 本次不适用、有没有观察干预结果的机会，以及练习病例/迁移变式的家族关系。
 #
@@ -281,7 +281,7 @@ class BlueprintEditorialState(StrEnum):
     """教学蓝图的临床审阅状态。
 
     ``draft`` = 开发者/维护者起草，尚未经护理教师审阅；``teacher_reviewed`` = 教师已审阅。
-    只有教师能宣布后者（docs/19 §3.2「临床事实、关键项、等第判例由护理教师审阅」）。
+    只有教师能宣布后者。
     """
 
     DRAFT = "draft"
@@ -312,7 +312,7 @@ class BlueprintClue(BaseModel):
 
 
 class CaseBlueprint(BaseModel):
-    """训练能力边界与病例家族关系（docs/19 §3.2）。"""
+    """训练能力边界与病例家族关系。"""
 
     model_config = _BLUEPRINT_CFG
 
@@ -372,20 +372,20 @@ class CaseDataSchema(JsonbModel):
 
     required_inquiries: list[str] = []
 
-    #: 教学蓝图（docs/19 §3.2）：能力边界、关键线索、适用性声明与家族/变式关系。
+    #: 教学蓝图：能力边界、关键线索、适用性声明与家族/变式关系。
     #: 未声明时不影响任何既有字段；运行时消费见 ``modules/training/blueprint.py``。
     blueprint: CaseBlueprint | None = None
 
-    #: Activity 声明（docs/15 §四）：``activities.<id>.config``；结构规则见 modules/cases/validator
+    #: Activity 声明：``activities.<id>.config``；结构规则见 modules/cases/validator
     activities: dict[str, Any] = {}
-    #: 该病例内容所属 workflow（docs/15 §二）：训练入口按它冻结到训练记录，请求体无法选择。
+    #: 该病例内容所属 workflow：训练入口按它冻结到训练记录，请求体无法选择。
     #: 只有一条**可开始**的 workflow 时可省略（= history_taking）；登记第二条可开始的
     #: workflow 后病例门禁要求必填。``clinical_reasoning`` 病例必须显式声明自己。
     workflow: str = ""
     scene: dict[str, Any] = {}
     hidden_info: list[str] = []
 
-    # 临床判断训练（docs/15 §十六）的六个声明面。history_taking 病例不使用它们；
+    # 临床判断训练的六个声明面。history_taking 病例不使用它们；
     # 未声明时不影响任何既有字段（``exclude_unset`` 不注入默认值）。
     scenario: ClinicalScenario | None = None
     findings: list[ClinicalFinding] = []
@@ -419,7 +419,3 @@ def validate_case_data(data: dict, *, strict: bool = False) -> dict:
         log.warning("case_data validation warning", exc_info=True)
         return data
     return {**data, **validated.model_dump(exclude_unset=True)}
-
-
-def assert_valid_case_data(data: dict) -> dict:
-    return validate_case_data(data, strict=True)

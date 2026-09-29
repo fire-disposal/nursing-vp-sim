@@ -32,9 +32,5 @@ export function createMessageBus(): MessageBus {
 		off(event: string, handler: (...args: any[]) => void): void {
 			listeners.get(event)?.delete(handler);
 		},
-
-		listEvents(): string[] {
-			return Array.from(listeners.keys());
-		},
 	};
 }

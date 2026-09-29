@@ -3,12 +3,11 @@ import { objField } from "./CaseEditorState";
 import { Checkbox, Group, SimpleGrid, Stack, Text } from "@mantine/core";
 
 /**
- * Activity 声明表（docs/15 §四）：id 与后端 `activities.ACTIVITY_IDS` 一一对应，
+ * Activity 声明表：id 与后端 `activities.ACTIVITY_IDS` 一一对应，
  * `config` 是该 Activity 的最小合法默认配置（形状由 modules/cases/validator 把关）：
  * - physical_exam：查体征象键留空 = 未配置 → 后端按患者年龄默认值 + 生理联动补全
  * - quiz：questions 为空，由 QuizEditor 补题；空题目在发布门禁会被点名
  * - nursing_record：布尔 true（与内置病例同形；config 仅为启用声明，无字段消费）
- * - nursing_diagnosis：仅对象；该 Activity 尚无正式产物，发布门禁会给出警告
  */
 const ACTIVITY_LIST: { key: string; label: string; desc: string; config: CaseJsonValue }[] = [
 	{
@@ -25,7 +24,6 @@ const ACTIVITY_LIST: { key: string; label: string; desc: string; config: CaseJso
 			},
 		},
 	},
-	{ key: "nursing_diagnosis", label: "护理诊断", desc: "NANDA 护理诊断制定与排序", config: {} },
 	{ key: "nursing_record", label: "护理记录", desc: "生成结构化 ADPIE 护理记录", config: true },
 	{ key: "quiz", label: "引导题目", desc: "训练中弹出选择题/判断题", config: { title: "", questions: [] } },
 ];

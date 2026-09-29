@@ -19,7 +19,7 @@ def build_note_collector(workflow: WorkflowDefinition | None = None) -> Any:
     """按 ``workflow`` 的 ``note_sources`` 组装 NoteCollector。
 
     运行期调用方传 ``workflows.workflow_for_record(record)``；缺省取唯一已登记的 workflow
-    （无记录上下文的装配点/测试）。``training_type`` 字符串分派已退场（docs/15 §九），
+    （无记录上下文的装配点/测试）。``training_type`` 字符串分派已退场，
     不要在这里加"看起来能分派"的未用参数。
     """
     from modules.training.patient_ai.note_collector import NoteCollector

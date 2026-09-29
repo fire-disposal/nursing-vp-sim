@@ -23,7 +23,7 @@ class ScoringSystemVars(TypedDict):
     scoring_criteria: str
     required_inquiries: str
     scoring_json_schema: str
-    #: 教学蓝图派生的任务边界（docs/19 §4.2「目标适配」）；蓝图缺失时为占位说明
+    #: 教学蓝图派生的任务边界；蓝图缺失时为占位说明
     task_boundary: str
     #: 已记录动作与已提交产物：评分证据的一部分（此前只注册、未送达模型）
     exam_results: str

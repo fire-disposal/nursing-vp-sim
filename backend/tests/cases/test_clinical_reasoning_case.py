@@ -1,6 +1,6 @@
 """临床判断训练（``workflow: "clinical_reasoning"``）病例的 authoring 契约。
 
-docs/15 §十六：Clinical Judgment Drill 是独立 workflow，不是第二套聊天。本切片交付的是
+Clinical Judgment Drill 是独立 workflow，不是第二套聊天。本切片交付的是
 **病例编写、发布门禁与目录投影**，不是学生工作区。因此这里的断言分三层：
 
 1. 类型化内容 schema（结构错误保存即 422，不静默失效）；
@@ -53,7 +53,7 @@ from modules.cases.validator import CLINICAL_CONTENT_FIELDS, CLINICAL_REASONING_
 from modules.training.profile import CLINICAL_REASONING, HISTORY_TAKING
 from modules.training.router.session import CODE_WORKFLOW_NOT_STARTABLE
 from modules.training.workflows import case_is_startable, workflow_for_case
-from schemas.case_schema import assert_valid_case_data, validate_case_data
+from schemas.case_schema import validate_case_data
 
 #: 一份**结构完整**的临床判断病例：术后低氧，关键证据（SpO2）需要主动获取。
 CLINICAL_CASE: dict = {
@@ -198,7 +198,7 @@ def _drop_detached_audit_since(marker: int) -> None:
 class TestClinicalContentSchema:
     def test_well_formed_payload_passes_and_round_trips_unchanged(self):
         """保存路径不得顺带改写内容：模型 dump 与原载荷逐键一致。"""
-        assert bool(assert_valid_case_data(_payload()))
+        assert bool(validate_case_data(_payload(), strict=True))
         assert validate_case_data(_payload(), strict=True) == _payload()
 
     def test_unknown_inner_key_is_rejected(self):
@@ -206,25 +206,25 @@ class TestClinicalContentSchema:
         data = _payload()
         data["findings"][0]["availability"] = "always"  # 正确键是 obtainable_via
         with pytest.raises(ValidationError):
-            assert_valid_case_data(data)
+            validate_case_data(data, strict=True)
 
     def test_unknown_kind_is_rejected(self):
         data = _payload()
         data["findings"][0]["kind"] = "telepathy"
         with pytest.raises(ValidationError):
-            assert_valid_case_data(data)
+            validate_case_data(data, strict=True)
 
     def test_id_with_whitespace_is_rejected(self):
         data = _payload()
         data["objectives"]["must_act"][0]["id"] = "a 1"
         with pytest.raises(ValidationError):
-            assert_valid_case_data(data)
+            validate_case_data(data, strict=True)
 
     def test_non_positive_weight_is_rejected(self):
         data = _payload()
         data["rubric"]["anchors"][0]["weight"] = 0
         with pytest.raises(ValidationError):
-            assert_valid_case_data(data)
+            validate_case_data(data, strict=True)
 
     def test_history_taking_payload_is_unaffected(self):
         """问诊病例不带临床键时，schema 不注入任何新键（exclude_unset 语义不变）。"""

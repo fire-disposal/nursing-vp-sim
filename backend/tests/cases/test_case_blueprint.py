@@ -1,4 +1,4 @@
-"""教学蓝图（``blueprint``）的发布门禁 —— docs/19 §3.2。
+"""教学蓝图（``blueprint``）的发布门禁。
 
 纯函数层测试：夹具是 dict 载荷，直接喂 :func:`validate_case` / :func:`validate_cases`，
 不起库、不走 HTTP（写路径的 schema 校验另有测试）。每条规则 1 正例 + 1 反例。

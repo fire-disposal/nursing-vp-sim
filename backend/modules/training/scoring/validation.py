@@ -1,6 +1,6 @@
 """评分校验工具 —— 类型转换 + 字段验证 + 原始量尺与展示投影。
 
-本批次（docs/19 §4.2）的三个不变量在这里落地：
+本批次的三个不变量在这里落地：
 
 * **原始精度**：条目分与条目上限按 rubric 原始刻度（0-``raw_scale``）保存与判定，
   展示换算（×factor、取整）只发生在最后一步，且只作用于展示投影层；
@@ -37,7 +37,7 @@ FEEDBACK_LIST_FIELDS = ("strengths", "weaknesses", "missed_content")
 def _missing_feedback_fields(result: dict) -> list[str]:
     """返回缺失或类型非法的反馈字段标签；**空数组/空串不算缺失**。
 
-    这是「取消凑反馈」的判定处（docs/19 §4.2 第 5 条）：没有明确不足是真实结果，
+    这是「取消凑反馈」的判定处：没有明确不足是真实结果，
     不得因为它触发补全重试把「无不足」变成编造的不足。
     """
     missing: list[str] = []
@@ -259,7 +259,7 @@ def _validate_feedback_fields(result: dict):
 def _validate_items_content(detail_scores: dict, not_applicable: frozenset[str] = frozenset()) -> list[str]:
     """条目内容校验：得分要有可核对的证据，失分要说明判定依据。
 
-    不再设字数下限 —— 简洁有效的表达不得因为短而被判无效（docs/19 §4.2 第 3 条）。
+    不再设字数下限 —— 简洁有效的表达不得因为短而被判无效。
     """
     errors: list[str] = []
     for dim_name, dim_data in detail_scores.items():
@@ -382,7 +382,7 @@ def _backfill_missing_items(
 ) -> list[str]:
     """维度存在但条目缺失时补齐（``unscored_by_model``）——**分母必须来自冻结 rubric**。
 
-    否则模型漏答的条目会同时从分子与分母消失，"漏答"反而变成更高的展示分（docs/19 §3.2 第 4 条）。
+    否则模型漏答的条目会同时从分子与分母消失，"漏答"反而变成更高的展示分。
     返回被补齐的 ``维度/条目`` 标签，供调用方标记 fallback。
     """
     raw_scale = rubric.get("raw_scale", 3)
@@ -479,7 +479,7 @@ def _convert_to_100_scale(result: dict, raw_max: float):
 def raw_view_from_display(detail_scores: dict, raw_max: int, raw_scale: int = 2) -> dict:
     """旧记录（无 ``raw_detail_scores``）的原始条目视图：展示刻度 ÷ 因子 还原。
 
-    只为解释历史数据保留的分支：新记录一律直接读原始层（docs/19 §4.4）。
+    只为解释历史数据保留的分支：新记录一律直接读原始层。
     """
     factor = display_factor(raw_max)
     out: dict = {}

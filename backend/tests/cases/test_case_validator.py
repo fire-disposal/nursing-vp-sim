@@ -258,7 +258,7 @@ def test_retired_field_still_warns():
     assert any(i.field == "capabilities" for i in r.warnings)
 
 
-# ── Activity 声明质量门禁（docs/15 §四/§十）──────────────────────────────
+# ── Activity 声明质量门禁 ──────────────────────────────
 
 
 def _activity_case(activities: object) -> dict:
@@ -300,13 +300,6 @@ def test_declared_activities_pass():
     assert not [i for i in r.issues if i.field.startswith("activities")]
 
 
-def test_nursing_diagnosis_declaration_warns_not_productized():
-    """该 Activity 只写 runtime_state、无正式产物（docs/15 §三/§十）。"""
-    r = validate_case(_activity_case({"nursing_diagnosis": {"config": {"enabled": True}}}))
-    assert any("无正式产物" in i.message for i in r.warnings)
-    assert r.ok()
-
-
 def test_missing_activities_declaration_is_error():
     c = json.loads(json.dumps(_load("case1")))
     del c["activities"]
@@ -314,7 +307,7 @@ def test_missing_activities_declaration_is_error():
     assert any("缺少 activities 声明" in i.message for i in r.errors)
 
 
-# ── 交卷门禁的病例声明（docs/15 §五）─────────────────────────────────────
+# ── 交卷门禁的病例声明 ─────────────────────────────────────
 
 
 def test_completion_declaration_accepted():

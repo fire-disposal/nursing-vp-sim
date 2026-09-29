@@ -142,7 +142,7 @@ docker image prune -a --filter "until=168h"
 - `.github/workflows/archive/README.md`：记录归档原因、恢复方式，以及 `deploy/docker-compose.staging.yml` 的删除
   （2026-09-18：整个 `archive/` 已删除 —— GitHub 本就不加载子目录，留着只是陈旧通知步骤的来源）
  - 其余同步：`README.md` / `docs/onboarding.md` / `docs/architecture.md` / `docs/database.md` /
-  `CONTRIBUTING.md` / `AGENTS.md`（诊断端口）/ `docs/16-v2-maintainable-monolith-objectives.md` /
+  `CONTRIBUTING.md` / `AGENTS.md`（诊断端口）/
   `docs/ops/*` 运维手册（backup-restore、server-recovery、llm/tts-troubleshooting、incident 记录）
 - 死配置与脚本：删除 `deploy/docker-compose.staging.yml`；`rollback.sh` / `db-backup.sh` / `db-restore.sh`
   的 `staging` 分支改为**快速失败**；`deploy/monitor/`（`_env.py` + `daily_report.py`）改为单实例日报；

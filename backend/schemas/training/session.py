@@ -16,7 +16,7 @@ class TrainingStartRequest(BaseModel):
 
 
 class StartPracticeRequest(BaseModel):
-    """复盘后的再练习请求：同例纠正 / 迁移变式（docs/19 §五）。
+    """复盘后的再练习请求：同例纠正 / 迁移变式。
 
     目标病例由**服务端**按源记录与病例家族解析，请求体只表达意图，不能指定 case_id。
     """

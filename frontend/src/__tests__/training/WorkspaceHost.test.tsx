@@ -15,7 +15,7 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
  * 右侧栏可用）也弹底部抽屉，把本来就不高的视口再切掉一半。
  */
 
-const bus = { on: vi.fn(() => () => {}), emit: vi.fn(), off: vi.fn(), listEvents: vi.fn(() => []) };
+const bus = { on: vi.fn(() => () => {}), emit: vi.fn(), off: vi.fn() };
 
 function session() {
 	useTrainingStore.setState({ bus: bus as never, recordId: "1", trainingEnded: false });

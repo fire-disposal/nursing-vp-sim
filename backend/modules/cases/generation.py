@@ -81,7 +81,7 @@ def _validate_core_stage(data: dict) -> str | None:
 def _physical_exam_config(data: dict) -> object:
     """AI 输出里的查体锚点 —— 唯一合法落点是 ``activities.physical_exam.config``。
 
-    旧顶层 ``exam_anchors`` 已退场（docs/15 §九）：新运行时只读 Activity 声明，
+    旧顶层 ``exam_anchors`` 已退场：新运行时只读 Activity 声明，
     顶层字段写进去等于查体配置丢失。
     """
     activities = data.get(CASE_ACTIVITIES_FIELD)

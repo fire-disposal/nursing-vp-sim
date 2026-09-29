@@ -78,8 +78,6 @@ PER_STAGE_TIMEOUT_SEC = 150
 SCORING_BUDGET_MARGIN_SECONDS = 15
 # 评分输入消息上界（内测期体验优先：保留充足上下文，仅在极端超长对话时兜底）
 SCORING_MAX_MESSAGES = 400
-# 护理诊断注入条数上界（防止异常数据把评分提示词撑爆）
-_NURSING_DIAGNOSIS_MAX = 8
 
 log = logging.getLogger(__name__)
 
@@ -394,7 +392,7 @@ def _prepare_scoring_texts(rubric: dict, case_data: dict) -> tuple[str, str, str
     scoring_criteria_text_brief = build_scoring_criteria(rubric, level="brief")
     scoring_json_schema_text = build_scoring_json_schema(rubric, stage="scoring")
     required_inquiries_text = json.dumps(all_required, ensure_ascii=False, indent=2)
-    # 任务边界（docs/19 §4.2「目标适配」）：病例没声明蓝图时给出明确口径，而不是留空
+    # 任务边界：病例没声明蓝图时给出明确口径，而不是留空
     # 让模型自行猜测有哪些条目适用。
     task_boundary_text = scoring_task_boundary_text(case_data) or (
         "本次任务未声明教学蓝图：按评分标准逐项判定，不额外假设适用性；"
@@ -409,63 +407,26 @@ def _prepare_scoring_texts(rubric: dict, case_data: dict) -> tuple[str, str, str
     )
 
 
-def _format_nursing_diagnoses(record: TrainingRecord) -> str:
-    """结构化护理诊断（nursing_diagnosis 工具产物）→ 评分文本证据。
-
-    形态由前端工具面决定：``{problem, related_factors[], defining_characteristics[], priority}``，
-    数组顺序即优先级。
-    """
-    diagnoses = (getattr(record, "runtime_state", None) or {}).get("nursing_diagnoses") or []
-    if not isinstance(diagnoses, list):
-        return ""
-    lines: list[str] = []
-    for idx, item in enumerate(diagnoses[:_NURSING_DIAGNOSIS_MAX], start=1):
-        if not isinstance(item, dict):
-            continue
-        problem = str(item.get("problem") or "").strip()
-        if not problem:
-            continue
-        factors = [str(f) for f in (item.get("related_factors") or []) if str(f).strip()]
-        characteristics = [str(c) for c in (item.get("defining_characteristics") or []) if str(c).strip()]
-        lines.append(
-            f"{idx}. {problem}｜相关因素：{'、'.join(factors) or '未填写'}"
-            f"｜定义特征：{'、'.join(characteristics) or '未填写'}"
-        )
-    return "\n".join(lines)
-
-
 def _load_nursing_record_text(db: Session, record: TrainingRecord) -> str:
     """护理评估评分注入：**只读已提交（冻结）的版本** —— 未提交草稿一律不进评分证据。
 
     提交状态只看 ``NursingRecord.submitted_at``：``finalize`` 不再把草稿自动标为
     submitted，因此「零评估也能完成训练」在数据层面被堵死（未提交 → 该维度无证据）。
-
-    同时并入结构化护理诊断（``nursing_diagnosis`` 工具产物，按优先级排序）：
-    它是记录的一部分，且训练结束后工具面已被生命周期挡住，内容同样冻结。
     """
-    record_enabled = record_activity_available(record, "nursing_record")
-    diagnoses_enabled = record_activity_available(record, "nursing_diagnosis")
-    if not (record_enabled or diagnoses_enabled):
+    if not record_activity_available(record, "nursing_record"):
         return ""
 
-    text = ""
-    if record_enabled:
-        nr = db.query(NursingRecord).filter(NursingRecord.record_id == record.id).first()
-        # 未提交（submitted_at 为空）→ 不是冻结版本，不得进入正式评分输入
-        if nr is not None and nr.submitted_at is not None:
-            sheet = nr.sheet_data or {}
-            parts = []
-            for field_name in NURSING_RECORD_FIELDS:
-                val = sheet.get(field_name, "")
-                if val:
-                    parts.append(f"{field_name.upper()}: {val}")
-            text = "\n\n".join(parts)
-
-    diagnoses_text = _format_nursing_diagnoses(record) if diagnoses_enabled else ""
-    if diagnoses_text:
-        section = f"护理诊断（结构化，按优先级排序）：\n{diagnoses_text}"
-        text = f"{text}\n\n{section}" if text else section
-    return text
+    nr = db.query(NursingRecord).filter(NursingRecord.record_id == record.id).first()
+    # 未提交（submitted_at 为空）→ 不是冻结版本，不得进入正式评分输入
+    if nr is None or nr.submitted_at is None:
+        return ""
+    sheet = nr.sheet_data or {}
+    parts = []
+    for field_name in NURSING_RECORD_FIELDS:
+        val = sheet.get(field_name, "")
+        if val:
+            parts.append(f"{field_name.upper()}: {val}")
+    return "\n\n".join(parts)
 
 
 def _build_history_messages(
@@ -612,7 +573,7 @@ def _postprocess_scoring_result(
             result[field] = val
         else:
             result.setdefault(field, _FEEDBACK_DEFAULTS[field])
-    # 空反馈必须有语义（docs/19 §4.2 第 5 条）：解释为什么没有不足/漏问，随评分落库。
+    # 空反馈必须有语义：解释为什么没有不足/漏问，随评分落库。
     if feedback_note:
         result["feedback_note"] = str(feedback_note)[:500]
 
@@ -755,7 +716,7 @@ def _persist_score(result: dict, rubric: dict, record_id: int, db: Session) -> S
 
     snapshot = read_prompt_snapshot(record.prompt_snapshot if record else None)
     practice = (record.practice_snapshot or {}) if record else {}
-    # 评分溯源（docs/19 §4.4）：新记录关联评分提示词内容身份、rubric 内容身份、适用分母、
+    # 评分溯源：新记录关联评分提示词内容身份、rubric 内容身份、适用分母、
     # 等第政策身份与辅助条件。身份都是**派生值**，这里物化进评分行的元数据快照，供事后研究
     # 区分「同一 rubric_version 下的不同量尺」；历史行没有该列 → 明确为身份不明。
     score_meta = {

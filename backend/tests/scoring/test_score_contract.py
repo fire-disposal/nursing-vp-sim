@@ -114,7 +114,7 @@ def test_llm_empty_fallback_raises_instead_of_fake_zero():
     """两次尝试都没有可用结果时**不落 0 分**，而是抛错让执行器标记失败并可重试。
 
     0 分是对学生的错误陈述（"你什么都没做到"）；降级标记不足以抵消它。
-    历史行里的 ``llm_empty`` 仍可读（score_source/judging_set），但不再新写。
+    历史行里的 ``llm_empty`` 仍可读（旧 score_source 标记），但不再新写。
     """
     with pytest.raises(ScoringUnavailableError):
         _fallback_scoring({}, {})

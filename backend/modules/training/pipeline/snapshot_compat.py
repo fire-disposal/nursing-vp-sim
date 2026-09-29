@@ -7,7 +7,7 @@ v2 (current):
     {"schema_version": 2, "segments": {"system": "...", "dynamic": "..."}}
 
 形状版本描述的是**布局**，不是内容：v1→v2 只是键位搬家，提示词内容没变。
-内容身份不在这里（见 docs/17 §2.3）。
+内容身份不在这里。
 """
 
 from __future__ import annotations

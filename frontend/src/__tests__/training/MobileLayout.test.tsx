@@ -11,7 +11,7 @@ import { useTrainingStore } from "@/stores/trainingStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 
 /**
- * 移动端/触摸（docs/19 §四 U0-B 通过条件 4）：
+ * 移动端/触摸：
  *
  * - 竖屏手机 390x844：患者大图 + 能力条 + 完成阻断条 + 输入框四层堆叠会把开场卡挤到不可读
  *   → 患者区收为紧凑头，大图按需展开；
@@ -25,7 +25,7 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
  * 真实像素级遮挡由维护者在浏览器复验（1440x900 / 390x844 / 844x390）。
  */
 
-const bus = { on: vi.fn(() => () => {}), emit: vi.fn(), off: vi.fn(), listEvents: vi.fn(() => []) };
+const bus = { on: vi.fn(() => () => {}), emit: vi.fn(), off: vi.fn() };
 
 function session() {
 	useTrainingStore.setState({ bus: bus as never, recordId: "1", trainingEnded: false });

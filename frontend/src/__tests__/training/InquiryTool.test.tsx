@@ -84,7 +84,7 @@ describe("问诊任务清单", () => {
 	});
 });
 
-describe("引导提示（docs/19 §3.3：领域 + 意义，不是清单）", () => {
+describe("引导提示（领域 + 意义，不是清单）", () => {
 	it("有 guided_hints 时给领域与评估意义，而不是关键词清单与完成度", () => {
 		setMessages([STUDENT_MESSAGE]);
 		render(withTrainingData(<InquiryTool />, recordWithHints()));

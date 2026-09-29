@@ -2,7 +2,7 @@
 
 真实 FastAPI 路由（含序列化与 schema 校验）+ 假 session：断言前端消费的四个投影字段
 （activities[].availability / artifacts / completion / actions）来自服务端解析，
-并随护理评估 draft→submitted 的持久化状态翻转（docs/15 §四）。
+并随护理评估 draft→submitted 的持久化状态翻转。
 """
 
 from __future__ import annotations

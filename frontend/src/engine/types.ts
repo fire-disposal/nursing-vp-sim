@@ -45,7 +45,6 @@ export interface MessageBus {
 	on(event: string, handler: (...args: any[]) => void): () => void;
 	emit(event: string, ...args: any[]): void;
 	off(event: string, handler: (...args: any[]) => void): void;
-	listEvents(): string[];
 }
 
 export interface BadgeInfo {

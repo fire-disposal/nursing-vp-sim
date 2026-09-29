@@ -9,7 +9,7 @@ type Schemas = components["schemas"];
  *
  * 复核编辑器只消费这个响应里的 `original_raw_detail_scores` + `raw_scale`
  * （不是展示层 `score.detail_scores`）：教师改的是原始刻度条目，展示分与复核分
- * 由服务端按同一映射算出（docs/19 §4.2 第 6 条）。
+ * 由服务端按同一映射算出。
  */
 export const getRecordReview = (recordId: number | string) =>
 	api.get<Schemas["ScoreReviewResponse"]>(

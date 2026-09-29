@@ -1,4 +1,4 @@
-"""病例发布门禁 —— docs/15 §六、§十。
+"""病例发布门禁。
 
 复用 CI 病例审计的同一份校验器（:mod:`modules.cases.validator`）：发布动作与
 ``scripts/case-audit.py`` 用同一批规则，「发布即失败」的判定不会漂移。

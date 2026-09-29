@@ -74,7 +74,7 @@ function setByPath(
 // ── Default state ─────────────────────────────────────────────────────────
 
 const DEFAULT_CASE_JSON: Record<string, CaseJsonValue> = {
-	// 元数据三键（name/difficulty/time_limit）只在病例列保存（docs/15 §六）：
+	// 元数据三键（name/difficulty/time_limit）只在病例列保存：
 	// 编辑载荷把它们合并进工作副本，写路径读进列后剥离。
 	name: "",
 	difficulty: 1,
@@ -105,7 +105,7 @@ const DEFAULT_CASE_JSON: Record<string, CaseJsonValue> = {
 	family_history: "",
 	social_history: "",
 	voice_override: "",
-	// Activity 声明容器（docs/15 §四）：`activities.<id>.config` 是能力的唯一开关，
+	// Activity 声明容器：`activities.<id>.config` 是能力的唯一开关，
 	// 空对象 = 尚未声明任何能力（发布门禁会要求至少一个，由能力勾选写入）。
 	activities: {},
 	required_inquiries: [],

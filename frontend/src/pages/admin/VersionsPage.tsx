@@ -17,7 +17,7 @@ import PageHeader from "@/components/ui/page-header";
  *
  * 身份从**既有数据**派生：提示词取训练记录冻结的 `prompt_snapshot`（现算 hash），
  * rubric / 映射取分数行上的既有字段。`unknown` = 该维度上身份不可知（历史记录），
- * 页面不做任何回填或推测（docs/ideas/prompt-context-versioning.md §四）。
+ * 页面不做任何回填或推测。
  */
 
 const DIMENSION_LABELS: Record<AttributionDimension, string> = {

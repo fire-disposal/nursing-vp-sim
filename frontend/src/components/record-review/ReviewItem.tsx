@@ -19,7 +19,7 @@ interface Props {
  * 复核编辑器的**原始条目**行。
  *
  * 分值按钮只有 0–`rawScale`（rubric 原始刻度），没有展示刻度——教师改的是条目判定，
- * 展示分与总分的换算是服务端的事（docs/19 §4.2 第 6 条）。这里也不做任何分档着色：
+ * 展示分与总分的换算是服务端的事。这里也不做任何分档着色：
  * 颜色阈值属于服务端等第政策，页面不得自行判定好坏。
  */
 export default function ReviewItem({ item, rawScale, notApplicable, editedScore, onChange }: Props) {

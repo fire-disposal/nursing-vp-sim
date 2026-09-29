@@ -13,7 +13,7 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { activityStatus } from "./ActivityStatusBadge";
 
 /**
- * 完成清单（docs/15 §五 硬规则 / §十五 陷阱 2）。
+ * 完成清单。
  *
  * 只渲染 `manifest.completion` 下发的 `conditions` / `blockers`：
  * 文案原样来自服务端，前端**不**计算能否结束（`eligible` 也不在本文件推导）。

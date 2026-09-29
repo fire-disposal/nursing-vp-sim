@@ -8,7 +8,6 @@ from modules.cases.builtin_sync import (
     content_hash,
     has_bookmark,
     is_locally_edited,
-    same_content,
     with_seed_bookmark,
 )
 from schemas.case_schema import strip_case_metadata, validate_case_data
@@ -47,14 +46,14 @@ def test_content_hash_ignores_bookmark_and_order():
     payload = with_seed_bookmark(_load("case1"))
     shuffled = {k: payload[k] for k in reversed(list(payload))}
     assert content_hash(shuffled) == content_hash(payload)
-    assert same_content(payload, _load("case1")) is True
+    assert content_hash(payload) == content_hash(_load("case1"))
 
 
 def test_content_differs_after_repository_fix():
     """仓库改了病例内容 → 与库内旧内容不再相同（seed 据此判定需要更新）。"""
     repo = _load("case3")
     stale = {**repo, "chief_complaint": repo["chief_complaint"] + "（旧版本）"}
-    assert same_content(stale, repo) is False
+    assert content_hash(stale) != content_hash(repo)
 
 
 def test_bookmark_survives_case_crud_round_trip():
@@ -67,4 +66,4 @@ def test_bookmark_survives_case_crud_round_trip():
 
     assert stored[SEED_HASH_KEY] == stored_payload[SEED_HASH_KEY]
     assert is_locally_edited(stored) is False
-    assert same_content(stored, file_data) is True
+    assert content_hash(stored) == content_hash(file_data)

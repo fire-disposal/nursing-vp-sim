@@ -97,7 +97,7 @@ def school(db):
     )
     db.add_all([cls, other, case])
     db.commit()
-    # 已发布病例必有当前版本：作业发布时钉住它（docs/15 §六）
+    # 已发布病例必有当前版本：作业发布时钉住它
     revision = CaseRevision(
         case_id=case.id, revision_no=1, content={}, created_at=datetime.now(UTC), published_at=datetime.now(UTC)
     )

@@ -218,7 +218,7 @@ export default function TrainingSelect() {
 	// ── Training stats (home tab) ──
 	// 个人统计只取本人的数据：/stats/trends 对无 stats_view 权限的调用者只统计本人记录
 	// （服务端按 current_user 过滤）。不再借用 /stats/ranking —— 它对 canonical student
-	// 角色是 403，且排名/百分位属于同伴比较，学生自视图不展示（docs/19 W1）。
+	// 角色是 403，且排名/百分位属于同伴比较，学生自视图不展示。
 	const { data: trends } = useQuery({
 		queryKey: queryKeys.stats.trends("month"),
 		queryFn: () => getTrends().then((r) => r.data),

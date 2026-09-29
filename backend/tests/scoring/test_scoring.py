@@ -289,7 +289,7 @@ def test_validate_feedback_fields_raises_on_absent_field():
 
 
 def test_validate_feedback_fields_accepts_all_empty_forms():
-    """四项全空（空数组/空串/纯空白）都是合法结果：没有不足就不编造（docs/19 §4.2 第 5 条）。"""
+    """四项全空（空数组/空串/纯空白）都是合法结果：没有不足就不编造。"""
     _validate_feedback_fields({"strengths": ["s"], "weaknesses": [], "missed_content": ["m"], "suggestions": "sug"})
     _validate_feedback_fields({"strengths": ["s"], "weaknesses": ["w"], "missed_content": [], "suggestions": "sug"})
     _validate_feedback_fields({"strengths": ["s"], "weaknesses": ["w"], "missed_content": ["m"], "suggestions": ""})
@@ -333,7 +333,7 @@ def test_missing_feedback_fields_empty_when_all_present():
 
 
 def test_missing_feedback_fields_treats_empty_lists_as_legal():
-    """没有明确不足/漏问是真实结果，不得触发补全重试（docs/19 §4.2 第 5 条）。"""
+    """没有明确不足/漏问是真实结果，不得触发补全重试。"""
     result = _missing_feedback_fields({"strengths": [], "weaknesses": [], "missed_content": [], "suggestions": ""})
     assert result == []
 

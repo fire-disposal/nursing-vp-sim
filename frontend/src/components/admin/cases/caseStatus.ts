@@ -1,4 +1,4 @@
-/** 病例生命周期展示口径（docs/15 §六）：status = draft | published | archived。 */
+/** 病例生命周期展示口径：status = draft | published | archived。 */
 
 export const CASE_STATUS_META: Record<string, { label: string; color: string }> = {
 	draft: { label: "草稿", color: "gray" },

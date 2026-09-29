@@ -2,7 +2,6 @@
  "case1.json": {
   "workflow": "history_taking",
   "renderers": [
-   "nursing_diagnosis",
    "nursing_record",
    "physical_exam",
    "quiz"
@@ -18,7 +17,6 @@
  "case10.json": {
   "workflow": "history_taking",
   "renderers": [
-   "nursing_diagnosis",
    "nursing_record",
    "physical_exam",
    "quiz"
@@ -34,7 +32,6 @@
  "case2.json": {
   "workflow": "history_taking",
   "renderers": [
-   "nursing_diagnosis",
    "nursing_record",
    "physical_exam",
    "quiz"
@@ -50,7 +47,6 @@
  "case3.json": {
   "workflow": "history_taking",
   "renderers": [
-   "nursing_diagnosis",
    "nursing_record",
    "physical_exam",
    "quiz"
@@ -66,7 +62,6 @@
  "case4.json": {
   "workflow": "history_taking",
   "renderers": [
-   "nursing_diagnosis",
    "nursing_record",
    "physical_exam",
    "quiz"
@@ -82,7 +77,6 @@
  "case5.json": {
   "workflow": "history_taking",
   "renderers": [
-   "nursing_diagnosis",
    "nursing_record",
    "physical_exam",
    "quiz"
@@ -98,7 +92,6 @@
  "case6.json": {
   "workflow": "history_taking",
   "renderers": [
-   "nursing_diagnosis",
    "nursing_record",
    "physical_exam",
    "quiz"
@@ -114,7 +107,6 @@
  "case7.json": {
   "workflow": "history_taking",
   "renderers": [
-   "nursing_diagnosis",
    "nursing_record",
    "physical_exam",
    "quiz"
@@ -130,7 +122,6 @@
  "case8.json": {
   "workflow": "history_taking",
   "renderers": [
-   "nursing_diagnosis",
    "nursing_record",
    "physical_exam",
    "quiz"
@@ -146,7 +137,6 @@
  "case9.json": {
   "workflow": "history_taking",
   "renderers": [
-   "nursing_diagnosis",
    "nursing_record",
    "physical_exam",
    "quiz"
@@ -162,7 +152,6 @@
  "diabetes_foot_quiz.json": {
   "workflow": "history_taking",
   "renderers": [
-   "nursing_diagnosis",
    "nursing_record",
    "physical_exam",
    "quiz"

@@ -1,4 +1,4 @@
-"""Resolved Manifest（projection=session）测试 —— 前端只消费、不推断（docs/15 §四）。
+"""Resolved Manifest（projection=session）测试 —— 前端只消费、不推断。
 
 覆盖：activities[].availability、artifacts(draft/submitted)、
 completion(eligible/conditions/blockers)、actions[].enabled。
@@ -126,7 +126,7 @@ class TestCompletion:
 
 
 class TestCompletionDeclarationPerCase:
-    """交卷门禁按**病例**解析（docs/15 §五）：
+    """交卷门禁按**病例**解析：
 
     护理评估是评分产物，但不是每个病例的教学任务都要求学生先提交它才能交卷。
     病例用 ``completion.required_artifacts`` 声明；不声明就用 workflow 默认。

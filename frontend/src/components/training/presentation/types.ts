@@ -1,9 +1,6 @@
 import type { ReactNode } from "react";
 import type { Emotion4DLabel, EmotionState } from "@/stores/trainingStore";
 import type { PortraitStates } from "@/utils/avatar";
-import type { AppearanceProfile } from "../face/appearance";
-import type { EmotionValues, FaceConfig } from "../face/expressionMap";
-import type { PremiumExtras } from "../face/premiumExtras";
 
 /**
  * 患者表现层 — 情绪数据 → 表现的分离抽象（技术栈分叉点）。
@@ -17,18 +14,21 @@ import type { PremiumExtras } from "../face/premiumExtras";
  *   - 分发（PatientPresenter / registry）：按 kind 查注册表渲染，新增策略零业务改动。
  *
  * 已落地策略：
+ *   - realistic    写实画风专属病例头像路由器（按患者姓名/情绪立绘）— 未命中让位
  *   - static       简洁画风 PNG 路由器（按年龄/性别）— 恒适用，链兜底
- *   - realistic    写实画风专属病例头像路由器（按患者姓名）— 未命中让位
- *   - svg          参数化 SVG 动态渲染器（PremiumFaceArtwork）— 保留恢复能力
- *   - video        视频调度器（预留：AI 生成视频按情绪剪切切换，无源时回退）
- *
- * 已移除：png-variant（情绪 PNG 变体）—— 情绪变体头像已停用，其
- * `import.meta.glob({ eager: true })` 会把 36MB 变体图无条件下进构建产物。
  */
+
+/** 四维情绪数值 0-1（信任/焦虑/烦躁/合作）。 */
+export interface EmotionValues {
+	trust: number;
+	anxiety: number;
+	irritation: number;
+	cooperation: number;
+}
 
 /** 情绪快照 — 表现层的唯一输入契约。 */
 export interface EmotionSnapshot {
-	/** 6 态情绪（兼容旧情绪头像变体） */
+	/** 6 态情绪（realistic 情绪立绘 portraitStates 的键） */
 	emotion: EmotionState;
 	/** 9 态 4D 权威表现标签 */
 	emotion4D: Emotion4DLabel;
@@ -59,16 +59,7 @@ export interface PresentationContext {
 /** 表现负载 — 各策略产出的可渲染数据（判别联合，消费端可获得类型收窄）。 */
 export type PatientPresentation =
 	| { kind: "static"; src: string; alt: string }
-	| { kind: "realistic"; src: string; alt: string }
-	| { kind: "svg"; cfg: FaceConfig; extras: PremiumExtras; appearance: AppearanceProfile }
-	| {
-			kind: "video";
-			alt: string;
-			poster: string;
-			/** 当前情绪对应的视频段；缺该情绪视频时渲染 poster 兜底。 */
-			current: EmotionState;
-			sources: Partial<Record<EmotionState, string>>;
-	  };
+	| { kind: "realistic"; src: string; alt: string };
 
 export type PresentationKind = PatientPresentation["kind"];
 

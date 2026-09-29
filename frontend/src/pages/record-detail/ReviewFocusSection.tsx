@@ -14,7 +14,7 @@ interface Props {
 const KIND_LABELS: Record<string, string> = { missed: "漏问", partial: "得分不全" };
 
 /**
- * 关键选择回看（docs/19 W5）—— 结果页先解释**少量**最值得回看的条目：
+ * 关键选择回看—— 结果页先解释**少量**最值得回看的条目：
  * 每条都给原始得分、可定位证据、判定理由，以及「下次练习原则」。
  *
  * 没有可解释条目时按服务端 `review_focus_note` 显示明确空态：不生成确定性指导，

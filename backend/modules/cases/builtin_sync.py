@@ -31,7 +31,7 @@ def content_hash(case_data: dict[str, Any] | None) -> str:
     """Payload 的内容指纹（排除指纹键本身，避免自引用）。
 
     指纹按**剥离元数据后的内容**计算：``name``/``difficulty``/``time_limit`` 只存在于
-    ``cases`` 列（docs/15 §六），不参与「内置内容是否被教师改过」的判定，否则列上的
+    ``cases`` 列，不参与「内置内容是否被教师改过」的判定，否则列上的
     元数据变动会被误判成内容改动。
 
     指纹必须跨 JSONB 往返稳定，所以统一按 sort_keys 规范化后再哈希。
@@ -51,11 +51,6 @@ def has_bookmark(case_data: dict[str, Any] | None) -> bool:
     """该行是否已带种子指纹（没有 = 历史行 / 被旧代码丢字段的行）。"""
     bookmark = (case_data or {}).get(SEED_HASH_KEY)
     return isinstance(bookmark, str) and bool(bookmark)
-
-
-def same_content(case_data: dict[str, Any] | None, other: dict[str, Any] | None) -> bool:
-    """两份 payload 的实质内容是否一致（忽略指纹键）。"""
-    return content_hash(case_data) == content_hash(other)
 
 
 def is_locally_edited(case_data: dict[str, Any] | None) -> bool:

@@ -11,7 +11,7 @@ import { type WorkspacePane, useActivityArtifact } from "./useWorkspacePanes";
 /**
  * 面板宿主 —— 面板外壳（标题/状态/关闭）+ 渲染边界。
  *
- * 渲染器缺失时**显式报错**而不是静默消失（docs/15 §十五：不允许「配了但不可达」）；
+ * 渲染器缺失时**显式报错**而不是静默消失（不允许「配了但不可达」）；
  * 面板自身的加载/失败/冲突态由面板内部负责（如护理评估的草稿/提交/冻结冲突）。
  */
 export function ActivityPanelHost({

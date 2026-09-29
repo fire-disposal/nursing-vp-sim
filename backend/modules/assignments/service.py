@@ -343,7 +343,7 @@ class AssignmentService:
         case = self.db.query(Case).filter(Case.id == case_id).first()
         if not case:
             raise NotFoundError("病例不存在")
-        # 未发布病例不得被作业使用（docs/15 §六）；发布时同时钉住版本（列 NOT NULL），
+        # 未发布病例不得被作业使用；发布时同时钉住版本（列 NOT NULL），
         # 作业期间病例编辑出新 revision 也不影响本作业的学员
         revision = require_current_revision(self.db, case)
         cls = self.db.query(Class).filter(Class.id == class_id).first()

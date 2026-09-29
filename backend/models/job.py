@@ -1,6 +1,6 @@
 """持久化 Job —— 可离线完成、可重试、可观测的后台工作单元。
 
-设计：docs/ideas/pipeline-and-job-separation.md。要点：
+设计要点：
 
 * 认领走 ``FOR UPDATE SKIP LOCKED``，无长事务、无锁等待；
 * **租约**而非"连接存活"来判断执行者是否还活着：心跳续租，租约过期即可被重领 —— 进程被杀
@@ -14,7 +14,7 @@
        └── lease expired ──┴── attempts exhausted ──▶ failed
 
 本表不保存评分输入：``case_snapshot`` 在记录上，认领者按 ``record_id`` 派生即可 ——
-payload 只放**无法从记录派生**的东西（当前没有），避免同一事实两份拷贝（docs/17 §四）。
+payload 只放**无法从记录派生**的东西（当前没有），避免同一事实两份拷贝。
 """
 
 from datetime import datetime

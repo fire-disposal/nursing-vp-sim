@@ -1,4 +1,4 @@
-"""病例发布生命周期（docs/15 §六）：status + CaseRevision + 元数据单源 + 发布门禁。
+"""病例发布生命周期：status + CaseRevision + 元数据单源 + 发布门禁。
 
 真库判据（**PostgreSQL**，`nursing_test`）：直接跑真实 ORM/service 路径 —— `case_data`
 是 JSONB（含 ``'{}'::jsonb`` server_default），发布门禁与 CI 病例审计共用
@@ -141,7 +141,7 @@ def test_create_is_draft_and_stores_metadata_in_columns_only(db):
 
     assert case.status == CASE_STATUS_DRAFT
     assert (case.name, case.difficulty, case.time_limit_minutes) == ("门禁测试病例", 1, 30)
-    # case_data 里不再重复保存元数据键（docs/15 §六、§十五.3）
+    # case_data 里不再重复保存元数据键
     for key in ("name", "difficulty", "time_limit"):
         assert key not in case.case_data
     # 内容本身（含 Activity 声明）原样保留

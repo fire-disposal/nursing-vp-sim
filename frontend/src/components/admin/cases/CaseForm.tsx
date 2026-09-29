@@ -35,7 +35,7 @@ type CaseManageItem = components["schemas"]["CaseManageItem"];
 type CaseDetail = components["schemas"]["CaseDetail"];
 type CaseValidationReport = components["schemas"]["CaseValidationReport"];
 
-/** 表单只校验元数据（docs/15 §六）：name/difficulty/time_limit 落病例列，不进 case_data。 */
+/** 表单只校验元数据：name/difficulty/time_limit 落病例列，不进 case_data。 */
 const caseFormSchema = z.object({
 	name: z.string().min(1, "病例名称不能为空"),
 	time_limit: z.number().int().min(30, "训练时限不得短于 30 分钟").max(180, "训练时限不得超过 180 分钟"),

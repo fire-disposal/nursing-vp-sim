@@ -1,11 +1,11 @@
-"""Activity 协约 —— 服务端唯一的 Activity 登记表（docs/15 §三、§四）。
+"""Activity 协约 —— 服务端唯一的 Activity 登记表。
 
 取代「数据即能力」：能力不再由病例字段的存在反推（``case_data.tools.*`` → 布尔表），
 病例改为显式声明 ``activities.<id>.config``，可用性由服务端解析
 （Workflow 白名单 ∩ 病例声明 ∩ 作业覆盖 ∩ 会话状态），
 HTTP 工具面 / 会话 manifest / 病例能力投影全部消费同一份解析结果。
 
-禁止（docs/15 §三）：Activity 不声明状态迁移、完成判定、总评分、组织权限；
+禁止：Activity 不声明状态迁移、完成判定、总评分、组织权限；
 不自建前端能力开关（可用性一律来自服务端 manifest）；不直接拼 system prompt。
 """
 
@@ -18,7 +18,6 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict
 
 from modules.training.tools.base import ToolHandler
-from modules.training.tools.nursing_diagnosis import NursingDiagnosisHandler
 from modules.training.tools.nursing_record import NursingRecordHandler
 from modules.training.tools.physical_exam import PhysicalExamHandler
 from modules.training.tools.quiz import QuizHandler
@@ -93,25 +92,12 @@ class QuizOutput(_ActivityModel):
     explanation: str = ""
 
 
-class NursingDiagnosisInput(_ActivityModel):
-    """护理诊断命令入参（load / save）。"""
-
-    diagnoses: list[dict[str, Any]] = []
-
-
-class NursingDiagnosisOutput(_ActivityModel):
-    diagnoses: list[dict[str, Any]] = []
-    stems: list[str] = []
-    factor_options: list[str] = []
-    characteristic_options: list[str] = []
-
-
 # ── 契约 ─────────────────────────────────────────────────────────────────
 
 
 @dataclass(frozen=True)
 class ContextContribution:
-    """Activity 可注入 LLM 上下文的结构化片段（docs/15 §八）。
+    """Activity 可注入 LLM 上下文的结构化片段。
 
     只声明「我贡献什么类型的数据」，选择/排序/裁剪/预算由 ``compile_patient_prompt``
     决定（本切片尚未接入装配器，声明先于消费落地）。
@@ -137,7 +123,7 @@ class Availability:
 
 @dataclass(frozen=True)
 class ActivityDefinition:
-    """一个受控可执行能力（docs/15 §三）。"""
+    """一个受控可执行能力。"""
 
     id: str
     label: str
@@ -167,7 +153,6 @@ ACTIVITY_IDS: tuple[str, ...] = (
     "physical_exam",
     "nursing_record",
     "quiz",
-    "nursing_diagnosis",
 )
 
 ACTIVITY_BINDINGS: dict[str, ActivityDefinition] = {
@@ -233,25 +218,10 @@ ACTIVITY_BINDINGS: dict[str, ActivityDefinition] = {
             context_contribution=(),
             ui_order=30,
         ),
-        ActivityDefinition(
-            id="nursing_diagnosis",
-            label="护理诊断",
-            description="NANDA 护理诊断制定与优先级排序（尚未产物化，仅写 runtime_state）",
-            inputs_schema=NursingDiagnosisInput,
-            outputs_schema=NursingDiagnosisOutput,
-            availability=Availability(),
-            handler=NursingDiagnosisHandler(),
-            ui_renderer="nursing_diagnosis",
-            # 只写 runtime_state、无正式产物 → 不得声称进评分证据（docs/15 §三/§十）
-            evidence_kind=None,
-            artifact_kind=None,
-            context_contribution=(),
-            ui_order=40,
-        ),
     )
 }
 
-# 登记表与允许 id 集合必须一致 —— 少一个 id 就是「配了但不可达」的源头（docs/15 §四）
+# 登记表与允许 id 集合必须一致 —— 少一个 id 就是「配了但不可达」的源头
 assert tuple(ACTIVITY_BINDINGS) == ACTIVITY_IDS, "ACTIVITY_BINDINGS 与 ACTIVITY_IDS 不一致"
 assert len(set(ACTIVITY_IDS)) == len(ACTIVITY_IDS), "ACTIVITY_IDS 存在重复 id"
 

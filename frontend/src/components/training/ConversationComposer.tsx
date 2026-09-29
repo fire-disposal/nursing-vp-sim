@@ -118,7 +118,7 @@ export function ConversationComposer({
 	const voiceHint = voice.notice ?? (duplex ? turnHint : holdHint);
 
 	// notice 全部产生于失败/回退路径（不支持、识别失败、启动失败、发送失败），此时 phase 恰好是
-	// idle —— 旧条件 `phase !== "idle"` 让这些提示永远不渲染，语音故障被静默吞掉（docs/19 E6）。
+	// idle —— 旧条件 `phase !== "idle"` 让这些提示永远不渲染，语音故障被静默吞掉。
 	const showVoiceStatus =
 		mode === "voice" &&
 		(voice.notice !== null || voice.phase !== "idle" || voice.continuousArmed || patientSpeaking || !!loading);

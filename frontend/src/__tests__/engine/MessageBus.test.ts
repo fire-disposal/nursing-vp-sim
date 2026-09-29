@@ -56,13 +56,6 @@ describe("createMessageBus", () => {
 		expect(good).toHaveBeenCalled();
 	});
 
-	it("listEvents reports registered event names", () => {
-		const bus = createMessageBus();
-		bus.on("one", vi.fn());
-		bus.on("two", vi.fn());
-		expect(bus.listEvents().sort()).toEqual(["one", "two"]);
-	});
-
 	it("multiple handlers on same event all receive it", () => {
 		const bus = createMessageBus();
 		const h1 = vi.fn();

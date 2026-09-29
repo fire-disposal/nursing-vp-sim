@@ -1,11 +1,11 @@
-"""Workflow 定义 —— 一条完整训练闭包（docs/15 §二、§九）。
+"""Workflow 定义 —— 一条完整训练闭包。
 
 原 ``profile.PROFILE`` 单例（prompts + rubric + note_sources）升级为
 ``history_taking`` Workflow：同一处声明它允许挂载的 Activity 白名单、
 完成策略（哪些产物必须已提交）、评分/上下文引用，以及原有的
 prompts / rubric / note_sources。
 
-禁止（docs/15 §二）：把具体病例逻辑写进 Workflow；Workflow 直接持有 LLM prompt
+禁止：把具体病例逻辑写进 Workflow；Workflow 直接持有 LLM prompt
 文本之外的领域规则；恢复 ``training_type`` 单字段总分派。
 """
 
@@ -40,7 +40,7 @@ class PromptCollection:
 
 @dataclass(frozen=True)
 class CompletionPolicy:
-    """完成策略：哪些产物必须是「已提交」的冻结版本（docs/15 §五）。
+    """完成策略：哪些产物必须是「已提交」的冻结版本。
 
     唯一 owner 是内核 CompletionService；Activity 只能通过
     ``requires_submission_for_completion`` 声明自己的产物是否参与其中。
@@ -54,7 +54,7 @@ class CompletionPolicy:
 
 #: 病例按**教学任务**声明本次交卷门禁的键：``case_data["completion"]["required_artifacts"]``。
 #: 只有需要学生"写完并提交"的病例才把产物列进来 —— 护理评估是评分产物，但不是每个病例的
-#: 教学任务都要求先提交它才能交卷（见 docs/15 §五）。缺省 = 用 workflow 的声明。
+#: 教学任务都要求先提交它才能交卷。缺省 = 用 workflow 的声明。
 COMPLETION_DECLARATION_KEY = "completion"
 
 
@@ -77,10 +77,10 @@ class WorkflowDefinition:
     #: 产品状态：这条闭包**是否已有真实运行期入口**（学生工作区 + 真实产物/证据 +
     #: 评分/复盘）。``False`` = 只能编写病例、过发布门禁、进目录，训练入口一律拒绝
     #: （``workflows.require_startable`` → 409），绝不落地一条没有 renderer 的训练记录。
-    #: 摘掉这个标志的时机由**真实能力**决定，不由排期决定（同 docs/15 §三「禁止声明」）。
+    #: 摘掉这个标志的时机由**真实能力**决定，不由排期决定。
     runtime_ready: bool = True
 
-    # ── 解析（服务端唯一入口；前端不得重新推导，docs/15 §四）──────────────
+    # ── 解析（服务端唯一入口；前端不得重新推导）──────────────
 
     def is_enabled(
         self,
@@ -145,7 +145,7 @@ class WorkflowDefinition:
         *,
         overrides: Mapping[str, Any] | None = None,
     ) -> frozenset[str]:
-        """本轮**被声明**可注入的患者上下文来源（docs/15 §八「谁有权注入什么」）。
+        """本轮**被声明**可注入的患者上下文来源。
 
         = 本 Workflow 的 ``note_sources`` ∪ 本次病例实际启用 Activity 的
         ``context_contribution.key``。来源由 Workflow/病例声明，不由生产者自报：
@@ -166,11 +166,11 @@ HISTORY_TAKING = WorkflowDefinition(
     id="history_taking",
     label="病史采集",
     description="护患对话 + 床旁检查 + 护理评估的完整训练闭包",
-    activities=("physical_exam", "nursing_record", "quiz", "nursing_diagnosis"),
+    activities=("physical_exam", "nursing_record", "quiz"),
     entry_modes=("自由练习", "作业", "考核"),
     artifact_kinds=("nursing_record",),
     # 默认**不设**交卷门禁：护理记录是学生的可选工作产物（写下就会被评分），不是每次都必须交的关卡。
-    # 需要"先提交才能结束"的教学任务由病例显式声明（docs/15 §五）。
+    # 需要"先提交才能结束"的教学任务由病例显式声明。
     completion=CompletionPolicy(required_artifacts=()),
     scoring_profile="history_taking.base",
     ui={"workspace": "patient_interaction", "primary_surface": "conversation"},
@@ -180,14 +180,14 @@ HISTORY_TAKING = WorkflowDefinition(
 )
 
 
-#: 第二条登记项：临床判断训练（Clinical Judgment Drill，docs/15 §十六）。
+#: 第二条登记项：临床判断训练（Clinical Judgment Drill）。
 #:
 #: 它是**真实闭包声明，但运行期尚未就绪**（``runtime_ready=False``）：本切片只交付
 #: 「病例怎么编写 / 发布门禁 / 目录投影」，学生工作区（阶段链条 + 证据获取 + 结构化
 #: 推理产物 + 确定性评分 + 复盘）属于后续切片。因此：
 #:
 #: - ``activities=()``：没有任何已就绪的 Activity —— 未接入的入口不进生产 manifest
-#:   （docs/15 §三「禁止声明」）；病例若声明 ``activities`` 会在发布门禁报 error。
+#:   ；病例若声明 ``activities`` 会在发布门禁报 error。
 #: - ``prompts=PromptCollection()``：它不是第二套患者对话 —— 临床判断训练不共享
 #:   ``history_taking`` 的 LLM prompt（判据来自病例声明的确定性证据与 rubric）。
 #: - ``rubric={}``：评分域由**病例**声明的确定性锚点决定；不共享护理评估 rubric。

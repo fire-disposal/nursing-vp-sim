@@ -1,6 +1,6 @@
 """对话回合两阶段持久化 + 幂等（HTTP 层，真实路由 + 替身 session/LLM）。
 
-覆盖 docs/15 §五 的验收：
+覆盖的验收：
   ① LLM 失败 → 学生消息已落库、turn=failed、稳定错误码（旧实现：整轮静默丢失）；
   ② 同 request_id 重放 → 不产生第二条学生消息，也不再发起 LLM；
   ③ 成功 → 患者消息落库、turn=completed、完成帧带 patient id；

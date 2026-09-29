@@ -6,7 +6,7 @@ import quizPayload from "@/__tests__/fixtures/session-manifest.quiz.json";
 import coverage from "@/__tests__/fixtures/case-manifest-coverage.json";
 
 /**
- * 前端与**真实后端载荷**的形状对齐（docs/15 §十五 CI 断言）。
+ * 前端与**真实后端载荷**的形状对齐。
  *
  * 夹具不是手写的：由后端解析器 `backend/modules/training/manifest.py`
  * 对 `data/cases/*.json` 逐个 `build_session_manifest(...)` 生成，
@@ -32,7 +32,7 @@ describe("manifest 契约对齐（真实后端载荷）", () => {
 		}
 	});
 
-	it("case1 载荷：可用面板按 ui.order 排列，未配置的 quiz/nursing_diagnosis 不进面板", () => {
+	it("case1 载荷：可用面板按 ui.order 排列，未配置的 quiz 不进面板", () => {
 		const manifest = parseSessionManifest(case1Payload);
 		expect(manifest?.workflow).toEqual({ id: "history_taking", label: "病史采集", ui: { workspace: "patient_interaction", primary_surface: "conversation" } });
 		expect(availableActivities(manifest).map((activity) => activity.id)).toEqual([
@@ -44,7 +44,6 @@ describe("manifest 契约对齐（真实后端载荷）", () => {
 			"nursing_record",
 			"physical_exam",
 			"quiz",
-			"nursing_diagnosis",
 		]);
 	});
 

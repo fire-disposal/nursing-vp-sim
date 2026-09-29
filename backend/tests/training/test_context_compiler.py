@@ -331,7 +331,7 @@ class TestPromptRenderingSmoke:
 
 
 class TestContextAssemblyOwnership:
-    """装配权唯一（docs/15 §八）：未声明的来源/越权的槽位会被拒绝并告警。"""
+    """装配权唯一：未声明的来源/越权的槽位会被拒绝并告警。"""
 
     def _compile(self, fragments, *, declared_sources, policy=None):
         return compile_patient_prompt(

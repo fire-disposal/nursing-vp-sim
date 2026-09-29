@@ -1,7 +1,7 @@
 /**
  * 复核编辑器与 `POST /training/records/{id}/review` 之间的唯一转换点。
  *
- * 契约（docs/19 §4.2 第 6 条）：
+ * 契约：
  * - 编辑器读 `GET /review` 的 `original_raw_detail_scores`（原始刻度 0–`raw_scale`）；
  * - 提交的是**原始条目** `{dim: {score, items: [{id, name, score, max}]}}`，
  *   服务端按 rubric 丢弃未知条目、钳制越界分值、强制不适用条目为 null。

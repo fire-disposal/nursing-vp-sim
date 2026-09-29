@@ -130,7 +130,7 @@ export default function TeacherRecordDetail() {
 	};
 
 	// 面板展示的是 AI 展示投影层（item.max ≈ 0–5）；教师复核的原始条目**不合并**进来——
-	// 两层量尺不同，混在一起会把原始分当展示分渲染（docs/19 §4.2 第 6 条）。
+	// 两层量尺不同，混在一起会把原始分当展示分渲染。
 	const displayCategories = useMemo(() => {
 		const recScore = toScoreData(record?.score);
 		return Object.entries(recScore?.detail_scores ?? {}) as [string, DetailScoreCategory][];

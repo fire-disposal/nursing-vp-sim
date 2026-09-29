@@ -7,7 +7,7 @@
  * │             与 QA（@/api/sse.ts:readSSEStream）—— 聊天的唯一写入 owner
  * └── WS ────── 服务端事件推送；客户端只发心跳 ping，**不承载任何业务命令或状态写入**
  *
- * 边界（docs/16 §四·4.2）：状态变更只认 HTTP/SSE 命令；WS 事件只用于
+ * 边界：状态变更只认 HTTP/SSE 命令；WS 事件只用于
  * 「通知 + 失效查询缓存」（见 @/hooks/useScoringNotifications.ts），不构成第二份业务状态。
  * 每条连接鉴定用户身份后接入 backend PgRealtimeHub（见 backend/modules/training/router/ws.py）。
  *

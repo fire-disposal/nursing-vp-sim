@@ -1,8 +1,6 @@
 import type { PatientPresenter, PresentationKind } from "./types";
 import { realisticAvatarPresenter } from "./presenters/realisticAvatar";
 import { staticAvatarPresenter } from "./presenters/staticAvatar";
-import { svgFacePresenter } from "./presenters/svgFace";
-import { videoSchedulerPresenter } from "./presenters/videoScheduler";
 
 /**
  * 呈现器注册表 — 单一分发点。
@@ -11,6 +9,4 @@ import { videoSchedulerPresenter } from "./presenters/videoScheduler";
 export const PRESENTERS: Record<PresentationKind, PatientPresenter> = {
 	static: staticAvatarPresenter,
 	realistic: realisticAvatarPresenter,
-	svg: svgFacePresenter,
-	video: videoSchedulerPresenter,
 };

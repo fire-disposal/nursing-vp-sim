@@ -9,7 +9,7 @@ Protocol (JSON messages):
     { "type": "<scoring_event>", … }            — forwarded from PgRealtimeHub
     { "type": "heartbeat" }
 
-写入边界（docs/16 §四·4.2「一个事实，一个 owner」）:
+写入边界:
 
   * **工具/活动命令** → ``POST /api/training/{record_id}/tools``（HTTP，唯一写入 owner）；
   * **聊天回合** → ``POST /api/chat/{record_id}/message/stream``（SSE，唯一写入 owner）；

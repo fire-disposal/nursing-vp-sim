@@ -1,10 +1,10 @@
-"""持久化 Job 的认领、心跳与执行（docs/ideas/pipeline-and-job-separation.md）。
+"""持久化 Job 的认领、心跳与执行。
 
 为什么需要租约而不是"连接活着就算活着"：发版、OOM、`docker kill` 都会让执行者无声消失。
 租约 + 心跳把"执行者是否还在"变成一行可查询的事实，过期即可被重领，且失败原因有据可查。
 
 同步 DB 调用一律经 ``asyncio.to_thread`` 出循环：本仓的 Session 是同步的，
-直接放在事件循环里会阻塞 chat SSE（见 docs/17 与 2026-07-26 事故）。
+直接放在事件循环里会阻塞 chat SSE。
 """
 
 from __future__ import annotations
@@ -222,7 +222,7 @@ async def _run_sync(fn, *args, **kwargs):
 
 
 async def _execute_scoring(app_state, job: dict[str, Any]) -> None:
-    """执行一条评分 job：输入由记录派生（payload 不存副本，见 docs/17 §四）。"""
+    """执行一条评分 job：输入由记录派生（payload 不存副本）。"""
     from modules.training.scoring.runner import ScoringNotExecuted, run_scoring_background
 
     record_id = job["record_id"]

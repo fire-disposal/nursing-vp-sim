@@ -11,7 +11,6 @@ import {
 	IconHeartbeat,
 	IconHelpCircle,
 	IconListCheck,
-	IconStethoscope,
 	type TablerIcon,
 } from "@tabler/icons-react";
 
@@ -19,14 +18,12 @@ export const ACTIVITY_LABELS: Record<string, string> = {
 	physical_exam: "床旁检查",
 	nursing_record: "护理记录",
 	quiz: "随堂测验",
-	nursing_diagnosis: "护理诊断",
 };
 
 export const ACTIVITY_ICONS: Record<string, TablerIcon> = {
 	physical_exam: IconHeartbeat,
 	nursing_record: IconFileText,
 	quiz: IconHelpCircle,
-	nursing_diagnosis: IconStethoscope,
 	inquiry: IconListCheck,
 };
 

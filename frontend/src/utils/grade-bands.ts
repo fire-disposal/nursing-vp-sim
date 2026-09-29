@@ -1,5 +1,5 @@
 /**
- * 成绩管理页的**数值分段标签**口径（docs/19 §4.2 第 8/9 条）。
+ * 成绩管理页的**数值分段标签**口径。
  *
  * 阈值与标签的所有者是服务端等第政策：排名响应里的 `policy` / `summary.policy` 直接给出
  * `numeric_bands: [{band, min, label}]`、`numeric_band_description` 与能力等第可用性。

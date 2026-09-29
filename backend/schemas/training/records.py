@@ -58,7 +58,7 @@ class ScoreItem(BaseModel):
     suggestions: str | None = None
     rubric_version: str | None = None
     model_name: str | None = None
-    #: prompt_snapshot 的**形状**版本（1=扁平 / 2=segments）。形状不是内容版本，见 docs/17。
+    #: prompt_snapshot 的**形状**版本（1=扁平 / 2=segments）。形状不是内容版本。
     prompt_schema_version: int | None = None
     review_status: str | None = None
     reviewed_by_name: str | None = None
@@ -71,7 +71,7 @@ class ScoreItem(BaseModel):
     mapping_version: int = 0
     fallback: dict[str, Any] | None = None
     reviewed_total: float | None = None
-    # ── 本批次契约（docs/19 §4.2/§4.4）──
+    # ── 本批次契约──
     #: 原始刻度的逐项评分（条目分/上限/状态/证据引用）；NULL = 历史分，无原始精度
     raw_detail_scores: dict[str, Any] | None = None
     #: 评分溯源（适用原始满分/不适用条目/rubric 与提示词内容身份/等第政策/辅助条件）
@@ -133,13 +133,13 @@ class TrainingRecordDetail(BaseModel):
     scene: dict[str, Any] | None = None
     required_inquiries: list[str] = Field(default_factory=list)
     #: 引导模式的领域提示（教学蓝图 clue 的领域 + 评估意义）——只给"还需弄清什么、为什么"，
-    #: 不给唯一问句；蓝图缺失时为空，前端据此回落既有展示（docs/19 §3.3）
+    #: 不给唯一问句；蓝图缺失时为空，前端据此回落既有展示
     guided_hints: list[dict[str, Any]] = Field(default_factory=list)
     is_student_practice: bool = True
     #: 服务端解析的 manifest（projection=session）：activities/artifacts/completion/actions
-    #: 一律以它为准，前端不得重新推导（docs/15 §四）
+    #: 一律以它为准，前端不得重新推导
     manifest: dict[str, Any] | None = None
-    #: 本次记录若为再练习：{kind, purpose, source_record_id, revision_changed}（docs/19 §五）
+    #: 本次记录若为再练习：{kind, purpose, source_record_id, revision_changed}
     practice: dict[str, Any] = Field(default_factory=dict)
     #: 可用的再练习入口（服务端解析；不可用的带 reason，不渲染假入口）
     practice_options: dict[str, Any] = Field(default_factory=dict)

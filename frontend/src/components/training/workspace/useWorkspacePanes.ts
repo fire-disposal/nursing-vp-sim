@@ -35,7 +35,7 @@ export function useWorkspacePanes(): WorkspacePane[] {
 			wide: WIDE_ACTIVITY_RENDERERS[activity.ui.renderer] === true,
 			activity,
 		}));
-		// 引导视图：蓝图给了「领域 + 意义」就按引导提示命名（docs/19 §3.3），
+		// 引导视图：蓝图给了「领域 + 意义」就按引导提示命名，
 		// 否则沿用关键词清单。两种形态都只服务引导模式，盲盒/独立考核不出现。
 		if (mode === "guided" && (hintCount > 0 || inquiryCount > 0)) {
 			panes.push({

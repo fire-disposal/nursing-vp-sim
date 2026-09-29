@@ -14,7 +14,7 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
  * 开场卡在 390x844 / 844x390 被挤到几乎不可读。
  */
 
-const bus = { on: vi.fn(() => () => {}), emit: vi.fn(), off: vi.fn(), listEvents: vi.fn(() => []) };
+const bus = { on: vi.fn(() => () => {}), emit: vi.fn(), off: vi.fn() };
 
 const NURSING_RECORD = makeActivity("nursing_record", {
 	label: "护理记录",

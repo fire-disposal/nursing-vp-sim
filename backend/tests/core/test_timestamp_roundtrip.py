@@ -2,7 +2,7 @@
 
 **本该早就存在的判据**：naïve 列（`timestamp without time zone`）在非 UTC 会话时区下会把
 aware 写入折算成墙钟、读回再被当 UTC 解释 → 偏 8 小时（2026-09-26 由"测试全面转向 PG"挖出，
-见 docs/review/refactor-plan-2026-09-26.md §2.12 / docs/ops/timezone-alignment.md）。
+见 docs/ops/timezone-alignment.md）。
 
 对代表性列断言：写入一个 aware-UTC 时刻，读回的瞬间必须相等。
 修前（列仍是 naïve）本判据失败 —— 这正是它的价值。

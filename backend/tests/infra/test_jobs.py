@@ -1,4 +1,4 @@
-"""持久化 Job 的可验证部分（docs/ideas/pipeline-and-job-separation.md）。
+"""持久化 Job 的可验证部分。
 
 **验证边界（必须明说）**：认领语义依赖 PostgreSQL 的 ``FOR UPDATE SKIP LOCKED`` 与
 ``make_interval``，本地无库（本仓测试约定：纯逻辑、不连库）**无法验证**。这里只钉：

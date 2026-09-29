@@ -20,7 +20,7 @@ export const TRAINING_HEADER_HEIGHT = { wide: 56, short: 44 } as const;
 /** WS 实时连接状态点 — 绿=正常，黄（闪烁）=中断重连中。
  *
  * WS **只**承载服务端推送（评分进度 / 状态通知）。对话走 SSE、工具与提交流程走 HTTP，
- * 因此 WS 断开不等于「工具不可用」——旧文案把两者混为一谈，属状态归因错误（docs/19 E5）。
+ * 因此 WS 断开不等于「工具不可用」——旧文案把两者混为一谈，属状态归因错误。
  */
 function WSStatusDot() {
 	const [connected, setConnected] = useState(false);
@@ -127,7 +127,7 @@ export function TrainingHeader({
 		setEndConfirmOpen(true);
 	}, []);
 
-	// 语音降级信号（docs/19 E6）：服务端 TTS 熔断/失败时 TTSManager 回落到浏览器内置语音，
+	// 语音降级信号：服务端 TTS 熔断/失败时 TTSManager 回落到浏览器内置语音，
 	// 并发出 `tts:degraded` —— 此前该事件没有任何消费者，学生只会听到音色悄悄变了。
 	// `tts:provider-status` 在每轮回复结束时上报实际使用的供应商：变回非降级供应商即视为恢复。
 	useEffect(() => {

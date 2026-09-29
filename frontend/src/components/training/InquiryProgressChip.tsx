@@ -11,7 +11,7 @@ import { computeCovered, PROGRESS_BG, PROGRESS_TEXT, parseGuidedHints, progressC
  * 状态栏的问诊入口 —— 两种形态，都指向同一个面板：
  *
  * - 有引导提示（`guided_hints`）时：只说「有 N 条领域提示」，**不给完成度**——
- *   提示不是清单，按顺序勾完不是要求（docs/19 §3.3）；
+ *   提示不是清单，按顺序勾完不是要求；
  * - 提示为空时：沿用既有的关键词自检清单进度（仅引导模式）。
  */
 

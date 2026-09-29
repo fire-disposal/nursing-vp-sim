@@ -16,7 +16,7 @@ except ImportError:
 ENV = os.getenv("ENV", "development")
 APP_VERSION = os.getenv("APP_VERSION", "dev")
 
-#: 实验批次标签（docs/19 的"多批次实验"身份）。空 = 不标记，等同于单一默认批次。
+#: 实验批次标签。空 = 不标记，等同于单一默认批次。
 #: 单人运维下的用法：跑一批对照实验前设一次（或某次训练显式带上），此后该批记录与评分都带这个标签，
 #: 导出/趋势按它分组比较。它不是新维度、不建表、不参与评分——只是"这批数据属于哪次实验"。
 EXPERIMENT_BATCH = os.getenv("EXPERIMENT_BATCH", "")
@@ -165,7 +165,7 @@ MAX_REQUEST_BYTES = int(os.getenv("MAX_REQUEST_BYTES", str(10 * 1024 * 1024)))
 SCORING_RETRY_GRACE_SECONDS = SCORING_TIMEOUT_SECONDS + 30
 CLEANUP_INTERVAL_SECONDS = int(os.getenv("CLEANUP_INTERVAL_SECONDS", "30"))
 
-# ── 持久化 Job（docs/ideas/pipeline-and-job-separation.md）──
+# ── 持久化 Job ──
 # 评分在哪执行：``inline`` = 进程内 TaskQueue（现状）；``job`` = jobs 表 + 认领器。
 # 默认 inline：认领语义依赖 PostgreSQL 的 ``FOR UPDATE SKIP LOCKED``，本地测试无法验证，
 # 必须先在目标库上验证再切换（见设计的"切换与回滚"）。

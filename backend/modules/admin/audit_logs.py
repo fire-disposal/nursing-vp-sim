@@ -1,6 +1,6 @@
 """审计日志查询与导出（`audit_view` / `audit_export`）。
 
-严格沿用本仓列表约定（见 `docs/review/ui-improvement-plan-2026-09-26.md` §6.4）：
+严格沿用本仓列表约定：
 - 筛选键只在这里定义一次（`AuditLogFilters`），列表与导出都 `Depends()` 注入它；
 - 谓词只写一次（`_filtered_query`），公开入口 `list_filtered`；
 - 导出取 `MAX_EXPORT_ROWS + 1` 行，超限由 `infra/exporter.py` 统一 400（不静默截断）。

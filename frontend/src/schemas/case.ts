@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-/** 病例生命周期（docs/15 §六）：draft 工作副本 → published 可训练 → archived 冻结。 */
+/** 病例生命周期：draft 工作副本 → published 可训练 → archived 冻结。 */
 export const caseStatusSchema = z.enum(["draft", "published", "archived"]);
 export type CaseStatus = z.infer<typeof caseStatusSchema>;
 

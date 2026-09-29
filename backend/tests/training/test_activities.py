@@ -1,7 +1,7 @@
 """Activity 协约测试：唯一登记表、病例声明解析、可用性与内置特性开关。
 
 取代旧 capabilities 的「病例字段即能力」：能力由病例显式声明
-``activities.<id>.config``，可用性只在服务端解析（docs/15 §三/§四）。
+``activities.<id>.config``，可用性只在服务端解析。
 """
 
 from __future__ import annotations
@@ -98,7 +98,7 @@ class TestRegistry:
             assert definition.ui_order > 0
 
     def test_case_declaration_is_the_only_case_side_switch(self):
-        """当前所有 Activity 都必须由病例显式声明（docs/15 §四：无声明即不可达）。"""
+        """当前所有 Activity 都必须由病例显式声明。"""
         for definition in ACTIVITY_BINDINGS.values():
             assert definition.availability.requires_case_config is True, definition.id
 
@@ -122,11 +122,10 @@ class TestRegistry:
         )
 
     def test_unproductized_activities_do_not_claim_evidence(self):
-        """quiz / nursing_diagnosis 只写 runtime_state → 不得声称进评分证据（docs/15 §三）。"""
-        for activity_id in ("quiz", "nursing_diagnosis"):
-            definition = ACTIVITY_BINDINGS[activity_id]
-            assert definition.artifact_kind is None
-            assert definition.evidence_kind is None
+        """quiz 只写 runtime_state → 不得声称进评分证据。"""
+        definition = ACTIVITY_BINDINGS["quiz"]
+        assert definition.artifact_kind is None
+        assert definition.evidence_kind is None
 
     def test_context_contributions_have_unique_keys(self):
         for definition in ACTIVITY_BINDINGS.values():
@@ -159,7 +158,7 @@ class TestCaseDeclaration:
         assert is_activity_enabled(_declare(quiz={}), "quiz") is True
 
     def test_override_can_disable_but_not_enable(self):
-        """作业覆盖只能关（病例没配置的能力不能凭空打开，docs/15 §四）。"""
+        """作业覆盖只能关（病例没配置的能力不能凭空打开）。"""
         assert is_activity_enabled(_declare(quiz={}), "quiz", overrides={"quiz": False}) is False
         assert is_activity_enabled({}, "quiz", overrides={"quiz": True}) is False
 
@@ -254,7 +253,7 @@ class TestCaseCorpus:
             assert '"tools"' not in path.read_text(encoding="utf-8"), path.name
 
     def test_activity_enablement_counts(self):
-        """语料不变量：**每个**内置病例都声明 physical_exam/nursing_record；quiz 仅 1 例；nursing_diagnosis 无人用。
+        """语料不变量：**每个**内置病例都声明 physical_exam/nursing_record；quiz 仅 1 例。
 
         不写死病例总数——那只是语料规模的快照，每次增删病例都会假失败；这里断言的是
         「所有内置病例都启用两个核心活动」这一意图。
@@ -268,7 +267,6 @@ class TestCaseCorpus:
         assert counts["physical_exam"] == len(cases)
         assert counts["nursing_record"] == len(cases)
         assert counts["quiz"] == 1
-        assert counts["nursing_diagnosis"] == 0
 
     @pytest.mark.parametrize("name", sorted(p.stem for p in CASES_DIR.glob("*.json")))
     def test_every_case_resolves(self, name):
@@ -306,11 +304,3 @@ class TestDeclaredOutputsMatchHandlers:
         payload = ACTIVITY_BINDINGS["quiz"].outputs_schema.model_validate(result.data)
         assert payload.question_id == "q1"
         assert payload.correct is True
-
-    @pytest.mark.asyncio
-    async def test_nursing_diagnosis_load(self):
-        case = _declare(nursing_diagnosis={})
-        result = await dispatch("nursing_diagnosis", "load", {}, _ctx(case))
-        payload = ACTIVITY_BINDINGS["nursing_diagnosis"].outputs_schema.model_validate(result.data)
-        assert payload.diagnoses == []
-        assert payload.stems

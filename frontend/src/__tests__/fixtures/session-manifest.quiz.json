@@ -77,25 +77,6 @@
    },
    "evidence_kind": null,
    "artifact_kind": null
-  },
-  {
-   "id": "nursing_diagnosis",
-   "label": "护理诊断",
-   "availability": {
-    "state": "unavailable",
-    "reason_code": "case_not_configured"
-   },
-   "commands": [
-    "load",
-    "save"
-   ],
-   "ui": {
-    "renderer": "nursing_diagnosis",
-    "placement": "side_panel",
-    "order": 40
-   },
-   "evidence_kind": null,
-   "artifact_kind": null
   }
  ],
  "artifacts": {

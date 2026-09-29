@@ -82,7 +82,7 @@ class TestMissingSnapshotUpdates:
         assert called is False
 
     def test_backfilled_prompt_snapshot_carries_no_purpose_key(self, workflow):
-        """`purpose` 恒为常量、零信息（docs/17 §三#3）：补写也不得再引入它。"""
+        """`purpose` 恒为常量、零信息：补写也不得再引入它。"""
         record = _record(prompt_snapshot=None, rubric_snapshot={"id": "x"})
 
         updates = runner.missing_snapshot_updates(record)

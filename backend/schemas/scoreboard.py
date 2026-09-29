@@ -2,8 +2,7 @@
 
 评分总分经评分流水线统一换算为 0-100 分（`_convert_to_100_scale`）。这里的 good/medium/poor
 是**数值分层**（阈值由 ``modules/training/scoring/grade_policy`` 唯一给出），不是经校准的
-能力等第：每个响应都带 ``policy`` 块，说明政策身份与「能力等第当前是否可用」
-（docs/19 §4.2 第 8/9 条）。
+能力等第：每个响应都带 ``policy`` 块，说明政策身份与「能力等第当前是否可用」。
 """
 
 from datetime import datetime
@@ -129,6 +128,6 @@ class StudentTrendResponse(BaseModel):
     progress_trend: str = TREND_NONE
     records: list[StudentTrendRecord] = Field(default_factory=list)
     policy: dict = Field(default_factory=dict)
-    """等第政策身份与可用性（数值趋势 ≠ 能力进步结论，见 docs/19 §4.4）。"""
+    """等第政策身份与可用性（数值趋势 ≠ 能力进步结论）。"""
     comparability: dict = Field(default_factory=dict)
     """可比性块；``single_group=False`` 时 ``progress_delta/progress_trend`` 不计算跨组进步。"""

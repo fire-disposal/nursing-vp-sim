@@ -1,6 +1,6 @@
 """版本归因（只读）—— 用**既有数据**回答"哪一版提示词/评分标准/映射曲线产出的分更好"。
 
-设计：docs/ideas/prompt-context-versioning.md（§四 身份按需派生、§五 产品化）。
+设计：（§四 身份按需派生、§五 产品化）。
 本模块**不新增存储、不写任何东西**：
 
 * 提示词身份从 ``training_records.prompt_snapshot`` 现算（``prompt_identity``）；

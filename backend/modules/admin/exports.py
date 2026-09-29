@@ -97,7 +97,7 @@ def export_records(
             value=lambda r: str(r.score.effective_total) if r.score and r.score.effective_total is not None else "",
         ),
         # 成绩来源（AI 初评/教师复核/系统降级）随导出可见：降级分不进统计，导出也不能
-        # 把它呈现成正常成绩（docs/19 §4.2 第 7 条）。
+        # 把它呈现成正常成绩。
         ColumnDef(
             "成绩来源",
             value=lambda r: (

@@ -1,11 +1,11 @@
 """prompt_builder — 患者消息编译（PROMPT 阶段）。
 
-职责边界（docs/15 §八）：本中间件只**取料**（Workflow 声明的模板 + 病例数据渲染，
+职责边界：本中间件只**取料**（Workflow 声明的模板 + 病例数据渲染，
 NoteSource 的类型化片段），编译交给唯一入口 ``compile_patient_prompt``：槽位校验 /
 选择 / 排序 / 裁剪 / 预算 / 落位都在那里。这里不拼接任何 system prompt 字符串。
 
 本阶段**不保存任何跨轮状态**：``PipelineContext`` 每个回合新建，往 ``ctx.state`` 里
-写"跨轮缓存"只会随回合一起被丢弃（曾有一版如此，见 docs/19 §2.2）。
+写"跨轮缓存"只会随回合一起被丢弃（曾有一版如此）。
 """
 
 from __future__ import annotations

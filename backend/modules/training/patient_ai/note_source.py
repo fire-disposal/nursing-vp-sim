@@ -1,7 +1,7 @@
 """NoteSource — per-round context injection sources.
 
 来源只**生产类型化片段**（``ContextFragment``）：优先级/上限由来源声明，
-排序/裁剪/预算/落位由 ``compile_patient_prompt`` 决定（docs/15 §八）。
+排序/裁剪/预算/落位由 ``compile_patient_prompt`` 决定。
 """
 
 from __future__ import annotations

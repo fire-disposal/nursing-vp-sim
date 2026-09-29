@@ -228,7 +228,7 @@ CODE_WORKFLOW_NOT_STARTABLE = "workflow_not_startable"
 
 
 def _require_startable_workflow(workflow: WorkflowDefinition) -> WorkflowDefinition:
-    """训练入口的产品状态门（docs/15 §十六）。
+    """训练入口的产品状态门。
 
     403/422 都不对：病例、权限、版本都没问题，冲突在于**产品状态** —— 这条闭包的学生
     工作区还没交付，所以是 409 + 机器可读 code + workflow 身份。绝不「先建一条记录再看」：
@@ -400,7 +400,7 @@ def start_training(
         )
 
     config = _stamp_experiment(_build_config(req.features, req.time_limit_minutes), req.experiment)
-    # 学员训练按**已发布版本**的内容进行（docs/15 §六）：病例后续编辑不改变本次训练。
+    # 学员训练按**已发布版本**的内容进行：病例后续编辑不改变本次训练。
     # workflow 也由这条 revision 决定（请求体不能选择 workflow）并冻结在记录上。
     revision = require_current_revision(db, case)
 
@@ -565,7 +565,7 @@ def start_training_from_assignment(
         }
     )
 
-    # 归档病例不得用于**新的**训练（既有作业也拦，docs/15 §六：archived 只阻止新使用）；
+    # 归档病例不得用于**新的**训练（既有作业也拦，：archived 只阻止新使用）；
     # 进行中的记录走上面的 existing 分支，不受影响。
     require_publishable(case)
     # 作业钉住的病例版本（发布时固化，列已 NOT NULL）：解析不到就拒绝开始，
@@ -629,7 +629,7 @@ def start_blind_box_training(
         )
 
     # 随机池只含**可开始**的病例：抽到一条没有学生工作区的 workflow（如 clinical_reasoning）
-    # 会让盲盒偶发 409 —— 随机入口只能从真能开始的集合里抽（docs/15 §十六）。
+    # 会让盲盒偶发 409 —— 随机入口只能从真能开始的集合里抽。
     candidates = (
         db.query(Case).filter(Case.is_open == True, Case.status == CASE_STATUS_PUBLISHED).order_by(func.random()).all()
     )
@@ -673,7 +673,7 @@ def start_practice_training(
     db: Annotated[Session, Depends(get_db)],
     request: Request,
 ):
-    """复盘后的再练习：同例纠正 / 迁移变式（docs/19 §五）。
+    """复盘后的再练习：同例纠正 / 迁移变式。
 
     自由再练习不是作业尝试：记录不带 ``assignment_id``，因此既不占作业次数、也不进作业成绩；
     反过来，作业次数限制也不会因为"重练"被绕过 —— 想拿作业成绩仍然只能走作业入口。

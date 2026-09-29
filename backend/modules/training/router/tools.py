@@ -6,9 +6,9 @@ POST /api/training/{record_id}/tools
 
 ``cmd`` 拆成 ``(activity_id, command)`` 后交 ``ACTIVITY_BINDINGS`` 分发（见
 ``modules/training/tools/service.py``），可用性由服务端解析的 Activity 声明决定 ——
-这里（以及整条链路）不再读 ``case.tools`` 或旧 capability 表（docs/15 §四/§九）。
+这里（以及整条链路）不再读 ``case.tools`` 或旧 capability 表。
 
-写的唯一性（docs/16 §四「一个事实，一个 owner」）：
+写的唯一性：
 
 - **此端点**是 Activity 结果（TrainingAction + runtime_state 键 + NursingRecord 产物）
   的唯一写入路径；WS 只推送事件，SSE 只承载对话回合，都不写 Activity 结果。

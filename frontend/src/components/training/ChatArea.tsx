@@ -14,7 +14,7 @@ import { useTrainingConnection } from "@/hooks/useNetworkStatus";
 import { WelcomeScreen } from "./WelcomeScreen";
 
 /**
- * 连接状态横幅 —— 只说**实际受损**的能力（docs/19 E5）。
+ * 连接状态横幅 —— 只说**实际受损**的能力。
  *
  * - 网络断开：对话(SSE)、工具(HTTP)、提交都会失败；
  * - 仅 WS 断开：只有服务端推送（评分进度 / 状态通知）暂停，对话与工具照常。

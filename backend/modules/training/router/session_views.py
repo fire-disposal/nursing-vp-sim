@@ -241,7 +241,7 @@ def get_records(
             start_time=r.start_time,
             end_time=r.end_time,
             score_total=r.score.effective_total if r.score else None,
-            # 成绩来源随列表下发：降级分不得在列表里冒充正常成绩（docs/19 §4.2 第 7 条）
+            # 成绩来源随列表下发：降级分不得在列表里冒充正常成绩
             score_source=(
                 score_source(reviewed_total=r.score.reviewed_total, fallback=r.score.fallback) if r.score else None
             ),
@@ -335,7 +335,7 @@ def get_record_detail(
     if score:
         score_obj = ScoreItem.model_validate(score)
         score_meta = score.score_meta or {}
-        # 成绩来源与解释（docs/19 §4.2 第 7/8 条）：AI 初评、教师复核、系统降级分开可见；
+        # 成绩来源与解释：AI 初评、教师复核、系统降级分开可见；
         # 数值分层与能力等第由服务端政策给出（未校准时能力类字段为空）。
         score_obj.effective_total = score.effective_total
         score_obj.source = score_source(reviewed_total=score.reviewed_total, fallback=score.fallback)
@@ -439,7 +439,7 @@ def get_record_detail(
                 raw_max=int(applicable or rubric_for_review.get("raw_max", DEFAULT_RAW_MAX)),
                 raw_scale=int(rubric_for_review.get("raw_scale", 2)),
             )
-    # 系统降级结果不投影"关键选择"：未判定条目不是学生的关键遗漏（docs/19 §4.2 第 4 条）。
+    # 系统降级结果不投影"关键选择"：未判定条目不是学生的关键遗漏。
     focus = (
         build_review_focus(raw_detail, rubric_for_review, case_data) if score is not None and not score.fallback else []
     )
@@ -449,7 +449,7 @@ def get_record_detail(
 
     hidden_placeholder = _hidden_case(record)
     nursing_sheet, nursing_submitted_at = _load_nursing_record(db, record.id)
-    # 本次训练的 workflow 以**记录冻结值**为准（manifest/features/可用性同源，docs/15 §二）
+    # 本次训练的 workflow 以**记录冻结值**为准（manifest/features/可用性同源）
     workflow = workflow_for_record(record)
     overrides = (record.practice_snapshot or {}).get("features")
     # 本次训练钉住的病例版本（旧记录为 NULL：内容只在 case_snapshot 里）
@@ -508,7 +508,7 @@ def get_record_detail(
         },
         # 只有引导模式披露问诊线索；独立考核与盲盒均保持隐藏。
         required_inquiries=(case_data.get("required_inquiries", []) if mode == TrainingMode.GUIDED.value else []),
-        # 引导提示优先给"领域 + 评估意义"（蓝图），而不是清单原句（docs/19 §3.3）。
+        # 引导提示优先给"领域 + 评估意义"（蓝图），而不是清单原句。
         guided_hints=(guided_hints(case_data) if mode == TrainingMode.GUIDED.value else []),
         is_student_practice=record.is_student_practice,
         practice=dict((record.practice_snapshot or {}).get("practice") or {}),

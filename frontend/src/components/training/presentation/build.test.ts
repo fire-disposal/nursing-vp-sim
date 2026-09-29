@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { buildPatientPresentation, PRESENTATION_CHAIN } from "./build";
-import { PRESENTERS } from "./registry";
 import type { EmotionSnapshot, PatientIdentity } from "./types";
 
 const WANG: PatientIdentity = { name: "王建国", age: 68, gender: "male" };
@@ -13,25 +12,15 @@ const NEUTRAL: EmotionSnapshot = {
 	values: { trust: 50, anxiety: 30, irritation: 20, cooperation: 70 },
 };
 
-const IRRITATED: EmotionSnapshot = {
-	emotion: "defensive",
-	emotion4D: "irritated",
-	values: { trust: 20, anxiety: 10, irritation: 90, cooperation: 30 },
-};
-
 const ANXIOUS: EmotionSnapshot = {
 	emotion: "anxious",
 	emotion4D: "anxious_guarded",
 	values: { trust: 30, anxiety: 85, irritation: 40, cooperation: 40 },
 };
 
-describe("buildPatientPresentation — 默认策略链 [video, realistic, static]", () => {
-	it("链上包含 video 预留策略且无源时让位", () => {
-		expect(PRESENTATION_CHAIN).toEqual(["video", "realistic", "static"]);
-		// video 无源 → null，链落到 realistic
-		expect(PRESENTERS.video.build(WANG, NEUTRAL)).toBeNull();
-		const p = buildPatientPresentation(WANG, NEUTRAL);
-		expect(p.kind).toBe("realistic");
+describe("buildPatientPresentation — 默认策略链 [realistic, static]", () => {
+	it("生产链顺序为 realistic → static", () => {
+		expect(PRESENTATION_CHAIN).toEqual(["realistic", "static"]);
 	});
 
 	it("王建国 → 写实胸痛头像", () => {
@@ -57,18 +46,8 @@ describe("buildPatientPresentation — 默认策略链 [video, realistic, static
 });
 
 describe("buildPatientPresentation — 指定策略链", () => {
-	it('["svg"]: 4D 情绪数据派生 FaceConfig', () => {
-		const p = buildPatientPresentation(WANG, IRRITATED, ["svg"]);
-		expect(p.kind).toBe("svg");
-		if (p.kind === "svg") {
-			expect(p.cfg.browAngle).toBeLessThan(0); // 烦躁 → 眉毛下压
-			expect(p.appearance.gender).toBe("male");
-			expect(p.appearance.ageGroup).toBe("elderly");
-		}
-	});
-
 	it("非法链（无 static）防御性兜底到简洁画风", () => {
-		const p = buildPatientPresentation(UNKNOWN, NEUTRAL, ["video"]);
+		const p = buildPatientPresentation(UNKNOWN, NEUTRAL, ["realistic"]);
 		expect(p.kind).toBe("static");
 	});
 });

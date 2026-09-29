@@ -13,7 +13,6 @@ interface TestBus {
 	emit(event: string, payload?: unknown): void;
 	on(event: string, h: Handler): () => void;
 	off(event: string, h: Handler): void;
-	listEvents(): string[];
 	fireResult(payload: Record<string, unknown>): void;
 }
 
@@ -32,7 +31,6 @@ function makeBus(): TestBus {
 			return () => { handlers.get(event)?.delete(h); };
 		},
 		off(event: string, h: Handler) { handlers.get(event)?.delete(h); },
-		listEvents() { return [...handlers.keys()]; },
 		fireResult(payload: Record<string, unknown>) {
 			handlers.get("tool:result")?.forEach((h) => { h(payload); });
 		},

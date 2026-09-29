@@ -1,4 +1,4 @@
-"""病例版本（CaseRevision）与生命周期门 —— docs/15 §六。
+"""病例版本（CaseRevision）与生命周期门。
 
 两条不变量：
 
@@ -31,7 +31,7 @@ from schemas.case_schema import strip_case_metadata
 def require_publishable(case: Case) -> None:
     """新训练/作业只允许使用 published 且已产生版本的病例。
 
-    docs/15 §六：draft 从未发布、archived 只阻止新使用 —— 两者都不接受新的作业/训练，
+    draft 从未发布、archived 只阻止新使用 —— 两者都不接受新的作业/训练，
     但都不影响历史 revision 与既有训练的复盘。
     """
     if case.status == CASE_STATUS_PUBLISHED and case.current_revision_id is not None:
@@ -101,7 +101,7 @@ def revision_of(db: Session, revision_id: int | None, *, case: Case | None = Non
 
 
 def require_pinned_revision(db: Session, revision_id: int, *, case: Case) -> CaseRevision:
-    """作业/记录**钉住**的版本（docs/15 §六）：解析失败即拒绝，不回落到当前版本。
+    """作业/记录**钉住**的版本：解析失败即拒绝，不回落到当前版本。
 
     回落会让同一份已发布作业在不同时间跑在不同内容上（版本边界失效），所以这里
     只有两种结果：拿到那条 revision，或者冲突报错。

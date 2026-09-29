@@ -182,7 +182,7 @@ def toggle_case_open(
     return CaseManageItem.model_validate(svc._manage_view(case, count))
 
 
-# ── 发布生命周期（docs/15 §六）──
+# ── 发布生命周期 ──
 
 
 @router.get("/{case_id}/validation", response_model=CaseValidationReport)

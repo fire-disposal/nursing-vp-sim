@@ -295,7 +295,7 @@ def _score_section(score: Any, rubric: Mapping[str, Any] | None, gaps: list[dict
         "source": score_source(reviewed_total=reviewed_total, fallback=fallback),
         "grade": grade_view(display_total, reviewed_total=reviewed_total, fallback=fallback),
         "reviewed_total": reviewed_total,
-        # 降级与不完整必须随成绩出导（docs/19 §4.2 第 6/7 条）：研究者据此排除不可用成绩
+        # 降级与不完整必须随成绩出导：研究者据此排除不可用成绩
         "fallback": fallback,
         "incomplete": meta.get("incomplete"),
         "not_applicable_items": list(meta.get("not_applicable_items") or []),

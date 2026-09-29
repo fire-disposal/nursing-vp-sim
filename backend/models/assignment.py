@@ -41,7 +41,7 @@ class Assignment(Base, TimestampMixin):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     case_id: Mapped[int] = mapped_column(Integer, ForeignKey("cases.id", ondelete="RESTRICT"))
-    # 发布时钉住的病例版本（docs/15 §六），**非空**：作业期间病例被编辑出新 revision，
+    # 发布时钉住的病例版本，**非空**：作业期间病例被编辑出新 revision，
     # 本作业的学员仍按发布时的版本训练与复盘。发布动作（AssignmentService.create）只接受
     # published 病例并写入其 current_revision_id；没有版本的作业行不存在（旧行的回填见
     # 数据迁移 e6b2c3d4e5f6，NOT NULL 落地见 ddl 迁移 f5a6b7c8d9e0）。

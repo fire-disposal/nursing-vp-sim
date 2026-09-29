@@ -1,4 +1,4 @@
-"""教学蓝图（docs/19 §3.2）的**运行时只读视图**。
+"""教学蓝图的**运行时只读视图**。
 
 蓝图是病例内容的一部分（``CaseDataSchema.blueprint``），随病例 revision 冻结、随训练
 记录快照固化。本模块只做纯函数读取，不写数据、不新建第二份病例真相；校验与发布门禁在
@@ -54,7 +54,7 @@ def intervention_observable(case_data: Mapping[str, Any] | None) -> bool:
     """本次任务是否有「实施干预并观察效果」的机会。
 
     默认 ``False``：**未声明即无可观察机会**。没有机会时评价计划与评价方法，既不奖励
-    编造结局，也不因无法观察而扣分（docs/19 §4.2）。
+    编造结局，也不因无法观察而扣分。
     """
     blueprint = blueprint_of(case_data)
     if blueprint is None:
@@ -114,7 +114,7 @@ def _bullet_section(title: str, values: Sequence[str]) -> list[str]:
 
 
 def scoring_task_boundary_text(case_data: Mapping[str, Any] | None) -> str:
-    """评分提示词的「本次任务边界」段（docs/19 §4.2「目标适配」）。
+    """评分提示词的「本次任务边界」段。
 
     蓝图缺失时返回空串：既有病例保持原有评分口径，不凭空声明适用性或缺失项。
     """

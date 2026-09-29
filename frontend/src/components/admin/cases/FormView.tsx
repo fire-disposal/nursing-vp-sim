@@ -70,7 +70,7 @@ export function FormView({ state, dispatch, disabled }: Props) {
 					disabled={disabled}
 				/>
 
-				{/* 教学蓝图（docs/19 §3.2）：缺失时不写入任何键，须由作者显式启用 */}
+				{/* 教学蓝图：缺失时不写入任何键，须由作者显式启用 */}
 				<BlueprintEditor state={state} dispatch={dispatch} disabled={disabled} />
 
 				<ExamAnchorsEditor

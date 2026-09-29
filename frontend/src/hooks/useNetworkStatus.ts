@@ -47,7 +47,7 @@ export interface TrainingConnectionState {
  * 训练页连接状态 —— `navigator.onLine` + 训练 WS 连接状态。
  *
  * 用于把「到底什么坏了」说清楚：WS 只推评分/状态通知，对话走 SSE、工具与提交走 HTTP，
- * 因此 WS 断开不能说成「工具不可用」（docs/19 E5）。WS 状态订阅是单例、立即回调一次。
+ * 因此 WS 断开不能说成「工具不可用」。WS 状态订阅是单例、立即回调一次。
  */
 export function useTrainingConnection(): TrainingConnectionState {
 	const isOnline = useNetworkStatus();

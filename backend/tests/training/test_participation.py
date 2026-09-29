@@ -1,4 +1,4 @@
-"""`is_student_practice` 判定（docs/15 §6.2）——纯函数测试，不连库。"""
+"""`is_student_practice` 判定——纯函数测试，不连库。"""
 
 from modules.training.participation import TEACHING_PERMISSIONS, is_student_practice
 

@@ -1,5 +1,5 @@
 /**
- * Resolved Manifest 读取层（docs/15 §四·补 / §十三 / §十五）。
+ * Resolved Manifest 读取层。
  *
  * 服务端是唯一真相源：`availability` / `completion` / `artifacts` 一律读这里下发的值，
  * 前端**不得**重新推导「这个病例有没有某能力」「能不能结束训练」。

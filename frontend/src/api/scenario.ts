@@ -133,7 +133,7 @@ export const getScenarioRequest = (sessionId: number, requestId: string) =>
  * `data:` 里没有它），载荷本身**逐字**取生成物里的 `ScenarioSse{Phase,Committed,Error}`。
  *
  * 只有这三种：服务端曾多发一个"已校验但未提交的草稿"事件（`delivery`），前端从收到的那一刻
- * 就把它丢掉、从不渲染——**发出来即被丢弃的东西不该留在协议里**，已整条删除（`docs/23` §4.5）。
+ * 就把它丢掉、从不渲染——**发出来即被丢弃的东西不该留在协议里**，已整条删除。
  */
 export type ScenarioStreamEvent =
 	| ({ kind: "phase" } & ScenarioSsePhase)

@@ -50,7 +50,7 @@ def _collect_leak_corrections(ctx: PipelineContext, reply: str) -> list[ContextF
     """检测身份/隐藏主题泄漏，返回类型化守卫片段（空 = 无泄漏）。
 
     守卫只生产片段；追加方式（尾部 system 消息）由 ``append_guard_fragments``
-    统一决定，中间件不再自行拼 system prompt（docs/15 §八）。
+    统一决定，中间件不再自行拼 system prompt。
     """
     corrections: list[ContextFragment] = []
     if has_identity_leak(reply):

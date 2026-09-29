@@ -1,6 +1,6 @@
 """操作处理器 — 配置驱动的查体/测量操作
 
-病例配置从 ``activities.physical_exam.config`` 读取（docs/15 §四：能力的唯一声明处）。
+病例配置从 ``activities.physical_exam.config`` 读取。
 支持两种格式：
 1. 新格式：含 groups 结构（前端直接消费）
 2. 旧格式：自动从 vital_signs/skin/pain_score 推导
@@ -94,7 +94,7 @@ _INSPECTION_DEFAULTS: dict[str, str] = {
 def _get_age_group(case_data: dict) -> str:
     info = case_data.get("patient_info") or {}
     #: 照护者代诉型病例（儿科）会把 ``patient_info.age`` 填成家长年龄，体征却是患儿的，
-    #: 此时必须由病例显式声明参考人群（docs/15 §四），否则体征解读会套错成人范围。
+    #: 此时必须由病例显式声明参考人群，否则体征解读会套错成人范围。
     declared = str(info.get("vitals_age_group") or "").strip()
     if declared in _AGE_DEFAULTS:
         return declared

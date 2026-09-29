@@ -53,7 +53,7 @@ const TIER_COLORS: Record<string, "green" | "yellow" | "red"> = {
 /**
  * 数值分段 → 展示标签。标签与阈值**都来自服务端等第政策**（`policy.numeric_bands`）；
  * 服务端没给标签时退回 band id 的固定中文对照（含「数值参考」前缀，不含数字）。
- * 页面不出现「好中差」这类像能力结论的措辞，也不在客户端算阈值（docs/19 §4.2 第 8/9 条）。
+ * 页面不出现「好中差」这类像能力结论的措辞，也不在客户端算阈值。
  */
 function tierCell(tier: string, policy: GradePolicy | null) {
 	const label = bandLabel(tier, policy);

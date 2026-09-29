@@ -155,10 +155,10 @@ SCORE_REVIEW_SNAPSHOT_FIELDS = ("reviewed_by", "detail_scores", "total_score", "
 def missing_snapshot_updates(record) -> dict:
     """需要补写的**缺失**快照字段；已有值一律不动。
 
-    SCR-7（docs/review/tech-debt-audit-2026-09-14.md）：旧实现用
+    SCR-7：旧实现用
     ``if not prompt_snapshot or not rubric_snapshot`` 触发，却在块内**无条件**重写两者 ——
     只缺 rubric 的旧记录会被顺手改成"今天"的提示词，事后审计/回放/归因全部失真且无日志。
-    这里逐字段独立判定：冻结过的东西永不回写（docs/17 §2.4）。
+    这里逐字段独立判定：冻结过的东西永不回写。
 
     返回 ``{字段名: 新值}``；两个快照都在时返回空 dict（且不解析 workflow）。
     """
@@ -497,14 +497,14 @@ async def enqueue_scoring(
 ) -> None:
     """评分入队的**唯一边界**（启动重放 / ``/end`` / retry / 走人 / 结算共用）。
 
-    执行位置由 ``SCORING_EXECUTION`` 决定（docs/ideas/pipeline-and-job-separation.md）：
+    执行位置由 ``SCORING_EXECUTION`` 决定：
 
     * ``inline``（默认）：入进程内 ``TaskQueue``，``app_state.task_queue`` 必填。``record_id``/
       ``case_data`` 在此被捕获为标量，闭包在 worker 阶段不回读 ORM 属性（走人路径的
       DetachedInstanceError 回归）；运行期依赖仍在 worker 阶段从 ``app_state`` 读取
       —— LLM 未就绪时是"任务入队后失败并等待清扫"，不是触发请求直接 500。
     * ``job``：只写一行 ``jobs``（记录已有挂起任务时是幂等 no-op）。输入不随行复制，
-      认领者按 ``record_id`` 派生 —— 同一事实不做第二份拷贝（docs/17 §四）。
+      认领者按 ``record_id`` 派生 —— 同一事实不做第二份拷贝。
 
     Raises:
         RuntimeError: inline 模式下进程尚未 bootstrap 出 TaskQueue。

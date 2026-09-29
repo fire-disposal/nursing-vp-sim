@@ -4,7 +4,7 @@
 
 1. 模型没有 `updated_at`，`core/audit.py` 只暴露 `record()` / `record_detached()`，不提供 update/delete；
 2. 守卫测试断言"模块里没有对 AuditLog 的 update/delete"，并断言本模型无 `updated_at`；
-3. DB 层触发器/受限角色（A6，见 `docs/review/refactor-plan-2026-09-26.md`）。
+3. DB 层触发器/受限角色（A6）。
 
 `actor_*` 存**快照**：`actor_id` 用 `ON DELETE SET NULL`（删用户不得连带删掉它的审计），
 但 ID 被置空后仍要能回答"谁做的"，所以同时存 username / display_name / role 名。

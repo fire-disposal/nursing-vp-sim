@@ -80,7 +80,7 @@ export const toggleCaseOpen = (id: number | string, open: boolean) =>
 		`/cases/${id}/open?open=${open}`,
 	);
 
-// ── 生命周期（docs/15 §六）：发布门禁 / 版本 ────────────────────────────────
+// ── 生命周期：发布门禁 / 版本 ────────────────────────────────
 
 /** 发布门禁预览：字段级 error/warning（与 CI 病例审计同一份规则）。 */
 export const getCaseValidation = (id: number | string) =>

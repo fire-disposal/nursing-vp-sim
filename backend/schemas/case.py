@@ -20,7 +20,7 @@ class CaseBrief(BaseModel):
     patient_summary: dict[str, Any] | None = None
     capabilities: dict[str, bool] = Field(default_factory=dict)
     #: 该病例（current revision）所属 workflow；学生目录据此展示/分组，训练入口仍由
-    #: 记录冻结的 workflow 驱动（docs/15 §二、§四·补 catalog 投影）
+    #: 记录冻结的 workflow 驱动
     workflow: WorkflowBrief | None = None
 
 

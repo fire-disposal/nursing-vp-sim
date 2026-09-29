@@ -61,7 +61,7 @@ export const getRecordDetail = (id: number | string) =>
 export type PracticeKind = "remediation" | "transfer";
 
 /**
- * 复盘后的再练习（docs/19 §五）。
+ * 复盘后的再练习。
  *
  * 目标病例、钉住的 revision 与「内容是否已更新」全由服务端解析；不可用时返回
  * 409 + `{code, kind, message}`（前端据此提示，不猜原因、不自行拼 case_id）。

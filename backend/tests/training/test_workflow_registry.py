@@ -1,4 +1,4 @@
-"""Workflow 判别契约 —— 病例决定 / 记录冻结 / 读取一律走解析器（docs/15 §二、§九、§十六）。
+"""Workflow 判别契约 —— 病例决定 / 记录冻结 / 读取一律走解析器。
 
 Slice 0 把「这次训练跑哪条 workflow」从代码常量搬到**病例 revision 决定 → 训练记录冻结**
 （``training_records.workflow_id``，NOT NULL）；Slice 1 登记了第二条闭包
@@ -135,7 +135,7 @@ class TestRegistry:
     def test_production_registry_registers_clinical_reasoning_without_runtime_surface(self):
         """``clinical_reasoning`` 已登记，但**没有运行期入口**：可编写/发布/编目，不能开始。
 
-        这条断言守的是产品状态：登记 ≠ 可以开始（docs/15 §十六）。缺了 ``runtime_ready``
+        这条断言守的是产品状态：登记 ≠ 可以开始。缺了 ``runtime_ready``
         或给它 ``activities``/``prompts``，就等于谎称学生工作区已经存在。
         """
         assert registered_workflow_ids() == ("history_taking", "clinical_reasoning")
@@ -326,7 +326,7 @@ class TestHistoryTakingRegression:
             "ui": dict(HISTORY_TAKING.ui),
         }
         assert {item["id"] for item in manifest["activities"]} == set(HISTORY_TAKING.activities)
-        # 默认无交卷门禁（病例可显式声明要提交哪些产物，见 docs/15 §五）
+        # 默认无交卷门禁（病例可显式声明要提交哪些产物）
         assert manifest["completion"]["conditions"] == []
         assert manifest["completion"]["eligible"] is True
 

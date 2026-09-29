@@ -103,7 +103,7 @@ async def _end_by_patient_walkout(ctx: PipelineContext, app) -> None:
 
     提交边界：本函数只提交**自己写的东西**（走人标记、终结状态、运行时清理），
     不再由 side_effects 兜底 ``ctx.db.commit()`` —— 正式产物（回合消息）的提交
-    归 persister 的事务 B（docs/15 §八：侧效果与正式产物分离）。
+    归 persister 的事务 B。
     """
     from modules.training.scoring.runner import enqueue_scoring
     from modules.training.session.finalize import (

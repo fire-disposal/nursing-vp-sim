@@ -6,7 +6,7 @@
  * `detail_scores?: Record<string, unknown>`），因此由 `@/utils/score` 的
  * `toScoreData()` 作为唯一转换点收口。
  *
- * 两层精度（docs/19 §4.2）：
+ * 两层精度：
  * - **展示层** `detail_scores`：条目分已换算到 display 量尺（≈0-5），用于进度条与分母；
  * - **原始层** `raw_detail_scores`：未换算的逐项判定（0..raw_scale，`score` 可为 null），
  *   逐项判定理由/证据/状态只认这一层。

@@ -143,7 +143,7 @@ class CaseService:
         difficulty: int | None = None,
         name: str | None = None,
     ) -> tuple[list[Case], int]:
-        """学生目录：只出现**可开始训练**的已发布开放病例（docs/15 §六/§十六）。
+        """学生目录：只出现**可开始训练**的已发布开放病例。
 
         学生工作区未交付的 workflow（``runtime_ready=False``）整类隐藏 —— 目录是产品面，
         不是路线图；"可见但点不动"会把未交付的能力暴露给学生。
@@ -228,7 +228,7 @@ class CaseService:
         """编辑工作副本。
 
         已发布病例的编辑必须先过发布门禁（字段级 error 即 422，不落库），内容变化则追加
-        新 revision —— 旧训练永远按旧版复盘（docs/15 §六）。已归档病例内容冻结。
+        新 revision —— 旧训练永远按旧版复盘。已归档病例内容冻结。
         """
         case = self.get(case_id)
         require_editable(case)
@@ -238,7 +238,6 @@ class CaseService:
         # 元数据缺省 = 不改（避免一次编辑把 difficulty/time_limit 静默改回默认值）
         difficulty = cd.get("difficulty", case.difficulty)
         time_limit = cd.get("time_limit") or case.time_limit_minutes
-        content_changed = payload != strip_case_metadata(case.case_data or {})
 
         if case.status == CASE_STATUS_PUBLISHED:
             report = validate_candidate(payload, name=name, difficulty=difficulty, time_limit=time_limit)
@@ -251,7 +250,7 @@ class CaseService:
             case.case_data = payload
             case.difficulty = difficulty
             case.time_limit_minutes = time_limit
-            if case.status == CASE_STATUS_PUBLISHED and content_changed:
+            if case.status == CASE_STATUS_PUBLISHED and not content_matches_current_revision(case):
                 append_revision(self.db, case, user_id=user_id)
             self.db.flush()
         log.info(
@@ -264,7 +263,7 @@ class CaseService:
     def publish(
         self, case_id: int, user_id: int, user_role: str, *, request: Request | None = None
     ) -> tuple[CaseManageView, CaseReport]:
-        """发布门禁 + 版本落地（docs/15 §六）。
+        """发布门禁 + 版本落地。
 
         门禁复用 CI 病例审计的同一份校验器（modules/cases/validator.py）：有 error 即
         拒绝发布（422 + 字段级报告），警告只随报告返回。内容与 current revision 一致

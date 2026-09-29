@@ -19,7 +19,7 @@ import "./scenario.css";
 const EMPTY_INTENT: ScenarioIntent = { kind: "speech", target: null };
 type SavedRequest = { request: ScenarioTurnRequest; label: string; restoreText: string | null };
 
-/** 冲突的处置方式不同，所以按语义分组，不按 HTTP 状态码分组（`docs/23` §8.1）。 */
+/** 冲突的处置方式不同，所以按语义分组，不按 HTTP 状态码分组。 */
 /** 序号过期：刷新到最新处境后**同一个请求身份**可以重发（提交只会成功一次）。 */
 const SEQUENCE_CONFLICTS = ["session_conflict"];
 /** 会话已结束：提交被拒后刷新到最新状态，不再提供重发。 */
@@ -127,7 +127,7 @@ export default function ScenarioConsole() {
 		document.addEventListener("keydown", close);
 		return () => document.removeEventListener("keydown", close);
 	}, [sideOpen]);
-	// 应用外壳保持不动；只有训练面跟随手机键盘（双滚动陷阱见 `docs/23` §7.8）。
+	// 应用外壳保持不动；只有训练面跟随手机键盘（双滚动陷阱）。
 	useEffect(() => {
 		const viewport = window.visualViewport;
 		if (!viewport) return;
@@ -216,7 +216,7 @@ export default function ScenarioConsole() {
 			return;
 		}
 		if (info.code === "request_conflict") {
-			// 同 id 不同输入：留着输入，但**必须换新身份**再做一次（docs/23 §8.1）。
+			// 同 id 不同输入：留着输入，但**必须换新身份**再做一次。
 			setPending(null); setPhase(null); setUncertain(false); setRetry(null);
 			rememberRequest(id, null);
 			setError("这次尝试与同一请求身份的原内容不一致，本次没有提交。输入已保留，重新发送会作为一次新的尝试。");

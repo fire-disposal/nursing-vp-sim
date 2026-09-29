@@ -1,4 +1,4 @@
-"""Workflow 注册表与解析器 —— 「这次训练跑哪条闭包」的唯一 owner（docs/15 §二、§九）。
+"""Workflow 注册表与解析器 —— 「这次训练跑哪条闭包」的唯一 owner。
 
 一个事实一个 owner：
 
@@ -16,7 +16,7 @@
 | id | 状态 | 允许 |
 |---|---|---|
 | ``history_taking`` | 运行期就绪 | 病例编写/发布/目录 + 学生训练（唯一可开始） |
-| ``clinical_reasoning`` | 仅作者面就绪（docs/15 §十六） | 病例编写/发布/目录；**训练入口一律拒绝**（:func:`require_startable`） |
+| ``clinical_reasoning`` | 仅作者面就绪 | 病例编写/发布/目录；**训练入口一律拒绝**（:func:`require_startable`） |
 
 「声明随登记收紧」只按**可开始**的 workflow 计数（:func:`startable_workflow_ids`）：只有
 一条可开始的闭包时，病例省略声明仍然安全（回落无歧义）；登记第二条**可开始**的 workflow
@@ -78,7 +78,7 @@ class UnknownWorkflowError(RuntimeError):
 
 
 class WorkflowNotStartableError(RuntimeError):
-    """workflow 已登记但**没有真实运行期入口** —— 拒绝开始训练（docs/15 §十六）。
+    """workflow 已登记但**没有真实运行期入口** —— 拒绝开始训练。
 
     这是产品状态冲突，不是参数错误：病例可以存在、可以发布、可以进目录，但在学生工作区
     落地前不能开始。绝不「先建一条空记录再看」——那会留下永远无法渲染、无法评分的训练。
@@ -155,7 +155,7 @@ def workflow_for_case_data(case_data: Mapping[str, Any] | None) -> WorkflowDefin
 
 
 def workflow_for_case_revision(revision: CaseRevision) -> WorkflowDefinition:
-    """按**钉住的**病例 revision 解析 —— 训练开始时的唯一入口（docs/15 §六）。"""
+    """按**钉住的**病例 revision 解析 —— 训练开始时的唯一入口。"""
     return workflow_for_case_data(getattr(revision, "content", None))
 
 

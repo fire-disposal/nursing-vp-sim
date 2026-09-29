@@ -1,4 +1,4 @@
-"""Resolved Manifest —— 服务端解析出的单一真相源（docs/15 §四·补）。
+"""Resolved Manifest —— 服务端解析出的单一真相源。
 
 同一 envelope 支持三种投影（session / catalog / authoring）；本切片只落地
 ``projection="session"``：学生运行时的 activities[].availability、artifacts
@@ -136,7 +136,7 @@ def build_session_manifest(
         "schema": SCHEMA,
         "projection": PROJECTION_SESSION,
         "workflow": {"id": workflow.id, "label": workflow.label, "ui": dict(workflow.ui)},
-        # 会话引用的病例版本（docs/15 §六）：旧记录（迁移前）没有 revision_id，
+        # 会话引用的病例版本：旧记录（迁移前）没有 revision_id，
         # 只有 case_snapshot，因此两项都可能为 null。
         "case": {"case_id": case_id, "revision_id": case_revision_id, "revision_no": case_revision_no},
         "session": {"session_id": session_id, "status": status, "revision": revision},

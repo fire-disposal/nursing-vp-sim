@@ -25,7 +25,6 @@ function makeBus() {
 			return () => { handlers.get(event)?.delete(h); };
 		},
 		off(event: string, h: Handler) { handlers.get(event)?.delete(h); },
-		listEvents() { return [...handlers.keys()]; },
 		fireResult(payload: Record<string, unknown>) {
 			handlers.get("tool:result")?.forEach((h) => { h(payload); });
 		},

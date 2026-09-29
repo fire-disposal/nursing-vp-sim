@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { useMediaQuery } from "./useMediaQuery";
 
-export type LayoutMode = "desktop" | "phone";
+type LayoutMode = "desktop" | "phone";
 
 const MOBILE_BP = 768;
 
@@ -13,7 +13,7 @@ function getMode(w: number): LayoutMode {
 	return w < MOBILE_BP ? "phone" : "desktop";
 }
 
-export function useLayoutMode(): LayoutMode {
+function useLayoutMode(): LayoutMode {
 	const [mode, setMode] = useState<LayoutMode>(() =>
 		typeof window === "undefined" ? "desktop" : getMode(window.innerWidth),
 	);

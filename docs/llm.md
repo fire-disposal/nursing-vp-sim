@@ -21,7 +21,7 @@
 | 关键选择投影 | `backend/modules/training/scoring/review_focus.py` |
 | 等第政策（阈值与标签单源） | `backend/modules/training/scoring/grade_policy.py` |
 | 可比性分组 | `backend/modules/training/scoring/comparability.py` |
-| 判例入选规则（历史校准资产） | `backend/modules/training/scoring/judging_set.py` + [校准工作区](calibration/README.md) |
+| 判例入选规则（历史校准资产） | [校准工作区](calibration/README.md)（可执行规则已删，见 git 历史） |
 | 异步作业与重评快照 | `backend/modules/training/scoring/runner.py` |
 | 有效成绩与统计范围 | `backend/modules/training/scoring/grade_scope.py` |
 | 记录与复核 | `backend/models/training.py`、`backend/modules/training/router/score_review.py` |

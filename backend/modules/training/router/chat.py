@@ -1,10 +1,10 @@
 """Chat router — thin dispatcher delegating to pipeline.
 
-**对话回合的唯一写入 owner**（docs/16 §四·4.2）：SSE（``/message/stream``）与非流式
+**对话回合的唯一写入 owner**：SSE（``/message/stream``）与非流式
 （``/message``）只是同一命令的两种 transport，二者共用 ``begin_turn`` → pipeline →
 ``persister``，不会出现第二条写消息/写运行的路径。
 
-事务边界（docs/15 §五，见 ``pipeline/turn.py``）：
+事务边界：
   1. 准入守卫 / 读消息窗口（只读）；
   2. **事务 A**：学生消息 + turn(pending) → commit（``begin_turn``，在任何 LLM 之前）；
   3. LLM / 流式推送：不持有数据库事务；

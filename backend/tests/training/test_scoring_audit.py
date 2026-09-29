@@ -163,7 +163,7 @@ def _student_message(db, record: TrainingRecord) -> None:
 def _detail(item_score: int = 2) -> dict:
     """两个维度的**原始条目**明细（0-raw_scale）：item 2 → Σ4 → 展示 11（≠ 任何输入值）。
 
-    复核编辑的就是原始条目（docs/19 §4.2 第 6 条），所以这里给的是 raw 刻度。
+    复核编辑的就是原始条目，所以这里给的是 raw 刻度。
     """
     return {
         "沟通技能": {
@@ -326,7 +326,7 @@ def test_review_audit_never_stores_comment_or_detail_text(db):
     review = db.query(ScoreReview).filter(ScoreReview.score_id == row.payload["score_id"]).one()
     assert review.comment == _COMMENT
     # 复核行保存的是教师改动的**原始条目**（分值 + 条目 id），不搬运 AI 的 evidence/reason
-    # 文本：那部分留在 Score.raw_detail_scores（AI 判据不被复核覆盖，docs/19 §4.2 第 7 条）。
+    # 文本：那部分留在 Score.raw_detail_scores（AI 判据不被复核覆盖）。
     assert review.detail_scores["沟通技能"]["items"][0] == {"id": "c0", "name": "沟通条目", "score": 2.0, "max": 2}
     assert _DETAIL_TEXT not in str(review.detail_scores)
 

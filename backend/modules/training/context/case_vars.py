@@ -52,7 +52,7 @@ _COMBO_BONUSES: tuple[tuple[dict[str, str], str], ...] = (
     ({"anxiety_trait": "anxious", "compliance": "dependent"}, "你极度依赖对方给出肯定的回应，对方一犹豫你就更焦虑"),
 )
 
-#: 通用就诊场景（病例未提供 ``scene`` 时的 fallback；U0 病例应自带场景，见 docs/19）。
+#: 通用就诊场景（病例未提供 ``scene`` 时的 fallback；U0 病例应自带场景）。
 _DEFAULT_SCENARIO = "你在医院就诊，一位护理学生（请称呼'护士'）正在采集你的病史。请根据你的主诉和现病史如实回答。"
 
 

@@ -3,7 +3,7 @@ import type { ManifestActivity } from "@/engine/manifest";
 import type { MessageBus } from "@/engine/types";
 
 /**
- * Activity Renderer 契约（docs/15 §十三）。
+ * Activity Renderer 契约。
  *
  * 面板拿到的是**服务端 manifest 里的 activity 定义**：命令命名空间、标签、
  * 产物 kinds 都来自它。面板不读病例数据、不判断自己是否可用（可用性已由

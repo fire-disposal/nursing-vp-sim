@@ -72,7 +72,6 @@ describe("在场感：说话态与呼吸节奏", () => {
 			},
 			off: vi.fn(),
 			emit: vi.fn(),
-			listEvents: vi.fn(() => []),
 		};
 		useTrainingStore.setState({ bus: bus as never, recordId: "1" });
 		const { container } = renderStage(makeRecord({ patient_name: "王建国" }));

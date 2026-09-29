@@ -23,7 +23,7 @@ from models._base import TimestampMixin, _now_utc
 if TYPE_CHECKING:
     from models.auth import User
 
-# ── 病例产品生命周期（docs/15 §六）────────────────────────────────────────
+# ── 病例产品生命周期 ────────────────────────────────────────
 # status 管「能不能被新训练/作业使用」，CaseRevision 管「内容不可变」。
 # draft     —— 未发布：不能被作业/训练使用（发布门禁见 modules/cases/service.py）
 # published —— 已发布：学员按 current_revision 训练
@@ -48,7 +48,7 @@ class Case(Base, TimestampMixin):
     is_open: Mapped[bool] = mapped_column(default=False)
     status: Mapped[str] = mapped_column(String(20), default=CASE_STATUS_DRAFT, server_default=text("'draft'"))
     #: 工作副本（教师编辑对象）。元数据（name/difficulty/time_limit）只在本表的列，
-    #: 落库前从 case_data 剥离（docs/15 §六、§十五.3）。
+    #: 落库前从 case_data 剥离。
     case_data: Mapped[dict] = mapped_column(JSONB, default=dict)
     #: 学员实际训练引用的不可变版本。与 case_revisions.case_id 构成表间环，
     #: 因此用 use_alter（建表后再补 FK）。
@@ -78,7 +78,7 @@ class Case(Base, TimestampMixin):
 
 
 class CaseRevision(Base):
-    """病例内容的不可变版本（docs/15 §六）。
+    """病例内容的不可变版本。
 
     内容为什么是单个 ``content`` JSONB 而不是 clinical_data / 查体锚点 /
     activity_config 多列：病例载荷本来就是一份 JSON，查体锚点住在
@@ -102,7 +102,7 @@ class CaseRevision(Base):
         Integer, ForeignKey("cases.id", ondelete="CASCADE", name="fk_case_revisions_case_id")
     )
     #: 病例**内容**修订号（1,2,3…）。与 ``training_records.revision``（乐观并发号）
-    #: 同名不同义，见 docs/17 §2.2。
+    #: 同名不同义。
     revision_no: Mapped[int] = mapped_column(Integer)
     #: 冻结的病例载荷（与 Case.case_data 落库形状一致：已剥离元数据键）
     content: Mapped[dict] = mapped_column(JSONB, default=dict)

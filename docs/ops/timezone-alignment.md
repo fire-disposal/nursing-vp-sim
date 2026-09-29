@@ -1,6 +1,6 @@
 # 时区对齐（全部按 Asia/Shanghai）与历史污染修正
 
-> 背景：2026-09-26 "测试全面转向 PG"时挖出的真实缺陷（`docs/review/refactor-plan-2026-09-26.md` §2.12）。
+> 背景：2026-09-26 "测试全面转向 PG"时挖出的真实缺陷。
 > 结论：**PG 侧修正是可行且正确的做法**，迁移文件 `backend/migrations/versions/ddl/f4e5f6a7b8c9_align_timestamps_to_timestamptz.py`。
 
 ## 一、根因（已定位）
@@ -93,4 +93,4 @@ SELECT id, created_at, created_at AT TIME ZONE 'Asia/Shanghai' AS as_shanghai FR
 ## 六、仍留（非阻塞）
 
 - 历史大表迁移若需更长锁：在单条迁移里自行 `SET lock_timeout`（当前默认 10s 已够用）。
-- 其它非时间类的审计/UI 待办见 `docs/review/refactor-plan-2026-09-26.md` 
+- 其它非时间类的审计/UI 待办已随历史审计文档删除（见 git 历史）。

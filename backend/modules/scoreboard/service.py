@@ -326,7 +326,7 @@ class ScoreboardService:
     def _comparability(self, conditions: list) -> dict:
         """当前筛选范围的可比性块（量尺/规则身份是否一致）。
 
-        展示分是线性换算的结果，跨量尺求和并不代表可比（docs/19 §4.4）——所以聚合必须
+        展示分是线性换算的结果，跨量尺求和并不代表可比——所以聚合必须
         带出"这些记录可比吗"，而不是只给一个均分。
         """
         rows = (
@@ -472,7 +472,7 @@ class ScoreboardService:
             )
 
         scores = [tr.score for tr in trend_records]
-        # 跨量尺不算进步：不同任务/量尺的前后均分之差不是"进步"证据（docs/19 §4.4）。
+        # 跨量尺不算进步：不同任务/量尺的前后均分之差不是"进步"证据。
         if comparability["single_group"]:
             delta, trend = compute_progress([(tr.start_time, tr.score) for tr in trend_records])
         else:

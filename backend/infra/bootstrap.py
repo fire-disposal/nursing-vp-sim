@@ -110,7 +110,7 @@ async def shutdown(app):
 
 async def init_infra(app_state, llm_router):
     """Initialize task queue, runtime caches, metrics, diagnose, and realtime hub."""
-    # 评分执行位置（docs/ideas/pipeline-and-job-separation.md）：job 模式用 jobs 表的
+    # 评分执行位置：job 模式用 jobs 表的
     # 认领器替代进程内 TaskQueue；两种模式互斥，绝不双跑（否则同一记录可能被评两次 ——
     # 记录自身的 claim CAS 仍会拦，但那是第二道防线，不是设计意图）。
     if SCORING_EXECUTION == "job":

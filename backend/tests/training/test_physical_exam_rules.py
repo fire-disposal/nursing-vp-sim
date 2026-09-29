@@ -108,7 +108,7 @@ class TestGetDefault:
 
 
 def _cfg(config: dict) -> dict:
-    """病例声明形状：``{"activities": {"physical_exam": {"config": …}}}``（docs/15 §四）。"""
+    """病例声明形状：``{"activities": {"physical_exam": {"config": …}}}``。"""
     return {"activities": {"physical_exam": {"config": config}}}
 
 

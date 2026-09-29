@@ -82,7 +82,7 @@ function trendBadge(trend: string, delta: number | null | undefined) {
 }
 
 /**
- * 数值分层与能力等第**不在页面上计算**（docs/19 §4.2 第 8 条）：标签与阈值由服务端
+ * 数值分层与能力等第**不在页面上计算**：标签与阈值由服务端
  * 等第政策给出（趋势响应的 `policy` 块），页面对平均分只做数值展示，不按 85/60 自己分档。
  * 跨可比组时服务端不返回 `progress_delta/progress_trend`，页面也不得自行下「进步/退步」结论。
  */

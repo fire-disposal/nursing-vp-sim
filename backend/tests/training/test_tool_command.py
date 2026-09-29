@@ -85,13 +85,12 @@ class _ToolSession(UpdateCapableFakeSession):
 
 
 def _case_data(*, enabled: bool = True) -> dict:
-    """病例声明：``activities.<id>.config``（无声明 → 未启用，见 docs/15 §四）。"""
+    """病例声明：``activities.<id>.config``（无声明 → 未启用）。"""
     activities = (
         {
             "physical_exam": {"config": {"groups": [], "vital_signs": {"pain_score": "4-6"}}},
             "nursing_record": {"config": {"enabled": True}},
             "quiz": {"config": {"questions": [{"id": "q1", "stem": "题干", "options": ["A"], "answer": "A"}]}},
-            "nursing_diagnosis": {"config": {"enabled": True}},
         }
         if enabled
         else {}
@@ -103,12 +102,11 @@ def _case_data(*, enabled: bool = True) -> dict:
     }
 
 
-#: 四个工具各取一个合法 action —— 用于验证失败契约在工具之间一致
+#: 三个工具各取一个合法 action —— 用于验证失败契约在工具之间一致
 _TOOL_ACTIONS: dict[str, str] = {
     "physical_exam": "measure",
     "nursing_record": "load",
     "quiz": "load",
-    "nursing_diagnosis": "load",
 }
 
 

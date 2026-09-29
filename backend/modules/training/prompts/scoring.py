@@ -4,7 +4,7 @@
   SCORING_SYSTEM  → 仅评分（逐项 evidence + reason），不写反馈
   SCORING_FEEDBACK_SYSTEM → 基于评分结果生成 strengths/weaknesses/missed_content/suggestions
 
-本批次（docs/19 §4.2）改写三处语义，缺一不可：
+本批次改写三处语义，缺一不可：
 1. 逐项判分依据条目的**行为锚点**（由 ``build_scoring_criteria`` 送达），不再只按条目名称；
 2. 得分与失分都要给出依据；表达简洁不等于无效，不得以篇幅或回合数当证据；
 3. 反馈**允许为空**：没有明确不足/漏问时留空数组，禁止为凑数编造，`explained_empty` 说明原因。
@@ -119,7 +119,7 @@ SCORING_FEEDBACK_USER = """请根据以下对话内容，生成 strengths、weak
 
 # ── 重试提示（标准 {#...#} 语法）──
 #
-# 重试只针对**字段缺失/类型非法**，不再针对"反馈为空"：空反馈是合法结果（docs/19 §4.2 第 5 条），
+# 重试只针对**字段缺失/类型非法**，不再针对"反馈为空"：空反馈是合法结果，
 # 强制补全会把真实「无不足」变成编造的不足。
 
 SCORING_RETRY_USER = """你上一次的输出存在以下问题：

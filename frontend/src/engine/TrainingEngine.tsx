@@ -264,7 +264,7 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 				return;
 			}
 			// 完成前置一律读服务端 manifest：前端呈现原因，不自己判断能否结束
-			// （docs/15 §十五 陷阱 2：`eligible` / `blockers` 只有服务端一份）。
+			// （`eligible` / `blockers` 只有服务端一份）。
 			const blockers = completionBlockers(manifest);
 			if (blockers.length > 0) {
 				const [first] = blockers;

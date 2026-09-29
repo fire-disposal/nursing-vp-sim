@@ -32,7 +32,7 @@ export const AI_PEDAGOGY_FIELDS: AiFieldDef[] = [
 	{ key: "hidden_info", label: "隐藏信息" },
 	{ key: "required_inquiries", label: "必询要点" },
 	{ key: "deep_background", label: "深层背景" },
-	// 查体锚点的唯一落点是 Activity 声明（docs/15 §四）；旧的顶层 exam_anchors 已退场。
+	// 查体锚点的唯一落点是 Activity 声明；旧的顶层 exam_anchors 已退场。
 	{ key: "activities.physical_exam.config", label: "查体锚点" },
 	{ key: "example_dialogues", label: "示例对话" },
 ];

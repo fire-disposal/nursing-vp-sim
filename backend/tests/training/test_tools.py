@@ -12,7 +12,6 @@ from modules.training.activities import ACTIVITY_BINDINGS, activity_config
 from modules.training.patient_ai.emotion.events import EmotionEventType
 from modules.training.tools.base import ToolContext
 from modules.training.tools.exam_emotion import apply_exam_emotion, derive_exam_emotion_events
-from modules.training.tools.nursing_diagnosis import NursingDiagnosisHandler
 from modules.training.tools.nursing_record import NursingRecordHandler
 from modules.training.tools.physical_exam import PhysicalExamHandler
 from modules.training.tools.quiz import QuizHandler
@@ -65,7 +64,7 @@ class TestActivityConfig:
         assert activity_config({"activities": {"quiz": {}}}, "quiz") is None
 
     def test_legacy_tools_namespace_is_not_a_source(self):
-        """tools.* 是迁移前的旧形状：解析器只认 activities（docs/15 §四）。"""
+        """tools.* 是迁移前的旧形状：解析器只认 activities。"""
         assert activity_config({"tools": {"quiz": {"title": "旧格式"}}}, "quiz") is None
 
     def test_non_dict_case_data(self):
@@ -191,51 +190,6 @@ class TestQuiz:
 
         assert previous["quiz_answers"] == [{"question_id": "q1", "answer": "B", "correct": False}]
         assert ctx.record.runtime_state["quiz_answers"][0]["answer"] == "A"
-
-
-# ── nursing_diagnosis ─────────────────────────────────────────────────────
-
-
-_DIAGNOSIS_ACTIVITIES = {"nursing_diagnosis": {"config": {"enabled": True}}}
-
-
-class TestNursingDiagnosis:
-    @pytest.mark.asyncio
-    async def test_load_returns_options_and_saved(self):
-        handler = NursingDiagnosisHandler()
-        record = SimpleNamespace(
-            id=1,
-            user_id=10,
-            runtime_state={"nursing_diagnoses": [{"label": "疼痛"}]},
-            status="in_progress",
-            case_snapshot=_case(activities=_DIAGNOSIS_ACTIVITIES),
-            practice_snapshot={},
-        )
-        ctx = _ctx(record=record, case_data=_case(activities=_DIAGNOSIS_ACTIVITIES))
-        result = await handler.handle("load", {}, ctx)
-        assert result.ok is True
-        assert result.data["diagnoses"] == [{"label": "疼痛"}]
-        assert len(result.data["stems"]) > 0
-        assert len(result.data["factor_options"]) > 0
-        assert len(result.data["characteristic_options"]) > 0
-
-    @pytest.mark.asyncio
-    async def test_save_persists_to_runtime_state(self):
-        handler = NursingDiagnosisHandler()
-        ctx = _ctx(case_data=_case(activities=_DIAGNOSIS_ACTIVITIES))
-        diagnoses = [{"label": "体液不足"}]
-        result = await handler.handle("save", {"diagnoses": diagnoses}, ctx)
-        assert result.ok is True
-        assert result.data["diagnoses"] == diagnoses
-        assert ctx.record.runtime_state["nursing_diagnoses"] == diagnoses
-
-    @pytest.mark.asyncio
-    async def test_save_without_param_clears(self):
-        handler = NursingDiagnosisHandler()
-        ctx = _ctx(case_data=_case(activities=_DIAGNOSIS_ACTIVITIES))
-        result = await handler.handle("save", {}, ctx)
-        assert result.ok is True
-        assert result.data["diagnoses"] == []
 
 
 # ── nursing_record ────────────────────────────────────────────────────────
@@ -502,7 +456,8 @@ class TestRegistry:
 
     @pytest.mark.asyncio
     async def test_dispatch_routes_to_binding_handler(self):
-        result = await dispatch("nursing_diagnosis", "load", {}, _ctx())
+        cfg = {"questions": [{"id": "q1", "stem": "s", "options": [], "answer": "A"}]}
+        result = await dispatch("quiz", "load", {}, _ctx(case_data=_case(activities={"quiz": {"config": cfg}})))
         assert result.ok is True
 
     @pytest.mark.asyncio
@@ -513,7 +468,7 @@ class TestRegistry:
     @pytest.mark.asyncio
     async def test_unknown_command_raises_validation_error(self):
         with pytest.raises(ValidationError):
-            await dispatch("nursing_diagnosis", "nope", {}, _ctx())
+            await dispatch("quiz", "nope", {}, _ctx())
 
     @pytest.mark.asyncio
     async def test_handler_exception_wrapped(self, monkeypatch):

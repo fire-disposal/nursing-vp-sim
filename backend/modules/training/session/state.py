@@ -14,7 +14,7 @@
 
 | 键 | owner |
 |---|---|
-| ``exam_results`` / ``quiz_answers`` / ``nursing_diagnoses`` | Activity command（``tools/service.py`` 的行锁 + revision CAS 内） |
+| ``exam_results`` / ``quiz_answers`` | Activity command（``tools/service.py`` 的行锁 + revision CAS 内） |
 | ``scene`` | 会话创建写初值（``router/session.py:_create_record``）+ Activity command 写 vitals 增量 |
 | ``message_correction`` | 对话回合修正（``pipeline/middleware/persister.py``） |
 | ``patient_walkout`` / ``terminal`` | 会话终结（``session/finalize.py``） |

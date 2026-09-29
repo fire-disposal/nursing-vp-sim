@@ -51,9 +51,9 @@ def get_rubric_version_id(rubric_dict: dict) -> str:
 def rubric_content_id(rubric_dict: dict) -> str:
     """rubric **内容**身份：``{id}@{sha256(canonical json) 前 12}``。
 
-    ``version`` 是人工维护的版本号；它在历史上横跨多种量尺（docs/19 §2.3），不能作为
+    ``version`` 是人工维护的版本号；它在历史上横跨多种量尺，不能作为
     可比性证明。新增评分记录同时关联本内容身份，使「同一个 ``id@version`` 下改过锚点」
-    可被事后识别（docs/19 §4.4）。
+    可被事后识别。
     """
     hasher = hashlib.sha256(
         json.dumps(_canonical(rubric_dict), ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")

@@ -8,7 +8,7 @@ import type { SessionManifest } from "@/engine/manifest";
 import { useTrainingStore } from "@/stores/trainingStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 
-const bus = { on: vi.fn(() => () => {}), emit: vi.fn(), off: vi.fn(), listEvents: vi.fn(() => []) };
+const bus = { on: vi.fn(() => () => {}), emit: vi.fn(), off: vi.fn() };
 
 /** manifest 是服务端事实：测试把它放进原始 record（RQ 返回值）再渲染。 */
 function setSession(manifest: SessionManifest, record?: Parameters<typeof makeRecord>[0]) {
@@ -87,15 +87,9 @@ describe("ActivityRail（manifest 驱动的可达性）", () => {
 					artifact_kind: "nursing_record",
 					ui: { renderer: "nursing_record", placement: "side_panel", order: 10 },
 				}),
-				makeActivity("nursing_diagnosis", {
-					label: "护理诊断",
-					artifact_kind: "nursing_diagnosis",
-					ui: { renderer: "nursing_diagnosis", placement: "side_panel", order: 20 },
-				}),
 			],
 			artifacts: {
 				nursing_record: { required: true, state: "draft", submitted_at: null, updated_at: null },
-				nursing_diagnosis: { required: true, state: "empty", submitted_at: null, updated_at: null },
 			},
 		});
 
@@ -104,9 +98,7 @@ describe("ActivityRail（manifest 驱动的可达性）", () => {
 		// 状态必须**可见且可读**：角标点给出"要不要管"，accessibility name 给出具体状态；
 		// 图标下不再压一行 9px 微字（内容与 tooltip 完全重复且几乎不可读）
 		expect(screen.getByLabelText("护理记录（草稿未提交）")).toBeInTheDocument();
-		expect(screen.getByLabelText("护理诊断（未填写）")).toBeInTheDocument();
 		expect(screen.queryByText("草稿")).toBeNull();
-		expect(screen.queryByText("未填写")).toBeNull();
 	});
 
 	it("问诊清单不在侧栏重复：入口归患者卡的进度 chip", () => {

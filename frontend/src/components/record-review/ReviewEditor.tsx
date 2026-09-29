@@ -45,7 +45,7 @@ function seedScores(review: ScoreReviewResponse | null, rawScale: number): Recor
  *
  * 数据只来自 `GET /records/{id}/review` 的 `original_raw_detail_scores` + `raw_scale`：
  * `score.detail_scores` 是展示投影（item.max ≈ 0–5），拿它当复核基准会让「不改条目直接
- * 提交」不再恒等（docs/19 §4.2 第 6 条）。历史记录没有原始层时，服务端用展示层反推并
+ * 提交」不再恒等。历史记录没有原始层时，服务端用展示层反推并
  * 在 `review_basis` 里标明，这里必须把该说明原样告诉教师。
  */
 export default function ReviewEditor({

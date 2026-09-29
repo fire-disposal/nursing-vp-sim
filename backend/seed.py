@@ -203,8 +203,7 @@ def _seed_cases() -> None:
     databases initialised from an older revision. Rows a teacher has edited are
     left untouched and logged.
 
-    内置病例按「已发布」落库（部署即学生可用），并即时产生/推进 CaseRevision
-    （docs/15 §六）：仓库内容改动 = 一个新版本，旧训练按旧版本复盘。
+    内置病例按「已发布」落库（部署即学生可用），并即时产生/推进 CaseRevision：仓库内容改动 = 一个新版本，旧训练按旧版本复盘。
     """
     cases_dir = _PROJECT_ROOT / "data" / "cases"
     entries: list[tuple[str, dict]] = []
