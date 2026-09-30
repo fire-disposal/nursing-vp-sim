@@ -21,7 +21,9 @@ describe("formatDate", () => {
 
 describe("formatDateTime", () => {
 	it("formats date and time", () => {
-		const s = formatDateTime(new Date(2026, 5, 25, 14, 30, 0));
+		// 用显式偏移的瞬时构造，别用本地时间分量：后者在非 +08:00 的 runner 上必红
+		// （formatDateTime 按 Asia/Shanghai 渲染）
+		const s = formatDateTime(new Date("2026-06-25T14:30:00+08:00"));
 		expect(s).toContain("2026/6/25");
 		expect(s).toContain("14:30");
 	});
