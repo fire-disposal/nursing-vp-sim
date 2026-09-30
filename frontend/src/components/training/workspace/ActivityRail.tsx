@@ -1,5 +1,6 @@
 import { ActionIcon, Box, Indicator, Stack, Tooltip } from "@mantine/core";
 import { ACTIVITY_ICONS, DEFAULT_ACTIVITY_ICON } from "@/config/activity-display";
+import { WIDTH } from "@/config/layout-scale";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useIsMobile } from "@/hooks/useLayoutMode";
 import { useShortViewport } from "@/hooks/useShortViewport";
@@ -44,7 +45,7 @@ export function ActivityRail() {
 	const isMobile = useIsMobile();
 	const host = useWorkspaceHost();
 	// 视口不到 lg 时用窄面板：横屏手机/窄窗口也要给对话区留位置
-	const wideViewport = useMediaQuery("(min-width: 1200px)");
+	const wideViewport = useMediaQuery(`(min-width: ${WIDTH.rail}px)`);
 	useInitialActivityPanel();
 
 	const headerOffset = isShort || isMobile ? TRAINING_HEADER_HEIGHT.short : TRAINING_HEADER_HEIGHT.wide;

@@ -5,7 +5,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { Badge, Box, Button, Group, Paper, Select, Stack, Text, UnstyledButton } from "@mantine/core";
 import { IconCircleX, IconClipboardList, IconPlayerPlay, IconTrash } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { abandonRecord, deleteRecord, getRecords } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
@@ -18,8 +18,10 @@ import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
+import ScoreSourceBadge from "@/components/ui/score-source-badge";
 import { Table } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
+import { goTraining } from "@/utils/training-nav";
 
 type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
 
@@ -35,38 +37,12 @@ function recordStatus(r: TrainingRecordBrief): RecordStatus {
 
 const DIM = { color: "var(--mantine-color-dimmed)" } as const;
 
-/**
- * 列表里的「成绩来源」：以服务端返回的 `score_reviewed` 为准（有效分 = COALESCE(复核分, AI 分)）。
- *
- * 降级/异常标记**不在列表载荷里**（TrainingRecordBrief 没有 source/fallback 字段），
- * 所以这里只声明 AI ／ 教师两种来源，并在页脚说明降级标记要看记录详情——不用猜测补一个假标签。
- */
-function scoreSourceBadge(r: TrainingRecordBrief) {
-	if (r.score_total == null) {
-		return (
-			<Text component="span" size="xs" c="dimmed" opacity={0.4}>
-				—
-			</Text>
-		);
-	}
-	// 降级分不得在列表里冒充正常成绩：来源由服务端下发（score_source/score_degraded）
-	if (r.score_degraded || r.score_source === "fallback") {
-		return (
-			<Badge variant="light" color="red" size="sm">
-				系统降级
-			</Badge>
-		);
-	}
-	return (
-		<Badge variant="light" color={r.score_reviewed ? "green" : "brand"} size="sm">
-			{r.score_reviewed ? "教师复核" : "AI 初评"}
-		</Badge>
-	);
-}
-
 export default function History() {
 	const [searchParams, setSearchParams] = useSearchParams();
 	const navigate = useNavigate();
+	const location = useLocation();
+	// 进入训练页记来源页（含当前筛选的 URL），训练壳出口据此回跳到这里而非固定路径
+	const trainingFrom = location.pathname + location.search;
 	const toast = useToast();
 	const { confirm } = useConfirm();
 	const queryClient = useQueryClient();
@@ -273,7 +249,7 @@ export default function History() {
 																>
 																	{r.score_total != null ? `${r.score_total} 分` : "评分中"}
 																</Text>
-																{scoreSourceBadge(r)}
+																<ScoreSourceBadge record={r} />
 															</Stack>
 														) : status === "abandoned" ? (
 															<Text size="xs" c="dimmed">
@@ -294,7 +270,7 @@ export default function History() {
 															style={{ flex: 1 }}
 															onClick={(e) => {
 																e.stopPropagation();
-																navigate(`/training/${r.id}`);
+																goTraining(navigate, r.id, trainingFrom);
 															}}
 														>
 															<IconPlayerPlay size={12} /> 继续
@@ -422,7 +398,7 @@ export default function History() {
 													)}
 												</Table.Td>
 												<Table.Td>
-													{scoreSourceBadge(r)}
+													<ScoreSourceBadge record={r} />
 												</Table.Td>
 												<Table.Td>
 													<Group gap="xs" wrap="nowrap">
@@ -431,7 +407,7 @@ export default function History() {
 																<Button
 																	variant="transparent"
 																	size="xs"
-																	onClick={() => navigate(`/training/${r.id}`)}
+																	onClick={() => goTraining(navigate, r.id, trainingFrom)}
 																>
 																	继续训练
 																</Button>
@@ -472,7 +448,7 @@ export default function History() {
 						</Box>
 					</Paper>
 					<Text size="xs" c="dimmed">
-						成绩来源按记录列表的复核状态显示（教师复核优先，其次 AI 初评）；系统降级标记与原始条目层只在记录详情中可见。分数为数值参考，不代表能力等第。
+						成绩来源来自服务端的复核状态（教师复核优先，其次 AI 初评），降级分单独标为「系统降级」；原始条目层在记录详情中可见。分数为数值参考，不代表能力等第。
 					</Text>
 				</>
 			)}

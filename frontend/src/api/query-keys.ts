@@ -19,6 +19,9 @@ export const queryKeys = {
 		all: ["training"] as const,
 		records: (params: Record<string, unknown>) =>
 			[...queryKeys.training.all, "records", params] as const,
+		/** 列表的集合统计：与 records 同参数，同一筛选共用一个缓存条目。 */
+		recordsSummary: (params: Record<string, unknown>) =>
+			[...queryKeys.training.all, "records-summary", params] as const,
 		detail: (id: number | string | null | undefined) =>
 			[...queryKeys.training.all, "detail", String(id ?? "")] as const,
 	},
@@ -55,13 +58,11 @@ export const queryKeys = {
 	},
 	stats: {
 		all: ["stats"] as const,
-		trends: (period: string) =>
-			[...queryKeys.stats.all, "trends", period] as const,
+		/** 趋势窗口就是 `date_from`（undefined = 不限）；后端不再有"周期"概念。 */
+		trends: (dateFrom?: string) =>
+			[...queryKeys.stats.all, "trends", dateFrom ?? null] as const,
 		teacherSummary: (params: Record<string, unknown>) =>
 			[...queryKeys.stats.all, "teacherSummary", params] as const,
-		ranking: (params: Record<string, unknown>) =>
-			[...queryKeys.stats.all, "ranking", params] as const,
-		admin: () => [...queryKeys.stats.all, "admin"] as const,
 	},
 	admin: {
 		auditLogs: {

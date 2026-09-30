@@ -65,6 +65,8 @@ class ScoreboardRankingItem(BaseModel):
     """学生平均分（保留 1 位）。"""
     best_score: float | None = None
     """单次最高分。"""
+    total_score: float | None = None
+    """该范围内有效成绩的总分（``COALESCE(复核分, AI 分)`` 求和，排除兜底分）。"""
     avg_duration_seconds: int | None = None
     """平均训练用时（秒）。"""
     training_count: int = 0

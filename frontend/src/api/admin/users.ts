@@ -6,8 +6,6 @@ type Schemas = components["schemas"];
 export const getUsers = (params: Record<string, unknown> = {}) =>
 	api.get<Schemas["PaginatedResponse_UserBrief_"]>("/admin/users", { params });
 
-export const getStats = () => api.get<Schemas["AdminStats"]>("/admin/stats");
-
 export const updateUser = (
 	id: number | string,
 	data: Schemas["UserUpdateRequest"],

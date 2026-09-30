@@ -25,6 +25,21 @@ body {
 	font-variant-numeric: tabular-nums;
 }
 
+/* ── 壳内容容器（AppShell.Main 内）──
+   内边距的唯一来源，并把它暴露成 --shell-content-pad：
+   需要"刚好铺满内容区"的页面（如 QA 工作台）靠它算高度，
+   不要再写 `calc(100dvh - 6.5rem)` 这类魔法值（壳尺寸一变就错位）。 */
+.shell-content {
+	--shell-content-pad: var(--mantine-spacing-sm);
+	padding: var(--shell-content-pad);
+}
+
+@media (min-width: 48em) {
+	.shell-content {
+		--shell-content-pad: var(--mantine-spacing-lg);
+	}
+}
+
 /* 暗色模式：边框对齐迁移前观感（半透明白而非纯灰线） */
 [data-mantine-color-scheme="dark"] {
 	--mantine-color-default-border: rgba(255, 255, 255, 0.1);
@@ -75,7 +90,9 @@ h1, h2, h3 {
 
 /* 列表行与病例卡 hover 抬升 */
 .hover-row:hover {
-	background: var(--mantine-color-gray-0);
+	/* 用 scheme 感知的 token（浅=gray-0 / 深=就近的 hover 底），别写死 gray-0：
+	   写死会在深色模式下把整行刷成近白底。 */
+	background: var(--mantine-color-default-hover);
 }
 .case-card:hover {
 	box-shadow: var(--mantine-shadow-sm);

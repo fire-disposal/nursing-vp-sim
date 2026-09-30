@@ -1,6 +1,6 @@
 """班级成员（``ClassMembership``，表名沿用 ``user_class``）管理 + **可复用成员范围查询**。
 
-读路径口径（唯一来源，供 admin/stats、scoreboard、assignments 复用）：
+读路径口径（唯一来源，供 scoreboard、assignments、teacher-summary 复用）：
 
 - **学生名单 / 作业受众候选 / 班级排名 / 完成率** → ``member_role='student'`` 的成员；
 - **teacher membership** 是「教师在哪个班」的数据来源。本轮只落地数据与 API，

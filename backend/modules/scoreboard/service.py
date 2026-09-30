@@ -62,6 +62,7 @@ _MEDIUM_MIN = NUMERIC_BANDS[1][1]
 _SORT_COLUMNS: dict[str, str] = {
     "avg_score": "avg_score",
     "best_score": "best_score",
+    "total_score": "total_score",
     "avg_duration": "avg_duration",
     "training_count": "training_count",
     # progress 需要 Python 侧全量计算，单独处理
@@ -145,12 +146,15 @@ class ScoreboardService:
         return conditions
 
     def _stats_query(self, conditions: list):
-        """按学生分组的统计查询（平均分/最高分/平均用时/次数/病例数）。"""
+        """按学生分组的统计查询（平均分/最高分/总分/平均用时/次数/病例数）。"""
         return (
             self.db.query(
                 TrainingRecord.user_id.label("user_id"),
                 func.avg(grade_expr()).label("avg_score"),
                 func.max(grade_expr()).label("best_score"),
+                # 总分与平均分同一次聚合、同一 grade_expr() 口径（复核分优先、排除兜底分）；
+                # 拆成第二条查询会出现两条查询之间数据变动的窗口，也会重复一遍口径。
+                func.sum(grade_expr()).label("total_score"),
                 func.avg(func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time)).label(
                     "avg_duration"
                 ),
@@ -313,6 +317,7 @@ class ScoreboardService:
                     class_name=class_names.get(r.user_id, ""),
                     avg_score=avg_score,
                     best_score=round(float(r.best_score), 1) if r.best_score is not None else None,
+                    total_score=round(float(r.total_score), 1) if r.total_score is not None else None,
                     avg_duration_seconds=round(float(r.avg_duration)) if r.avg_duration is not None else None,
                     training_count=int(r.training_count),
                     case_count=int(r.case_count),

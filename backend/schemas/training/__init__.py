@@ -15,6 +15,7 @@ from schemas.training.records import (
     ScoreReviewItem,
     TrainingRecordBrief,
     TrainingRecordDetail,
+    TrainingRecordSummary,
 )
 from schemas.training.scoring import ScoringStatusResponse, ScoringTriggerResponse
 from schemas.training.session import (
@@ -47,6 +48,7 @@ __all__ = [
     "TrainingNotificationItem",
     "TrainingRecordBrief",
     "TrainingRecordDetail",
+    "TrainingRecordSummary",
     "TrainingStartRequest",
     "TrainingStartResponse",
 ]

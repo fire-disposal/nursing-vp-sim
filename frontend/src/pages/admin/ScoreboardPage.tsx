@@ -39,6 +39,7 @@ const LIMIT = 50;
 const SORT_OPTIONS: { value: string; label: string }[] = [
 	{ value: "avg_score", label: "平均分" },
 	{ value: "best_score", label: "最高分" },
+	{ value: "total_score", label: "总分" },
 	{ value: "avg_duration", label: "平均用时" },
 	{ value: "training_count", label: "训练次数" },
 	{ value: "progress", label: "进步幅度" },
@@ -390,6 +391,11 @@ export default function ScoreboardPage() {
 			key: "best_score",
 			header: "最高分",
 			render: (r) => rightText(r.best_score ?? "-"),
+		},
+		{
+			key: "total_score",
+			header: "总分",
+			render: (r) => rightText(r.total_score ?? "-"),
 		},
 		{
 			key: "avg_duration",

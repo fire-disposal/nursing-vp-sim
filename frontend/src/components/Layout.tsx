@@ -1,5 +1,5 @@
-import { ActionIcon, Box, Button, Group, Modal, Skeleton, SimpleGrid, Stack, Text, Title } from "@mantine/core";
-import { IconAlertTriangle, IconMessageCircle, IconStethoscope, IconX } from "@tabler/icons-react";
+import { Box, Button, Modal, Skeleton, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import { IconAlertTriangle, IconMessageCircle, IconStethoscope } from "@tabler/icons-react";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { useFeedback } from "@/components/FeedbackProvider";
@@ -7,15 +7,15 @@ import AdaptiveShell from "@/components/shell/AdaptiveShell";
 import { NAV_ITEMS } from "@/components/shell/navigation";
 
 import useAuthStore from "@/stores/authStore";
-import { useUiPrefsStore } from "@/stores/uiPrefsStore";
 import { isAdminPermissions } from "@/utils/permissions";
 import { APP_VERSION } from "@/version";
 
 /**
  * Layout — 应用层编排
  *
- * 职责：权限过滤、登出、About 对话框、移动端提示。
- * 不再包含路由判断或 Shell 选择——这些委托给 AdaptiveShell。
+ * 职责：权限过滤、登出、About 对话框。
+ * 不再包含路由判断或 Shell 选择——这些委托给 AdaptiveShell；
+ * 移动端提示也不再挂在这里（它在壳之外，会顶开 100dvh 的沉浸页），改由 ManageShell 在内容流内渲染。
  */
 function RouteContentLoader() {
 	return (
@@ -118,10 +118,6 @@ export default function Layout() {
 	const logout = useAuthStore((s) => s.logout);
 	const permKey = permissions.join(",");
 	const [aboutOpen, setAboutOpen] = useState(false);
-	const mobileHintDismissed = useUiPrefsStore((s) => s.mobileHintDismissed);
-	const setMobileHintDismissed = useUiPrefsStore(
-		(s) => s.setMobileHintDismissed,
-	);
 	const { openFeedback } = useFeedback();
 
 	const hasAdminPerm = isAdminPermissions(permissions);
@@ -143,35 +139,6 @@ export default function Layout() {
 
 	return (
 		<>
-			{/* Mobile hint — admin only */}
-			{hasAdminPerm && !mobileHintDismissed && (
-				<Group
-					gap={8}
-					px="md"
-					py={4}
-					hiddenFrom="sm"
-					wrap="nowrap"
-					style={{
-						flexShrink: 0,
-						borderBottom: "1px solid var(--mantine-color-yellow-outline)",
-						background: "var(--mantine-color-yellow-light)",
-					}}
-				>
-					<Text size="xs" c="var(--mantine-color-yellow-light-color)" style={{ flex: 1 }}>
-						管理后台建议使用桌面端访问以获得完整体验
-					</Text>
-					<ActionIcon
-						variant="transparent"
-						color="var(--mantine-color-yellow-light-color)"
-						size="xs"
-						onClick={() => setMobileHintDismissed(true)}
-						aria-label="关闭提示"
-					>
-						<IconX size={13} />
-					</ActionIcon>
-				</Group>
-			)}
-
 			<DeployBanner />
 			<AdaptiveShell
 				userLinks={userLinks}

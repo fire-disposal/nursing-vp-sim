@@ -15,7 +15,6 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/api/admin/users", () => ({
 	getUsers: mocks.getUsers,
-	getStats: vi.fn(),
 	updateUser: mocks.updateUser,
 	batchCreateUsers: vi.fn(),
 	deleteUser: mocks.deleteUser,

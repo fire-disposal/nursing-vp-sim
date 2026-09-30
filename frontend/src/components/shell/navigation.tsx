@@ -6,6 +6,7 @@ import {
 	IconCoins,
 	IconFileSearch,
 	IconFileText,
+	IconKey,
 	IconMessageCircle,
 	IconRobot, // lucide `Bot` 无同名 tabler icon，语义等价为机器人
 	IconSchool,
@@ -20,6 +21,7 @@ import {
 	IconVersions,
 } from "@tabler/icons-react";
 import { type ComponentType, type CSSProperties, lazy, type ReactNode } from "react";
+import { Navigate } from "react-router-dom";
 import type { Permission } from "@/utils/permissions";
 
 const DashboardHome = lazy(() => import("@/pages/DashboardHome"));
@@ -31,7 +33,7 @@ const VersionsPage = lazy(() => import("@/pages/admin/VersionsPage"));
 const TeacherRecordDetail = lazy(() => import("@/pages/admin/TeacherRecordDetail"));
 const RecordDetail = lazy(() => import("@/pages/RecordDetail"));
 const QA = lazy(() => import("@/pages/QA"));
-const StatsPage = lazy(() => import("@/pages/admin/StatsPage"));
+const AdminSecrets = lazy(() => import("@/pages/admin/SecretsPage"));
 const MyFeedbackPage = lazy(() => import("@/pages/MyFeedback"));
 const NotificationInboxPage = lazy(() => import("@/pages/NotificationInboxPage"));
 const Profile = lazy(() => import("@/pages/Profile"));
@@ -71,7 +73,14 @@ const ScenarioConsole = lazy(() => import("@/scenario/ScenarioConsole"));
 // 内容 case_manage / 数据 stats_view）
 const ScenarioAdminPage = lazy(() => import("@/scenario/admin/ScenarioAdminPage"));
 
-export type Activity = "practice" | "review" | "manage";
+/**
+ * 当前的「活动」——决定**外壳形态**（`AdaptiveShell` 按它选壳）。
+ *
+ * 只有两个值，因为只有两种壳：沉浸会话（练习/情境）与常规应用壳（浏览、配置、审阅都在其中）。
+ * 2026-09-30 审计删掉了从没有生产者的 `"review"`：声明了三态却 31 条路由都是 `manage`，
+ * 唯一的分支只有 `practice`——留着它只会让人以为存在第三种壳。
+ */
+export type Activity = "practice" | "manage";
 
 export type NavSection = "user" | "admin";
 
@@ -101,13 +110,29 @@ export const NAV_GROUPS: NavGroupDef[] = [
 	{ key: "system", label: "运维", icon: IconActivity, defaultOpen: false },
 ];
 
+/**
+ * 移动端底部导航条目（**唯一来源**：底部 Tab 由本字段派生，不再另维护一份清单）。
+ *
+ * - `tier`：学生轨与教师轨各自一组 Tab（教师的日常是"看板/待批阅/作业"，与学生的
+ *   "训练/记录/问答"不是同一组，硬塞在一起会同时得罪两边）；两轨互不混排。
+ * - `to`：需要在 Tab 上落一个带筛选的入口时覆盖路由地址（如"待批阅"→ 待复核筛选）。
+ */
+export interface MobileTab {
+	order: number;
+	tier: "student" | "staff";
+	to?: string;
+	label?: string;
+	/** 除自身路径外还算"高亮"的其他路径前缀（如记录详情仍高亮"记录"）。 */
+	activeOn?: string[];
+}
+
 export interface NavMeta {
 	label: string;
-	shortLabel?: string;
 	icon: NavIcon;
 	section: NavSection;
 	group?: NavGroupKey;
 	end?: boolean;
+	mobile?: MobileTab;
 	/** 条目级权限门：用于"路由级不能判权限、但导航要有门"的页面（如 `/scenario-admin`
 	 *  需要 `case_manage` 与 `stats_view` 两个键，路由级只判一个会误挡另一半人）。
 	 *  与路由级 `permission` 二选一；两者都给时**条目级优先**。 */
@@ -136,6 +161,7 @@ export const APP_ROUTES: AppRoute[] = [
 			label: "训练",
 			icon: IconStethoscope,
 			section: "user",
+			mobile: { order: 10, tier: "student" },
 		},
 	},
 	{
@@ -154,7 +180,7 @@ export const APP_ROUTES: AppRoute[] = [
 		// （舞台 / 对话 / 输入这一块），不是把全站导航拿掉——2026-09-28 反馈：手机上没了底部 Tab，
 		// 学生既切不回训练/记录，观感也格格不入。控制台因此不再自带返回，出口交给 App 导航。
 		activity: "manage",
-		nav: { label: "情境", icon: IconSitemap, section: "user" },
+		nav: { label: "情境", icon: IconSitemap, section: "user", mobile: { order: 20, tier: "student" } },
 	},
 	{
 		path: "/history",
@@ -164,16 +190,19 @@ export const APP_ROUTES: AppRoute[] = [
 			label: "记录",
 			icon: IconClipboardList,
 			section: "user",
+			mobile: { order: 30, tier: "student", activeOn: ["/record"] },
 		},
 	},
 	// Sub-pages under 记录 — not primary nav items.
 	{ path: "/record/:id", element: <RecordDetail />, activity: "manage" },
-	{ path: "/admin/stats", element: <StatsPage />, permission: "stats_view", activity: "manage" },
+	// 训练统计页已并入教学看板（趋势图与 per-student 训练量都搬过去了）——保留旧地址重定向，
+	// 否则收藏/旧文档里的 /admin/stats 会被兜底路由弹到登录页。
+	{ path: "/admin/stats", element: <Navigate to="/admin" replace />, activity: "manage" },
 	// Sub-pages under 我的 — not primary nav items.
 	{ path: "/my-feedback", element: <MyFeedbackPage />, activity: "manage" },
 	{ path: "/notifications", element: <NotificationInboxPage />, activity: "manage" },
 	// QA — AI 护理导师，学生端独立 Tab。
-	{ path: "/qa", element: <QA />, permission: "qa_access", activity: "manage", nav: { label: "问答", icon: IconRobot, section: "user", shortLabel: "问答" } },
+	{ path: "/qa", element: <QA />, permission: "qa_access", activity: "manage", nav: { label: "问答", icon: IconRobot, section: "user", mobile: { order: 40, tier: "student" } } },
 	{
 		path: "/profile",
 		element: <Profile />,
@@ -182,6 +211,8 @@ export const APP_ROUTES: AppRoute[] = [
 			label: "我的",
 			icon: IconUser,
 			section: "user",
+			// 通知与「我的反馈」都从「我的」进入（三者同一子 tab 栏），底部 Tab 高亮跟着走
+			mobile: { order: 50, tier: "student", activeOn: ["/notifications", "/my-feedback"] },
 		},
 	},
 	// ── Admin area ──
@@ -239,7 +270,7 @@ export const APP_ROUTES: AppRoute[] = [
 		element: <AssignmentsPage />,
 		permission: "assignment_manage",
 		activity: "manage",
-		nav: { label: "作业管理", icon: IconClipboardList, section: "admin", group: "teaching" },
+		nav: { label: "作业管理", icon: IconClipboardList, section: "admin", group: "teaching", mobile: { order: 30, tier: "staff" } },
 	},
 	{
 		path: "/admin/assignments/:id",
@@ -268,11 +299,12 @@ export const APP_ROUTES: AppRoute[] = [
 	{
 		path: "/admin",
 		element: <Admin />,
-		// 数据来自 /api/admin/stats（要求 stats_view）→ 导航门禁必须与之一致，
-		// 否则"只有 score_review"的角色能进页面但统计区 403（2026-09-26 审计 RB-5）
+		// 看板数据来自 /api/stats/*（trends/teacher-summary）与 /api/training/records/summary，
+		// 前者要求 stats_view → 导航门禁必须与之一致，否则"只有 score_review"的角色能进页面但统计区 403
+		// （2026-09-26 审计 RB-5）
 		permission: "stats_view",
 		activity: "manage",
-		nav: { label: "教学看板", icon: IconChartBar, section: "admin", group: "teaching", end: true },
+		nav: { label: "教学看板", icon: IconChartBar, section: "admin", group: "teaching", end: true, mobile: { order: 10, tier: "staff" } },
 	},
 	{
 		path: "/admin/versions",
@@ -286,7 +318,8 @@ export const APP_ROUTES: AppRoute[] = [
 		element: <TeacherRecordsPage />,
 		permission: "score_review",
 		activity: "manage",
-		nav: { label: "训练记录", icon: IconFileText, section: "admin", group: "teaching" },
+		// 手机端第一生产力是"批阅"：Tab 直接落到待复核筛选（该筛选此前静默失效，已修）
+		nav: { label: "训练记录", icon: IconFileText, section: "admin", group: "teaching", mobile: { order: 20, tier: "staff", to: "/admin/records?review_status=pending", label: "待批阅" } },
 	},
 	{
 		path: "/admin/records/:id",
@@ -333,6 +366,15 @@ export const APP_ROUTES: AppRoute[] = [
 		permission: "api_manage",
 		activity: "manage",
 		nav: { label: "系统通知", icon: IconSpeakerphone, section: "admin", group: "system" },
+	},
+	{
+		path: "/admin/secrets",
+		element: <AdminSecrets />,
+		// 凭据管理从「成本管理」的页签里搬出来：管密钥的人该在运维组看到它，
+		// 而不是藏在一个叫"成本"的标题下。权限保持 llm_monitor —— **能进的人与搬迁前完全一致**。
+		permission: "llm_monitor",
+		activity: "manage",
+		nav: { label: "API 密钥", icon: IconKey, section: "admin", group: "system" },
 	},
 	{
 		path: "/admin/audit-logs",

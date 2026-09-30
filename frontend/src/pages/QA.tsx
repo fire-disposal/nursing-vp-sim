@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	IconBook2,
 	IconChevronRight,
-	IconMenu2,
+	IconHistory,
 	IconMessageCircle,
 	IconPlus,
 	IconRobot,
@@ -11,7 +11,7 @@ import {
 	IconTrash,
 	IconX,
 } from "@tabler/icons-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Avatar, Box, Button, Divider, Drawer, Group, ScrollArea, Stack, Text, ThemeIcon, Title, Typography, UnstyledButton } from "@mantine/core";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -30,6 +30,8 @@ import EmptyState from "@/components/ui/empty-state";
 import { Textarea } from "@mantine/core";
 import { getNurseAvatar } from "@/utils/avatar";
 import { useConfirm } from "@/components/ui/confirm";
+import PageHeader from "@/components/ui/page-header";
+import { useIsMobile } from "@/hooks/useLayoutMode";
 
 type QAMessageItem = components["schemas"]["QAMessageItem"];
 type Citation = NonNullable<QAMessageItem["citations"]>[number];
@@ -59,12 +61,18 @@ const SUGGESTIONS = [
 
 export default function QA() {
 	const queryClient = useQueryClient();
+	const isMobile = useIsMobile();
 	const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
 	const [messages, setMessages] = useState<QAMessageItem[]>([]);
 	const [input, setInput] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [streamingAnswer, setStreamingAnswer] = useState("");
-	const [showSidebar, setShowSidebar] = useState(false);
+	// 对话记录面板：桌面常驻左栏（可折叠），手机是抽屉（可开合）。共用一份状态，
+	// 模式切换时回到该模式的默认值——否则桌面（默认展开）缩到手机宽度会让抽屉自己弹出来。
+	const [historyOpen, setHistoryOpen] = useState(() => !isMobile);
+	useEffect(() => {
+		setHistoryOpen(!isMobile);
+	}, [isMobile]);
 	const abortRef = useRef<AbortController | null>(null);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -77,14 +85,18 @@ export default function QA() {
 		staleTime: 30_000,
 	});
 
-	const activeSession = useMemo(
-		() => sessions.find((session) => session.id === activeSessionId),
-		[sessions, activeSessionId],
-	);
-
 	const loadSessions = useCallback(async () => {
 		await queryClient.invalidateQueries({ queryKey: queryKeys.qa.all });
 	}, [queryClient]);
+
+	const toggleHistory = useCallback(() => {
+		setHistoryOpen((open) => !open);
+	}, []);
+
+	// 手机选完会话/开新对话后收起抽屉；桌面左栏保持展开，不打扰正在进行的对话。
+	const closeHistory = useCallback(() => {
+		if (isMobile) setHistoryOpen(false);
+	}, [isMobile]);
 
 	useEffect(() => {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -104,12 +116,12 @@ export default function QA() {
 				setActiveSessionId(sessionId);
 				setMessages(res.data || []);
 				setStreamingAnswer("");
-				setShowSidebar(false);
+				closeHistory();
 			} catch {
 				toast.error("加载会话消息失败");
 			}
 		},
-		[toast],
+		[toast, closeHistory],
 	);
 
 	const sendMessage = useCallback(
@@ -246,7 +258,7 @@ export default function QA() {
 		setActiveSessionId(null);
 		setMessages([]);
 		setStreamingAnswer("");
-		setShowSidebar(false);
+		closeHistory();
 		setTimeout(() => inputRef.current?.focus(), 0);
 	};
 
@@ -255,110 +267,117 @@ export default function QA() {
 	return (
 		<Box
 			component="main"
-			style={{ height: "calc(100dvh - 6.5rem)", minHeight: "32rem", display: "flex", position: "relative" }}
+			style={{
+				// 高度由壳暴露的变量推导：头部/底栏/内容内边距任何一个变了，这里自动跟随
+				height: "calc(100dvh - var(--app-shell-header-offset, 0px) - var(--app-shell-footer-offset, 0px) - var(--shell-content-pad, 0px) * 2)",
+				minHeight: "24rem",
+				display: "flex",
+				flexDirection: "column",
+			}}
 		>
-			<Box
-				visibleFrom="md"
-				style={{
-					width: 304,
-					flexShrink: 0,
-					borderRight: "1px solid var(--mantine-color-default-border)",
-					background: "var(--mantine-color-default-hover)",
-					display: "flex",
-					flexDirection: "column",
-				}}
-			>
-				<QASidebar
-					activeSessionId={activeSessionId}
-					handleDeleteSession={handleDeleteSession}
-					handleNewChat={handleNewChat}
-					isError={isError}
-					loadSessions={loadSessions}
-					sessions={sessions}
-					switchSession={switchSession}
-					onClose={() => setShowSidebar(false)}
-				/>
-			</Box>
+			<PageHeader
+				title="护理问答工作台"
+				subtitle="结合教材原文与临床判断，随时追问护理问题"
+				icon={IconRobot}
+				actions={
+					<>
+						<Button
+							variant="default"
+							size="sm"
+							w={36}
+							h={36}
+							p={0}
+							onClick={toggleHistory}
+							aria-label={historyOpen && !isMobile ? "收起对话记录" : "打开对话记录"}
+						>
+							<IconHistory size={17} />
+						</Button>
+						<Button variant="outline" size="sm" onClick={handleNewChat}>
+							<IconPlus size={15} />
+							新对话
+						</Button>
+					</>
+				}
+			/>
 
-			<Drawer
-				opened={showSidebar}
-				onClose={() => setShowSidebar(false)}
-				position="left"
-				size="19rem"
-				padding={0}
-				withCloseButton={false}
-			>
-				<QASidebar
-					activeSessionId={activeSessionId}
-					handleDeleteSession={handleDeleteSession}
-					handleNewChat={handleNewChat}
-					isError={isError}
-					loadSessions={loadSessions}
-					sessions={sessions}
-					switchSession={switchSession}
-					onClose={() => setShowSidebar(false)}
-				/>
-			</Drawer>
-
-			<Box component="section" style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column" }}>
-				<Group
-					gap="sm"
-					wrap="nowrap"
-					px="md"
-					style={{ minHeight: 64, borderBottom: "1px solid var(--mantine-color-default-border)", flexShrink: 0 }}
-				>
-					<Button
-						variant="subtle" color="gray"
-						size="sm" w={36} h={36} p={0}
-						hiddenFrom="md"
-						onClick={() => setShowSidebar(true)}
-						aria-label="打开对话记录"
+			<Box style={{ flex: 1, minHeight: 0, display: "flex" }}>
+				{!isMobile && historyOpen && (
+					<Box
+						style={{
+							width: 304,
+							flexShrink: 0,
+							borderRight: "1px solid var(--mantine-color-default-border)",
+							background: "var(--mantine-color-default-hover)",
+							display: "flex",
+							flexDirection: "column",
+						}}
 					>
-						<IconMenu2 size={17} />
-					</Button>
-					<ThemeIcon size={40} radius="md" variant="light" color="blue">
-						<IconRobot size={20} />
-					</ThemeIcon>
-					<Box style={{ minWidth: 0, flex: 1 }}>
-						<Title order={1} size="md" lineClamp={1}>
-							护理问答工作台
-						</Title>
-						<Text size="xs" c="dimmed" truncate hiddenFrom="sm">
-							{activeSession?.title || "教材检索、护理推理和操作规范集中在一个对话里"}
-						</Text>
+						<QASidebar
+							activeSessionId={activeSessionId}
+							handleDeleteSession={handleDeleteSession}
+							handleNewChat={handleNewChat}
+							isError={isError}
+							loadSessions={loadSessions}
+							sessions={sessions}
+							switchSession={switchSession}
+							onClose={() => setHistoryOpen(false)}
+						/>
 					</Box>
-					<Button variant="outline" size="sm" onClick={handleNewChat}>
-						<IconPlus size={15} />
-						新对话
-					</Button>
-				</Group>
+				)}
 
-				<Box px="md" py="md" style={{ minHeight: 0, flex: 1, overflowY: "auto" }}>
-					{messages.length === 0 ? (
-						<QAWelcome onAsk={sendMessage} />
-					) : (
-						<Stack gap="lg" mx="auto" maw={896}>
-							{messages.map((message, index) => (
-								<MessageBubble
-									key={`${message.id}-${index}`}
-									message={message}
-									nurseAvatar={nurseAvatar}
-								/>
-							))}
-							{loading && <AssistantDraft content={streamingAnswer} />}
-							<div ref={messagesEndRef} />
-						</Stack>
-					)}
+				{isMobile && (
+					<Drawer
+						opened={historyOpen}
+						onClose={() => setHistoryOpen(false)}
+						position="left"
+						size="19rem"
+						padding={0}
+						withCloseButton={false}
+					>
+						<QASidebar
+							activeSessionId={activeSessionId}
+							handleDeleteSession={handleDeleteSession}
+							handleNewChat={handleNewChat}
+							isError={isError}
+							loadSessions={loadSessions}
+							sessions={sessions}
+							switchSession={switchSession}
+							onClose={() => setHistoryOpen(false)}
+						/>
+					</Drawer>
+				)}
+
+				<Box
+					component="section"
+					style={{ minWidth: 0, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}
+				>
+					<Box px="md" py="md" style={{ minHeight: 0, flex: 1, overflowY: "auto" }}>
+						{messages.length === 0 ? (
+							<QAWelcome onAsk={sendMessage} />
+						) : (
+							<Stack gap="lg" mx="auto" maw={896}>
+								{messages.map((message, index) => (
+									<MessageBubble
+										key={`${message.id}-${index}`}
+										message={message}
+										nurseAvatar={nurseAvatar}
+									/>
+								))}
+								{loading && <AssistantDraft content={streamingAnswer} />}
+								<div ref={messagesEndRef} />
+							</Stack>
+						)}
+					</Box>
+
+					<Composer
+						input={input}
+						inputRef={inputRef}
+						loading={loading}
+						onInput={setInput}
+						onKeyDown={handleKeyDown}
+						onSend={() => sendMessage()}
+					/>
 				</Box>
-
-				<Composer
-					input={input}
-					inputRef={inputRef}
-					loading={loading}
-					onInput={setInput}
-					onKeyDown={handleKeyDown}
-					onSend={() => sendMessage()}
-				/>
 			</Box>
 		</Box>
 	);
@@ -386,18 +405,12 @@ function QASidebar({
 	return (
 		<Box style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
 			<Group justify="space-between" wrap="nowrap" px="md" py="md">
-				<Box>
-					<Text size="xs" c="dimmed" fw={500}>
-						QA history
-					</Text>
-					<Title order={2} size="lg">
-						对话记录
-					</Title>
-				</Box>
+				<Title order={2} size="lg">
+					对话记录
+				</Title>
 				<Button
 					variant="subtle" color="gray"
 					size="sm" w={36} h={36} p={0}
-					hiddenFrom="md"
 					onClick={onClose}
 					aria-label="关闭对话记录"
 				>

@@ -102,7 +102,7 @@
 	font-size: var(--sc-fs-sm);
 }
 
-/* ≥ sm（Mantine 48em，与壳的内容内边距同步）：壳内边距升到 24/边 → 合计 48 */
+/* ≥ sm（Mantine 48em = WIDTH.phoneShell，768px，与壳的内容内边距同步）：壳内边距升到 24/边 → 合计 48 */
 @media (min-width: 48em) {
 	.sc-root {
 		--sc-chrome: calc(
@@ -182,6 +182,7 @@
 	flex-direction: column;
 }
 
+/* WIDTH.scenarioWide (1081px)：宽屏多列面板 */
 @media (min-width: 1081px) {
 	.sc-side {
 		position: sticky;
@@ -192,7 +193,7 @@
 	}
 }
 
-/* 窄屏：侧栏让出主位。
+/* 窄屏（WIDTH.scenarioNarrow = 760px）：侧栏让出主位。
    - 学生控制台（可召唤，`data-sheet`）：整块默认不占空间，由页头入口升成底部抽屉（见文件末尾移动端一节）。
    - 管理侧回放（常驻）：保持"整块排在主列之后"，不改成抽屉。 */
 @media (max-width: 760px) {
@@ -383,7 +384,7 @@
 	border-radius: var(--sc-radius-container);
 }
 
-/* 桌面：仪器与画面并列一栏（像病房里画面旁边的一台机器）。
+/* 桌面（WIDTH.scenarioNarrow = 760px 之上）：仪器与画面并列一栏（像病房里画面旁边的一台机器）。
    **只有真有设备时才切双栏**：没有设备就不该留一条空栏。 */
 @media (min-width: 760px) {
 	.sc-scene[data-devices="true"] {
@@ -975,7 +976,7 @@
 	border-top: 1px solid var(--sc-line);
 }
 
-/* 窄屏：折成一行紧凑读数，横向滚动而不换行堆高 */
+/* 窄屏（WIDTH.scenarioNarrow − 1 = 759px，是 760 的下侧补集）：折成一行紧凑读数，横向滚动而不换行堆高 */
 @media (max-width: 759px) {
 	.sc-device-channels {
 		flex-direction: row;
@@ -1294,7 +1295,7 @@
 	cursor: progress;
 }
 
-/* 窄屏：chip 行独占一行（可横向滚动），输入与发送仍在同一行里 —— 不垂直堆成三层 */
+/* 窄屏（WIDTH.scenarioNarrow = 760px）：chip 行独占一行（可横向滚动），输入与发送仍在同一行里 —— 不垂直堆成三层 */
 @media (max-width: 760px) {
 	.sc-composer {
 		flex-wrap: wrap;
@@ -1852,6 +1853,7 @@ button.sc-panel-head:hover {
 	gap: var(--sc-4);
 }
 
+/* WIDTH.scenarioNarrow (760px)：病例卡网格收成单列 */
 @media (max-width: 760px) {
 	.sc-packs {
 		grid-template-columns: minmax(0, 1fr);
@@ -2314,7 +2316,7 @@ button.sc-panel-head:hover {
 	flex-wrap: wrap;
 }
 
-/* ══ 移动端（≤760，重点 390）═════════════════════════════════════════════
+/* ══ 移动端（WIDTH.scenarioNarrow = 760px，重点 390）═════════════════════
    沉浸只体现在**场景内部**：App 壳（顶栏 / 底部 Tab）照常在，这一节只管场景与对话怎么排。
    四件事：
    ① 经历面板（线索 / 时间线）**按需召唤**：默认 0 高，页头入口升成底部抽屉——

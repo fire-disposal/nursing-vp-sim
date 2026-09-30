@@ -27,7 +27,7 @@ PERMISSIONS: list[PermissionDef] = [
     PermissionDef("score_review", "成绩查看"),
     PermissionDef("stats_view", "数据统计"),
     PermissionDef("qa_access", "护理问答"),
-    PermissionDef("llm_monitor", "LLM 监控"),
+    PermissionDef("llm_monitor", "LLM 调用与密钥管理"),
     PermissionDef("api_manage", "API 管理"),
     PermissionDef("assignment_manage", "练习发布"),
     PermissionDef("feedback_review", "反馈管理"),

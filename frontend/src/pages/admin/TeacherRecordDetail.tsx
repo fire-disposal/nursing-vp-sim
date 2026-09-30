@@ -9,6 +9,7 @@ import { getRecordReview, recordReviewQueryKey } from "@/api/training-review";
 import { ReviewEditor } from "@/components/record-review";
 import type { RawReviewSubmitPayload } from "@/components/record-review/review-payload";
 import { useToast } from "@/components/Toast";
+import { WIDTH } from "@/config/layout-scale";
 import { useScoringRetry } from "@/hooks/useScoringRetry";
 import type { SessionDetailFields } from "@/engine/training-record-types";
 import { useConfirm } from "@/components/ui/confirm";
@@ -33,7 +34,7 @@ export default function TeacherRecordDetail() {
 	// 证据 ↔ 对话气泡联动（工作台，与结果页同款）
 	const [highlightMsgId, setHighlightMsgId] = useState<number | null>(null);
 	const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
-		const isDesktop = typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches;
+		const isDesktop = typeof window !== "undefined" && window.matchMedia(`(min-width: ${WIDTH.recordSplit}px)`).matches;
 		return {
 			strengths: isDesktop,
 			weaknesses: isDesktop,

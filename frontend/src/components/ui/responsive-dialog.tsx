@@ -13,7 +13,11 @@ interface ResponsiveDialogProps {
 }
 
 /**
- * Adaptive dialog: centered modal on desktop (>=768px), bottom sheet on mobile.
+ * Adaptive dialog: centered modal on desktop, bottom sheet on mobile.
+ *
+ * 断点归属：「弹窗 ↔ 底部抽屉」的分界由 `useIsMobile()` 决定，即 WIDTH.phoneShell (768px)。
+ * 文件里的 `md` / `sm` 是 Mantine 的 em 断点（`sm` = 48em = 768px、`md` = 62em = 992px）与
+ * 尺寸刻度（Sheet/Text 的 size、间距），引不到 px 常量，对应关系靠这条注释钉住。
  */
 export function ResponsiveDialog({
 	open,
