@@ -19,5 +19,3 @@ export const WIDE_ACTIVITY_RENDERERS: Record<string, true> = {
 	physical_exam: true,
 	nursing_record: true,
 };
-
-export const ACTIVITY_PANEL_WIDTH = { wide: 400, narrow: 300 } as const;

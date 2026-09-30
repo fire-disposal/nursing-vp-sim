@@ -2654,32 +2654,6 @@
         ]
       }
     },
-    "/api/admin/stats": {
-      "get": {
-        "tags": [
-          "管理"
-        ],
-        "summary": "Get Stats",
-        "operationId": "get_stats_api_admin_stats_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminStats"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
     "/api/admin/versions/attribution": {
       "get": {
         "tags": [
@@ -8619,16 +8593,22 @@
         ],
         "parameters": [
           {
-            "name": "period",
+            "name": "date_from",
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "description": "统计周期: week / month / all",
-              "default": "month",
-              "title": "Period"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "窗口起点 ISO 格式（含），如 2026-09-24T00:00:00+08:00；不传 = 不限",
+              "title": "Date From"
             },
-            "description": "统计周期: week / month / all"
+            "description": "窗口起点 ISO 格式（含），如 2026-09-24T00:00:00+08:00；不传 = 不限"
           }
         ],
         "responses": {
@@ -9045,7 +9025,7 @@
           "训练"
         ],
         "summary": "Start Practice Training",
-        "description": "复盘后的再练习：同例纠正 / 迁移变式（docs/19 §五）。\n\n自由再练习不是作业尝试：记录不带 ``assignment_id``，因此既不占作业次数、也不进作业成绩；\n反过来，作业次数限制也不会因为\"重练\"被绕过 —— 想拿作业成绩仍然只能走作业入口。\n目标病例、钉住的 revision 与\"内容是否已更新\"都由服务端解析并留痕。",
+        "description": "复盘后的再练习：同例纠正 / 迁移变式。\n\n自由再练习不是作业尝试：记录不带 ``assignment_id``，因此既不占作业次数、也不进作业成绩；\n反过来，作业次数限制也不会因为\"重练\"被绕过 —— 想拿作业成绩仍然只能走作业入口。\n目标病例、钉住的 revision 与\"内容是否已更新\"都由服务端解析并留痕。",
         "operationId": "start_practice_training_api_training_start_practice_post",
         "requestBody": {
           "content": {
@@ -9368,6 +9348,30 @@
             }
           },
           {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "排序字段：start_time/score_total/duration",
+              "default": "start_time",
+              "title": "Sort By"
+            },
+            "description": "排序字段：start_time/score_total/duration"
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "排序方向：asc/desc",
+              "default": "desc",
+              "title": "Order"
+            },
+            "description": "排序方向：asc/desc"
+          },
+          {
             "name": "student_name",
             "in": "query",
             "required": false,
@@ -9538,30 +9542,6 @@
               "title": "Only Student Practice"
             },
             "description": "只返回学生练习(true)；false=含教师试跑/演示记录"
-          },
-          {
-            "name": "sort_by",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "description": "排序字段：start_time/score_total/duration",
-              "default": "start_time",
-              "title": "Sort By"
-            },
-            "description": "排序字段：start_time/score_total/duration"
-          },
-          {
-            "name": "order",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "description": "排序方向：asc/desc",
-              "default": "desc",
-              "title": "Order"
-            },
-            "description": "排序方向：asc/desc"
           }
         ],
         "responses": {
@@ -9571,6 +9551,217 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PaginatedResponse_TrainingRecordBrief_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/records/summary": {
+      "get": {
+        "tags": [
+          "训练"
+        ],
+        "summary": "Get Records Summary",
+        "description": "训练记录的集合统计（列表的聚合视图）。\n\n与 `/records` 共用同一份筛选（`_apply_record_filters`），所以同一参数下\n`total` 与列表的 `total` 必然相等 —— KPI 数字和它的下钻列表不再是两条代码路径。\n\n**注册顺序有意放在 `/records/{record_id}` 之前**：否则 \"summary\" 会被当作\nrecord_id 去解析（422）。",
+        "operationId": "get_records_summary_api_training_records_summary_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "student_name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按学生姓名模糊搜索",
+              "title": "Student Name"
+            },
+            "description": "按学生姓名模糊搜索"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按病例名模糊搜索（只匹配当前可见的名称：进行中的盲盒/隐藏病例用占位文案）",
+              "title": "Search"
+            },
+            "description": "按病例名模糊搜索（只匹配当前可见的名称：进行中的盲盒/隐藏病例用占位文案）"
+          },
+          {
+            "name": "case_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按病例ID筛选",
+              "title": "Case Id"
+            },
+            "description": "按病例ID筛选"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按状态筛选(in_progress/completed)",
+              "title": "Status"
+            },
+            "description": "按状态筛选(in_progress/completed)"
+          },
+          {
+            "name": "review_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按复核状态筛选(pending=已完成未复核/reviewed=已复核)",
+              "title": "Review Status"
+            },
+            "description": "按复核状态筛选(pending=已完成未复核/reviewed=已复核)"
+          },
+          {
+            "name": "date_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "开始日期 ISO 格式 (含)",
+              "title": "Date From"
+            },
+            "description": "开始日期 ISO 格式 (含)"
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "结束日期 ISO 格式 (含)",
+              "title": "Date To"
+            },
+            "description": "结束日期 ISO 格式 (含)"
+          },
+          {
+            "name": "class_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Class Id"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按用户ID筛选（仅 score_review 权限生效）",
+              "title": "User Id"
+            },
+            "description": "按用户ID筛选（仅 score_review 权限生效）"
+          },
+          {
+            "name": "only_student_practice",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "只返回学生练习(true)；false=含教师试跑/演示记录",
+              "default": true,
+              "title": "Only Student Practice"
+            },
+            "description": "只返回学生练习(true)；false=含教师试跑/演示记录"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrainingRecordSummary"
                 }
               }
             }
@@ -10377,57 +10568,6 @@
         "type": "object",
         "title": "ActionEcho",
         "description": "这一回合学生实际做了什么（结算用回声；`outcome` 是世界的答复）。"
-      },
-      "AdminStats": {
-        "properties": {
-          "total_students": {
-            "type": "integer",
-            "title": "Total Students"
-          },
-          "total_records": {
-            "type": "integer",
-            "title": "Total Records"
-          },
-          "completed_records": {
-            "type": "integer",
-            "title": "Completed Records"
-          },
-          "average_score": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Average Score"
-          },
-          "avg_duration_min": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Avg Duration Min"
-          },
-          "today_records": {
-            "type": "integer",
-            "title": "Today Records",
-            "default": 0
-          }
-        },
-        "type": "object",
-        "required": [
-          "total_students",
-          "total_records",
-          "completed_records",
-          "average_score"
-        ],
-        "title": "AdminStats"
       },
       "Anchor": {
         "type": "string",
@@ -18899,6 +19039,17 @@
             ],
             "title": "Best Score"
           },
+          "total_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Score"
+          },
           "avg_duration_seconds": {
             "anyOf": [
               {
@@ -19232,7 +19383,7 @@
           "kind"
         ],
         "title": "StartPracticeRequest",
-        "description": "复盘后的再练习请求：同例纠正 / 迁移变式（docs/19 §五）。\n\n目标病例由**服务端**按源记录与病例家族解析，请求体只表达意图，不能指定 case_id。"
+        "description": "复盘后的再练习请求：同例纠正 / 迁移变式。\n\n目标病例由**服务端**按源记录与病例家族解析，请求体只表达意图，不能指定 case_id。"
       },
       "StudentAssignmentItem": {
         "properties": {
@@ -20819,6 +20970,47 @@
         ],
         "title": "TrainingRecordDetail"
       },
+      "TrainingRecordSummary": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "students": {
+            "type": "integer",
+            "title": "Students",
+            "default": 0
+          },
+          "avg_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Score"
+          },
+          "avg_duration_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Duration Min"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total"
+        ],
+        "title": "TrainingRecordSummary",
+        "description": "训练记录的**集合统计** —— `GET /records` 列表的聚合视图。\n\n参数与列表完全相同（同一份 `RecordFilters`），因此\"数字\"与\"它下钻的列表\"\n由构造保证一致：同一参数下 `total` 必然等于列表的 `total`。"
+      },
       "TrainingStartRequest": {
         "properties": {
           "case_id": {
@@ -21746,7 +21938,7 @@
           "label"
         ],
         "title": "WorkflowBrief",
-        "description": "Workflow 身份投影（id + label + 产品状态）。\n\n供目录/会话投影展示「这个病例/这次训练属于哪条 workflow」；前端据此选择工作区，\n不自行推导（manifest 里的完整投影见 ``workflow-manifest``，docs/15 §四）。\n\n``runtime_ready=False``：该 workflow 已登记、病例可编写可发布可进目录，但**还没有\n学生工作区**（docs/15 §十六）—— 前端不得提供「开始训练」，服务端也会 409 拒绝。"
+        "description": "Workflow 身份投影（id + label + 产品状态）。\n\n供目录/会话投影展示「这个病例/这次训练属于哪条 workflow」；前端据此选择工作区，\n不自行推导（manifest 里的完整投影见 ``workflow-manifest``）。\n\n``runtime_ready=False``：该 workflow 已登记、病例可编写可发布可进目录，但**还没有\n学生工作区**—— 前端不得提供「开始训练」，服务端也会 409 拒绝。"
       }
     },
     "securitySchemes": {

@@ -9,6 +9,7 @@ import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { abandonRecord, deleteRecord, getCases, getRecords } from "@/api";
+import type { GetRecordsParams } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { Checkbox } from "@mantine/core";
 import { queryKeys } from "@/api/query-keys";
@@ -78,11 +79,12 @@ export default function TeacherRecordsPage() {
 	});
 	const caseOptions = casesData?.items ?? [];
 
-	const params = useMemo(() => {
-		const p: Record<string, unknown> = { offset, limit: LIMIT };
+	const params = useMemo<GetRecordsParams>(() => {
+		const p: GetRecordsParams = { offset, limit: LIMIT };
 		if (debouncedStudent) p.student_name = debouncedStudent;
 		if (case_id) p.case_id = Number(case_id);
 		if (status) p.status = status;
+		if (review_status) p.review_status = review_status;
 		if (date_from) p.date_from = date_from;
 		if (date_to) p.date_to = date_to;
 		if (class_id) p.class_id = Number(class_id);

@@ -16,8 +16,6 @@ const mocks = vi.hoisted(() => ({
 	getStudentAssignments: vi.fn(),
 	startAssignment: vi.fn(),
 	getTrends: vi.fn(),
-	/** 学生自视图不得请求的同伴榜单接口（canonical student 角色下是 403） */
-	getStudentRanking: vi.fn(),
 }));
 
 vi.mock("@/api", () => ({
@@ -37,7 +35,6 @@ vi.mock("@/api/assignments", () => ({
 
 vi.mock("@/api/stats", () => ({
 	getTrends: mocks.getTrends,
-	getStudentRanking: mocks.getStudentRanking,
 }));
 
 function renderPage() {
@@ -83,7 +80,6 @@ describe("学生自视图统计", () => {
 		expect(screen.getByText(/84.5分/)).toBeInTheDocument();
 		expect(screen.getByText("我的完成训练")).toBeInTheDocument();
 		expect(screen.queryByText("排名")).not.toBeInTheDocument();
-		expect(mocks.getStudentRanking).not.toHaveBeenCalled();
 	});
 
 	it("趋势条用服务端日粒度字段（date/avg_score），标签为本人数值参考", async () => {

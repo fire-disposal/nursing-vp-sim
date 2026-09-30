@@ -4,15 +4,6 @@ from typing import Any
 from pydantic import BaseModel
 
 
-class AdminStats(BaseModel):
-    total_students: int
-    total_records: int
-    completed_records: int
-    average_score: float | None
-    avg_duration_min: float | None = None
-    today_records: int = 0
-
-
 class DurationStats(BaseModel):
     daily: list[dict[str, Any]]
     total_minutes: int

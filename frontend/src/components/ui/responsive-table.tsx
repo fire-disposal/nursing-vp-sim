@@ -13,8 +13,14 @@ export interface ResponsiveTableProps<T> extends DataTableProps<T> {
 
 /**
  * DataTable with built-in mobile card-list fallback.
- * Desktop (>=768px): renders DataTable as-is.
- * Mobile (<768px): renders cards via renderCard in a vertical list.
+ *
+ * 断点归属：本文件用 Mantine 的 `md` 断言（`visibleFrom` / `hiddenFrom`）做「表格 ↔ 卡片列表」的
+ * 分界。Mantine 断点是 em 字符串（`md` = 62em），引不到 `@/config/layout-scale` 的 px 常量，
+ * 所以对应关系靠这条注释钉住：`sm` = WIDTH.phoneShell (768px)，`md` = WIDTH.tableCompact (992px)。
+ * 改常量时必须同时改这里用到的断点字母。
+ *
+ * Desktop (>=992px): renders DataTable as-is.
+ * Compact (<992px): renders cards via renderCard in a vertical list.
  */
 export default function ResponsiveTable<T>({
 	renderCard,

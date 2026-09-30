@@ -543,23 +543,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/stats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Stats */
-        get: operations["get_stats_api_admin_stats_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/admin/versions/attribution": {
         parameters: {
             query?: never;
@@ -2323,7 +2306,7 @@ export interface paths {
         put?: never;
         /**
          * Start Practice Training
-         * @description 复盘后的再练习：同例纠正 / 迁移变式（docs/19 §五）。
+         * @description 复盘后的再练习：同例纠正 / 迁移变式。
          *
          *     自由再练习不是作业尝试：记录不带 ``assignment_id``，因此既不占作业次数、也不进作业成绩；
          *     反过来，作业次数限制也不会因为"重练"被绕过 —— 想拿作业成绩仍然只能走作业入口。
@@ -2420,6 +2403,32 @@ export interface paths {
         };
         /** Get Records */
         get: operations["get_records_api_training_records_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/training/records/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Records Summary
+         * @description 训练记录的集合统计（列表的聚合视图）。
+         *
+         *     与 `/records` 共用同一份筛选（`_apply_record_filters`），所以同一参数下
+         *     `total` 与列表的 `total` 必然相等 —— KPI 数字和它的下钻列表不再是两条代码路径。
+         *
+         *     **注册顺序有意放在 `/records/{record_id}` 之前**：否则 "summary" 会被当作
+         *     record_id 去解析（422）。
+         */
+        get: operations["get_records_summary_api_training_records_summary_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2701,24 +2710,6 @@ export interface components {
              * @default
              */
             block_reason: string;
-        };
-        /** AdminStats */
-        AdminStats: {
-            /** Total Students */
-            total_students: number;
-            /** Total Records */
-            total_records: number;
-            /** Completed Records */
-            completed_records: number;
-            /** Average Score */
-            average_score: number | null;
-            /** Avg Duration Min */
-            avg_duration_min?: number | null;
-            /**
-             * Today Records
-             * @default 0
-             */
-            today_records: number;
         };
         /**
          * Anchor
@@ -6338,6 +6329,8 @@ export interface components {
             avg_score?: number | null;
             /** Best Score */
             best_score?: number | null;
+            /** Total Score */
+            total_score?: number | null;
             /** Avg Duration Seconds */
             avg_duration_seconds?: number | null;
             /**
@@ -6477,7 +6470,7 @@ export interface components {
         };
         /**
          * StartPracticeRequest
-         * @description 复盘后的再练习请求：同例纠正 / 迁移变式（docs/19 §五）。
+         * @description 复盘后的再练习请求：同例纠正 / 迁移变式。
          *
          *     目标病例由**服务端**按源记录与病例家族解析，请求体只表达意图，不能指定 case_id。
          */
@@ -7166,6 +7159,26 @@ export interface components {
              */
             review_focus_note: string;
         };
+        /**
+         * TrainingRecordSummary
+         * @description 训练记录的**集合统计** —— `GET /records` 列表的聚合视图。
+         *
+         *     参数与列表完全相同（同一份 `RecordFilters`），因此"数字"与"它下钻的列表"
+         *     由构造保证一致：同一参数下 `total` 必然等于列表的 `total`。
+         */
+        TrainingRecordSummary: {
+            /** Total */
+            total: number;
+            /**
+             * Students
+             * @default 0
+             */
+            students: number;
+            /** Avg Score */
+            avg_score?: number | null;
+            /** Avg Duration Min */
+            avg_duration_min?: number | null;
+        };
         /** TrainingStartRequest */
         TrainingStartRequest: {
             /** Case Id */
@@ -7504,10 +7517,10 @@ export interface components {
          * @description Workflow 身份投影（id + label + 产品状态）。
          *
          *     供目录/会话投影展示「这个病例/这次训练属于哪条 workflow」；前端据此选择工作区，
-         *     不自行推导（manifest 里的完整投影见 ``workflow-manifest``，docs/15 §四）。
+         *     不自行推导（manifest 里的完整投影见 ``workflow-manifest``）。
          *
          *     ``runtime_ready=False``：该 workflow 已登记、病例可编写可发布可进目录，但**还没有
-         *     学生工作区**（docs/15 §十六）—— 前端不得提供「开始训练」，服务端也会 409 拒绝。
+         *     学生工作区**—— 前端不得提供「开始训练」，服务端也会 409 拒绝。
          */
         WorkflowBrief: {
             /** Id */
@@ -8873,26 +8886,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_stats_api_admin_stats_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminStats"];
                 };
             };
         };
@@ -12163,8 +12156,8 @@ export interface operations {
     get_trends_api_stats_trends_get: {
         parameters: {
             query?: {
-                /** @description 统计周期: week / month / all */
-                period?: string;
+                /** @description 窗口起点 ISO 格式（含），如 2026-09-24T00:00:00+08:00；不传 = 不限 */
+                date_from?: string | null;
             };
             header?: never;
             path?: never;
@@ -12600,6 +12593,10 @@ export interface operations {
             query?: {
                 limit?: number;
                 offset?: number;
+                /** @description 排序字段：start_time/score_total/duration */
+                sort_by?: string;
+                /** @description 排序方向：asc/desc */
+                order?: string;
                 /** @description 按学生姓名模糊搜索 */
                 student_name?: string | null;
                 /** @description 按病例名模糊搜索（只匹配当前可见的名称：进行中的盲盒/隐藏病例用占位文案） */
@@ -12619,10 +12616,6 @@ export interface operations {
                 user_id?: number | null;
                 /** @description 只返回学生练习(true)；false=含教师试跑/演示记录 */
                 only_student_practice?: boolean;
-                /** @description 排序字段：start_time/score_total/duration */
-                sort_by?: string;
-                /** @description 排序方向：asc/desc */
-                order?: string;
             };
             header?: never;
             path?: never;
@@ -12637,6 +12630,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaginatedResponse_TrainingRecordBrief_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_records_summary_api_training_records_summary_get: {
+        parameters: {
+            query?: {
+                /** @description 按学生姓名模糊搜索 */
+                student_name?: string | null;
+                /** @description 按病例名模糊搜索（只匹配当前可见的名称：进行中的盲盒/隐藏病例用占位文案） */
+                search?: string | null;
+                /** @description 按病例ID筛选 */
+                case_id?: number | null;
+                /** @description 按状态筛选(in_progress/completed) */
+                status?: string | null;
+                /** @description 按复核状态筛选(pending=已完成未复核/reviewed=已复核) */
+                review_status?: string | null;
+                /** @description 开始日期 ISO 格式 (含) */
+                date_from?: string | null;
+                /** @description 结束日期 ISO 格式 (含) */
+                date_to?: string | null;
+                class_id?: number | null;
+                /** @description 按用户ID筛选（仅 score_review 权限生效） */
+                user_id?: number | null;
+                /** @description 只返回学生练习(true)；false=含教师试跑/演示记录 */
+                only_student_practice?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingRecordSummary"];
                 };
             };
             /** @description Validation Error */

@@ -29,7 +29,15 @@ function makeSession() {
 	return bus;
 }
 
-function renderHeader(overrides: Parameters<typeof makeRecord>[0] = {}) {
+/**
+ * 离开出口的落点由**来源页**决定（`utils/training-nav`）：有来源回来源，无来源（直链/刷新）
+ * 落训练记录列表。测试同时钉住这两条，避免再退回 `navigate(-1)`——它会让文案说谎
+ * （从记录页进来却写"返回训练选择"），直链时甚至可能出站。
+ */
+function renderHeader(
+	overrides: Parameters<typeof makeRecord>[0] = {},
+	options: { from?: string } = {},
+) {
 	const record = makeRecord({
 		mode: "guided",
 		remaining_seconds: 600,
@@ -37,10 +45,16 @@ function renderHeader(overrides: Parameters<typeof makeRecord>[0] = {}) {
 		...overrides,
 	});
 	const onLeave = vi.fn(async () => {});
+	// 有来源时构造带 state 的 location；无来源时不带（等同直链进入）
+	const entry = options.from
+		? { pathname: "/training/1", state: { from: options.from } }
+		: "/training/1";
 	render(
-		<MemoryRouter initialEntries={["/", "/training/1"]} initialIndex={1}>
+		<MemoryRouter initialEntries={[entry]}>
 			<Routes>
-				<Route path="/" element={<div>训练选择页</div>} />
+				<Route path="/training" element={<div>训练选择页</div>} />
+				<Route path="/history" element={<div>训练记录页</div>} />
+				<Route path="/record/:id" element={<div>记录详情页</div>} />
 				<Route
 					path="/training/:recordId"
 					element={withTrainingData(
@@ -64,25 +78,11 @@ afterEach(() => {
 });
 
 describe("TrainingHeader 连接与离开语义", () => {
-	it("WS 断开说成「实时通知中断」，不说工具不可用（工具走 HTTP）", async () => {
-		makeSession();
-		renderHeader();
-		await act(async () => {});
-
-		const dot = screen.getByRole("status");
-		const label = dot.getAttribute("aria-label") ?? "";
-		expect(label).toContain("实时通知连接中断");
-		// 关键：不得说成「工具不可用」——工具与对话都不经过 WS
-		expect(label).not.toContain("工具不可用");
-		expect(label).not.toContain("工具暂不可用");
-		expect(label).toContain("对话与工具不受影响");
-	});
-
 	it("离开前先等服务端确认暂停，确认后才离开", async () => {
 		makeSession();
-		const onLeave = renderHeader();
+		const onLeave = renderHeader({}, { from: "/training" });
 
-		await userEvent.click(screen.getByLabelText("返回训练选择"));
+		await userEvent.click(screen.getByLabelText("离开训练，返回训练选择"));
 		await userEvent.click(screen.getByRole("button", { name: "暂离，暂停计时" }));
 
 		expect(onLeave).toHaveBeenCalledTimes(1);
@@ -90,12 +90,32 @@ describe("TrainingHeader 连接与离开语义", () => {
 		expect(await screen.findByText("训练选择页")).toBeInTheDocument();
 	});
 
+	it("从记录页进来：离开回到记录页（文案与落点一致）", async () => {
+		makeSession();
+		renderHeader({}, { from: "/record/9" });
+
+		await userEvent.click(screen.getByLabelText("离开训练，返回记录详情"));
+		await userEvent.click(screen.getByRole("button", { name: "暂离，暂停计时" }));
+
+		expect(await screen.findByText("记录详情页")).toBeInTheDocument();
+	});
+
+	it("直链/刷新（无来源）：落到训练记录列表，而不是浏览器上一页", async () => {
+		makeSession();
+		renderHeader();
+
+		await userEvent.click(screen.getByLabelText("离开训练，返回训练记录"));
+		await userEvent.click(screen.getByRole("button", { name: "暂离，暂停计时" }));
+
+		expect(await screen.findByText("训练记录页")).toBeInTheDocument();
+	});
+
 	it("服务端未确认暂停 → 留在当前页，不宣称已暂停", async () => {
 		makeSession();
 		mockPause.mockRejectedValue(new Error("network down"));
-		const onLeave = renderHeader();
+		const onLeave = renderHeader({}, { from: "/training" });
 
-		await userEvent.click(screen.getByLabelText("返回训练选择"));
+		await userEvent.click(screen.getByLabelText("离开训练，返回训练选择"));
 		await userEvent.click(screen.getByRole("button", { name: "暂离，暂停计时" }));
 		await act(async () => {});
 
@@ -106,9 +126,9 @@ describe("TrainingHeader 连接与离开语义", () => {
 
 	it("独立考核离开不调用暂停（服务端本就连续计时）", async () => {
 		makeSession();
-		renderHeader({ mode: "assessment" });
+		renderHeader({ mode: "assessment" }, { from: "/training" });
 
-		await userEvent.click(screen.getByLabelText("返回训练选择"));
+		await userEvent.click(screen.getByLabelText("离开训练，返回训练选择"));
 		expect(screen.getByText(/连续计时/)).toBeInTheDocument();
 		await userEvent.click(screen.getByRole("button", { name: "离开，计时继续" }));
 

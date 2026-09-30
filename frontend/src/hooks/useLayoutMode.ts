@@ -1,16 +1,12 @@
 import { useEffect, useState } from "react";
 
+import { WIDTH } from "@/config/layout-scale";
 import { useMediaQuery } from "./useMediaQuery";
 
 type LayoutMode = "desktop" | "phone";
 
-const MOBILE_BP = 768;
-
-/** `lg`（Mantine 1200px）：在此宽度以上，右侧栏恒可用。 */
-const RAIL_BP_PX = 1200;
-
 function getMode(w: number): LayoutMode {
-	return w < MOBILE_BP ? "phone" : "desktop";
+	return w < WIDTH.phoneShell ? "phone" : "desktop";
 }
 
 function useLayoutMode(): LayoutMode {
@@ -42,12 +38,12 @@ export type WorkspaceHost = "rail" | "sheet";
  * 右侧栏可用）也会弹底部抽屉，把本来就不高的视口再切掉一半。抽屉是给手机**竖屏**准备的。
  *
  * 规则：
- * - 宽度 ≥ lg（1200px）：右侧栏；
+ * - 宽度 ≥ WIDTH.rail（Mantine `lg` = 1200px）：右侧栏；
  * - 竖屏（portrait）：底部抽屉；
  * - 其余（横屏，含横屏手机/平板/窄窗口）：右侧栏。
  */
 export function useWorkspaceHost(): WorkspaceHost {
-	const wide = useMediaQuery(`(min-width: ${RAIL_BP_PX}px)`);
+	const wide = useMediaQuery(`(min-width: ${WIDTH.rail}px)`);
 	const portrait = useMediaQuery("(orientation: portrait)");
 	if (wide) return "rail";
 	return portrait ? "sheet" : "rail";

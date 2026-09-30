@@ -41,7 +41,6 @@ from models import (
 from modules.admin.class_memberships import upsert_members
 from modules.training.scoring.grade_scope import grade_conditions, grade_expr
 from schemas import (
-    AdminStats,
     BatchCreateResult,
     BatchUserItem,
     BulkAssignClassRequest,
@@ -440,54 +439,6 @@ class UserService:
             avg_score=avg_score,
             recent_records=recent_records,
             daily=daily,
-        )
-
-    def get_stats(self) -> AdminStats:
-        student_role = self.db.query(Role).filter(Role.name == "student").first()
-        total_students = 0
-        if student_role:
-            total_students = self.db.query(User).filter(User.role_id == student_role.id).count()
-
-        base = self.db.query(TrainingRecord).join(User).filter(TrainingRecord.is_student_practice == True)
-        total_records = base.count()
-        completed_records = base.filter(TrainingRecord.status == "completed").count()
-        avg_score = (
-            self.db.query(sa_func.avg(grade_expr()))
-            .join(TrainingRecord, Score.record_id == TrainingRecord.id)
-            .join(User, TrainingRecord.user_id == User.id)
-            # INV-3：纯成绩聚合（无父行可保留），兜底分直接过滤
-            .filter(TrainingRecord.is_student_practice == True, *grade_conditions())
-            .scalar()
-        )
-        avg_duration = (
-            self.db.query(
-                sa_func.avg(sa_func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60)
-            )
-            .join(User, TrainingRecord.user_id == User.id)
-            .filter(
-                TrainingRecord.status == "completed",
-                TrainingRecord.end_time.isnot(None),
-                TrainingRecord.start_time.isnot(None),
-                TrainingRecord.is_student_practice == True,
-            )
-            .scalar()
-        )
-        today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
-        today_records = (
-            self.db.query(sa_func.count(TrainingRecord.id))
-            .join(User, TrainingRecord.user_id == User.id)
-            .filter(TrainingRecord.start_time >= today_start, TrainingRecord.is_student_practice == True)
-            .scalar()
-            or 0
-        )
-
-        return AdminStats(
-            total_students=total_students,
-            total_records=total_records,
-            completed_records=completed_records,
-            average_score=round(float(avg_score), 1) if avg_score is not None else None,
-            avg_duration_min=round(float(avg_duration), 1) if avg_duration is not None else None,
-            today_records=today_records,
         )
 
     def batch_create(self, users_data: list[dict], *, request: Request | None = None) -> BatchCreateResult:
@@ -930,8 +881,3 @@ def bulk_assign_class(req: BulkAssignClassRequest, current_user: _Manager, db: D
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
     return result
-
-
-@router.get("/stats", response_model=AdminStats)
-def get_stats(current_user: Annotated[User, Depends(require_permission("stats_view"))], db: DbSession):
-    return UserService(db).get_stats()

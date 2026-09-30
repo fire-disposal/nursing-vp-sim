@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Box, Button, Center, Group, Loader, Text, UnstyledButton } from "@mantine/core";
 import { IconBell, IconEyeOff } from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import type { components } from "@/api/api-types.gen";
 import {
 	getNotifications,
@@ -14,6 +14,7 @@ import {
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
+import { openNotification } from "@/utils/training-nav";
 
 type TrainingNotificationItem = components["schemas"]["TrainingNotificationItem"];
 
@@ -25,6 +26,9 @@ export default function NotificationBell() {
 	const [items, setItems] = useState<TrainingNotificationItem[]>([]);
 	const qc = useQueryClient();
 	const navigate = useNavigate();
+	const location = useLocation();
+	// 通知里点进训练也要记来源：训练壳出口才能回到用户此刻所在的页面
+	const trainingFrom = location.pathname + location.search;
 	const { error: toastError } = useToast();
 	const mutationLockRef = useRef(false);
 
@@ -122,17 +126,9 @@ export default function NotificationBell() {
 				markOneReadMutation.mutate(n.id);
 			}
 			setOpen(false);
-			if (n.type === "feedback_replied") {
-				navigate("/my-feedback");
-			} else if (n.type === "assignment_new") {
-				navigate("/home");
-			} else if (n.record_id) {
-				navigate(`/record/${n.record_id}`);
-			} else if (n.type === "scoring_complete" || n.type.startsWith("scoring_")) {
-				navigate("/history");
-			}
+			openNotification(navigate, n, trainingFrom);
 		},
-		[navigate, markOneReadMutation],
+		[navigate, markOneReadMutation, trainingFrom],
 	);
 
 	return (

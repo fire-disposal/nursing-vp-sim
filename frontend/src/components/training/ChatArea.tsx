@@ -1,9 +1,8 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Box, Group, Stack, Text } from "@mantine/core";
-import { IconAlertTriangle, IconCloudOff, IconPlugConnectedX } from "@tabler/icons-react";
-import { completionBlockers } from "@/engine/manifest";
-import { useInitialMessages, useExamResults, usePatientData, useSessionManifest } from "@/engine/TrainingDataContext";
+import { Box, Group, Stack, Text } from "@mantine/core";
+import { IconCloudOff, IconPlugConnectedX } from "@tabler/icons-react";
+import { useInitialMessages, useExamResults, usePatientData } from "@/engine/TrainingDataContext";
 import { useTrainingStore } from "@/stores/trainingStore";
 
 import { ChatDisplay } from "./ChatDisplay";
@@ -72,8 +71,6 @@ export function ChatArea({
   const examResults = useExamResults();
   // 空态：本病例没有可用的床旁能力（也没有问诊清单）时，明确告知本次训练以对话为主
   const hasWorkspacePane = useWorkspacePanes().length > 0;
-  // 交卷门禁由 manifest 下发；这里只渲染原因，不在前端推导
-  const blockers = completionBlockers(useSessionManifest());
   const hasConversationActivity =
     messages.some(m => m.role === "student") ||
     initialMessages.some(m => m.role === "student") ||
@@ -176,28 +173,8 @@ export function ChatArea({
 					本病例未配置床旁能力，本次训练以护患对话为主
 				</Text>
 			)}
-			{/* 交卷门禁的**唯一可见处**：原因在这里，计数在顶栏按钮，逐条动作与"要交什么"在完成清单。
-			    窄屏也一样（任何一级都不降级成纯文字）。 */}
-			{blockers.length > 0 && (
-				<Alert
-					variant="light"
-					color="orange"
-					radius="md"
-					icon={<IconAlertTriangle size={18} />}
-					title="还不能交卷"
-					aria-live="polite"
-					mx="md"
-					mb="xs"
-				>
-					<Stack gap={2}>
-						{blockers.map((blocker) => (
-							<Text key={blocker.code} size="sm">
-								{blocker.message}
-							</Text>
-						))}
-					</Stack>
-				</Alert>
-			)}
+			{/* 交卷门禁不再常驻输入框上方：计数在顶栏结束按钮的徽标，逐条清单在结束确认弹窗
+			    （CompletionChecklist）。对话列只保留"降级时可见"的连接横幅。 */}
 			<ConversationComposer
 				onSend={onSend}
 				disabled={sending || trainingEnded}

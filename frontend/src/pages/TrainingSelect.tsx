@@ -1,5 +1,4 @@
-import { shanghaiHour } from "@/utils/date";
-import { APP_TIME_ZONE } from "@/utils/date";
+import { APP_TIME_ZONE, shanghaiDateKey, shanghaiHour } from "@/utils/date";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	IconAlertTriangle,
@@ -10,7 +9,6 @@ import {
 	IconClipboardList,
 	IconClock,
 	IconGift,
-	IconHome,
 	IconPlayerPlay,
 	IconRotate,
 	IconSpeakerphone,
@@ -23,7 +21,7 @@ import {
 import { Badge, Box, Button, Group, Modal, Paper, SegmentedControl, SimpleGrid, Stack, Text, ThemeIcon, Title, UnstyledButton } from "@mantine/core";
 import { motion } from "motion/react";
 import { useMemo, useState, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { abandonRecord, getCases, getNotifications, getRecords, markNotificationRead, startBlindBox, startTraining } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { getStudentAssignments, startAssignment } from "@/api/assignments";
@@ -35,10 +33,12 @@ import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import Pagination from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
+import ScoreSourceBadge from "@/components/ui/score-source-badge";
 import StatCard from "@/components/ui/stat-card";
 import { ACTIVITY_LABELS } from "@/config/activity-display";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import useAuthStore from "@/stores/authStore";
+import { goTraining, openNotification } from "@/utils/training-nav";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
 type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
@@ -46,6 +46,10 @@ type TrainingNotificationItem = components["schemas"]["TrainingNotificationItem"
 
 const DIFFICULTY_LABELS: Record<number, string> = { 1: "初级", 2: "中级", 3: "高级" };
 const LIMIT = 50;
+
+/** 三个 tab 的取值与 URL 参数 `?tab=` 一一对应（`home` 为缺省，不写进 URL）。 */
+const TRAINING_TABS = ["home", "self", "assignments"] as const;
+type TrainingTab = (typeof TRAINING_TABS)[number];
 
 const CAP_COLORS: Record<string, string> = {
 	physical_exam: "violet",
@@ -124,11 +128,23 @@ function workflowNotStartableMessage(err: unknown): string | null {
 }
 
 export default function TrainingSelect() {
-	const [tab, setTab] = useState<"home" | "self" | "assignments">("home");
+	// tab 落在 URL（`?tab=`），缺省与非法值一律回落 home：刷新/分享/前进后退都还原同一视图。
+	const [searchParams, setSearchParams] = useSearchParams();
+	const rawTab = searchParams.get("tab");
+	const tab: TrainingTab = TRAINING_TABS.find((t) => t === rawTab) ?? "home";
+	const setTab = (t: TrainingTab) => {
+		const next = new URLSearchParams(searchParams);
+		if (t === "home") next.delete("tab");
+		else next.set("tab", t);
+		setSearchParams(next, { replace: true });
+	};
 	const [difficultyFilter, setDifficultyFilter] = useState(0);
 	const { searchInput, debouncedValue: search, handleSearchChange } = useDebouncedSearch("", 300);
 	const [offset, setOffset] = useState(0);
 	const navigate = useNavigate();
+	const location = useLocation();
+	// 所有进入训练页的入口都记来源页：训练壳唯一出口按此回跳（契约见 utils/training-nav）
+	const trainingFrom = location.pathname + location.search;
 	const toast = useToast();
 	const queryClient = useQueryClient();
 	const { confirm } = useConfirm();
@@ -219,9 +235,12 @@ export default function TrainingSelect() {
 	// 个人统计只取本人的数据：/stats/trends 对无 stats_view 权限的调用者只统计本人记录
 	// （服务端按 current_user 过滤）。不再借用 /stats/ranking —— 它对 canonical student
 	// 角色是 403，且排名/百分位属于同伴比较，学生自视图不展示。
+	// 窗口 = 近 30 天（含今天）的上海自然日零点：趋势按日分桶，起点必须落在自然日边界上，
+	// 并由前端显式给出（服务端只认 date_from）。
+	const trendFrom = `${shanghaiDateKey(new Date(), -29)}T00:00:00+08:00`;
 	const { data: trends } = useQuery({
-		queryKey: queryKeys.stats.trends("month"),
-		queryFn: () => getTrends().then((r) => r.data),
+		queryKey: queryKeys.stats.trends(trendFrom),
+		queryFn: () => getTrends(trendFrom).then((r) => r.data),
 		staleTime: 60_000,
 	});
 	// daily 是弱类型 dict：日期/展示分在这里收口一次，避免散落的 String(item.x) 断言
@@ -243,7 +262,7 @@ export default function TrainingSelect() {
 		mutationFn: ({ caseId, timeLimit }: { caseId: number; timeLimit: number }) => startTraining(caseId, {}, timeLimit),
 		onSuccess: (res) => {
 			const data: StartResponse = res.data;
-			navigate(`/training/${data.record_id}`);
+			goTraining(navigate, data.record_id, trainingFrom);
 		},
 		onError: (err: unknown) => {
 			const axiosErr = err as { status?: number; response?: { data?: { detail?: StartErrorDetail } } };
@@ -264,7 +283,7 @@ export default function TrainingSelect() {
 		mutationFn: () => startBlindBox(),
 		onSuccess: (res) => {
 			const data: StartResponse = res.data;
-			navigate(`/training/${data.record_id}`);
+			goTraining(navigate, data.record_id, trainingFrom);
 		},
 		onError: (err: unknown) => {
 			const axiosErr = err as { status?: number; response?: { data?: { detail?: StartErrorDetail } } };
@@ -287,11 +306,9 @@ export default function TrainingSelect() {
 	};
 	const handleStartAssignment = async (assignmentId: string) => {
 		try {
+			// 服务端响应有类型（TrainingStartResponse.record_id），不必再靠宽类型断言取字段
 			const res = await startAssignment(assignmentId);
-			const data = res.data as Record<string, unknown>;
-			if (typeof (data as { record_id?: number }).record_id === "number") {
-				navigate(`/training/${(data as { record_id: number }).record_id}`);
-			}
+			goTraining(navigate, res.data.record_id, trainingFrom);
 		} catch (err: unknown) {
 			const axiosErr = err as { status?: number; response?: { data?: { detail?: StartErrorDetail } } };
 			if (axiosErr.status === 409 && axiosErr.response?.data?.detail?.code === "existing_training") {
@@ -311,6 +328,7 @@ export default function TrainingSelect() {
 	const cases = casesData?.items ?? [];
 	const total = casesData?.total ?? 0;
 
+	// 通知落点规则只有一份实现：utils/training-nav.openNotification（铃铛/通知中心/本页预览共用）
 	const hour = shanghaiHour();
 	const greeting = hour < 12 ? "上午好" : hour < 18 ? "下午好" : "晚上好";
 	const recentRecords = records;
@@ -321,7 +339,7 @@ export default function TrainingSelect() {
 		<Modal opened onClose={() => setConflict(null)} title="有进行中的训练" size={360} centered withinPortal>
 				<Text size="sm" c="dimmed" mb="md">你有一个未完成的训练「{conflict.caseName}」。</Text>
 				<Stack gap="xs">
-					<Button color="green" onClick={() => { setConflict(null); navigate(`/training/${conflict.recordId}`); }}>
+					<Button color="green" onClick={() => { setConflict(null); goTraining(navigate, conflict.recordId, trainingFrom); }}>
 						继续之前的训练
 					</Button>
 					<Button variant="light" color="red" onClick={async () => {
@@ -340,12 +358,12 @@ export default function TrainingSelect() {
 		<Stack gap="lg">
 			<SegmentedControl
 				value={tab}
-				onChange={(v) => setTab(v as "home" | "self" | "assignments")}
+				onChange={(v) => setTab(v as TrainingTab)}
 				style={{ width: "fit-content" }}
 				data={[
-					{ value: "home", label: <Group gap={6} wrap="nowrap"><IconHome size={14} />首页</Group> },
-					{ value: "self", label: <Group gap={6} wrap="nowrap"><IconBook2 size={14} />自主训练</Group> },
-					{ value: "assignments", label: <Group gap={6} wrap="nowrap"><IconClipboardList size={14} />我的作业</Group> },
+					{ value: "home", label: "今天" },
+					{ value: "self", label: <Group gap={6} wrap="nowrap"><IconBook2 size={14} />病例</Group> },
+					{ value: "assignments", label: <Group gap={6} wrap="nowrap"><IconClipboardList size={14} />作业</Group> },
 				]}
 			/>
 
@@ -385,7 +403,7 @@ export default function TrainingSelect() {
 										style={{ borderBottom: "1px solid var(--mantine-color-gray-2)" }}
 									>
 										<UnstyledButton
-											onClick={() => navigate(n.record_id ? `/training/${n.record_id}` : "/notifications")}
+											onClick={() => openNotification(navigate, n, trainingFrom)}
 											style={{ flex: 1, minWidth: 0, textAlign: "left" }}
 										>
 											<Text size="sm" fw={500} truncate>{n.title}</Text>
@@ -453,7 +471,7 @@ export default function TrainingSelect() {
 
 						<Group gap="sm" wrap="wrap" style={{ position: "relative" }}>
 							{primaryInProgress ? (
-								<Button size="lg" onClick={() => navigate(`/training/${primaryInProgress.id}`)}>
+								<Button size="lg" onClick={() => goTraining(navigate, primaryInProgress.id, trainingFrom)}>
 									<IconPlayerPlay size={16} />继续训练
 								</Button>
 							) : nextAssignment ? (
@@ -467,7 +485,7 @@ export default function TrainingSelect() {
 							)}
 							{(primaryInProgress || nextAssignment) && (
 								<Button variant="outline" size="lg" onClick={() => setTab("self")}>
-									{primaryInProgress ? "选择其他病例" : "自主训练"}
+									{primaryInProgress ? "选择其他病例" : "浏览病例"}
 								</Button>
 							)}
 						</Group>
@@ -524,7 +542,7 @@ export default function TrainingSelect() {
 											<Text size="xs" c="var(--mantine-color-yellow-light-color)" mt={2} truncate>{primaryInProgress.case_name}</Text>
 										</Box>
 										<Group gap={6} wrap="nowrap">
-											<Button size="sm" variant="outline" onClick={() => navigate(`/training/${primaryInProgress.id}`)}>继续</Button>
+											<Button size="sm" variant="outline" onClick={() => goTraining(navigate, primaryInProgress.id, trainingFrom)}>继续</Button>
 											<Button size="sm" variant="subtle" color="red" onClick={async () => {
 												const ok = await confirm({ title: "放弃训练", message: `放弃「${primaryInProgress.case_name}」的未完成训练？`, confirmLabel: "放弃", danger: true });
 												if (!ok) return;
@@ -539,7 +557,7 @@ export default function TrainingSelect() {
 									{recentRecords.map((r) => (
 										<UnstyledButton
 											key={r.id}
-											onClick={() => navigate(r.status === "in_progress" ? `/training/${r.id}` : `/record/${r.id}`)}
+											onClick={() => r.status === "in_progress" ? goTraining(navigate, r.id, trainingFrom) : navigate(`/record/${r.id}`)}
 											style={{ width: "100%", padding: "8px 12px", borderRadius: "var(--mantine-radius-md)", transition: "background 120ms ease" }}
 											className="hover-row"
 										>
@@ -551,10 +569,13 @@ export default function TrainingSelect() {
 													</Text>
 												</Box>
 												<Box style={{ flexShrink: 0, marginLeft: 12 }}>
-													{r.status === "completed" && r.score_total != null ? (
-														<Text size="sm" fw={600} c="brand" className="tabular-nums">{r.score_total} 分</Text>
-													) : r.status === "in_progress" ? (
+													{r.status === "in_progress" ? (
 														<Badge variant="light" color="brand">进行中</Badge>
+													) : r.score_total != null ? (
+														<Stack gap={2} align="flex-end">
+															<Text size="sm" fw={600} c="brand" className="tabular-nums">{r.score_total} 分</Text>
+															<ScoreSourceBadge record={r} />
+														</Stack>
 													) : null}
 												</Box>
 											</Group>
@@ -715,7 +736,7 @@ export default function TrainingSelect() {
 												<WorkflowBadge workflow={c.workflow} />
 												{inProgress ? (
 													<Group gap="xs" style={{ marginTop: "auto" }}>
-														<Button style={{ flex: 1 }} size="sm" onClick={() => navigate(`/training/${inProgress.id}`)}><IconPlayerPlay size={14} />继续训练</Button>
+														<Button style={{ flex: 1 }} size="sm" onClick={() => goTraining(navigate, inProgress.id, trainingFrom)}><IconPlayerPlay size={14} />继续训练</Button>
 														<Button variant="outline" size="sm" onClick={() => handleRestart(c, inProgress)} disabled={startMutation.isPending}><IconRotate size={14} /></Button>
 													</Group>
 												) : (
@@ -798,7 +819,7 @@ export default function TrainingSelect() {
 										{isExpired || isClosed ? (
 											<Button size="sm" variant="outline" disabled style={{ width: "100%" }}>{isClosed ? "已关闭" : "已过期"}</Button>
 										) : isInProgress && a.record_id ? (
-											<Button size="sm" style={{ width: "100%" }} onClick={() => navigate(`/training/${a.record_id}`)}><IconPlayerPlay size={14} />继续训练</Button>
+											<Button size="sm" style={{ width: "100%" }} onClick={() => a.record_id != null && goTraining(navigate, a.record_id, trainingFrom)}><IconPlayerPlay size={14} />继续训练</Button>
 										) : isCompleted ? (
 											<Button size="sm" variant="outline" style={{ width: "100%" }} onClick={handleReattempt}><IconRotate size={14} />重新训练</Button>
 										) : (

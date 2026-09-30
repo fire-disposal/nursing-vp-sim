@@ -10,8 +10,8 @@ export default function CasesPage() {
 	return (
 		<>
 			<PageHeader
-				title="病例管理"
-				subtitle="创建、编辑和管理虚拟患者病例库"
+				title="病例库"
+				subtitle="正式训练病例：创建、编辑与管理虚拟患者病例"
 				icon={IconUserSearch}
 				actions={<ExportButton endpoint="/cases/export" filename="病例列表" params={exportParams} />}
 			/>

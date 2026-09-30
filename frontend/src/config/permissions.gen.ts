@@ -63,7 +63,7 @@ export const PERMISSION_DEFS: PermissionDef[] = [
   },
   {
     "key": "llm_monitor",
-    "label": "LLM 监控"
+    "label": "LLM 调用与密钥管理"
   },
   {
     "key": "api_manage",

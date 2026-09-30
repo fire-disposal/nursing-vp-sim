@@ -1,12 +1,13 @@
 """Stats router — training statistics and analytics."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
 
+from core.datetime_utils import parse_iso_datetime
 from core.deps import DbSession
 from core.pagination import paginate
 from core.security import get_current_user, require_permission
@@ -21,21 +22,27 @@ from schemas import (
 )
 
 
+def _trend_since(date_from: str | None) -> datetime | None:
+    """趋势窗口下界：**时间窗由调用方显式给出**，不传 = 不限。
+
+    原先的 `period: week|month|all` 是后端在猜"周/月"，与列表的 `date_from`
+    是两套时间语义（同一个界面上的两个数字因此可以互相矛盾）。现在全仓只有
+    `date_from` 一种表达，前端把窗口算好传进来。
+    """
+    if not date_from:
+        return None
+    try:
+        return parse_iso_datetime(date_from)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"无效日期格式: {date_from}") from None
+
+
 class StatsService:
     def __init__(self, db: Session):
         self.db = db
 
-    @staticmethod
-    def _period_since(period: str) -> datetime:
-        now = datetime.now(UTC)
-        if period == "week":
-            return now - timedelta(days=7)
-        if period == "month":
-            return now - timedelta(days=30)
-        return datetime(2000, 1, 1, tzinfo=UTC)
-
-    def get_trends(self, current_user: User, period: str) -> TrendStats:
-        since = self._period_since(period)
+    def get_trends(self, current_user: User, date_from: str | None = None) -> TrendStats:
+        since = _trend_since(date_from)
 
         base = (
             self.db.query(
@@ -51,10 +58,12 @@ class StatsService:
             .outerjoin(Score, and_(Score.record_id == TrainingRecord.id, *grade_conditions()))
             .filter(
                 TrainingRecord.status == "completed",
-                TrainingRecord.start_time >= since,
                 TrainingRecord.is_student_practice == True,
             )
         )
+
+        if since is not None:
+            base = base.filter(TrainingRecord.start_time >= since)
 
         if not current_user.has_permission("stats_view"):
             base = base.filter(TrainingRecord.user_id == current_user.id)
@@ -291,10 +300,12 @@ router = APIRouter(prefix="/api/stats", tags=["统计"])
 def get_trends(
     current_user: Annotated[User, Depends(get_current_user)],
     db: DbSession,
-    period: Annotated[str, Query(description="统计周期: week / month / all")] = "month",
+    date_from: Annotated[
+        str | None, Query(description="窗口起点 ISO 格式（含），如 2026-09-24T00:00:00+08:00；不传 = 不限")
+    ] = None,
 ):
     svc = StatsService(db)
-    return svc.get_trends(current_user, period)
+    return svc.get_trends(current_user, date_from)
 
 
 @router.get("/teacher-summary", response_model=PaginatedResponse[TeacherSummaryItem])
