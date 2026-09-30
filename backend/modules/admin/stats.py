@@ -16,7 +16,6 @@ from modules.training.scoring.grade_scope import grade_conditions, grade_expr
 from schemas import (
     ClassSummaryItemSchema,
     PaginatedResponse,
-    RankingItem,
     TeacherSummaryItem,
     TrendStats,
 )
@@ -151,74 +150,6 @@ class StatsService:
         ]
         return PaginatedResponse(items=data, total=total, offset=offset, limit=limit)
 
-    def student_ranking(
-        self,
-        offset: int = 0,
-        limit: int = 50,
-        class_id: int | None = None,
-    ) -> PaginatedResponse[RankingItem]:
-        student_role = self.db.query(Role).filter(Role.name == "student").first()
-        if not student_role:
-            return PaginatedResponse(items=[], total=0, offset=offset, limit=limit)
-        student_role_id = student_role.id
-
-        sub = (
-            self.db.query(
-                User.id.label("user_id"),
-                User.display_name.label("display_name"),
-                User.student_id.label("student_id"),
-                func.count(TrainingRecord.id).label("total_sessions"),
-                func.coalesce(func.avg(grade_expr()), 0).label("avg_score"),
-                func.coalesce(func.sum(grade_expr()), 0).label("total_score"),
-                func.coalesce(
-                    func.sum(func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time) / 60),
-                    0,
-                ).label("total_minutes"),
-                func.rank().over(order_by=func.coalesce(func.avg(grade_expr()), 0).desc()).label("rank"),
-                func.count(grade_expr()).label("graded"),
-            )
-            .outerjoin(
-                TrainingRecord,
-                (TrainingRecord.user_id == User.id)
-                & (TrainingRecord.status == "completed")
-                & (TrainingRecord.is_student_practice == True),
-            )
-            # INV-3：兜底分不进平均分/总分/排名，但场次与时长照旧统计
-            .outerjoin(Score, and_(Score.record_id == TrainingRecord.id, *grade_conditions()))
-            .filter(User.role_id == student_role_id)
-        )
-
-        if class_id is not None:
-            sub = sub.filter(
-                User.id.in_(
-                    self.db.query(ClassMembership.user_id).filter(
-                        ClassMembership.class_id == class_id,
-                        ClassMembership.member_role == "student",
-                    )
-                )
-            )
-        sub = sub.group_by(User.id).subquery()
-
-        total = self.db.query(func.count()).select_from(sub).scalar()
-        rows = self.db.query(sub).order_by(sub.c.rank).offset(offset).limit(limit).all()
-
-        items = [
-            RankingItem(
-                user_id=r.user_id,
-                display_name=r.display_name,
-                student_id=r.student_id,
-                total_sessions=r.total_sessions,
-                # INV-3/INV-5：avg_score 的 0 是聚合默认值；只有存在有效成绩行时才是真成绩
-                # （教师复核 0 分必须显示 0.0，无有效成绩才显示 None）。
-                avg_score=round(float(r.avg_score), 1) if r.graded else None,
-                total_score=round(float(r.total_score), 1),
-                total_minutes=round(float(r.total_minutes)),
-                rank=r.rank,
-            )
-            for r in rows
-        ]
-        return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
-
     def class_summary(
         self,
         cohort_label: str | None = None,
@@ -318,18 +249,6 @@ def teacher_summary(
 ):
     svc = StatsService(db)
     return svc.teacher_summary(offset=offset, limit=limit, class_id=class_id)
-
-
-@router.get("/ranking", response_model=PaginatedResponse[RankingItem])
-def student_ranking(
-    db: DbSession,
-    offset: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
-    class_id: Annotated[int | None, Query()] = None,
-    _current_user: User = Depends(require_permission("stats_view")),
-):
-    svc = StatsService(db)
-    return svc.student_ranking(offset=offset, limit=limit, class_id=class_id)
 
 
 @router.get("/class-summary", response_model=list[ClassSummaryItemSchema])

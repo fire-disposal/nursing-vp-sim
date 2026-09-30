@@ -2181,23 +2181,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/stats/ranking": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Student Ranking */
-        get: operations["student_ranking_api_stats_ranking_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/stats/class-summary": {
         parameters: {
             query?: never;
@@ -4391,17 +4374,6 @@ export interface components {
             /** Limit */
             limit: number;
         };
-        /** PaginatedResponse[RankingItem] */
-        PaginatedResponse_RankingItem_: {
-            /** Items */
-            items: components["schemas"]["RankingItem"][];
-            /** Total */
-            total: number;
-            /** Offset */
-            offset: number;
-            /** Limit */
-            limit: number;
-        };
         /** PaginatedResponse[TeacherSummaryItem] */
         PaginatedResponse_TeacherSummaryItem_: {
             /** Items */
@@ -4855,37 +4827,6 @@ export interface components {
          * @enum {string}
          */
         QuestionnaireTrigger: "before_training" | "after_scoring";
-        /** RankingItem */
-        RankingItem: {
-            /** User Id */
-            user_id: number;
-            /** Display Name */
-            display_name: string;
-            /** Student Id */
-            student_id?: string | null;
-            /**
-             * Total Sessions
-             * @default 0
-             */
-            total_sessions: number;
-            /** Avg Score */
-            avg_score?: number | null;
-            /**
-             * Total Score
-             * @default 0
-             */
-            total_score: number;
-            /**
-             * Total Minutes
-             * @default 0
-             */
-            total_minutes: number;
-            /**
-             * Rank
-             * @default 0
-             */
-            rank: number;
-        };
         /** RegisterRequest */
         RegisterRequest: {
             /** Username */
@@ -12205,39 +12146,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaginatedResponse_TeacherSummaryItem_"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    student_ranking_api_stats_ranking_get: {
-        parameters: {
-            query?: {
-                offset?: number;
-                limit?: number;
-                class_id?: number | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaginatedResponse_RankingItem_"];
                 };
             };
             /** @description Validation Error */

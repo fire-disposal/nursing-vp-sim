@@ -19,7 +19,6 @@ from schemas.admin.stats import (
     ClassStudentItem,
     ClassSummaryItemSchema,
     DurationStats,
-    RankingItem,
     TeacherSummaryItem,
     TrendStats,
 )
@@ -41,7 +40,6 @@ __all__ = [
     "DurationStats",
     "LLMCallLogItem",
     "LLMStatsResponse",
-    "RankingItem",
     "RoleCreateRequest",
     "RoleResponse",
     "RoleUpdateRequest",

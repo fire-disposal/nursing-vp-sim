@@ -25,17 +25,6 @@ class TeacherSummaryItem(BaseModel):
     total_minutes: int = 0
 
 
-class RankingItem(BaseModel):
-    user_id: int
-    display_name: str
-    student_id: str | None = None
-    total_sessions: int = 0
-    avg_score: float | None = None
-    total_score: float = 0
-    total_minutes: int = 0
-    rank: int = 0
-
-
 class ClassSummaryItemSchema(BaseModel):
     class_id: int
     class_name: str

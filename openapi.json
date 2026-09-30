@@ -8712,83 +8712,6 @@
         }
       }
     },
-    "/api/stats/ranking": {
-      "get": {
-        "tags": [
-          "统计"
-        ],
-        "summary": "Student Ranking",
-        "operationId": "student_ranking_api_stats_ranking_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "offset",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "default": 0,
-              "title": "Offset"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 200,
-              "minimum": 1,
-              "default": 50,
-              "title": "Limit"
-            }
-          },
-          {
-            "name": "class_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Class Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PaginatedResponse_RankingItem_"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/stats/class-summary": {
       "get": {
         "tags": [
@@ -14396,37 +14319,6 @@
         ],
         "title": "PaginatedResponse[QuestionnaireTemplateResponse]"
       },
-      "PaginatedResponse_RankingItem_": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/RankingItem"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "total": {
-            "type": "integer",
-            "title": "Total"
-          },
-          "offset": {
-            "type": "integer",
-            "title": "Offset"
-          },
-          "limit": {
-            "type": "integer",
-            "title": "Limit"
-          }
-        },
-        "type": "object",
-        "required": [
-          "items",
-          "total",
-          "offset",
-          "limit"
-        ],
-        "title": "PaginatedResponse[RankingItem]"
-      },
       "PaginatedResponse_TeacherSummaryItem_": {
         "properties": {
           "items": {
@@ -15487,66 +15379,6 @@
         ],
         "title": "QuestionnaireTrigger",
         "description": "CaseQuestionnaire.trigger_event — 问卷触发时点（唯一词表）。\n\n``BEFORE_TRAINING``：训练入口触发（前端 TrainingEntry）；\n``AFTER_SCORING``：评分完成后在学生结果页触发（前端 RecordDetail）。\n历史后台默认值 ``after_training`` 无触发点，已废弃（新写入一律被枚举拒绝）。"
-      },
-      "RankingItem": {
-        "properties": {
-          "user_id": {
-            "type": "integer",
-            "title": "User Id"
-          },
-          "display_name": {
-            "type": "string",
-            "title": "Display Name"
-          },
-          "student_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Student Id"
-          },
-          "total_sessions": {
-            "type": "integer",
-            "title": "Total Sessions",
-            "default": 0
-          },
-          "avg_score": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Avg Score"
-          },
-          "total_score": {
-            "type": "number",
-            "title": "Total Score",
-            "default": 0
-          },
-          "total_minutes": {
-            "type": "integer",
-            "title": "Total Minutes",
-            "default": 0
-          },
-          "rank": {
-            "type": "integer",
-            "title": "Rank",
-            "default": 0
-          }
-        },
-        "type": "object",
-        "required": [
-          "user_id",
-          "display_name"
-        ],
-        "title": "RankingItem"
       },
       "RegisterRequest": {
         "properties": {

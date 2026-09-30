@@ -798,3 +798,28 @@ worker 阶段 session 已关闭 → `DetachedInstanceError`，评分静默不入
 与 `ScenarioEditor.test.tsx`（默认表单、双向同步、解析失败不清空表单、切历史修订、校验失败定位、确认框文案、幂等提示）。
 另在真实 dev 环境点了整条路径：改「一句话」→ 校验通过 → 确认"将追加修订 #15，改动字段：one_line"→
 修订历史出现 #15（说明"编辑器联调：一句话标点"），#14 原样不动（验证后已把该测试修订与 `st_packs` 展示字段复原）。
+
+## 2026.09 末 — 界面审计整改：删重复表达，不删功能
+
+全局 UX/大布局审计（18 条发现）的落地批次，重心是"同一个概念的第二处写法"，因此净删多于净增。
+
+- **导航只剩一份真相**：删掉硬编码的 `BOTTOM_TABS`，移动端底栏由 `APP_ROUTES[].nav.mobile` 派生。
+  学生轨 5 项；管理轨 3 项 + 「更多」（管理端 15–22 个条目放不进底栏，靠它打开完整抽屉保证手机可达）。
+- **外壳由活动决定**：`Activity` 删掉从无生产者的 `review`；首页落点统一到角色感知的 `DashboardHome`
+  （此前 index 硬编码 `/training`，超管打开域名落到学生页）；短视口不再把"强制折叠侧栏"写进用户偏好；
+  管理端提示条移入内容流（它曾在壳外把 100dvh 的沉浸训练页顶出视口 27px）。
+- **训练出口契约**（`utils/training-nav.ts`）：所有入口带 `state.from`，返回落点与按钮文案由来源决定，
+  直链/刷新落记录列表（原 `navigate(-1)` 对 4 类入口的文案都是假的）；结束后两条出口统一到 `/record/:id`；
+  `ScoreManager` 的 WS 分支补完成路径，消掉"WS 正常反而多等 ≥10s"。
+- **统计口径一条链路**：拆除 `/api/admin/stats`（屏幕形状的全局聚合、UTC 日界、与列表两套算法）与孤儿页
+  `StatsPage`；新增与列表**同参数**的 `GET /api/training/records/summary`；`/api/stats/trends` 的 `period`
+  改为显式 `date_from`（后端不再有"今天/本周"概念）；`/admin/stats` 保留重定向。看板 KPI 与下钻链接共用同一份筛选。
+- **其他去重**：通知落点 3 份合 1；交卷门禁 3 处→2 处；WS 连接状态 2 处→1 处；分数来源标记抽出共享组件；
+  断点收敛到 `config/layout-scale.ts`；QA 页删自制头部与英文 eyebrow、高度不再用魔法值；
+  `/admin/users` 的 `review_status` 筛选此前静默失效（读了 URL 却没进请求），已修。
+- **零消费者清理**：`AdminStats`/`getStats`/`queryKeys.stats.admin`、`RankingItem`/`student_ranking`/`/stats/ranking`、
+  `ACTIVITY_PANEL_WIDTH`、`shortLabel`、`ScoreCardInner`、`LLMAPITab`（密钥管理独立成 `/admin/secrets`）。
+
+**验证**：`check:backend`（ruff format/check + ty）、pytest 1617 passed、`tsc`/biome 干净、vitest 779 passed；
+另在真实 dev 实例复核：学生 5 Tab / 教师 4 Tab + 抽屉可达、KPI 下钻携带 `review_status`、`/admin/stats` 重定向、
+`/admin/secrets`、训练出口回来源（含 `?tab=`）、QA 页不再撞底栏。

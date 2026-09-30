@@ -18,7 +18,7 @@
 | 密码哈希 | bcrypt | 安全密码存储 |
 | LLM API | 多 Provider 路由（DeepSeek / OpenAI 兼容 / 自定义） | 优先级加权路由、熔断、健康检查 |
 | LLM 可靠性 | 每 purpose 一份 profile（`infra/llm/profile.py`）：超时 / 重试 / 并发 / 输出上限 | 例：patient_chat 30s·2 次、scoring 120s·3 次·16k 输出；并发信号量 200–500；全局超时预算分摊 |
-| 加密 | 无（API Key 明文存 `api_secrets`） | 旧的对称加密方案已由迁移 `137329b7b43c` 移除；2.0 目标与取舍见 `docs/16` |
+| 加密 | 无（API Key 明文存 `api_secrets`） | 旧的对称加密方案已由迁移 `137329b7b43c` 移除 |
 | 语音 | 火山引擎 ASR + TTS | 服务端语音识别 + 情感语音合成 |
 | 图表 | recharts (ComposedChart) | 关联训练统计（双Y轴：次数+时长、次数+得分） |
 | 图标 | @tabler/icons-react | 统一 SVG 图标库 |
@@ -50,20 +50,28 @@ React/Mantine/懒加载 chunk 执行。新增依赖若引入新的内置 API（�
 
 ## 项目结构
 
-后端结构以 [11-后端组织结构收敛](11-backend-organization-plan.md) 为现行定义（可导航单体：`core/` 内核 + `modules/` 业务域 + `infra/` 外部依赖，无 repository 分层）。
-前端结构与持久架构边界见 [16-可维护单体约束](16-v2-maintainable-monolith-objectives.md)；训练下一批次见 [19-训练上下文收敛与 U0 固定版本计划](19-training-experience-next-generation-plan.md)，临床推理去向见 [18](18-clinical-reasoning-disposition.md)。目录细节不在本总览中重复维护，避免双源腐化。
+后端按产品领域分为 `core/` 内核 + `modules/` 业务域 + `infra/` 外部依赖（可导航单体，无 repository 分层）。
+目录细节不在此重复维护，避免双源腐化；编号规划文档已于 2026-09-29 删除（原文在 git 历史里）。
 
-**前端路由与导航的唯一来源是代码**：`frontend/src/components/shell/navigation.tsx` 的 `APP_ROUTES`（路径 → 页面 → 权限 → 活动类型）与 `NAV_GROUPS`（分组/图标/标签）。文档里不再维护路由表（旧 `04-frontend.md` 的路由表已因缺项腐化并在 2026-09-26 删除）；当前 UI 现状、问题清单与整改批次见 [UI 审计清单](review/ui-audit-2026-09-26.md)。
+**前端路由与导航的唯一来源是代码**：`frontend/src/components/shell/navigation.tsx` 的 `APP_ROUTES`（路径 → 页面 → 权限 → 活动类型）
+与 `NAV_GROUPS`（分组/图标/标签）。文档里不再维护路由表（旧 `04-frontend.md` 的路由表已因缺项腐化并在 2026-09-26 删除）。
+
+**移动端底栏同样由路由表派生**：`APP_ROUTES[].nav.mobile`（顺序 + 轨 + 可选落点/标签）是唯一来源，
+`BottomTabBar` 不再自带清单。学生轨 5 项（训练/情境/记录/问答/我的）；管理轨 3 项 + 「更多」
+（管理端 15–22 个条目放不进底栏，「更多」打开完整侧栏抽屉，保证每个页面在手机上仍可达）。
 
 
 ## 布局系统
 
-当前项目使用两种布局，用于不同场景：
+外壳由 **活动**（`APP_ROUTES[].activity`，由 `ActivityContext` 从路径派生）决定，只有两种：
 
-| 布局 | 使用页面 | 结构 |
+| 壳 | 使用页面 | 结构 |
 |------|---------|------|
-| **Sidebar (AppShell/Layout)** | Dashboard、Practice选择、QA、统计、历史、管理后台 | 响应式侧边栏 + 主内容区 |
-| **TrainingEngine 全屏** | 训练对话页 | 全屏训练界面 + 插件面板 (患者信息、问诊进度、体格检查、护理记录等) |
+| **ManageShell（AppShell）** | 训练选择、QA、记录、个人中心、全部管理页 | 顶栏 + 可折叠侧栏 + 内容容器（`maw` 见 `config/layout-scale.ts`）；移动端底栏由路由表派生 |
+| **PracticeShell（沉浸会话）** | `/training/:recordId` | 全屏会话界面（患者区 + 对话列 + 工作区面板），**无 App 导航**，出口契约见 `utils/training-nav.ts`（入口带 `state.from`，返回落点与文案由来源决定） |
+
+断点与壳尺寸只有一个来源：`frontend/src/config/layout-scale.ts`（`WIDTH` / `HEIGHT` / `SHELL`）。
+`scenario.css` 里的媒体查询仍是字面量（CSS 用不了该模块），对应值在文件内注释标注。
 
 训练能力以 **Workflow / Activity 两层协约**承载：
 后端 `modules/training/activities.py` 是唯一登记表，`modules/training/manifest.py` 解析出会话 manifest
@@ -72,11 +80,15 @@ React/Mantine/懒加载 chunk 执行。新增依赖若引入新的内置 API（�
 **不判断**某个病例有没有某能力——可用性与能否结束一律由服务端决定。旧的 `tools/registry.ts` 与
 `engine/capabilities.gen.ts` 已删除。
 
+统计口径只有一条链路：`/api/training/records/summary` 与列表 `/api/training/records` **共用同一套筛选参数**
+（`RecordFilters` + `_apply_record_filters`），所以看板卡片的数字与它下钻的列表由构造保证一致；
+`/api/stats/trends` 的时间窗也由调用方显式传 `date_from`（后端不再有"今天/本周"概念）。
+
 ## 架构设计原则
 
 1. **前后端分离**：React SPA通过HTTP API与FastAPI后端通信，使用标准HTTP状态码 + JSON。查询走 TanStack Query（`frontend/src/hooks/`），写操作用 `useApiMutation`（统一 toast + 缓存失效），401 由 axios 拦截器单飞刷新并排队重放
-2. **可导航单体（后端）**：业务按产品领域划分 `modules/`，普通模块 router/service 直持 Session，训练域为唯一复杂领域岛；不做有界上下文/repository 分层（详见 [11-后端组织结构收敛](11-backend-organization-plan.md)）
-3. **两层扩展协约**：Workflow 负责过程与生命周期，Activity 负责能力与产物；前端由 manifest 驱动（纯 RendererMap），后端训练流程走中间件链（`modules/training/pipeline/builder.py` 按 `PipelineStage` 装配）。新增能力必须满足 `docs/15 §十` 的准入质量门槛，不在前端另建能力真相源
+2. **可导航单体（后端）**：业务按产品领域划分 `modules/`，普通模块 router/service 直持 Session，训练域为唯一复杂领域岛；不做有界上下文/repository 分层
+3. **两层扩展协约**：Workflow 负责过程与生命周期，Activity 负责能力与产物；前端由 manifest 驱动（纯 RendererMap），后端训练流程走中间件链（`modules/training/pipeline/builder.py` 按 `PipelineStage` 装配）。新增能力必须满足准入质量门槛：可用性与能否结束一律由服务端声明，不在前端另建能力真相源
 4. **管道架构 (Pipeline)**：每轮对话按固定阶（`pipeline/stages.py` 的 `PipelineStage`）执行：`guard → transition → analysis → prompt → llm → persist → side_effects`。当前已装配 `emotion_analysis` / `prompt_builder` / `llm_caller` / `persister` / `side_effects`；`guard`、`transition` 是已声明、待用的扩展点（阶段定义与装配的唯一事实源见 `pipeline/__init__.py`）
 5. **JWT无状态认证**：登录颁发Token，前端存储到localStorage，每次请求携带。支持 token_version 强制过期
 6. **角色权限控制 (RBAC)**：Role → RolePermission 模型，API层和前端路由层双重守卫

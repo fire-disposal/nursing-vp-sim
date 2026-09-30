@@ -2,8 +2,10 @@ import {
 	Avatar,
 	Box,
 	Divider,
+	Group,
 	NavLink as MantineNavLink,
 	ScrollArea,
+	Text,
 } from "@mantine/core";
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -128,16 +130,21 @@ export default function SidebarNav({
 			</ScrollArea>
 
 			<Divider />
-			{/* 底部仅用户卡（点击进个人中心）；全局操作（模式/通知/反馈/退出）统一在顶栏 */}
+			{/* 底部只显示"我是谁"：全局操作（模式/通知/反馈/退出）在顶栏，
+			    个人中心入口是导航里的「我的」——此前这里也链到 /profile，
+			    同一个目的地两个入口，容易让人以为它们不一样。 */}
 			<Box p="sm">
-				<MantineNavLink
-					component={Link}
-					to="/profile"
-					label={user?.display_name ?? "用户"}
-					description={user?.role_display_name || user?.role || "用户"}
-					leftSection={<Avatar src={avatar} size={32} radius="xl" />}
-					onClick={onNavigate}
-				/>
+				<Group gap="sm" wrap="nowrap" px="xs">
+					<Avatar src={avatar} size={32} radius="xl" />
+					<Box style={{ minWidth: 0 }}>
+						<Text size="sm" fw={500} truncate>
+							{user?.display_name ?? "用户"}
+						</Text>
+						<Text size="xs" c="dimmed" truncate>
+							{user?.role_display_name || user?.role || "用户"}
+						</Text>
+					</Box>
+				</Group>
 			</Box>
 		</Box>
 	);
