@@ -1,81 +1,92 @@
-# Nursing VP Sim
+# nursing-vp-sim
 
-> 护理学生虚拟患者训练平台 — LLM 角色扮演问诊 · 自动评分 · 教师复核 · 语音交互
+护理学生练问诊，缺的不是案例，是能反复练、还能按条目打分的病人。
 
-🚀 **Production** [iomt.205716.xyz](https://iomt.205716.xyz)（单实例部署）
+**状态**：可用，单个生产实例在跑；**入口**：[iomt.205716.xyz](https://iomt.205716.xyz)；**仓库**：`fire-disposal/nursing-vp-sim`
 
----
+## 本质
 
-## 核心能力
+让 LLM 扮演病人、按条目评分并交由教师复核的护理虚拟病人训练平台。
 
-- **虚拟患者对话** — LLM 角色扮演，隐藏背景语义披露 + 出站泄漏守卫，SSE 流式输出
-- **自动评分** — 逐条目 0-2 分制（含护理记录维度），Σ条目映射 100 分制；每条附对话证据 + 评分理由；评分故障（LLM 兜底/维度丢失）显式标记，不进排行榜
-- **教师复核** — 逐项改分工作台，对话回放 ↔ 证据点击联动；复核结果写回成绩单
-- **训练计时与结束** — 病例时限、训练状态、提交与评分由服务端契约约束；终态持久化、暂离与恢复使用真实服务端状态
-- **情感系统** — 4D 情绪模型（信任/焦虑/烦躁/配合）驱动患者行为，实时指示条 + 结果页轨迹图（事件标注）
-- **语音交互** — 火山引擎 TTS 情感合成，**句子级流式分块**（低延迟首音）与会话级 `abort`（打断）；失败与降级状态显式呈现。双工对谈（持续拾音 + 端点检测 + 打断）是大版本目标中的下一项
-- **工具指令面** — 查体/护理记录走 HTTP 指令 + revision 乐观并发 + 单一审计时间线
-- **病例体系** — 内置病例 + AI 生成，统一校验器（时间线/症状/医学事实断言）守护内容质量
-- **多 Provider 路由** — 优先级加权、熔断、限流、健康检查；env 兜底同源记账
+## 选型
 
-## 大版本目标
+基于 FastAPI + React 的训练平台，前端 React 19 + Mantine，后端 FastAPI + SQLAlchemy，数据 PostgreSQL 15，语音火山引擎 TTS，部署 Docker Compose + Nginx。
 
-**我们是训练上下文的发布与管理平台：为用户带来一次体验，并记录该次体验。**
+- 前端
+  - React 19
+    - Mantine 9
+      - @mantine/form
+      - @mantine/modals
+      - @mantine/notifications
+    - TanStack Query
+    - React Router
+    - Zustand
+    - Recharts
+    - Vite
+    - Vitest
+- 后端
+  - Python 3.13
+    - FastAPI
+      - Pydantic
+      - uvicorn
+    - SQLAlchemy 2.0
+      - Alembic
+- 数据
+  - PostgreSQL 15
+    - psycopg 3
+- 模型与语音
+  - LLMRouter
+  - 火山引擎 TTS
+- 部署
+  - Docker Compose
+  - Nginx
+  - GitHub Actions
 
-| 腿 | 含义 | 现在的样子 |
-|---|---|---|
-| **一次体验** | 在场（患者在场感）+ 时间（会变的情境）+ 对话（双工语音） | 场景可更新、情绪有状态、流式 TTS 分块与 `abort` 已就绪；**表现层与双工待做** |
-| **记录该次体验** | 一次会话产出一份可导出的**体验记录**：时间线 + 对话 + 体征 + 情感轨迹 + 判读与证据 | 数据都在（`messages` / `exam_results` / 情绪事件 / 动作日志 / 评分证据），**差一个导出面** |
-| **发布与管理** | 场景 = 声明式上下文 + 变体 + 分组，版本化下发 | 骨架完整：`CaseRevision` + 指纹 + 批次 + 问卷/SUS |
+## 功能
 
-推进顺序与每个方向的最小切片见 **[下一阶段方向](docs/ideas/next-phase-directions-2026-09-27.md)**；本版本的验收场景是 U0 可用性研究；训练实现契约见 [docs/15](docs/15-workflow-activity-contract.md)。
+- 对话：LLM 角色扮演 + SSE 流式输出；隐藏背景按语义逐步披露，出站有泄漏守卫
+- 情绪：四维（信任 / 焦虑 / 烦躁 / 配合）带版本持久化，驱动患者措辞与行为；结果页有轨迹与事件标注
+- 评分：基础 rubric 19 个条目（沟通 14 / 病史采集 5），护理记录维度按需追加；条目 0–2 分，raw_max 38 映射到 100
+- 评分韧性：失败重试、超时结算置 failed、幻觉维度过滤、越界裁剪与总分重算
+- 教师复核：独立 `ScoreReview` 存储，逐项改分，对话回放与证据点击联动
+- 导出：`GET /records/{id}/experience` 输出自包含 JSON（时间线、消息、查体、情绪事件、评分口径、`gaps`）
+- 病例：`backend/data/cases` 14 个内置病例，启动时按指纹收敛；AI 生成 + 校验器
+- 管理面：作业、班级、角色权限、问卷、成本管理、审计日志、反馈
+- 语音：TTS 合成与打断可用；STT 与双工对谈未做
 
-
----
-
-## 快速开始
+## 启动流程
 
 ```bash
-pnpm install && cd backend && uv sync && cd ../frontend && pnpm install && cd ..
-cp .env.example .env   # 填入 DEEPSEEK_API_KEY 等配置
-pnpm run dev            # 后端 :8000 + 前端 :3000
+pnpm install
+cd backend && uv sync && cd ..
+cd frontend && pnpm install && cd ..
+cp .env.example .env     # JWT_SECRET_KEY / FERNET_KEY / DEEPSEEK_API_KEY / DATABASE_URL
+pnpm run dev             # 后端 :8000，前端 :3000
 ```
 
-> 详细搭建见 **[开发入门指南](docs/onboarding.md)** · 运维见 [docs/operations.md](docs/operations.md)
+需要本地 PostgreSQL 15，库名写在 `DATABASE_URL`，首次启动自动 seed 测试账号。
 
----
-
-## 架构
-
-**可导航单体**：普通业务 router/service/model；训练业务收敛于 `modules/training` 单一复杂域；外部依赖在 `infra`；核心规则在 `core`。
-
-- 前端 React 19 + **Mantine v9**（TypeScript · Vite）
-- 后端 Python 3.13 · FastAPI · SQLAlchemy 2.0 · PostgreSQL 15
-- 状态分层：正式产物（Message/Score）失败即业务失败；工具审计（TrainingAction）失败即工具失败；运行态（情绪/追问）可降级；指标 best-effort
-- 提交规范 `<emoji> <type>: <description>`（Husky 校验，详见 [AGENTS.md](AGENTS.md)）
-
-> 架构文档见 [docs/11-backend-organization-plan.md](docs/11-backend-organization-plan.md) · 评分设计见 [docs/llm.md](docs/llm.md)
-
----
-
-## 在线环境
-
-唯一部署实例（staging 已于 2026-09-14 退役，见 [docs/ops/single-instance-migration.md](docs/ops/single-instance-migration.md)）：
-
-| 环境 | 地址 | 部署 |
-|------|------|------|
-| Production | [iomt.205716.xyz](https://iomt.205716.xyz) | 获得发布授权后使用 `pnpm run tag`；tag 触发 `deploy.yml`。当前 `production` 未配置 Required reviewers，推 tag 即发版，无人工审批等待 |
-
----
-
-## 项目结构
-
-```
-backend/   main.py · core/ · models/ · schemas/ · modules/ · infra/ · migrations/
-frontend/  React 19 + Mantine v9
-docs/      架构/运维/重构文档（docs/review/ 为重构行动追踪）
-deploy/    docker-compose · nginx · 监控 · 备份/回滚
-scripts/   迁移模板 · 部署通知 · 开发报告 · case-audit 病例健康诊断
+```bash
+pnpm check               # ruff format + ruff check + ty + biome + tsc
+pnpm test:backend        # pytest，纯逻辑，不依赖数据库
+cd frontend && pnpm vitest run
 ```
 
-MIT
+发版：`pnpm run tag` 推送 `v*` tag 触发部署；回滚走 Actions 的 Emergency Rollback。
+
+## 边界与已知问题
+
+- 旧 README 说“记录该次体验差一个导出面”，但端点与前端下载都已实现（`router/session_views.py`、`utils/export-record.ts`），文档需要同步。
+- 双工语音（持续拾音 + 端点检测 + 打断）未实现，当前是单向播报可中断。
+- 只有 production 一个实例，staging 已于 2026-09-14 退役；没有灰度环境。
+- `production` 当前未配 Required reviewers，推 tag 即发版；README 与 onboarding 说法不一致，以实际配置为准。
+- 评分总分口径随运行时 rubric 变化：病例追加护理记录维度后条目数与总分都会变，跨病例比较要看 `grade_policy` 的口径字段。
+- 兜底分（`Score.fallback`）被 `grade_conditions()` 排除在成绩与排行榜统计之外，降级等于不参与统计；改分走教师复核。
+- 测试不覆盖真实模型与语音链路（后端 145 个测试文件、前端 103 个）。
+
+## 文档索引
+
+- [docs/README.md](docs/README.md) — 文档总览
+- [docs/architecture.md](docs/architecture.md) — 架构
+- [docs/operations.md](docs/operations.md) — 运维
+- [AGENTS.md](AGENTS.md) — 开发约定
