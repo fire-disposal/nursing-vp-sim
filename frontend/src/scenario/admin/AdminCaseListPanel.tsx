@@ -18,6 +18,7 @@ import { IconInfoCircle } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { queryKeys } from "@/api/query-keys";
+import TableScroll from "@/components/ui/table-scroll";
 import {
 	type ScenarioAdminPack,
 	createBlankScenarioPack,
@@ -355,7 +356,7 @@ export default function AdminCaseListPanel({
 					还没有病例。{canContent ? "可以从标准模板开始，或导入一个病例文件夹。" : ""}
 				</Text>
 			) : (
-				<Table.ScrollContainer minWidth={960}>
+				<TableScroll minWidth={960}>
 					<Table highlightOnHover verticalSpacing="sm">
 						<Table.Thead>
 							<Table.Tr>
@@ -503,7 +504,7 @@ export default function AdminCaseListPanel({
 							})}
 						</Table.Tbody>
 					</Table>
-				</Table.ScrollContainer>
+				</TableScroll>
 			)}
 
 			<Modal

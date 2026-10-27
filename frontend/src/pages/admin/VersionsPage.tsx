@@ -7,6 +7,7 @@ import {
 	getVersionAttribution,
 } from "@/api/admin/versions";
 import { queryKeys } from "@/api/query-keys";
+import TableScroll from "@/components/ui/table-scroll";
 import EmptyState from "@/components/ui/empty-state";
 import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
@@ -100,61 +101,63 @@ export default function VersionsPage() {
 				<EmptyState title="该窗口内没有记录" description="换一个时间窗口，或等训练产生数据后再看。" />
 			) : (
 				<Paper withBorder>
-					<Table highlightOnHover verticalSpacing="sm" horizontalSpacing="md">
-						<Table.Thead>
-							<Table.Tr>
-								<Table.Th>身份</Table.Th>
-								<Table.Th>记录</Table.Th>
-								<Table.Th>已评分</Table.Th>
-								<Table.Th title="数值参考，不代表能力等第">平均分</Table.Th>
-								<Table.Th>兜底率</Table.Th>
-								<Table.Th>首次出现</Table.Th>
-								<Table.Th>最近出现</Table.Th>
-							</Table.Tr>
-						</Table.Thead>
-						<Table.Tbody>
-							{items.map((row) => (
-								<Table.Tr key={row.identity}>
-									<Table.Td>
-										<Text size="sm" ff="monospace">
-											{row.identity}
-										</Text>
-									</Table.Td>
-									<Table.Td>{row.records}</Table.Td>
-									<Table.Td>{row.scored}</Table.Td>
-									<Table.Td>
-										{row.avg_score === null ? (
-											<Text size="sm" c="dimmed">
-												无成绩
-											</Text>
-										) : (
-											// 归因响应的平均分只作数值参考：接口不提供等第政策，
-											// 因此既不上「好/中/差」颜色，也不给能力/合格类措辞
-											<Text
-												size="sm"
-												fw={600}
-												title="数值参考，不代表能力等第"
-												style={{ fontVariantNumeric: "tabular-nums" }}
-											>
-												{row.avg_score}
-											</Text>
-										)}
-									</Table.Td>
-									<Table.Td>
-										{row.fallback_rate === null ? (
-											<Text size="sm" c="dimmed">
-												—
-											</Text>
-										) : (
-											<Text size="sm">{Math.round(row.fallback_rate * 100)}%</Text>
-										)}
-									</Table.Td>
-									<Table.Td>{formatDate(row.first_seen)}</Table.Td>
-									<Table.Td>{formatDate(row.last_seen)}</Table.Td>
+					<TableScroll minWidth={760}>
+						<Table highlightOnHover verticalSpacing="sm" horizontalSpacing="md">
+							<Table.Thead>
+								<Table.Tr>
+									<Table.Th>身份</Table.Th>
+									<Table.Th>记录</Table.Th>
+									<Table.Th>已评分</Table.Th>
+									<Table.Th title="数值参考，不代表能力等第">平均分</Table.Th>
+									<Table.Th>兜底率</Table.Th>
+									<Table.Th>首次出现</Table.Th>
+									<Table.Th>最近出现</Table.Th>
 								</Table.Tr>
-							))}
-						</Table.Tbody>
-					</Table>
+							</Table.Thead>
+							<Table.Tbody>
+								{items.map((row) => (
+									<Table.Tr key={row.identity}>
+										<Table.Td>
+											<Text size="sm" ff="monospace">
+												{row.identity}
+											</Text>
+										</Table.Td>
+										<Table.Td>{row.records}</Table.Td>
+										<Table.Td>{row.scored}</Table.Td>
+										<Table.Td>
+											{row.avg_score === null ? (
+												<Text size="sm" c="dimmed">
+													无成绩
+												</Text>
+											) : (
+												// 归因响应的平均分只作数值参考：接口不提供等第政策，
+												// 因此既不上「好/中/差」颜色，也不给能力/合格类措辞
+												<Text
+													size="sm"
+													fw={600}
+													title="数值参考，不代表能力等第"
+													style={{ fontVariantNumeric: "tabular-nums" }}
+												>
+													{row.avg_score}
+												</Text>
+											)}
+										</Table.Td>
+										<Table.Td>
+											{row.fallback_rate === null ? (
+												<Text size="sm" c="dimmed">
+													—
+												</Text>
+											) : (
+												<Text size="sm">{Math.round(row.fallback_rate * 100)}%</Text>
+											)}
+										</Table.Td>
+										<Table.Td>{formatDate(row.first_seen)}</Table.Td>
+										<Table.Td>{formatDate(row.last_seen)}</Table.Td>
+									</Table.Tr>
+								))}
+							</Table.Tbody>
+						</Table>
+					</TableScroll>
 				</Paper>
 			)}
 

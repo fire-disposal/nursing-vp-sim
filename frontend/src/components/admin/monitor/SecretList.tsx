@@ -1,5 +1,6 @@
 import { Badge, Button, Group, Paper, Text } from "@mantine/core";
 import type { components } from "@/api/api-types.gen";
+import TableScroll from "@/components/ui/table-scroll";
 import { Table } from "@mantine/core";
 import {
 	costColorClass,
@@ -30,114 +31,116 @@ export default function SecretList({
 }: SecretListProps) {
 	return (
 		<Paper withBorder p={0} style={{ overflow: "hidden" }}>
-			<Table>
-				<Table.Tbody>
-					{envFallback?.available !== undefined && (
-						<Table.Tr>
-							<Table.Td style={{ whiteSpace: "nowrap" }}>
-								<Group gap="xs" wrap="nowrap">
-									<span
-										style={{
-											width: 8,
-											height: 8,
-											borderRadius: "50%",
-											flexShrink: 0,
-											background: "var(--mantine-color-green-6)",
-										}}
-									/>
-									<Text fw={600}>环境变量</Text>
-									<Badge variant="light" color="green" size="xs">
-										当前
-									</Badge>
-								</Group>
-							</Table.Td>
-							<Table.Td style={{ whiteSpace: "nowrap" }}>
-								<Text component="span" c="dimmed" ff="monospace" size="xs">
-									sk-...{envFallback?.key_suffix || "****"}
-								</Text>
-							</Table.Td>
-							<Table.Td style={{ whiteSpace: "nowrap" }}>
-								<Text component="span" size="xs" c="green">
-									{envFallback?.available ? "可用" : "不可用"}
-								</Text>
-							</Table.Td>
-							<Table.Td style={{ whiteSpace: "nowrap" }}>
-								<Text component="span" size="xs" c="dimmed" opacity={0.6}>
-									{(envFallback?.call_count ?? 0) > 0
-										? `${envFallback?.call_count}次 · ¥${envFallback?.total_cost}`
-										: ""}
-								</Text>
-							</Table.Td>
-							<Table.Td />
-						</Table.Tr>
-					)}
-					{[...secrets]
-						.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
-						.map((s) => {
-							const cost = Number(s.monthly_cost_used ?? 0);
-							const limit = s.monthly_cost_limit ?? null;
-							const isDisabled = s.status === "disabled";
-							const _recovery =
-								s.status === "degraded"
-									? recoveryText(s.degraded_until, s.degraded_reason)
-									: "";
-							return (
-								<Table.Tr key={s.id} style={{ opacity: isDisabled ? 0.5 : undefined }}>
-									<Table.Td style={{ whiteSpace: "nowrap" }}>
-										<Group gap="xs" wrap="nowrap">
-											<span
-												style={{
-													width: 8,
-													height: 8,
-													borderRadius: "50%",
-													flexShrink: 0,
-													background: STATUS_DOT[s.status] || "var(--mantine-color-dimmed)",
-												}}
-											/>
-											<Text fw={600}>{s.label}</Text>
-											{isDisabled && (
-												<Text size="xs" c="dimmed" opacity={0.5}>
-													已停用
-												</Text>
-											)}
-										</Group>
-									</Table.Td>
-									<Table.Td style={{ whiteSpace: "nowrap" }}>
-										<Badge variant="light" color="gray" size="xs">
-											P{s.priority ?? 0}
+			<TableScroll minWidth={720}>
+				<Table>
+					<Table.Tbody>
+						{envFallback?.available !== undefined && (
+							<Table.Tr>
+								<Table.Td style={{ whiteSpace: "nowrap" }}>
+									<Group gap="xs" wrap="nowrap">
+										<span
+											style={{
+												width: 8,
+												height: 8,
+												borderRadius: "50%",
+												flexShrink: 0,
+												background: "var(--mantine-color-green-6)",
+											}}
+										/>
+										<Text fw={600}>环境变量</Text>
+										<Badge variant="light" color="green" size="xs">
+											当前
 										</Badge>
-									</Table.Td>
-									<Table.Td style={{ whiteSpace: "nowrap" }}>
-										<Text component="span" c="dimmed" ff="monospace" size="xs">
-											sk-...{s.key_suffix}
-										</Text>
-									</Table.Td>
-									<Table.Td style={{ whiteSpace: "nowrap" }}>
-										<Text component="span" size="xs" c="dimmed">
-											{isDisabled ? "已停用" : statusText(s.status)}
-										</Text>
-									</Table.Td>
-									<Table.Td style={{ whiteSpace: "nowrap" }}>
-										<Text component="span" size="xs" className={costColorClass(cost, limit)}>
-											¥{cost.toFixed(2)} /{" "}
-											{limit ? `¥${Number(limit).toFixed(0)}` : "不限"}
-										</Text>
-									</Table.Td>
-									<Table.Td style={{ whiteSpace: "nowrap" }}>
-										<Group gap="xs" wrap="nowrap">
-											<Button variant="transparent" size="xs" onClick={() => onEdit(s)}>
-												编辑
-											</Button>
-											<Button variant="transparent" size="xs" color="red" onClick={() => onDelete(s)}>
-												删除
-											</Button>
-										</Group>
-									</Table.Td>
-								</Table.Tr>
-							);
-						})}
-				</Table.Tbody>
-			</Table>
+									</Group>
+								</Table.Td>
+								<Table.Td style={{ whiteSpace: "nowrap" }}>
+									<Text component="span" c="dimmed" ff="monospace" size="xs">
+										sk-...{envFallback?.key_suffix || "****"}
+									</Text>
+								</Table.Td>
+								<Table.Td style={{ whiteSpace: "nowrap" }}>
+									<Text component="span" size="xs" c="green">
+										{envFallback?.available ? "可用" : "不可用"}
+									</Text>
+								</Table.Td>
+								<Table.Td style={{ whiteSpace: "nowrap" }}>
+									<Text component="span" size="xs" c="dimmed" opacity={0.6}>
+										{(envFallback?.call_count ?? 0) > 0
+											? `${envFallback?.call_count}次 · ¥${envFallback?.total_cost}`
+											: ""}
+									</Text>
+								</Table.Td>
+								<Table.Td />
+							</Table.Tr>
+						)}
+						{[...secrets]
+							.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
+							.map((s) => {
+								const cost = Number(s.monthly_cost_used ?? 0);
+								const limit = s.monthly_cost_limit ?? null;
+								const isDisabled = s.status === "disabled";
+								const _recovery =
+									s.status === "degraded"
+										? recoveryText(s.degraded_until, s.degraded_reason)
+										: "";
+								return (
+									<Table.Tr key={s.id} style={{ opacity: isDisabled ? 0.5 : undefined }}>
+										<Table.Td style={{ whiteSpace: "nowrap" }}>
+											<Group gap="xs" wrap="nowrap">
+												<span
+													style={{
+														width: 8,
+														height: 8,
+														borderRadius: "50%",
+														flexShrink: 0,
+														background: STATUS_DOT[s.status] || "var(--mantine-color-dimmed)",
+													}}
+												/>
+												<Text fw={600}>{s.label}</Text>
+												{isDisabled && (
+													<Text size="xs" c="dimmed" opacity={0.5}>
+														已停用
+													</Text>
+												)}
+											</Group>
+										</Table.Td>
+										<Table.Td style={{ whiteSpace: "nowrap" }}>
+											<Badge variant="light" color="gray" size="xs">
+												P{s.priority ?? 0}
+											</Badge>
+										</Table.Td>
+										<Table.Td style={{ whiteSpace: "nowrap" }}>
+											<Text component="span" c="dimmed" ff="monospace" size="xs">
+												sk-...{s.key_suffix}
+											</Text>
+										</Table.Td>
+										<Table.Td style={{ whiteSpace: "nowrap" }}>
+											<Text component="span" size="xs" c="dimmed">
+												{isDisabled ? "已停用" : statusText(s.status)}
+											</Text>
+										</Table.Td>
+										<Table.Td style={{ whiteSpace: "nowrap" }}>
+											<Text component="span" size="xs" className={costColorClass(cost, limit)}>
+												¥{cost.toFixed(2)} /{" "}
+												{limit ? `¥${Number(limit).toFixed(0)}` : "不限"}
+											</Text>
+										</Table.Td>
+										<Table.Td style={{ whiteSpace: "nowrap" }}>
+											<Group gap="xs" wrap="nowrap">
+												<Button variant="transparent" size="xs" onClick={() => onEdit(s)}>
+													编辑
+												</Button>
+												<Button variant="transparent" size="xs" color="red" onClick={() => onDelete(s)}>
+													删除
+												</Button>
+											</Group>
+										</Table.Td>
+									</Table.Tr>
+								);
+							})}
+					</Table.Tbody>
+				</Table>
+			</TableScroll>
 		</Paper>
 	);
 }

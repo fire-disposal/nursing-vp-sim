@@ -11,6 +11,7 @@ import {
 	IconUser,
 } from "@tabler/icons-react";
 import { useNavigate, useParams } from "react-router-dom";
+import TableScroll from "@/components/ui/table-scroll";
 import {
 	Bar,
 	CartesianGrid,
@@ -183,7 +184,7 @@ export default function UserDetailPage() {
 					</Group>
 				</CardHeader>
 				<CardContent>
-					<div style={{ overflowX: "auto" }}>
+					<TableScroll minWidth={640}>
 						<Table>
 							<Table.Thead>
 								<Table.Tr>
@@ -222,7 +223,7 @@ export default function UserDetailPage() {
 								))}
 							</Table.Tbody>
 						</Table>
-					</div>
+					</TableScroll>
 				</CardContent>
 			</Card>
 		</Stack>

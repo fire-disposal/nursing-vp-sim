@@ -14,6 +14,7 @@ import {
 	YAxis,
 } from "recharts";
 import type { components } from "@/api/api-types.gen";
+import TableScroll from "@/components/ui/table-scroll";
 import { queryKeys } from "@/api/query-keys";
 import { getTeacherSummary, getTrends } from "@/api/stats";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -226,7 +227,7 @@ export function TrainingTrend({ dateFrom }: { dateFrom?: string }) {
 							<CardTitle>学生训练量</CardTitle>
 						</Group>
 					</CardHeader>
-					<div style={{ maxHeight: 384, overflow: "auto" }}>
+					<TableScroll minWidth={480} maxHeight={384}>
 						<Table>
 							<Table.Thead>
 								<Table.Tr>
@@ -253,7 +254,7 @@ export function TrainingTrend({ dateFrom }: { dateFrom?: string }) {
 								))}
 							</Table.Tbody>
 						</Table>
-					</div>
+					</TableScroll>
 					<CardContent>
 						<Pagination
 							total={summaryTotal}

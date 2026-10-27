@@ -16,6 +16,7 @@ import { IconAlertTriangle } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { queryKeys } from "@/api/query-keys";
+import TableScroll from "@/components/ui/table-scroll";
 import {
 	getAdminScenarioSession,
 	listAdminScenarioPacks,
@@ -158,7 +159,7 @@ export default function AdminSessionsPanel({
 					没有符合条件的会话。
 				</Text>
 			) : (
-				<Table.ScrollContainer minWidth={900}>
+				<TableScroll minWidth={900}>
 					<Table highlightOnHover verticalSpacing="xs">
 						<Table.Thead>
 							<Table.Tr>
@@ -226,7 +227,7 @@ export default function AdminSessionsPanel({
 							))}
 						</Table.Tbody>
 					</Table>
-				</Table.ScrollContainer>
+				</TableScroll>
 			)}
 
 			{total > PAGE_SIZE && (

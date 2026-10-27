@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Fragment, useState } from "react";
 import { type DiagnoseResponse, fetchDiagnose } from "@/api/admin/ops";
 import { queryKeys } from "@/api/query-keys";
+import TableScroll from "@/components/ui/table-scroll";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
@@ -444,7 +445,11 @@ function ErrorLogTable({ data }: { data: DiagnoseResponse }) {
 				{entries.length === 0 ? (
 					<Text size="sm" c="dimmed" ta="center" py="md">暂无错误</Text>
 				) : (
-					<div style={{ maxHeight: 320, overflow: "auto", border: "1px solid var(--mantine-color-default-border)", borderRadius: 8 }}>
+					<TableScroll
+						minWidth={640}
+						maxHeight={320}
+						style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 8 }}
+					>
 						<Table>
 							<Table.Thead>
 								<Table.Tr>
@@ -473,7 +478,7 @@ function ErrorLogTable({ data }: { data: DiagnoseResponse }) {
 								))}
 							</Table.Tbody>
 						</Table>
-					</div>
+					</TableScroll>
 				)}
 			</CardContent>
 		</Card>

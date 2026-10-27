@@ -10,6 +10,7 @@ import {
 	Text,
 } from "@mantine/core";
 import type { ScenarioAdminPack } from "@/api/scenario";
+import TableScroll from "@/components/ui/table-scroll";
 import { PRESENCE_HINT } from "../actors";
 
 /** 一行"名 → 值"：概览里所有标量字段共用一种排法（不各写一套）。 */
@@ -108,26 +109,28 @@ export default function AdminCaseOverviewPanel({ pack }: { pack: ScenarioAdminPa
 								这份病例没有声明在场者。
 							</Text>
 						) : (
-							<Table verticalSpacing="xs">
-								<Table.Thead>
-									<Table.Tr>
-										<Table.Th>谁</Table.Th>
-										<Table.Th>怎么接触</Table.Th>
-									</Table.Tr>
-								</Table.Thead>
-								<Table.Tbody>
-									{actors.map((actor) => (
-										<Table.Tr key={actor.id}>
-											<Table.Td>{actor.role}</Table.Td>
-											<Table.Td>
-												<Text size="sm">
-													{contactText(actor.presence)}
-												</Text>
-											</Table.Td>
+							<TableScroll minWidth={480}>
+								<Table verticalSpacing="xs">
+									<Table.Thead>
+										<Table.Tr>
+											<Table.Th>谁</Table.Th>
+											<Table.Th>怎么接触</Table.Th>
 										</Table.Tr>
-									))}
-								</Table.Tbody>
-							</Table>
+									</Table.Thead>
+									<Table.Tbody>
+										{actors.map((actor) => (
+											<Table.Tr key={actor.id}>
+												<Table.Td>{actor.role}</Table.Td>
+												<Table.Td>
+													<Text size="sm">
+														{contactText(actor.presence)}
+													</Text>
+												</Table.Td>
+											</Table.Tr>
+										))}
+									</Table.Tbody>
+								</Table>
+							</TableScroll>
 						)}
 					</Paper>
 

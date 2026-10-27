@@ -142,6 +142,7 @@ export default function QuestionnaireList({
 			// 表头不再自粘：ListPage 的筛选带已经吸顶，表头再 sticky top:0 会滑到带子上面盖住它
 			stickyHeader={false}
 			bare
+			minWidth={720}
 		/>
 	);
 }

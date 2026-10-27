@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { IconArrowLeft, IconCopy, IconDownload } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import TableScroll from "@/components/ui/table-scroll";
 import { exportAssignment, getAssignment } from "@/api/assignments";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
@@ -228,7 +229,7 @@ export default function AssignmentDetailPage() {
 						复制未完成名单{unfinishedStudents.length > 0 ? ` (${unfinishedStudents.length})` : ""}
 					</Button>
 				</Group>
-				<div style={{ overflowX: "auto" }}>
+				<TableScroll minWidth={720}>
 					<Table>
 						<Table.Thead>
 							<Table.Tr>
@@ -298,7 +299,7 @@ export default function AssignmentDetailPage() {
 							)}
 						</Table.Tbody>
 					</Table>
-				</div>
+				</TableScroll>
 			</Card>
 		</Stack>
 	);

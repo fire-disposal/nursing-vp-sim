@@ -17,7 +17,6 @@ import {
 	Grid,
 	Group,
 	Paper,
-	ScrollArea,
 	Select,
 	SimpleGrid,
 	Stack,
@@ -31,6 +30,7 @@ import { queryKeys } from "@/api/query-keys";
 import CallLogTimeline from "./CallLogTimeline";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
+import TableScroll from "@/components/ui/table-scroll";
 import { Table } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import { LLM_PURPOSE_LABELS } from "@/config/llm-purposes";
@@ -247,7 +247,7 @@ export default function MonitorTab() {
 							按 Provider 统计 (7日)
 						</Text>
 					</Group>
-					<ScrollArea>
+					<TableScroll minWidth={480}>
 						<Table>
 							<Table.Thead>
 								<Table.Tr>
@@ -280,7 +280,7 @@ export default function MonitorTab() {
 								))}
 							</Table.Tbody>
 						</Table>
-					</ScrollArea>
+					</TableScroll>
 				</Paper>
 			)}
 
@@ -366,7 +366,7 @@ export default function MonitorTab() {
 								按用途统计 (7日)
 							</Text>
 						</Group>
-						<ScrollArea>
+						<TableScroll minWidth={480}>
 							<Table>
 								<Table.Thead>
 									<Table.Tr>
@@ -403,7 +403,7 @@ export default function MonitorTab() {
 									))}
 								</Table.Tbody>
 							</Table>
-						</ScrollArea>
+						</TableScroll>
 					</Paper>
 				</Grid.Col>
 
@@ -478,7 +478,7 @@ export default function MonitorTab() {
 							<EmptyState icon={IconBolt} title="暂无日志记录" />
 						) : (
 							<>
-								<ScrollArea>
+								<TableScroll minWidth={900}>
 									<Table>
 										<Table.Thead>
 											<Table.Tr>
@@ -572,7 +572,7 @@ export default function MonitorTab() {
 											))}
 										</Table.Tbody>
 									</Table>
-								</ScrollArea>
+								</TableScroll>
 								<Pagination
 									total={logTotal}
 									offset={offset}

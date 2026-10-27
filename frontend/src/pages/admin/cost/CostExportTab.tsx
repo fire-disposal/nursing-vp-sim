@@ -6,6 +6,7 @@ import { fetchCostExport } from "@/api/admin/voice-cost";
 import { queryKeys } from "@/api/query-keys";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import EmptyState from "@/components/ui/empty-state";
+import TableScroll from "@/components/ui/table-scroll";
 
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { Divider } from "@mantine/core";
@@ -181,7 +182,11 @@ export default function CostExportTab() {
 										</Text>
 									</Group>
 								)}
-								<div style={{ maxHeight: 384, overflow: "auto", border: "1px solid var(--mantine-color-default-border)", borderRadius: 8 }}>
+								<TableScroll
+									minWidth={720}
+									maxHeight={384}
+									style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 8 }}
+								>
 									<Table>
 										<Table.Thead>
 											<Table.Tr>
@@ -204,7 +209,7 @@ export default function CostExportTab() {
 											))}
 										</Table.Tbody>
 									</Table>
-								</div>
+								</TableScroll>
 							</>
 						)}
 					</CardContent>

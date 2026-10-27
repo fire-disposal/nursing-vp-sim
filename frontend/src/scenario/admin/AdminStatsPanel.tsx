@@ -2,6 +2,7 @@ import { Group, Loader, Stack, Table, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/api/query-keys";
 import { getAdminScenarioStats } from "@/api/scenario";
+import TableScroll from "@/components/ui/table-scroll";
 
 /**
  * 统计：按病例汇总（会话数 / 已结算 / 不可逆结局 / **工具拒绝次数**）。
@@ -51,7 +52,7 @@ export default function AdminStatsPanel({ packKey = null }: { packKey?: string |
 
 	return (
 		<Stack gap="md">
-			<Table.ScrollContainer minWidth={720}>
+			<TableScroll minWidth={720}>
 				<Table highlightOnHover verticalSpacing="sm">
 					<Table.Thead>
 						<Table.Tr>
@@ -79,7 +80,7 @@ export default function AdminStatsPanel({ packKey = null }: { packKey?: string |
 						))}
 					</Table.Tbody>
 				</Table>
-			</Table.ScrollContainer>
+			</TableScroll>
 			<Text size="xs" c="dimmed">
 				工具拒绝 = 所有会话里被工具层校验拒掉的调用次数之和（未登记的键、越界的值、
 				未声明的线索等）。它是"模型想干什么、平台为什么不许"的观测，不是能力等第。

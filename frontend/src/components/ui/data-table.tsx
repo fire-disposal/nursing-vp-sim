@@ -3,6 +3,7 @@ import type { ComponentType, ReactNode } from "react";
 import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import Pagination from "@/components/ui/pagination";
+import TableScroll from "@/components/ui/table-scroll";
 import { Table } from "@mantine/core";
 
 type IconType = ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
@@ -32,6 +33,8 @@ export interface DataTableProps<T> {
 	/** Omit the card chrome (border/bg/shadow) when nested inside an existing card. */
 	bare?: boolean;
 	className?: string;
+	/** 表格最小宽度（px），窄屏下改横滑而不是把列压扁；按本表列数给。 */
+	minWidth?: number;
 }
 
 /**
@@ -54,6 +57,7 @@ export default function DataTable<T>({
 	onOffsetChange,
 	bare,
 	className,
+	minWidth = 640,
 }: DataTableProps<T>) {
 	const getKey =
 		rowKey ??
@@ -72,59 +76,57 @@ export default function DataTable<T>({
 
 	const table = (
 		<>
-			<Table>
-				<Table.Thead>
-					<Table.Tr>
-						{columns.map((col) => (
-							<Table.Th
-								key={col.key}
-								className={col.headerClassName}
-								style={{
-									// 外观（灰底/大写/字号）由 theme.Table.styles.th 统一定义，这里只管行为
-									position: stickyHeader ? "sticky" : undefined,
-									top: 0,
-									zIndex: 10,
-									whiteSpace: "nowrap",
-									borderBottom: "1px solid var(--mantine-color-default-border)",
-								}}
-							>
-								{col.header}
-							</Table.Th>
-						))}
-					</Table.Tr>
-				</Table.Thead>
-				<Table.Tbody>
-					{rows.map((row, idx) => (
-						<Table.Tr
-							key={getKey(row, idx)}
-							onClick={onRowClick ? () => onRowClick(row, idx) : undefined}
-							onKeyDown={
-								onRowClick
-									? (event) => {
-											if (event.key !== "Enter" && event.key !== " ") return;
-											event.preventDefault();
-											onRowClick(row, idx);
-										}
-									: undefined
-							}
-							tabIndex={onRowClick ? 0 : undefined}
-							role={onRowClick ? "button" : undefined}
-							style={
-								onRowClick
-									? { cursor: "pointer" }
-									: undefined
-							}
-							className="data-table-row"
-						>
+			<TableScroll minWidth={minWidth}>
+				<Table>
+					<Table.Thead>
+						<Table.Tr>
 							{columns.map((col) => (
-								<Table.Td key={col.key} className={col.cellClassName}>
-									{col.render ? col.render(row, idx) : String(getCellValue(row, col.key) ?? "")}
-								</Table.Td>
+								<Table.Th
+									key={col.key}
+									className={col.headerClassName}
+									style={{
+										// 外观（灰底/大写/字号）由 theme.Table.styles.th 统一定义，这里只管行为
+										position: stickyHeader ? "sticky" : undefined,
+										top: 0,
+										zIndex: 10,
+										whiteSpace: "nowrap",
+										borderBottom: "1px solid var(--mantine-color-default-border)",
+									}}
+								>
+									{col.header}
+								</Table.Th>
 							))}
 						</Table.Tr>
-					))}
-				</Table.Tbody>
-			</Table>
+					</Table.Thead>
+					<Table.Tbody>
+						{rows.map((row, idx) => (
+							<Table.Tr
+								key={getKey(row, idx)}
+								onClick={onRowClick ? () => onRowClick(row, idx) : undefined}
+								onKeyDown={
+									onRowClick
+										? (event) => {
+												if (event.key !== "Enter" && event.key !== " ") return;
+												event.preventDefault();
+												onRowClick(row, idx);
+											}
+										: undefined
+								}
+								tabIndex={onRowClick ? 0 : undefined}
+								role={onRowClick ? "button" : undefined}
+								style={onRowClick ? { cursor: "pointer" } : undefined}
+								className="data-table-row"
+							>
+								{columns.map((col) => (
+									<Table.Td key={col.key} className={col.cellClassName}>
+										{col.render ? col.render(row, idx) : String(getCellValue(row, col.key) ?? "")}
+									</Table.Td>
+								))}
+							</Table.Tr>
+						))}
+					</Table.Tbody>
+				</Table>
+			</TableScroll>
 			{total != null && offset != null && limit != null && onOffsetChange && total > 0 && (
 				<Box px="md" py="sm" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
 					<Pagination total={total} offset={offset} limit={limit} onChange={onOffsetChange} />

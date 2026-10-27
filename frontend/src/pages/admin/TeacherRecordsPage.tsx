@@ -23,6 +23,7 @@ import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import { SearchInput } from "@/components/ui/search-input";
 import Pagination from "@/components/ui/pagination";
 import StatCard from "@/components/ui/stat-card";
+import TableScroll from "@/components/ui/table-scroll";
 import { Table } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import { useActiveSchoolBrand } from "@/hooks/useActiveSchoolBrand";
@@ -348,156 +349,156 @@ export default function TeacherRecordsPage() {
 				) : sortedRecords.length === 0 ? (
 					<EmptyState icon={IconClipboardList} title="暂无训练记录" description="当前筛选条件下没有找到训练记录" />
 				) : (
-					<Table.ScrollContainer minWidth={1000}>
-							<Table>
-								<Table.Thead>
-									<Table.Tr>
-										<Table.Th style={{ width: 88, whiteSpace: "nowrap" }}>学生</Table.Th>
-										<Table.Th style={{ width: 122, whiteSpace: "nowrap" }}>学号</Table.Th>
-										{showSchoolColumn && <Table.Th style={{ width: 120, whiteSpace: "nowrap" }}>院校</Table.Th>}
-										<Table.Th style={{ minWidth: 170 }}>病例</Table.Th>
-										<Table.Th style={{ width: 84, whiteSpace: "nowrap" }}>来源</Table.Th>
-										{/* 「类型」列恒为「问诊」，零信息量，2026-09-26 删除（审计 UI-ADM-6/表格列集） */}
-										{/* 可排序列：Th 上挂 onClick 键盘到不了，改由 Th 内的真按钮触发，排序态交 aria-sort 宣告 */}
-										<Table.Th style={{ width: 132, whiteSpace: "nowrap" }} aria-sort={ariaSort("start_time")}>
-											<UnstyledButton onClick={() => handleSort("start_time")} style={SORT_BUTTON_STYLE}>
-												开始时间{sortIcon("start_time")}
-											</UnstyledButton>
-										</Table.Th>
-										<Table.Th style={{ width: 76, whiteSpace: "nowrap" }} aria-sort={ariaSort("duration")}>
-											<UnstyledButton onClick={() => handleSort("duration")} style={SORT_BUTTON_STYLE}>
-												时长{sortIcon("duration")}
-											</UnstyledButton>
-										</Table.Th>
-										<Table.Th style={{ width: 76, whiteSpace: "nowrap" }}>状态</Table.Th>
-										<Table.Th style={{ width: 96, whiteSpace: "nowrap" }} aria-sort={ariaSort("score_total")}>
-											<UnstyledButton onClick={() => handleSort("score_total")} style={SORT_BUTTON_STYLE}>
-												评分{sortIcon("score_total")}
-											</UnstyledButton>
-										</Table.Th>
-										<Table.Th style={{ width: 132, whiteSpace: "nowrap" }}>操作</Table.Th>
-									</Table.Tr>
-								</Table.Thead>
-								<Table.Tbody>
-									{sortedRecords.map((r) => {
-										const durMins = recordDurationMinutes(r);
-										return (
-											<Table.Tr key={r.id}>
-												<Table.Td style={{ whiteSpace: "nowrap" }}>{r.user_display_name}</Table.Td>
-												<Table.Td style={{ color: "var(--mantine-color-dimmed)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-													{r.user_student_id ?? ""}
+					<TableScroll minWidth={1000}>
+						<Table>
+							<Table.Thead>
+								<Table.Tr>
+									<Table.Th style={{ width: 88, whiteSpace: "nowrap" }}>学生</Table.Th>
+									<Table.Th style={{ width: 122, whiteSpace: "nowrap" }}>学号</Table.Th>
+									{showSchoolColumn && <Table.Th style={{ width: 120, whiteSpace: "nowrap" }}>院校</Table.Th>}
+									<Table.Th style={{ minWidth: 170 }}>病例</Table.Th>
+									<Table.Th style={{ width: 84, whiteSpace: "nowrap" }}>来源</Table.Th>
+									{/* 「类型」列恒为「问诊」，零信息量，2026-09-26 删除（审计 UI-ADM-6/表格列集） */}
+									{/* 可排序列：Th 上挂 onClick 键盘到不了，改由 Th 内的真按钮触发，排序态交 aria-sort 宣告 */}
+									<Table.Th style={{ width: 132, whiteSpace: "nowrap" }} aria-sort={ariaSort("start_time")}>
+										<UnstyledButton onClick={() => handleSort("start_time")} style={SORT_BUTTON_STYLE}>
+											开始时间{sortIcon("start_time")}
+										</UnstyledButton>
+									</Table.Th>
+									<Table.Th style={{ width: 76, whiteSpace: "nowrap" }} aria-sort={ariaSort("duration")}>
+										<UnstyledButton onClick={() => handleSort("duration")} style={SORT_BUTTON_STYLE}>
+											时长{sortIcon("duration")}
+										</UnstyledButton>
+									</Table.Th>
+									<Table.Th style={{ width: 76, whiteSpace: "nowrap" }}>状态</Table.Th>
+									<Table.Th style={{ width: 96, whiteSpace: "nowrap" }} aria-sort={ariaSort("score_total")}>
+										<UnstyledButton onClick={() => handleSort("score_total")} style={SORT_BUTTON_STYLE}>
+											评分{sortIcon("score_total")}
+										</UnstyledButton>
+									</Table.Th>
+									<Table.Th style={{ width: 132, whiteSpace: "nowrap" }}>操作</Table.Th>
+								</Table.Tr>
+							</Table.Thead>
+							<Table.Tbody>
+								{sortedRecords.map((r) => {
+									const durMins = recordDurationMinutes(r);
+									return (
+										<Table.Tr key={r.id}>
+											<Table.Td style={{ whiteSpace: "nowrap" }}>{r.user_display_name}</Table.Td>
+											<Table.Td style={{ color: "var(--mantine-color-dimmed)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+												{r.user_student_id ?? ""}
+											</Table.Td>
+											{showSchoolColumn && (
+												<Table.Td style={{ whiteSpace: "nowrap" }}>
+													{r.school_name ? (
+														<Badge variant="light" color="gray" size="xs">{r.school_name}</Badge>
+													) : (
+														<Text size="xs" c="dimmed" opacity={0.4}>平台</Text>
+													)}
 												</Table.Td>
-												{showSchoolColumn && (
-													<Table.Td style={{ whiteSpace: "nowrap" }}>
-														{r.school_name ? (
-															<Badge variant="light" color="gray" size="xs">{r.school_name}</Badge>
-														) : (
-															<Text size="xs" c="dimmed" opacity={0.4}>平台</Text>
-														)}
-													</Table.Td>
+											)}
+											<Table.Td style={{ fontWeight: 500 }}>{r.case_name}</Table.Td>
+											<Table.Td>
+												{r.assignment_title ? (
+													<Badge variant="light" color="blue" size="xs">作业</Badge>
+												) : (
+													<Text size="xs" c="dimmed" opacity={0.4}>自由训练</Text>
 												)}
-												<Table.Td style={{ fontWeight: 500 }}>{r.case_name}</Table.Td>
-												<Table.Td>
-													{r.assignment_title ? (
-														<Badge variant="light" color="blue" size="xs">作业</Badge>
-													) : (
-														<Text size="xs" c="dimmed" opacity={0.4}>自由训练</Text>
-													)}
-												</Table.Td>
-												<Table.Td style={{ fontSize: 12, color: "var(--mantine-color-dimmed)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-													{formatDateTime(r.start_time)}
-												</Table.Td>
-												<Table.Td style={{ fontSize: 12, color: "var(--mantine-color-dimmed)", whiteSpace: "nowrap", opacity: durMins != null ? 1 : 0.5 }}>
-													{durMins != null ? `${durMins} 分钟` : "进行中"}
-												</Table.Td>
-												<Table.Td>
-													<Badge
-														variant="light" color={r.status === "completed" ? "green" :
-															r.status === "abandoned" ? "gray" :
-															"blue"}
+											</Table.Td>
+											<Table.Td style={{ fontSize: 12, color: "var(--mantine-color-dimmed)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+												{formatDateTime(r.start_time)}
+											</Table.Td>
+											<Table.Td style={{ fontSize: 12, color: "var(--mantine-color-dimmed)", whiteSpace: "nowrap", opacity: durMins != null ? 1 : 0.5 }}>
+												{durMins != null ? `${durMins} 分钟` : "进行中"}
+											</Table.Td>
+											<Table.Td>
+												<Badge
+													variant="light" color={r.status === "completed" ? "green" :
+														r.status === "abandoned" ? "gray" :
+														"blue"}
+												>
+													{r.status === "completed" ? "已完成" :
+													 r.status === "abandoned" ? "已放弃" :
+													 "进行中"}
+												</Badge>
+											</Table.Td>
+											<Table.Td>
+												{r.score_total != null ? (
+													<Text component="span" fw={600} c="blue">
+														{r.score_total}分
+													</Text>
+												) : r.scoring_status === "pending" ||
+													r.scoring_status === "processing" ? (
+													<Badge variant="light" color="yellow">评分中...</Badge>
+												) : r.scoring_status === "failed" ? (
+													<Text
+														component="span"
+														size="xs"
+														c="red"
+														title={r.scoring_error ?? undefined}
 													>
-														{r.status === "completed" ? "已完成" :
-														 r.status === "abandoned" ? "已放弃" :
-														 "进行中"}
-													</Badge>
-												</Table.Td>
-												<Table.Td>
-													{r.score_total != null ? (
-														<Text component="span" fw={600} c="blue">
-															{r.score_total}分
-														</Text>
-													) : r.scoring_status === "pending" ||
-														r.scoring_status === "processing" ? (
-														<Badge variant="light" color="yellow">评分中...</Badge>
-													) : r.scoring_status === "failed" ? (
-														<Text
-															component="span"
-															size="xs"
-															c="red"
-															title={r.scoring_error ?? undefined}
-														>
-															评分失败
-														</Text>
-													) : r.scoring_status === "completed" ? (
-														// 已评分但无分数（异常数据）：保留状态，不显示成空
-														<Text component="span" size="xs" c="dimmed">已评分</Text>
-													) : (
-														<Text component="span" c="dimmed" opacity={0.4}>-</Text>
-													)}
-												</Table.Td>
-												<Table.Td>
-													{/* 「待复核/修改复核」与「查看详情」此前都跳到 /admin/records/:id，属重复入口；
-													    合并为一个（可复核时用复核措辞），并去掉多余一个按钮的宽度（见表格列集优化）。 */}
-													<Group gap="xs" wrap="nowrap">
-														{r.scoring_status === "completed" ? (
-															<Button
-																variant="subtle"
-																color={r.score_reviewed ? "green" : "brand"}
-																size="xs"
-																leftSection={
-																	r.score_reviewed ? <IconShieldCheck size={13} /> : <IconPencil size={13} />
-																}
-																onClick={() => navigate(`/admin/records/${r.id}`)}
-															>
-																{r.score_reviewed ? "修改复核" : "待复核"}
-														</Button>
-														) : (
-															<Button
-																variant="subtle"
-																color="gray"
-																size="xs"
-																onClick={() => navigate(`/admin/records/${r.id}`)}
-															>
-																查看详情
-															</Button>
-														)}
-														{r.status === "in_progress" && (
-															<Button
-																variant="subtle"
-																size="xs"
-																color="gray"
-																onClick={() => handleAbandonRecord(r)}
-															>
-																放弃
-															</Button>
-														)}
+														评分失败
+													</Text>
+												) : r.scoring_status === "completed" ? (
+													// 已评分但无分数（异常数据）：保留状态，不显示成空
+													<Text component="span" size="xs" c="dimmed">已评分</Text>
+												) : (
+													<Text component="span" c="dimmed" opacity={0.4}>-</Text>
+												)}
+											</Table.Td>
+											<Table.Td>
+												{/* 「待复核/修改复核」与「查看详情」此前都跳到 /admin/records/:id，属重复入口；
+												    合并为一个（可复核时用复核措辞），并去掉多余一个按钮的宽度（见表格列集优化）。 */}
+												<Group gap="xs" wrap="nowrap">
+													{r.scoring_status === "completed" ? (
 														<Button
 															variant="subtle"
-															size="xs" w={32} h={32} p={0}
-															color="red"
-															onClick={() => handleDeleteRecord(r)}
-															aria-label={`删除 ${r.user_display_name} 的「${r.case_name}」记录`}
+															color={r.score_reviewed ? "green" : "brand"}
+															size="xs"
+															leftSection={
+																r.score_reviewed ? <IconShieldCheck size={13} /> : <IconPencil size={13} />
+															}
+															onClick={() => navigate(`/admin/records/${r.id}`)}
 														>
-															<IconTrash size={14} />
+															{r.score_reviewed ? "修改复核" : "待复核"}
+													</Button>
+													) : (
+														<Button
+															variant="subtle"
+															color="gray"
+															size="xs"
+															onClick={() => navigate(`/admin/records/${r.id}`)}
+														>
+															查看详情
 														</Button>
-													</Group>
-												</Table.Td>
-											</Table.Tr>
-										);
-									})}
-								</Table.Tbody>
-							</Table>
-						</Table.ScrollContainer>
+													)}
+													{r.status === "in_progress" && (
+														<Button
+															variant="subtle"
+															size="xs"
+															color="gray"
+															onClick={() => handleAbandonRecord(r)}
+														>
+															放弃
+														</Button>
+													)}
+													<Button
+														variant="subtle"
+														size="xs" w={32} h={32} p={0}
+														color="red"
+														onClick={() => handleDeleteRecord(r)}
+														aria-label={`删除 ${r.user_display_name} 的「${r.case_name}」记录`}
+													>
+														<IconTrash size={14} />
+													</Button>
+												</Group>
+											</Table.Td>
+										</Table.Tr>
+									);
+								})}
+							</Table.Tbody>
+						</Table>
+						</TableScroll>
 				)}
 		</ListPage>
 	);

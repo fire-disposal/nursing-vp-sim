@@ -270,6 +270,7 @@ export default function AuditLogsPage() {
 						loading={isLoading}
 						stickyHeader
 						bare
+						minWidth={720}
 						total={total}
 						offset={list.offset}
 						limit={LIMIT}

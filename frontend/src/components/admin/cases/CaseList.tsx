@@ -8,6 +8,7 @@ import { CaseStatusBadge } from "./CaseStatusBadge";
 import { CASE_STATUS_FILTER_OPTIONS } from "./caseStatus";
 import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import ListPage from "@/components/ui/list-page";
+import TableScroll from "@/components/ui/table-scroll";
 import { SearchInput } from "@/components/ui/search-input";
 
 type CaseManageItem = components["schemas"]["CaseManageItem"];
@@ -145,130 +146,132 @@ export default function CaseList({
 			)}
 
 			{/* Table */}
-			<Paper withBorder style={{ overflow: "auto" }}>
-				<Table highlightOnHover miw={720} horizontalSpacing="sm" verticalSpacing="xs">
-					<Table.Thead>
-						<Table.Tr>
-							{/* 列宽按实用性分配：名称给足、能力徽章组不换行不抢宽（实测原为 344px > 名称 280px） */}
-							<Table.Th style={{ minWidth: 260 }}><Text size="xs" c="dimmed" fw={600}>病例名称</Text></Table.Th>
-							<Table.Th style={{ width: 72, whiteSpace: "nowrap" }}><Text size="xs" c="dimmed" fw={600}>难度</Text></Table.Th>
-							<Table.Th style={{ width: 240, whiteSpace: "nowrap" }}><Text size="xs" c="dimmed" fw={600}>能力</Text></Table.Th>
-							<Table.Th style={{ width: 132, whiteSpace: "nowrap" }}><Text size="xs" c="dimmed" fw={600}>状态</Text></Table.Th>
-							<Table.Th style={{ textAlign: "center" }}><Text size="xs" c="dimmed" fw={600}>学生可见</Text></Table.Th>
-							<Table.Th style={{ textAlign: "center" }}><Text size="xs" c="dimmed" fw={600}>操作</Text></Table.Th>
-						</Table.Tr>
-					</Table.Thead>
-					<Table.Tbody>
-						{cases.length === 0 && (
+			<Paper withBorder>
+				<TableScroll minWidth={720}>
+					<Table highlightOnHover horizontalSpacing="sm" verticalSpacing="xs">
+						<Table.Thead>
 							<Table.Tr>
-								<Table.Td colSpan={6}>
-									{loading ? (
-										<Group justify="center" gap={8} py="lg">
-											<Loader size={16} />
-											<Text size="sm" c="dimmed">加载中…</Text>
-										</Group>
-									) : (
-										<Stack align="center" gap={4} py="lg">
-											<Text size="sm" c="dimmed">{hasFilters ? "没有符合条件的病例" : "尚未创建病例"}</Text>
-											<Text size="xs" c="dimmed">
-												{hasFilters ? "试试放宽筛选条件" : "新建的病例是草稿，编辑完成后「发布」才能用于作业与训练"}
-											</Text>
-										</Stack>
-									)}
-								</Table.Td>
+								{/* 列宽按实用性分配：名称给足、能力徽章组不换行不抢宽（实测原为 344px > 名称 280px） */}
+								<Table.Th style={{ minWidth: 260 }}><Text size="xs" c="dimmed" fw={600}>病例名称</Text></Table.Th>
+								<Table.Th style={{ width: 72, whiteSpace: "nowrap" }}><Text size="xs" c="dimmed" fw={600}>难度</Text></Table.Th>
+								<Table.Th style={{ width: 240, whiteSpace: "nowrap" }}><Text size="xs" c="dimmed" fw={600}>能力</Text></Table.Th>
+								<Table.Th style={{ width: 132, whiteSpace: "nowrap" }}><Text size="xs" c="dimmed" fw={600}>状态</Text></Table.Th>
+								<Table.Th style={{ textAlign: "center" }}><Text size="xs" c="dimmed" fw={600}>学生可见</Text></Table.Th>
+								<Table.Th style={{ textAlign: "center" }}><Text size="xs" c="dimmed" fw={600}>操作</Text></Table.Th>
 							</Table.Tr>
-						)}
-						{cases.map((c) => {
-							const published = c.status === "published";
-							const archived = c.status === "archived";
-							const busy = pendingId === c.id;
-							return (
-								<Table.Tr key={c.id}>
-									<Table.Td>
-										<Text size="xs" fw={500} truncate>{c.name}</Text>
-										<Text size="xs" c="dimmed" truncate mt={2}>
-											{[c.patient_gender, c.patient_age != null ? `${c.patient_age}岁` : null].filter(Boolean).join(" · ")}
-										</Text>
-									</Table.Td>
-									<Table.Td><Text size="xs">{DIFFICULTY_LABELS[c.difficulty ?? 1]}</Text></Table.Td>
-									<Table.Td><CapabilityBadges caps={c.capabilities} /></Table.Td>
-									<Table.Td>
-										<CaseStatusBadge status={c.status} revisionNo={c.current_revision_no} />
-									</Table.Td>
-									<Table.Td style={{ textAlign: "center" }}>
-										{published ? (
-											<Switch
-												size="xs"
-												checked={c.is_open}
-												onChange={() => onToggleOpen(c)}
-												disabled={busy}
-												aria-label={`学生可见 ${c.name}`}
-											/>
+						</Table.Thead>
+						<Table.Tbody>
+							{cases.length === 0 && (
+								<Table.Tr>
+									<Table.Td colSpan={6}>
+										{loading ? (
+											<Group justify="center" gap={8} py="lg">
+												<Loader size={16} />
+												<Text size="sm" c="dimmed">加载中…</Text>
+											</Group>
 										) : (
-											<Text size="xs" c="dimmed">
-												{archived ? "不可用" : "待发布"}
-											</Text>
+											<Stack align="center" gap={4} py="lg">
+												<Text size="sm" c="dimmed">{hasFilters ? "没有符合条件的病例" : "尚未创建病例"}</Text>
+												<Text size="xs" c="dimmed">
+													{hasFilters ? "试试放宽筛选条件" : "新建的病例是草稿，编辑完成后「发布」才能用于作业与训练"}
+												</Text>
+											</Stack>
 										)}
 									</Table.Td>
-									<Table.Td>
-										{/* 四个图标按钮：换行会让操作列变高，故 nowrap；删除与其它三者再拉开 6px 间距，防误点 */}
-										<Group gap={6} justify="center" wrap="nowrap">
-											<ActionIcon
-												variant="subtle"
-												color="gray"
-												size="sm"
-												onClick={() => onEdit(c)}
-												aria-label="编辑"
-												title={archived ? "已归档病例内容冻结，不可编辑" : "编辑"}
-												disabled={archived}
-											>
-												<IconPencil size={14} />
-											</ActionIcon>
-											{!published && !archived && (
-												<ActionIcon
-													variant="subtle"
-													color="green"
-													size="sm"
-													onClick={() => onPublish(c)}
-													aria-label="发布"
-													title="发布（先过发布门禁）"
-													loading={busy}
-												>
-													<IconRocket size={14} />
-												</ActionIcon>
+								</Table.Tr>
+							)}
+							{cases.map((c) => {
+								const published = c.status === "published";
+								const archived = c.status === "archived";
+								const busy = pendingId === c.id;
+								return (
+									<Table.Tr key={c.id}>
+										<Table.Td>
+											<Text size="xs" fw={500} truncate>{c.name}</Text>
+											<Text size="xs" c="dimmed" truncate mt={2}>
+												{[c.patient_gender, c.patient_age != null ? `${c.patient_age}岁` : null].filter(Boolean).join(" · ")}
+											</Text>
+										</Table.Td>
+										<Table.Td><Text size="xs">{DIFFICULTY_LABELS[c.difficulty ?? 1]}</Text></Table.Td>
+										<Table.Td><CapabilityBadges caps={c.capabilities} /></Table.Td>
+										<Table.Td>
+											<CaseStatusBadge status={c.status} revisionNo={c.current_revision_no} />
+										</Table.Td>
+										<Table.Td style={{ textAlign: "center" }}>
+											{published ? (
+												<Switch
+													size="xs"
+													checked={c.is_open}
+													onChange={() => onToggleOpen(c)}
+													disabled={busy}
+													aria-label={`学生可见 ${c.name}`}
+												/>
+											) : (
+												<Text size="xs" c="dimmed">
+													{archived ? "不可用" : "待发布"}
+												</Text>
 											)}
-											{!archived && (
+										</Table.Td>
+										<Table.Td>
+											{/* 四个图标按钮：换行会让操作列变高，故 nowrap；删除与其它三者再拉开 6px 间距，防误点 */}
+											<Group gap={6} justify="center" wrap="nowrap">
 												<ActionIcon
 													variant="subtle"
-													color="orange"
+													color="gray"
 													size="sm"
-													onClick={() => onArchive(c)}
-													aria-label="归档"
-													title="归档（不再用于新作业与训练，历史训练保留）"
+													onClick={() => onEdit(c)}
+													aria-label="编辑"
+													title={archived ? "已归档病例内容冻结，不可编辑" : "编辑"}
+													disabled={archived}
+												>
+													<IconPencil size={14} />
+												</ActionIcon>
+												{!published && !archived && (
+													<ActionIcon
+														variant="subtle"
+														color="green"
+														size="sm"
+														onClick={() => onPublish(c)}
+														aria-label="发布"
+														title="发布（先过发布门禁）"
+														loading={busy}
+													>
+														<IconRocket size={14} />
+													</ActionIcon>
+												)}
+												{!archived && (
+													<ActionIcon
+														variant="subtle"
+														color="orange"
+														size="sm"
+														onClick={() => onArchive(c)}
+														aria-label="归档"
+														title="归档（不再用于新作业与训练，历史训练保留）"
+														disabled={busy}
+													>
+														<IconArchive size={14} />
+													</ActionIcon>
+												)}
+												<ActionIcon
+													variant="subtle"
+													color="red"
+													size="sm"
+													style={{ marginLeft: 6 }}
+													onClick={() => onDelete(c)}
+													aria-label="删除"
+													title="删除"
 													disabled={busy}
 												>
-													<IconArchive size={14} />
+													<IconTrash size={14} />
 												</ActionIcon>
-											)}
-											<ActionIcon
-												variant="subtle"
-												color="red"
-												size="sm"
-												style={{ marginLeft: 6 }}
-												onClick={() => onDelete(c)}
-												aria-label="删除"
-												title="删除"
-												disabled={busy}
-											>
-												<IconTrash size={14} />
-											</ActionIcon>
-										</Group>
-									</Table.Td>
-								</Table.Tr>
-							);
-						})}
-					</Table.Tbody>
-				</Table>
+											</Group>
+										</Table.Td>
+									</Table.Tr>
+								);
+							})}
+						</Table.Tbody>
+					</Table>
+				</TableScroll>
 			</Paper>
 		</ListPage>
 	);

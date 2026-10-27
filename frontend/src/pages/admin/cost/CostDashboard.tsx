@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import type { CostDashboardResponse } from "@/api/admin/voice-cost";
 import { fetchCostDashboard, fetchUserCostBreakdown } from "@/api/admin/voice-cost";
+import TableScroll from "@/components/ui/table-scroll";
 import { queryKeys } from "@/api/query-keys";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
@@ -232,36 +233,38 @@ function SchoolCostTable({ data }: { data: CostDashboardResponse }) {
 				</Group>
 			</CardHeader>
 			<CardContent>
-				<Table>
-					<Table.Thead>
-						<Table.Tr>
-							<Table.Th>院校</Table.Th>
-							<Table.Th style={{ textAlign: "right" }}>LLM</Table.Th>
-							<Table.Th style={{ textAlign: "right" }}>语音</Table.Th>
-							<Table.Th style={{ textAlign: "right" }}>调用数</Table.Th>
-							<Table.Th style={{ textAlign: "right" }}>合计</Table.Th>
-						</Table.Tr>
-					</Table.Thead>
-					<Table.Tbody>
-						{rows.map((r) => (
-							<Table.Tr key={r.school_id ?? "unattributed"}>
-								<Table.Td style={{ fontWeight: 500 }}>{r.school_name}</Table.Td>
-								<Table.Td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-									¥{r.llm_cost.toFixed(2)}
-								</Table.Td>
-								<Table.Td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-									¥{r.voice_cost.toFixed(2)}
-								</Table.Td>
-								<Table.Td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-									{r.calls}
-								</Table.Td>
-								<Table.Td style={{ textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-									¥{r.total_cost.toFixed(2)}
-								</Table.Td>
+				<TableScroll minWidth={560}>
+					<Table>
+						<Table.Thead>
+							<Table.Tr>
+								<Table.Th>院校</Table.Th>
+								<Table.Th style={{ textAlign: "right" }}>LLM</Table.Th>
+								<Table.Th style={{ textAlign: "right" }}>语音</Table.Th>
+								<Table.Th style={{ textAlign: "right" }}>调用数</Table.Th>
+								<Table.Th style={{ textAlign: "right" }}>合计</Table.Th>
 							</Table.Tr>
-						))}
-					</Table.Tbody>
-				</Table>
+						</Table.Thead>
+						<Table.Tbody>
+							{rows.map((r) => (
+								<Table.Tr key={r.school_id ?? "unattributed"}>
+									<Table.Td style={{ fontWeight: 500 }}>{r.school_name}</Table.Td>
+									<Table.Td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+										¥{r.llm_cost.toFixed(2)}
+									</Table.Td>
+									<Table.Td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+										¥{r.voice_cost.toFixed(2)}
+									</Table.Td>
+									<Table.Td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+										{r.calls}
+									</Table.Td>
+									<Table.Td style={{ textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+										¥{r.total_cost.toFixed(2)}
+									</Table.Td>
+								</Table.Tr>
+							))}
+						</Table.Tbody>
+					</Table>
+				</TableScroll>
 			</CardContent>
 		</Card>
 	);
@@ -284,34 +287,36 @@ function TopUsersTable({ data }: { data: CostDashboardResponse }) {
 				{users.length === 0 ? (
 					<EmptyState icon={IconUsers} title="暂无数据" />
 				) : (
-					<Table>
-						<Table.Thead>
-							<Table.Tr>
-								<Table.Th style={{ width: 48 }}>#</Table.Th>
-								<Table.Th>用户</Table.Th>
-								<Table.Th style={{ textAlign: "right" }}>调用次数</Table.Th>
-								<Table.Th style={{ textAlign: "right" }}>总费用</Table.Th>
-							</Table.Tr>
-						</Table.Thead>
-						<Table.Tbody>
-							{users.map((u, i) => (
-								<Table.Tr key={i}>
-									<Table.Td style={{ color: "var(--mantine-color-dimmed)", fontSize: 12 }}>
-										{i + 1}
-									</Table.Td>
-									<Table.Td style={{ fontWeight: 500 }}>
-										{u.user_name}
-									</Table.Td>
-									<Table.Td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-										{u.calls}
-									</Table.Td>
-									<Table.Td style={{ textAlign: "right", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>
-										¥{u.total_cost.toFixed(2)}
-									</Table.Td>
+					<TableScroll minWidth={560}>
+						<Table>
+							<Table.Thead>
+								<Table.Tr>
+									<Table.Th style={{ width: 48 }}>#</Table.Th>
+									<Table.Th>用户</Table.Th>
+									<Table.Th style={{ textAlign: "right" }}>调用次数</Table.Th>
+									<Table.Th style={{ textAlign: "right" }}>总费用</Table.Th>
 								</Table.Tr>
-							))}
-						</Table.Tbody>
-					</Table>
+							</Table.Thead>
+							<Table.Tbody>
+								{users.map((u, i) => (
+									<Table.Tr key={i}>
+										<Table.Td style={{ color: "var(--mantine-color-dimmed)", fontSize: 12 }}>
+											{i + 1}
+										</Table.Td>
+										<Table.Td style={{ fontWeight: 500 }}>
+											{u.user_name}
+										</Table.Td>
+										<Table.Td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+											{u.calls}
+										</Table.Td>
+										<Table.Td style={{ textAlign: "right", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>
+											¥{u.total_cost.toFixed(2)}
+										</Table.Td>
+									</Table.Tr>
+								))}
+							</Table.Tbody>
+						</Table>
+					</TableScroll>
 				)}
 			</CardContent>
 		</Card>
