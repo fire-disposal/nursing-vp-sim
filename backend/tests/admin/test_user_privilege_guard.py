@@ -18,11 +18,17 @@ from core.database import engine as pg_engine
 from core.exceptions import AuthError, ValidationError
 from core.roles import SYSTEM_PERMISSIONS
 from core.security import clear_permission_cache
-from models import Class, ClassMembership, Role, RolePermission, User
+from core.tenant import platform_scope
+from models import Class, ClassMembership, Role, RolePermission, School, User
 from modules.admin.users import UserService
 from schemas import UserMembershipUpdate, UserUpdateRequest
+from tests.conftest import ensure_school
+
+# 本文件验的是权限闸门而非院校边界 → 平台视角（跨院校），作用域过滤恒为真。
+_PLATFORM = platform_scope()
 
 _TABLES = [
+    School.__table__,
     Class.__table__,
     ClassMembership.__table__,
     Role.__table__,
@@ -73,6 +79,8 @@ def _make_user(db: Session, username: str, role_name: str) -> User:
         password_hash="not-a-real-hash",
         role_id=role_id,
         display_name=username,
+        # 成员关系要求账号与班级同校（单校不变量）
+        school_id=ensure_school(db).id,
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )
@@ -88,7 +96,7 @@ class TestRoleEscalation:
         target = _make_user(db, "student-target", "student")
 
         with pytest.raises(AuthError) as exc:
-            UserService(db).update(target.id, UserUpdateRequest(role="super_admin"), current_user=actor)
+            UserService(db, _PLATFORM).update(target.id, UserUpdateRequest(role="super_admin"), current_user=actor)
 
         assert exc.value.status_code == 403
         assert db.get(User, target.id).role.name == "student"
@@ -97,7 +105,7 @@ class TestRoleEscalation:
         actor = _make_user(db, "admin-actor2", "admin")
         target = _make_user(db, "student-target2", "student")
 
-        view = UserService(db).update(target.id, UserUpdateRequest(role="teacher"), current_user=actor)
+        view = UserService(db, _PLATFORM).update(target.id, UserUpdateRequest(role="teacher"), current_user=actor)
 
         assert view.role == "teacher"
 
@@ -105,13 +113,16 @@ class TestRoleEscalation:
         actor = _make_user(db, "root-actor", "super_admin")
         target = _make_user(db, "student-target3", "student")
 
-        assert UserService(db).update(target.id, UserUpdateRequest(role="admin"), current_user=actor).role == "admin"
+        assert (
+            UserService(db, _PLATFORM).update(target.id, UserUpdateRequest(role="admin"), current_user=actor).role
+            == "admin"
+        )
 
     def test_cannot_change_own_role(self, db):
         actor = _make_user(db, "root-actor2", "super_admin")
 
         with pytest.raises(Exception) as exc:
-            UserService(db).update(actor.id, UserUpdateRequest(role="student"), current_user=actor)
+            UserService(db, _PLATFORM).update(actor.id, UserUpdateRequest(role="student"), current_user=actor)
 
         assert "不能修改自己的角色" in str(exc.value)
 
@@ -123,7 +134,7 @@ class TestPasswordResetScope:
         before = db.get(User, target.id).password_hash
 
         with pytest.raises(AuthError) as exc:
-            UserService(db).update(target.id, UserUpdateRequest(password="newpass123"), current_user=actor)
+            UserService(db, _PLATFORM).update(target.id, UserUpdateRequest(password="newpass123"), current_user=actor)
 
         assert exc.value.status_code == 403
         assert db.get(User, target.id).password_hash == before
@@ -133,13 +144,13 @@ class TestPasswordResetScope:
         target = _make_user(db, "student-target4", "student")
         before = db.get(User, target.id).password_hash
 
-        UserService(db).update(target.id, UserUpdateRequest(password="newpass123"), current_user=actor)
+        UserService(db, _PLATFORM).update(target.id, UserUpdateRequest(password="newpass123"), current_user=actor)
 
         assert db.get(User, target.id).password_hash != before
 
 
 def _make_class(db: Session, name: str, cohort_label: str = "2026级") -> Class:
-    cls = Class(name=name, cohort_label=cohort_label)
+    cls = Class(name=name, cohort_label=cohort_label, school_id=ensure_school(db).id)
     db.add(cls)
     db.commit()
     db.refresh(cls)
@@ -159,12 +170,12 @@ class TestMembershipReplacement:
         first = _make_class(db, "1班")
         second = _make_class(db, "2班")
 
-        UserService(db).update(
+        UserService(db, _PLATFORM).update(
             target.id,
             UserUpdateRequest(memberships=[UserMembershipUpdate(class_id=first.id)]),
             current_user=actor,
         )
-        view = UserService(db).update(
+        view = UserService(db, _PLATFORM).update(
             target.id,
             UserUpdateRequest(memberships=[UserMembershipUpdate(class_id=second.id, member_role="teacher")]),
             current_user=actor,
@@ -181,7 +192,7 @@ class TestMembershipReplacement:
         first = _make_class(db, "1班", "2027级")
         second = _make_class(db, "2班", "2026级")
 
-        view = UserService(db).update(
+        view = UserService(db, _PLATFORM).update(
             target.id,
             UserUpdateRequest(
                 memberships=[
@@ -204,7 +215,7 @@ class TestMembershipReplacement:
         target = _make_user(db, "student-multi3", "student")
 
         with pytest.raises(ValidationError):
-            UserService(db).update(
+            UserService(db, _PLATFORM).update(
                 target.id,
                 UserUpdateRequest(memberships=[UserMembershipUpdate(class_id=4242)]),
                 current_user=actor,
@@ -216,7 +227,7 @@ class TestMembershipReplacement:
         cls = _make_class(db, "3班")
 
         with pytest.raises(ValidationError):
-            UserService(db).update(
+            UserService(db, _PLATFORM).update(
                 target.id,
                 UserUpdateRequest(
                     memberships=[
@@ -231,13 +242,15 @@ class TestMembershipReplacement:
         actor = _make_user(db, "root-actor7", "super_admin")
         target = _make_user(db, "student-multi5", "student")
         cls = _make_class(db, "4班")
-        UserService(db).update(
+        UserService(db, _PLATFORM).update(
             target.id,
             UserUpdateRequest(memberships=[UserMembershipUpdate(class_id=cls.id)]),
             current_user=actor,
         )
 
-        view = UserService(db).update(target.id, UserUpdateRequest(display_name="改个名"), current_user=actor)
+        view = UserService(db, _PLATFORM).update(
+            target.id, UserUpdateRequest(display_name="改个名"), current_user=actor
+        )
 
         assert [m.class_id for m in view.memberships] == [cls.id]
 
@@ -268,7 +281,7 @@ class TestHighPrivilegeAccountLifecycle:
         target = _make_user(db, "root-deact", "super_admin")
 
         with pytest.raises(AuthError) as exc:
-            UserService(db).update(target.id, UserUpdateRequest(is_active=False), current_user=actor)
+            UserService(db, _PLATFORM).update(target.id, UserUpdateRequest(is_active=False), current_user=actor)
 
         assert exc.value.status_code == 403
         assert db.get(User, target.id).is_active is True
@@ -279,7 +292,7 @@ class TestHighPrivilegeAccountLifecycle:
         target = _make_user(db, "root-del", "super_admin")
 
         with pytest.raises(ValidationError) as exc:
-            UserService(db).delete(target.id, actor)
+            UserService(db, _PLATFORM).delete(target.id, actor)
 
         assert exc.value.status_code == 400
         assert "不可删除" in str(exc.value)
@@ -292,7 +305,7 @@ class TestHighPrivilegeAccountLifecycle:
         target = _make_user(db, "root-only", "super_admin")
 
         with pytest.raises(ValidationError) as exc:
-            UserService(db).update(target.id, UserUpdateRequest(is_active=False), current_user=actor)
+            UserService(db, _PLATFORM).update(target.id, UserUpdateRequest(is_active=False), current_user=actor)
 
         assert "最后一个启用中的超级管理员" in str(exc.value)
         assert db.get(User, target.id).is_active is True
@@ -305,7 +318,7 @@ class TestHighPrivilegeAccountLifecycle:
         target = _make_user(db, "root-only2", "super_admin")
 
         with pytest.raises(ValidationError) as exc:
-            UserService(db).delete(target.id, actor)
+            UserService(db, _PLATFORM).delete(target.id, actor)
 
         assert "不可删除" in str(exc.value)
         assert db.get(User, target.id) is not None
@@ -317,7 +330,7 @@ class TestHighPrivilegeAccountLifecycle:
         cls = _make_class(db, "白名单班")
 
         with pytest.raises(ValidationError) as exc:
-            UserService(db).bulk_assign_class([], cls.id, member_role="root")
+            UserService(db, _PLATFORM).bulk_assign_class([], cls.id, member_role="root")
 
         assert "无效的成员角色" in str(exc.value)
         assert db.query(ClassMembership).filter(ClassMembership.class_id == cls.id).count() == 0
@@ -327,6 +340,6 @@ class TestHighPrivilegeAccountLifecycle:
         actor = _make_user(db, "root-a", "super_admin")
         peer = _make_user(db, "root-b", "super_admin")
 
-        UserService(db).update(peer.id, UserUpdateRequest(is_active=False), current_user=actor)
+        UserService(db, _PLATFORM).update(peer.id, UserUpdateRequest(is_active=False), current_user=actor)
 
         assert db.get(User, peer.id).is_active is False

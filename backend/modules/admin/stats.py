@@ -11,7 +11,8 @@ from core.datetime_utils import parse_iso_datetime
 from core.deps import DbSession
 from core.pagination import paginate
 from core.security import get_current_user, require_permission
-from models import Class, ClassMembership, Role, Score, TrainingRecord, User
+from core.tenant import Scope, TenantScope, scope_query, visible_class
+from models import MEMBER_ROLE_STUDENT, Class, ClassMembership, Role, Score, TrainingRecord, User
 from modules.training.scoring.grade_scope import grade_conditions, grade_expr
 from schemas import (
     ClassSummaryItemSchema,
@@ -37,8 +38,37 @@ def _trend_since(date_from: str | None) -> datetime | None:
 
 
 class StatsService:
-    def __init__(self, db: Session):
+    """校级统计。所有查询都在 ``TenantScope`` 上收窄，见 ``_narrow_training``。
+
+    统计本身是"校园内可见数据"的聚合：院校管理员看全校，教师只看自己任教的班
+    （``TenantScope.class_ids``）——与班级端点同一判据，不在这里另立归属规则。
+    """
+
+    def __init__(self, db: Session, tenant: TenantScope):
         self.db = db
+        self.tenant = tenant
+
+    # ── 作用域 ──
+
+    def _student_ids_in_classes(self, class_ids):
+        """给定班级里的**学生**（``member_role='student'``；教师成员不算学生口径）。"""
+        return self.db.query(ClassMembership.user_id).filter(
+            ClassMembership.class_id.in_(class_ids),
+            ClassMembership.member_role == MEMBER_ROLE_STUDENT,
+        )
+
+    def _visible_student_ids(self):
+        """可统计的学生：本校；教师视角再收窄到自己任教的班。"""
+        q = self.db.query(User.id).filter(User.school_id == self.tenant.school_id)
+        if self.tenant.class_ids is not None:
+            q = q.filter(User.id.in_(self._student_ids_in_classes(self.tenant.class_ids or {-1})))
+        return q
+
+    def _narrow_training(self, query):
+        """把训练记录收窄到可统计学生；跨院校平台角色（``school_id is None``）不收窄。"""
+        if self.tenant.school_id is None:
+            return query
+        return query.filter(TrainingRecord.user_id.in_(self._visible_student_ids()))
 
     def get_trends(self, current_user: User, date_from: str | None = None) -> TrendStats:
         since = _trend_since(date_from)
@@ -65,7 +95,10 @@ class StatsService:
             base = base.filter(TrainingRecord.start_time >= since)
 
         if not current_user.has_permission("stats_view"):
+            # 无统计权限 = 只有自己的训练数据（既有口径，不随院校作用域放宽）
             base = base.filter(TrainingRecord.user_id == current_user.id)
+        else:
+            base = self._narrow_training(base)
 
         rows = base.group_by(func.date(TrainingRecord.start_time)).order_by("d").all()
 
@@ -125,15 +158,15 @@ class StatsService:
             .filter(User.role_id == student_role_id)
         )
 
+        base = scope_query(base, User.school_id, self.tenant)
+        if self.tenant.class_ids is not None:
+            # 教师视角：名单只到「自己任教的班」，跨班学生即使同校也不进名单
+            base = base.filter(User.id.in_(self._student_ids_in_classes(self.tenant.class_ids or {-1})))
+
         if class_id is not None:
-            base = base.filter(
-                User.id.in_(
-                    self.db.query(ClassMembership.user_id).filter(
-                        ClassMembership.class_id == class_id,
-                        ClassMembership.member_role == "student",
-                    )
-                )
-            )
+            # 跨院校 / 非任教班一律 404：不区分"不存在"与"无权看到"
+            visible_class(self.db, self.tenant, class_id)
+            base = base.filter(User.id.in_(self._student_ids_in_classes({class_id})))
         base = base.group_by(User.id).order_by(User.id)
 
         items, total = paginate(base, offset, limit)
@@ -155,10 +188,15 @@ class StatsService:
         cohort_label: str | None = None,
         class_id: int | None = None,
     ) -> list[ClassSummaryItemSchema]:
-        q = self.db.query(Class)
+        q = scope_query(self.db.query(Class), Class.school_id, self.tenant)
+        if self.tenant.class_ids is not None:
+            # 教师视角：只看自己任教的班（cohort_label 只是标签，挡不住别校班级）
+            q = q.filter(Class.id.in_(self.tenant.class_ids or {-1}))
         if cohort_label is not None:
             q = q.filter(Class.cohort_label == cohort_label)
         if class_id is not None:
+            # 跨院校 / 非任教班一律 404，而不是返回空列表
+            visible_class(self.db, self.tenant, class_id)
             q = q.filter(Class.id == class_id)
         classes = q.order_by(Class.cohort_label, Class.name).all()
 
@@ -231,32 +269,32 @@ router = APIRouter(prefix="/api/stats", tags=["统计"])
 def get_trends(
     current_user: Annotated[User, Depends(get_current_user)],
     db: DbSession,
+    scope: Scope,
     date_from: Annotated[
         str | None, Query(description="窗口起点 ISO 格式（含），如 2026-09-24T00:00:00+08:00；不传 = 不限")
     ] = None,
 ):
-    svc = StatsService(db)
-    return svc.get_trends(current_user, date_from)
+    return StatsService(db, scope).get_trends(current_user, date_from)
 
 
 @router.get("/teacher-summary", response_model=PaginatedResponse[TeacherSummaryItem])
 def teacher_summary(
     db: DbSession,
+    scope: Scope,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
-    class_id: Annotated[int | None, Query()] = None,
+    class_id: Annotated[int | None, Query(description="班级筛选；只能指向作用域内的班级，否则 404")] = None,
     _current_user: User = Depends(require_permission("stats_view")),
 ):
-    svc = StatsService(db)
-    return svc.teacher_summary(offset=offset, limit=limit, class_id=class_id)
+    return StatsService(db, scope).teacher_summary(offset=offset, limit=limit, class_id=class_id)
 
 
 @router.get("/class-summary", response_model=list[ClassSummaryItemSchema])
 def class_summary(
     db: DbSession,
+    scope: Scope,
     cohort_label: Annotated[str | None, Query(max_length=40)] = None,
-    class_id: Annotated[int | None, Query()] = None,
+    class_id: Annotated[int | None, Query(description="班级筛选；只能指向作用域内的班级，否则 404")] = None,
     _current_user: User = Depends(require_permission("stats_view")),
 ):
-    svc = StatsService(db)
-    return svc.class_summary(cohort_label=cohort_label, class_id=class_id)
+    return StatsService(db, scope).class_summary(cohort_label=cohort_label, class_id=class_id)

@@ -22,6 +22,7 @@ PERMISSIONS: list[PermissionDef] = [
     PermissionDef("user_manage", "用户管理"),
     PermissionDef("role_manage", "角色管理"),
     PermissionDef("grade_class_manage", "班级管理"),
+    PermissionDef("school_manage", "院校管理"),
     PermissionDef("case_manage", "病例管理"),
     PermissionDef("training_access", "训练功能"),
     PermissionDef("score_review", "成绩查看"),

@@ -20,6 +20,7 @@ import sqlalchemy as sa
 from core.database import Base, SessionLocal
 from core.database import engine as pg_engine
 from core.exceptions import ConflictError
+from core.tenant import platform_scope
 from models import (
     CASE_STATUS_ARCHIVED,
     CASE_STATUS_DRAFT,
@@ -33,6 +34,7 @@ from models import (
     ClassMembership,
     Notification,
     Role,
+    School,
     Score,
     TrainingRecord,
     User,
@@ -44,12 +46,17 @@ from modules.cases.revisions import require_current_revision, require_publishabl
 from modules.cases.service import CaseListFilters, CaseService
 from modules.training.manifest import build_session_manifest
 from modules.training.profile import HISTORY_TAKING
+from tests.conftest import ensure_school
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+# 本文件验的是病例生命周期 → 平台视角（跨院校），作用域过滤恒为真
+_PLATFORM = platform_scope()
+
 _TABLES = [
     legacy_grades_table,
+    School.__table__,
     Role.__table__,
     User.__table__,
     Class.__table__,
@@ -295,7 +302,7 @@ def test_archived_case_is_read_only(db):
 
 
 def _assignment(db: Session, case: Case, *, class_id: int = 1):
-    return AssignmentService(db).create(
+    return AssignmentService(db, _PLATFORM).create(
         case_id=case.id,
         class_id=class_id,
         title="作业",
@@ -311,9 +318,9 @@ def _assignment(db: Session, case: Case, *, class_id: int = 1):
 
 
 def _school(db: Session) -> None:
-    """作业用例要的 1 班；1 号教师（发布者）由 ``db`` 夹具种出。"""
+    """作业用例要的 1 班（挂测试院校）；1 号教师（发布者）由 ``db`` 夹具种出。"""
     if db.query(Class).filter(Class.id == 1).first() is None:
-        db.add(Class(id=1, name="1班", cohort_label="2026级"))
+        db.add(Class(id=1, name="1班", cohort_label="2026级", school_id=ensure_school(db).id))
     db.commit()
 
 

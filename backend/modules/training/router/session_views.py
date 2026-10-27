@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from sqlalchemy import and_, case, func, literal, or_
+from sqlalchemy import and_, case, func, literal, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from core.database import get_db
@@ -14,7 +14,9 @@ from core.exceptions import AuthError, NotFoundError
 from core.pagination import paginate
 from core.security import get_current_user
 from core.statuses import ScoringStatus, TrainingMode, TrainingStatus, normalize_training_mode
+from core.tenant import Scope, TenantScope, require_school, visible_class
 from models import (
+    MEMBER_ROLE_STUDENT,
     Assignment,
     Case,
     CaseRevision,
@@ -135,11 +137,70 @@ class RecordFilters:
     only_student_practice: Annotated[bool, Query(description="只返回学生练习(true)；false=含教师试跑/演示记录")] = True
 
 
-def _apply_record_filters(base, filters: RecordFilters, current_user: User):
+def _class_student_ids(scope: TenantScope):
+    """作用域内任教班的学生 ``user_id`` 子查询（口径同班级成员：``member_role='student'``）。"""
+    return select(ClassMembership.user_id).where(
+        ClassMembership.class_id.in_(scope.class_ids or {-1}),
+        ClassMembership.member_role == MEMBER_ROLE_STUDENT,
+    )
+
+
+def _scoped_records(base, scope: TenantScope):
+    """教师侧记录的可见域：院校由记录归属用户的 ``school_id`` 决定，任教班再收窄一次。
+
+    本人记录始终保留：教师试跑/演示记录（``only_student_practice=false``）不在任教班
+    学生名单里，若也被收窄掉，教师就无法复盘自己的演示。
+    """
+    if scope.school_id is not None:
+        base = base.join(User, User.id == TrainingRecord.user_id).filter(User.school_id == scope.school_id)
+    if scope.class_ids is not None:
+        base = base.filter(
+            or_(
+                TrainingRecord.user_id == scope.user_id,
+                TrainingRecord.user_id.in_(_class_student_ids(scope)),
+            )
+        )
+    return base
+
+
+def _ensure_record_visible(
+    db: Session,
+    record: TrainingRecord,
+    current_user: User,
+    scope: TenantScope,
+    *,
+    denied: str,
+) -> None:
+    """单条记录的可见域：本人恒可见；他人的记录按院校/任教班收窄，越界一律 404。
+
+    学生自身的路径不经过院校收窄（``user_id`` 就是本人），行为保持不变；
+    缺 ``score_review`` 权限看他人记录仍是 403 —— 缺权限不该伪装成"不存在"。
+    """
+    if record.user_id == current_user.id:
+        return
+    if not current_user.has_permission("score_review"):
+        raise AuthError(detail=denied, status_code=403)
+    owner_school = db.query(User.school_id).filter(User.id == record.user_id).scalar()
+    require_school(scope, owner_school, what="记录")
+    if scope.class_ids is not None and (
+        db.query(ClassMembership.id)
+        .filter(
+            ClassMembership.user_id == record.user_id,
+            ClassMembership.member_role == MEMBER_ROLE_STUDENT,
+            ClassMembership.class_id.in_(scope.class_ids or {-1}),
+        )
+        .first()
+        is None
+    ):
+        raise NotFoundError("记录不存在")
+
+
+def _apply_record_filters(db: Session, base, filters: RecordFilters, current_user: User, scope: TenantScope):
     """把筛选链作用在 *base* 上 —— `/records` 与 `/records/summary` 的唯一实现。"""
     if not current_user.has_permission("score_review"):
         base = base.filter(TrainingRecord.user_id == current_user.id)
     else:
+        base = _scoped_records(base, scope)
         if filters.user_id is not None:
             base = base.filter(TrainingRecord.user_id == filters.user_id)
         if filters.student_name:
@@ -147,6 +208,8 @@ def _apply_record_filters(base, filters: RecordFilters, current_user: User):
         if filters.case_id is not None:
             base = base.filter(TrainingRecord.case_id == filters.case_id)
         if filters.class_id is not None:
+            # 指定班级必须在本作用域内：跨院校/跨任教班一律 404，不返回空列表冒充"没有数据"
+            visible_class(db, scope, filters.class_id)
             base = base.join(ClassMembership, ClassMembership.user_id == TrainingRecord.user_id).filter(
                 ClassMembership.class_id == filters.class_id,
                 ClassMembership.member_role == "student",
@@ -253,13 +316,14 @@ def _summarize_records(db: Session, base) -> TrainingRecordSummary:
 def get_records(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    scope: Scope,
     filters: Annotated[RecordFilters, Depends()],
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     sort_by: Annotated[str, Query(description="排序字段：start_time/score_total/duration")] = "start_time",
     order: Annotated[str, Query(description="排序方向：asc/desc")] = "desc",
 ):
-    base = _apply_record_filters(db.query(TrainingRecord), filters, current_user)
+    base = _apply_record_filters(db, db.query(TrainingRecord), filters, current_user, scope)
 
     # 查询裁剪：列表只需少量字段，避免整行 case_data/Score JSONB 灌入内存
     query = base.options(
@@ -317,6 +381,7 @@ def get_records(
 def get_records_summary(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    scope: Scope,
     filters: Annotated[RecordFilters, Depends()],
 ):
     """训练记录的集合统计（列表的聚合视图）。
@@ -327,7 +392,7 @@ def get_records_summary(
     **注册顺序有意放在 `/records/{record_id}` 之前**：否则 "summary" 会被当作
     record_id 去解析（422）。
     """
-    base = _apply_record_filters(db.query(TrainingRecord), filters, current_user)
+    base = _apply_record_filters(db, db.query(TrainingRecord), filters, current_user, scope)
     return _summarize_records(db, base)
 
 
@@ -336,6 +401,7 @@ def get_emotion_events(
     record_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    scope: Scope,
 ):
     """情绪事件历史（批次 A-3 轨迹图数据源）：按序返回事件 + 4D 状态快照。
 
@@ -344,8 +410,7 @@ def get_emotion_events(
     record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
     if not record:
         raise NotFoundError(detail="记录不存在")
-    if not current_user.has_permission("score_review") and record.user_id != current_user.id:
-        raise AuthError(detail="无权查看此记录", status_code=403)
+    _ensure_record_visible(db, record, current_user, scope, denied="无权查看此记录")
 
     from models import TrainingSessionEmotionEvent
 
@@ -383,7 +448,10 @@ def get_emotion_events(
 
 @router.get("/records/{record_id}", response_model=TrainingRecordDetail)
 def get_record_detail(
-    record_id: int, current_user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]
+    record_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    scope: Scope,
 ):
     record = (
         db.query(TrainingRecord)
@@ -399,8 +467,7 @@ def get_record_detail(
     if not record:
         raise NotFoundError(detail="记录不存在")
 
-    if not current_user.has_permission("score_review") and record.user_id != current_user.id:
-        raise AuthError(detail="无权查看此记录", status_code=403)
+    _ensure_record_visible(db, record, current_user, scope, denied="无权查看此记录")
 
     case = record.case
     user = record.user
@@ -597,6 +664,7 @@ def export_record_experience(
     record_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    scope: Scope,
 ):
     """体验记录导出（JSON 下载）：一次训练的**自包含档案**，供研究者/教师复盘。
 
@@ -619,8 +687,7 @@ def export_record_experience(
     )
     if not record:
         raise NotFoundError(detail="记录不存在")
-    if not current_user.has_permission("score_review") and record.user_id != current_user.id:
-        raise AuthError(detail="无权导出此记录", status_code=403)
+    _ensure_record_visible(db, record, current_user, scope, denied="无权导出此记录")
 
     actions = (
         db.query(TrainingAction)

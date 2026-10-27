@@ -23,12 +23,12 @@ from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import case, func, text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Query, Session
 
 from core.audit import ACTION_SCENARIO_RATE_LIMITED
 from core.exceptions import ValidationError
 from core.statuses import LLMCallStatus
-from models import LLMCallLog, TrainingRecord, VoiceCallLog, VoiceConfig
+from models import LLMCallLog, School, TrainingRecord, User, VoiceCallLog, VoiceConfig
 from models.audit import AuditLog
 from models.scenario_training import StEvent, StSession
 
@@ -92,10 +92,28 @@ def day_range(date_from: str | None, date_to: str | None) -> tuple[datetime | No
     return since, until
 
 
-# ── 窗口统计（唯一实现）─────────────────────────────────────────────
+# ── 成本归因（唯一实现）─────────────────────────────────────────────
+
+#: 无法归因到院校的行在 ``by_school`` 拆分里的桶名（``school_id`` 为 ``None``）。
+UNATTRIBUTED_SCHOOL_NAME = "未归属"
 
 
-def llm_window(db: Session, since: datetime | None, until: datetime | None = None) -> dict:
+def scope_by_school(query: Query, log_model: type[LLMCallLog] | type[VoiceCallLog], school_id: int | None) -> Query:
+    """把调用日志按 ``log.user_id → users.school_id`` 收窄到某个院校。
+
+    ``school_id is None`` = 跨院校（平台角色）：不加任何过滤，``user_id`` 为空或用户无院校
+    （平台角色自身的调用）的行必须留在总数里，否则平台账本对不上账单。
+    院校视图一律 ``INNER JOIN``：归因不到本校的行既不是本校花的钱，也不该出现在本校报表里，
+    抛进本校的“未归属”桶等于把平台开销摊给院校。
+    """
+    if school_id is None:
+        return query
+    return query.join(User, User.id == log_model.user_id).filter(User.school_id == school_id)
+
+
+def llm_window(
+    db: Session, since: datetime | None, until: datetime | None = None, *, school_id: int | None = None
+) -> dict:
     """LLM 调用窗口统计。``cost`` / ``tokens`` 仅统计成功调用（失败行的成本是估值噪声）。"""
     success_case = case((LLMCallLog.status == LLMCallStatus.SUCCESS, 1), else_=0)
     q = db.query(
@@ -113,6 +131,7 @@ def llm_window(db: Session, since: datetime | None, until: datetime | None = Non
         q = q.filter(LLMCallLog.created_at >= since)
     if until is not None:
         q = q.filter(LLMCallLog.created_at < until)
+    q = scope_by_school(q, LLMCallLog, school_id)
     row = q.one()
     total = int(row.total or 0)
     success = int(row.success or 0)
@@ -132,6 +151,8 @@ def voice_window(
     since: datetime | None,
     until: datetime | None = None,
     direction: str | None = None,
+    *,
+    school_id: int | None = None,
 ) -> dict[str, dict]:
     """语音调用窗口统计，按 ``direction`` 分组（当前只有 ``tts``）。"""
     q = db.query(
@@ -151,6 +172,7 @@ def voice_window(
         q = q.filter(VoiceCallLog.created_at < until)
     if direction is not None:
         q = q.filter(VoiceCallLog.direction == direction)
+    q = scope_by_school(q, VoiceCallLog, school_id)
     result: dict[str, dict] = {}
     for r in q.group_by(VoiceCallLog.direction).all():
         total = int(r.total or 0)
@@ -167,6 +189,97 @@ def voice_window(
             "total_latency_ms": int(r.total_latency_ms or 0),
         }
     return result
+
+
+def cost_by_school(db: Session, since: datetime | None, until: datetime | None = None) -> list[dict]:
+    """按院校拆分的成本账：LLM 成本 / 语音成本 / 调用数。
+
+    归因链路 ``*.user_id → users.school_id``（唯一实现，调用方不要再自己 join users）。
+    归因不到院校的行——``user_id`` 为空、用户是平台角色（``school_id`` 为空）、用户已被删除
+    ——聚成一个 ``school_id=None`` 的“未归属”桶：宁可多一个桶，也不能让这些开销从平台总账
+    里消失。金额口径与 :func:`llm_window` / :func:`voice_window` 一致（LLM 只算成功调用，
+    语音算 ``cost_estimated`` 全量），否则各校之和会对不上 dashboard 总数。
+    """
+    buckets: dict[int | None, dict] = {}
+
+    def bucket(school_id: int | None, school_name: str | None) -> dict:
+        if school_id not in buckets:
+            if school_name:
+                name = school_name
+            elif school_id is None:
+                name = UNATTRIBUTED_SCHOOL_NAME
+            else:
+                # 院校行已被删除但日志还在：保留桶，别把钱丢了。
+                name = f"院校#{school_id}"
+            buckets[school_id] = {
+                "school_id": school_id,
+                "school_name": name,
+                "llm_cost": 0.0,
+                "llm_calls": 0,
+                "voice_cost": 0.0,
+                "voice_calls": 0,
+            }
+        return buckets[school_id]
+
+    def windowed(query: Query, log_model: type[LLMCallLog] | type[VoiceCallLog]) -> Query:
+        if since is not None:
+            query = query.filter(log_model.created_at >= since)
+        if until is not None:
+            query = query.filter(log_model.created_at < until)
+        return query
+
+    llm_rows = windowed(
+        db.query(
+            User.school_id.label("school_id"),
+            School.name.label("school_name"),
+            func.count(LLMCallLog.id).label("calls"),
+            func.coalesce(
+                func.sum(case((LLMCallLog.status == LLMCallStatus.SUCCESS, LLMCallLog.estimated_cost), else_=0)), 0
+            ).label("cost"),
+        )
+        .select_from(LLMCallLog)
+        # outer：``user_id`` 为空（系统任务）不能因为 drop row 就从账本里消失。
+        .outerjoin(User, User.id == LLMCallLog.user_id)
+        .outerjoin(School, School.id == User.school_id),
+        LLMCallLog,
+    ).group_by(User.school_id, School.name)
+    for r in llm_rows.all():
+        b = bucket(r.school_id, r.school_name)
+        b["llm_cost"] = float(r.cost or 0)
+        b["llm_calls"] = int(r.calls or 0)
+
+    voice_rows = windowed(
+        db.query(
+            User.school_id.label("school_id"),
+            School.name.label("school_name"),
+            func.count(VoiceCallLog.id).label("calls"),
+            func.coalesce(func.sum(VoiceCallLog.cost_estimated), 0).label("cost"),
+        )
+        .select_from(VoiceCallLog)
+        .outerjoin(User, User.id == VoiceCallLog.user_id)
+        .outerjoin(School, School.id == User.school_id),
+        VoiceCallLog,
+    ).group_by(User.school_id, School.name)
+    for r in voice_rows.all():
+        b = bucket(r.school_id, r.school_name)
+        b["voice_cost"] = float(r.cost or 0)
+        b["voice_calls"] = int(r.calls or 0)
+
+    items = []
+    for b in buckets.values():
+        total_cost = round(b["llm_cost"] + b["voice_cost"], 6)
+        items.append(
+            {
+                **b,
+                "llm_cost": round(b["llm_cost"], 6),
+                "voice_cost": round(b["voice_cost"], 6),
+                "total_cost": total_cost,
+                "calls": b["llm_calls"] + b["voice_calls"],
+            }
+        )
+    # 院校按花费降序；“未归属”永远垫底，它不是一所学校。
+    items.sort(key=lambda x: (x["school_id"] is None, -x["total_cost"]))
+    return items
 
 
 def query_llm(db: Session, since: datetime) -> dict:

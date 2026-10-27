@@ -12,18 +12,24 @@ class ClassCreate(BaseModel):
     model_config = _REQ_CFG
     name: str = Field(min_length=1, max_length=60)
     cohort_label: str = Field(default="", max_length=40, description="届/年级标签，同一标签下班级名唯一")
+    #: 院校归属。院校管理员省略即可（服务端强制本校）；平台角色必须显式给出。
+    school_id: int | None = Field(default=None, description="院校 ID（平台角色必填）")
 
 
 class ClassUpdate(BaseModel):
     model_config = _REQ_CFG
     name: str | None = Field(default=None, min_length=1, max_length=60)
     cohort_label: str | None = Field(default=None, max_length=40)
+    #: 仅平台角色可改归属（院校管理员改动请求一律被忽略）。
+    school_id: int | None = None
 
 
 class ClassResponse(BaseModel):
     model_config = _RESP_CFG
     id: int
     name: str
+    school_id: int
+    school_name: str = ""
     cohort_label: str = ""
     student_count: int = 0
     teacher_count: int = 0

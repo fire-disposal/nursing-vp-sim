@@ -19,6 +19,9 @@ class RegisterRequest(BaseModel):
     display_name: str = Field(min_length=1, max_length=50)
     student_id: str | None = None
     class_id: int | None = None
+    #: 院校归属。给了 `class_id` 时以班级所在院校为准；院校管理员可省略（强制本校），
+    #: 平台角色两者都不给会被拒 —— 不允许建出“无院校”的日常账号。
+    school_id: int | None = None
     gender: str | None = _GENDER
 
 

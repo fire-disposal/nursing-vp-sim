@@ -94,6 +94,9 @@ export const queryKeys = {
 				[...queryKeys.admin.llm.all, "logs", params] as const,
 		},
 	},
+	schools: {
+		all: ["admin", "schools"] as const,
+	},
 	classes: {
 		all: ["classes"] as const,
 		list: (cohortLabel?: string | null) =>

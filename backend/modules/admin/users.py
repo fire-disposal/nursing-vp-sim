@@ -26,6 +26,7 @@ from core.deps import DbSession
 from core.exceptions import AuthError, NotFoundError, ValidationError
 from core.pagination import paginate
 from core.security import hash_password, load_role_permissions, require_permission
+from core.tenant import Scope, TenantScope, scope_query, visible_class, writable_school_id
 from core.unit_of_work import unit_of_work
 from infra.exporter import ColumnDef, ExportAudit, export_response
 from models import (
@@ -34,6 +35,7 @@ from models import (
     Class,
     ClassMembership,
     Role,
+    School,
     Score,
     TrainingRecord,
     User,
@@ -84,6 +86,9 @@ class UserBriefView:
     username: str
     role: str
     role_display_name: str
+    #: 院校归属。None = 平台角色（跨院校可见，例如 super_admin）。
+    school_id: int | None
+    school_name: str | None
     display_name: str
     student_id: str | None
     gender: str | None
@@ -145,14 +150,19 @@ class UserFilters:
 
     search: Annotated[str | None, Query(description="搜索用户名/姓名/学号")] = None
     role: Annotated[str | None, Query(description="角色筛选 student/teacher")] = None
+    #: 院校筛选：只有平台角色能跨院校筛；院校管理员筛别人 = 越权探测 → 404
+    school_id: Annotated[int | None, Query(description="院校筛选（平台角色可跨院校查看）")] = None
     class_id: Annotated[int | None, Query()] = None
     cohort_label: Annotated[str | None, Query(description="届/年级标签精确过滤")] = None
     include_inactive: Annotated[bool, Query(description="是否包含已停用账号（默认隐藏）")] = False
 
 
 class UserService:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, scope: TenantScope):
         self.db = db
+        self.scope = scope
+        # 院校名缓存：一页用户通常只涉及一所院校，避免逐用户查一次
+        self._school_names: dict[int, str] = {}
 
     def _brief(self, user: User) -> UserBriefView:
         return UserBriefView(
@@ -160,6 +170,8 @@ class UserService:
             username=user.username,
             role=user.role.name if user.role else "",
             role_display_name=user.role.display_name if user.role else "",
+            school_id=user.school_id,
+            school_name=self._school_name(user.school_id),
             display_name=user.display_name,
             student_id=user.student_id,
             gender=user.gender,
@@ -169,15 +181,43 @@ class UserService:
             is_active=user.is_active,
         )
 
-    @staticmethod
-    def membership_views(user: User) -> list[MembershipView]:
-        """用户全部成员关系（多班级）。``class_id`` 悬空的遗留行不展示。"""
+    def _school_name(self, school_id: int | None) -> str | None:
+        if school_id is None:
+            return None
+        if school_id not in self._school_names:
+            name = self.db.query(School.name).filter(School.id == school_id).scalar()
+            self._school_names[school_id] = name or ""
+        return self._school_names[school_id]
+
+    def _target_school(self, requested: int | None = None) -> int | None:
+        """写入用户的院校归属：院校管理员强制本校，平台角色按请求（缺省 = 平台账号）。"""
+        if self.scope.school_id is not None:
+            return writable_school_id(self.scope, requested)
+        return requested
+
+    def _in_scope(self, q):
+        """读路径的**唯一**收窄点：先按院校（平台角色不限），再按教师任教的班。"""
+        q = scope_query(q, User.school_id, self.scope)
+        if self.scope.class_ids is not None:
+            q = q.filter(User.memberships.any(ClassMembership.class_id.in_(self.scope.class_ids or {-1})))
+        return q
+
+    def membership_views(self, user: User) -> list[MembershipView]:
+        """用户全部成员关系（多班级）。``class_id`` 悬空的遗留行不展示。
+
+        再按作用域过滤一次：单校不变量由写入侧守住，这里防的是历史脏数据
+        （把别的院校/别的班的班名带出来）。
+        """
         views: list[MembershipView] = []
         for m in user.memberships:
             class_id = m.class_id
             class_ = m.class_
             # 悬空遗留行（class_id 可空 + ON DELETE SET NULL）不展示
             if class_id is None or class_ is None:
+                continue
+            if self.scope.school_id is not None and class_.school_id != self.scope.school_id:
+                continue
+            if not self.scope.allows_class(class_id):
                 continue
             views.append(
                 MembershipView(
@@ -242,9 +282,12 @@ class UserService:
         *,
         request: Request | None = None,
     ) -> UserBriefView:
+        # 作用域外的目标一律当作不存在（404，不暴露跨院校账号的存在性）
         user = self.get_with_relations(user_id)
         if not user:
             raise NotFoundError("用户不存在")
+        # 院校归属不在此端点可变（`UserUpdateRequest` 没有该字段）：只在创建时由
+        # `_target_school` 定，避免院校管理员借着编辑把人搬出本校。
         before_role = user.role.name if user.role else None
         before_active = user.is_active
         audit_events: list[tuple[str, dict]] = []
@@ -322,17 +365,34 @@ class UserService:
         if member_role not in _MEMBER_ROLES:
             raise ValidationError(f"无效的成员角色：{member_role}")
 
+    @staticmethod
+    def _assert_single_school(user: User, class_schools: dict[int, int]) -> None:
+        """单校不变量：一个用户的班级必须全在其所属院校（NULL = 平台账号，不能进班）。"""
+        if not class_schools:
+            return
+        if user.school_id is None:
+            raise ValidationError("该账号没有院校归属（平台角色），不能加入班级")
+        foreign = sorted(cid for cid, school_id in class_schools.items() if school_id != user.school_id)
+        if foreign:
+            raise ValidationError(f"班级 {foreign} 不属于该账号所属院校")
+
     def _replace_memberships(self, user: User, desired_items: list[UserMembershipUpdate]) -> None:
         desired: dict[int, str] = {}
+        # class_id → 院校：与目标用户的院校逐个比对，守住「单校不变量」
+        class_schools: dict[int, int] = {}
         for item in desired_items:
             class_id = item.class_id
             if class_id in desired:
                 raise ValidationError(f"班级 {class_id} 在成员列表中重复")
-            cls = self.get_class(class_id)
-            if not cls:
+            cls = self.db.get(Class, class_id)
+            if cls is None:
                 raise ValidationError(f"班级 {class_id} 不存在")
+            visible_class(self.db, self.scope, class_id)  # 跨院校/跨班 → 404
             self._assert_member_role(item.member_role)
             desired[class_id] = item.member_role
+            class_schools[class_id] = cls.school_id
+
+        self._assert_single_school(user, class_schools)
 
         current = {m.class_id: m for m in user.memberships if m.class_id is not None}
         # 悬空行（class_id IS NULL）顺手清掉：它们不代表任何班级
@@ -353,7 +413,8 @@ class UserService:
     def delete(self, user_id: int, current_user: User, *, request: Request | None = None) -> str:
         if user_id == current_user.id:
             raise ValidationError("不能删除自己")
-        user = self.db.get(User, user_id)
+        # 作用域外 = 不存在；顺带 join role 供下面的角色上限判定用
+        user = self.get_with_role(user_id)
         if not user:
             raise NotFoundError("用户不存在")
         if user.role is not None:
@@ -450,7 +511,10 @@ class UserService:
         errors: list[str] = []
         # (cohort_label, class_name) → class_id：同名班级跨 cohort 时按 cohort 消歧
         resolved: dict[tuple[str, str], int] = {}
-        class_by_id: dict[int, int] = {}
+        # class_id → 班级所属院校：账号的院校归属与单校不变量都取它
+        class_schools: dict[int, int] = {}
+        # 院校管理员只能往本校导；平台角色没有院校，账号院校改由行内班级推导
+        own_school = self._target_school()
 
         for i, u in enumerate(users_data, 1):
             username = (u.get("username") or "").strip()
@@ -481,9 +545,17 @@ class UserService:
                 skipped += 1
                 continue
 
-            class_id, class_error = self._resolve_import_class(u, resolved, class_by_id)
+            class_id, class_school, class_error = self._resolve_import_class(u, resolved, class_schools, own_school)
             if class_error:
                 errors.append(f"第{i}行跳过 {username}: {class_error}")
+                skipped += 1
+                continue
+
+            # 院校归属：院校管理员 = 本校；平台角色只能由行内班级推导。推导不到就跳过该行，
+            # 否则会造出「无院校的学生账号」——既不属于任何院校，谁管理都说不清。
+            school_id = own_school if own_school is not None else class_school
+            if school_id is None:
+                errors.append(f"第{i}行跳过 {username}: 无法确定院校归属，请为该学生指定班级")
                 skipped += 1
                 continue
 
@@ -492,6 +564,7 @@ class UserService:
                 password_hash=hash_password(password),
                 display_name=display_name,
                 role_id=role_obj.id,
+                school_id=school_id,
                 student_id=u.get("student_id") or None,
             )
             self.db.add(user)
@@ -519,44 +592,60 @@ class UserService:
         self,
         row: dict,
         resolved: dict[tuple[str, str], int],
-        class_by_id: dict[int, int],
-    ) -> tuple[int | None, str | None]:
+        class_schools: dict[int, int],
+        own_school: int | None,
+    ) -> tuple[int | None, int | None, str | None]:
         """导入行的班级解析：``class_id`` > (cohort_label, class_name) 精确匹配 > 新建。
+
+        返回 ``(class_id, 班级所属院校, 错误)``。班级只在作用域内可见/可建（跨院校 = 404），
+        新建班级落在导入者本校；平台角色没有院校就无法凭空建班。
 
         班级名在同 cohort 内重复，或跨 cohort 有多条同名而请求又未给出 cohort_label 时，
         报错而不是静默挑一个。
         """
         raw_id = row.get("class_id")
         if raw_id:
-            if raw_id not in class_by_id:
-                if not self.get_class(raw_id):
-                    return None, f"班级ID {raw_id} 不存在"
-                class_by_id[raw_id] = raw_id
-            return raw_id, None
+            if raw_id not in class_schools:
+                cls = self.db.get(Class, raw_id)
+                if cls is None:
+                    return None, None, f"班级ID {raw_id} 不存在"
+                visible_class(self.db, self.scope, raw_id)  # 跨院校/跨班 → 404
+                if own_school is not None and cls.school_id != own_school:
+                    return None, None, f"班级ID {raw_id} 不属于当前院校"
+                class_schools[raw_id] = cls.school_id
+            return raw_id, class_schools[raw_id], None
 
         name = (row.get("class_name") or "").strip()
         if not name:
-            return None, None
+            return None, None, None
         cohort_label = (row.get("cohort_label") or "").strip()
         key = (cohort_label, name)
         if key in resolved:
-            return resolved[key], None
+            class_id = resolved[key]
+            return class_id, class_schools[class_id], None
 
         q = self.db.query(Class).filter(Class.name == name)
+        if own_school is not None:
+            q = q.filter(Class.school_id == own_school)
         if cohort_label:
             q = q.filter(Class.cohort_label == cohort_label)
         matches = q.limit(2).all()
         if len(matches) > 1:
-            return None, f"班级名称「{name}」在多个 cohort 下存在，请补充 cohort_label 或 class_id"
+            return None, None, f"班级名称「{name}」在多个 cohort 下存在，请补充 cohort_label 或 class_id"
         if matches:
             resolved[key] = matches[0].id
-            return matches[0].id, None
+            class_schools[matches[0].id] = matches[0].school_id
+            return matches[0].id, matches[0].school_id, None
 
-        cls = Class(name=name, cohort_label=cohort_label)
+        if own_school is None:
+            return None, None, f"班级「{name}」不存在：平台账号没有院校归属，导入只能指向已有班级"
+
+        cls = Class(name=name, cohort_label=cohort_label, school_id=own_school)
         self.db.add(cls)
         self.db.flush()
         resolved[key] = cls.id
-        return cls.id, None
+        class_schools[cls.id] = own_school
+        return cls.id, own_school, None
 
     def bulk_assign_class(
         self,
@@ -569,12 +658,13 @@ class UserService:
         # 契约层（UserMembershipUpdate）是 Literal[student|teacher]，但批量入口收的是裸 str：
         # 不在此校验就能把任意字符串写进 ClassMembership.member_role（2026-09-26 审计 RB-9）。
         self._assert_member_role(member_role)
-        target_class = self.get_class(class_id)
-        if not target_class:
-            raise NotFoundError("班级不存在")
+        # 跨院校/跨班 = 404；跨校成员由 upsert_members（带 scope）整批拒绝
+        target_class = visible_class(self.db, self.scope, class_id)
 
         with unit_of_work(self.db, conflict_detail="操作冲突，请重试"):
-            added, updated, missing = upsert_members(self.db, class_id, user_ids, member_role=member_role)
+            added, updated, missing = upsert_members(
+                self.db, class_id, user_ids, member_role=member_role, scope=self.scope
+            )
             record(
                 self.db,
                 action=ACTION_USER_BULK_ASSIGNED,
@@ -597,11 +687,12 @@ class UserService:
         )
 
     def get_by_username(self, username: str) -> User | None:
-        return self.db.query(User).filter(User.username == username).first()
+        """按用户名取人：作用域外一律当作不存在（返回 None），调用方据此 404。"""
+        return self._in_scope(self.db.query(User)).filter(User.username == username).first()
 
     def get_with_relations(self, user_id: int) -> User | None:
         return (
-            self.db.query(User)
+            self._in_scope(self.db.query(User))
             .options(
                 joinedload(User.role),
                 selectinload(User.memberships).joinedload(ClassMembership.class_),
@@ -611,28 +702,31 @@ class UserService:
         )
 
     def get_with_role(self, user_id: int) -> User | None:
-        return self.db.query(User).options(joinedload(User.role)).filter(User.id == user_id).first()
+        return self._in_scope(self.db.query(User)).options(joinedload(User.role)).filter(User.id == user_id).first()
 
     def get_role_by_name(self, name: str) -> Role | None:
         return self.db.query(Role).filter(Role.name == name).first()
 
-    def get_class(self, class_id: int) -> Class | None:
-        return self.db.query(Class).filter(Class.id == class_id).first()
-
     def create(self, **kwargs) -> User:
+        """创建账号：院校归属由 scope 定，调用方给的院校只能是本校/已声明的平台请求。"""
+        kwargs["school_id"] = self._target_school(kwargs.get("school_id"))
         user = User(**kwargs)
         self.db.add(user)
         self.db.flush()
         return user
 
     def _filtered_query(self, filters: UserFilters):
-        """把筛选 DTO 翻成 SQL：筛选条件只在这里出现一次。"""
-        q = self.db.query(User)
+        """把筛选 DTO 翻成 SQL：筛选条件只在这里出现一次（scope 收窄也在这里）。"""
+        q = self._in_scope(self.db.query(User))
+        if filters.school_id is not None:
+            # 院校筛选只有平台角色能跨院校；院校管理员筛别人 = 越权探测 → 404
+            q = q.filter(User.school_id == writable_school_id(self.scope, filters.school_id))
         if not filters.include_inactive:
             q = q.filter(User.is_active.is_(True))
         # 成员语义：筛的是「是否属于该班/该 cohort」，展示的是 complete 的 memberships 集合，
         # 因此不存在「筛进 A 班却显示 B 班」的口径错位。
         if filters.class_id is not None:
+            visible_class(self.db, self.scope, filters.class_id)  # 跨院校/跨班 → 404
             q = q.filter(User.memberships.any(ClassMembership.class_id == filters.class_id))
         elif filters.cohort_label is not None:
             q = q.filter(User.memberships.any(ClassMembership.class_.has(Class.cohort_label == filters.cohort_label)))
@@ -733,6 +827,8 @@ def _brief(v: UserBriefView) -> UserBrief:
         username=v.username,
         role=v.role,
         role_display_name=v.role_display_name,
+        school_id=v.school_id,
+        school_name=v.school_name,
         display_name=v.display_name,
         student_id=v.student_id,
         gender=v.gender,
@@ -799,11 +895,12 @@ def _audit_filters(filters: Any) -> dict[str, Any]:
 def list_users(
     current_user: _Manager,
     db: DbSession,
+    scope: Scope,
     filters: Annotated[UserFilters, Depends()],
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ):
-    view = UserService(db).list_all(filters, offset=offset, limit=limit)
+    view = UserService(db, scope).list_all(filters, offset=offset, limit=limit)
     return PaginatedResponse(
         items=[_brief(v) for v in view.items], total=view.total, offset=view.offset, limit=view.limit
     )
@@ -813,12 +910,13 @@ def list_users(
 def export_users(
     current_user: _Manager,
     db: DbSession,
+    scope: Scope,
     filters: Annotated[UserFilters, Depends()],
     request: Request,
     format: str = Query("csv", pattern="^(csv|xlsx)$"),
 ):
     # 与列表同一个筛选 DTO、同一个服务入口；多取一条以便 export_response 统一判超限
-    _total, users = UserService(db).list_filtered(filters, offset=0, limit=MAX_EXPORT_ROWS + 1)
+    _total, users = UserService(db, scope).list_filtered(filters, offset=0, limit=MAX_EXPORT_ROWS + 1)
     columns = [
         ColumnDef("用户名", key="username"),
         ColumnDef("姓名", key="display_name"),
@@ -837,9 +935,10 @@ def update_user(
     req: UserUpdateRequest,
     current_user: _Manager,
     db: DbSession,
+    scope: Scope,
     request: Request,
 ):
-    view = UserService(db).update(user_id, req, current_user=current_user, request=request)
+    view = UserService(db, scope).update(user_id, req, current_user=current_user, request=request)
     log.info(
         f"用户更新: target_id={user_id} target_name={view.username}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
@@ -848,13 +947,13 @@ def update_user(
 
 
 @router.get("/users/{user_id}", response_model=StudentDetail)
-def get_user_detail(user_id: int, current_user: _Manager, db: DbSession):
-    return _detail(UserService(db).get_detail(user_id))
+def get_user_detail(user_id: int, current_user: _Manager, db: DbSession, scope: Scope):
+    return _detail(UserService(db, scope).get_detail(user_id))
 
 
 @router.delete("/users/{user_id}", response_model=DeleteResponse)
-def delete_user(user_id: int, current_user: _Manager, db: DbSession, request: Request):
-    target_name = UserService(db).delete(user_id, current_user, request=request)
+def delete_user(user_id: int, current_user: _Manager, db: DbSession, scope: Scope, request: Request):
+    target_name = UserService(db, scope).delete(user_id, current_user, request=request)
     log.info(
         f"用户删除: target_id={user_id} target_name={target_name}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
@@ -863,8 +962,10 @@ def delete_user(user_id: int, current_user: _Manager, db: DbSession, request: Re
 
 
 @router.post("/users/batch", response_model=BatchCreateResult)
-def batch_create_users(users: list[BatchUserItem], current_user: _Manager, db: DbSession, request: Request):
-    result = UserService(db).batch_create([u.model_dump() for u in users], request=request)
+def batch_create_users(
+    users: list[BatchUserItem], current_user: _Manager, db: DbSession, scope: Scope, request: Request
+):
+    result = UserService(db, scope).batch_create([u.model_dump() for u in users], request=request)
     log.info(
         f"批量导入: created={result.created} skipped={result.skipped}",
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
@@ -873,8 +974,10 @@ def batch_create_users(users: list[BatchUserItem], current_user: _Manager, db: D
 
 
 @router.post("/users/bulk-assign-class", response_model=BulkAssignClassResult)
-def bulk_assign_class(req: BulkAssignClassRequest, current_user: _Manager, db: DbSession, request: Request):
-    result = UserService(db).bulk_assign_class(req.user_ids, req.class_id, req.member_role, request=request)
+def bulk_assign_class(
+    req: BulkAssignClassRequest, current_user: _Manager, db: DbSession, scope: Scope, request: Request
+):
+    result = UserService(db, scope).bulk_assign_class(req.user_ids, req.class_id, req.member_role, request=request)
     log.info(
         f"批量分配班级: assigned={result.assigned} updated={result.updated} "
         f"skipped={result.skipped} class_id={req.class_id} role={req.member_role}",

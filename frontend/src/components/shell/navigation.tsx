@@ -3,6 +3,7 @@ import {
 	IconBook2,
 	IconChartBar,
 	IconClipboardList,
+	IconBuildingCommunity,
 	IconCoins,
 	IconFileSearch,
 	IconFileText,
@@ -44,6 +45,7 @@ const AdminRoles = lazy(() => import("@/pages/admin/RolesPage"));
 const AdminClasses = lazy(
 	() => import("@/pages/admin/ClassesPage"),
 );
+const AdminSchools = lazy(() => import("@/pages/admin/SchoolsPage"));
 const AdminCases = lazy(() => import("@/pages/admin/CasesPage"));
 const AssignmentsPage = lazy(
 	() => import("@/pages/admin/AssignmentsPage"),
@@ -235,6 +237,13 @@ export const APP_ROUTES: AppRoute[] = [
 		permission: "role_manage",
 		activity: "manage",
 		nav: { label: "角色管理", icon: IconShield, section: "admin", group: "people" },
+	},
+	{
+		path: "/admin/schools",
+		element: <AdminSchools />,
+		permission: "school_manage",
+		activity: "manage",
+		nav: { label: "院校管理", icon: IconBuildingCommunity, section: "admin", group: "people" },
 	},
 	{
 		path: "/admin/classes",

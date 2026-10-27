@@ -20,8 +20,9 @@ from core.audit import (
 from core.config import LOGIN_LOCK_SECONDS, LOGIN_LOCKOUT_ENABLED, LOGIN_MAX_FAILED_ATTEMPTS
 from core.exceptions import AuthError, ConflictError, ValidationError
 from core.security import create_access_token, hash_password, load_role_permissions, verify_password
+from core.tenant import resolve_scope, visible_class, writable_school_id
 from core.unit_of_work import unit_of_work
-from models import MEMBER_ROLE_STUDENT, MEMBER_ROLE_TEACHER, Class, ClassMembership, Role, User
+from models import MEMBER_ROLE_STUDENT, MEMBER_ROLE_TEACHER, ClassMembership, Role, School, User
 from schemas import (
     OkResponse,
     RegisterRequest,
@@ -59,6 +60,11 @@ class AuthService:
             avatar=user.avatar,
         )
 
+    def _school_name(self, school_id: int | None) -> str | None:
+        if school_id is None:
+            return None
+        return self.db.query(School.name).filter(School.id == school_id).scalar()
+
     def _user_to_brief(self, user: User) -> UserBrief:
         # 单用户多班级：返回 memberships 数组，不再取第一条（多班学生「显示 B 班」的老毛病）
         rows = [m for m in user.memberships if m.class_id is not None and m.class_ is not None]
@@ -68,6 +74,8 @@ class AuthService:
             username=user.username,
             role=user.role.name if user.role else "",
             role_display_name=user.role.display_name if user.role else "",
+            school_id=getattr(user, "school_id", None),
+            school_name=(self._school_name(getattr(user, "school_id", None))),
             display_name=user.display_name,
             student_id=user.student_id,
             gender=user.gender,
@@ -206,9 +214,6 @@ class AuthService:
         if existing:
             raise ConflictError(detail="用户名已存在")
 
-        if req.role not in ("student", "teacher"):
-            raise ValidationError(detail="角色必须为 student 或 teacher")
-
         role_obj = self.db.query(Role).filter(Role.name == req.role).first()
         if not role_obj:
             raise ValidationError(detail="角色不存在")
@@ -222,15 +227,26 @@ class AuthService:
                 f"无权创建「{role_obj.display_name}」账号：目标角色包含你自身没有的权限 {exceeded}", status_code=403
             )
 
-        if req.class_id is not None:
-            cls = self.db.query(Class).filter(Class.id == req.class_id).first()
-            if not cls:
-                raise ValidationError(detail="班级不存在")
+        # 院校归属：班级优先（班级自带院校），否则取显式 school_id。
+        # 院校管理员由 writable_school_id 强制本校；平台角色必须给出归属 —— 否则会造出
+        # school_id 为空的“日常账号”，而空院校在作用域里等于跨院校，属数据面污染。
+        scope = resolve_scope(self.db, current_user)
+        cls = visible_class(self.db, scope, req.class_id) if req.class_id is not None else None
+        if cls is not None:
+            school_id = cls.school_id
+        elif req.role == "super_admin":
+            # 平台角色（school_id 为空）只能由平台管理员创建，且不属于任何院校
+            if scope.school_id is not None:
+                raise AuthError("无权创建平台角色账号", status_code=403)
+            school_id = None
+        else:
+            school_id = writable_school_id(scope, req.school_id)
 
         user = User(
             username=req.username,
             password_hash=hash_password(req.password),
             role_id=role_obj.id,
+            school_id=school_id,
             display_name=req.display_name,
             student_id=req.student_id,
             gender=req.gender,
@@ -248,7 +264,7 @@ class AuthService:
                 target_id=user.id,
                 target_label=user.username,
                 request=request,
-                payload={"role": req.role, "class_id": req.class_id},
+                payload={"role": req.role, "class_id": req.class_id, "school_id": school_id},
             )
         self.db.refresh(user)
         log.info(

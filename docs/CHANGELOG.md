@@ -823,3 +823,19 @@ worker 阶段 session 已关闭 → `DetachedInstanceError`，评分静默不入
 **验证**：`check:backend`（ruff format/check + ty）、pytest 1617 passed、`tsc`/biome 干净、vitest 779 passed；
 另在真实 dev 实例复核：学生 5 Tab / 教师 4 Tab + 抽屉可达、KPI 下钻携带 `review_status`、`/admin/stats` 重定向、
 `/admin/secrets`、训练出口回来源（含 `?tab=`）、QA 页不再撞底栏。
+
+## 2026.10 — 院校租户隔离
+
+**院校（school）成为隔离边界** `schools` 表 + `classes.school_id`（必填）+ `users.school_id`（NULL = 平台角色）。
+一个院校的管理员只能看到本校的班级、账号、作业、成绩、记录与成本；跨院校访问返回 404（不暴露存在性）。
+存量数据统一回填「杭州师范大学」。
+
+**作用域单一判定点** `core/tenant.py::resolve_scope`：平台 / 全校 / 只看任教班三档，
+写端点必须用 `writable_school_id` 定归属、`visible_class` 取目标行；单校不变量由服务层强制。
+
+**超管权限改为派生** `SYSTEM_PERMISSIONS["super_admin"] = list(PERMISSION_KEYS)`，
+新增权限 key 自动包含，杜绝"新功能上线后超管反而 403"。
+
+**校级计费统计** 成本按 `llm_call_logs.user_id → users.school_id`、`voice_call_logs.user_id` 归因；
+平台角色额外得到 `by_school` 拆分，无法归因的开销归「未归属」桶而不是静默丢弃。
+院校级预算尚无表，仍为平台级配置。

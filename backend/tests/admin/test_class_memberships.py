@@ -13,7 +13,8 @@ from sqlalchemy.orm import Session
 from core.database import Base
 from core.database import engine as pg_engine
 from core.exceptions import NotFoundError, ValidationError
-from models import AuditLog, Class, ClassMembership, Role, User
+from core.tenant import TenantScope
+from models import AuditLog, Class, ClassMembership, Role, School, User
 from models.school import legacy_grades_table
 from modules.admin.class_memberships import (
     ClassMembershipService,
@@ -27,9 +28,11 @@ from modules.admin.class_memberships import (
     upsert_members,
 )
 from modules.admin.users import UserService
+from tests.conftest import ensure_school
 
 _TABLES = [
     legacy_grades_table,
+    School.__table__,
     Role.__table__,
     User.__table__,
     Class.__table__,
@@ -66,6 +69,8 @@ def _user(db: Session, username: str, role: str = "student") -> User:
         password_hash="x",
         role_id=role_obj.id,
         display_name=username,
+        # 成员关系要求用户与班级同校（单校不变量），故账号统一挂测试院校
+        school_id=ensure_school(db).id,
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )
@@ -76,11 +81,16 @@ def _user(db: Session, username: str, role: str = "student") -> User:
 
 
 def _class(db: Session, name: str, cohort_label: str = "2026级") -> Class:
-    cls = Class(name=name, cohort_label=cohort_label)
+    cls = Class(name=name, cohort_label=cohort_label, school_id=ensure_school(db).id)
     db.add(cls)
     db.commit()
     db.refresh(cls)
     return cls
+
+
+def _scope(db: Session) -> TenantScope:
+    """院校管理员视角（本校全部班级）。"""
+    return TenantScope(school_id=ensure_school(db).id, class_ids=None, user_id=0)
 
 
 class TestMemberScope:
@@ -197,7 +207,7 @@ class TestMembershipService:
         upsert_members(db, cls.id, [t1.id], member_role="teacher")
         db.commit()
 
-        service = ClassMembershipService(db)
+        service = ClassMembershipService(db, _scope(db))
         students, total = service.list_members(cls.id, role="student")
         assert total == 1
         assert [m.user_id for m in students] == [s1.id]
@@ -214,7 +224,7 @@ class TestMembershipService:
     def test_add_and_remove_members_through_service(self, db):
         cls = _class(db, "1班")
         user = _user(db, "s10")
-        service = ClassMembershipService(db)
+        service = ClassMembershipService(db, _scope(db))
 
         added = service.add_members(cls.id, [user.id, 4242], "student")
         assert (added.added, added.skipped) == (1, 1)
@@ -227,7 +237,7 @@ class TestMembershipService:
         assert removed.removed == 1
 
     def test_unknown_class_raises_not_found(self, db):
-        service = ClassMembershipService(db)
+        service = ClassMembershipService(db, _scope(db))
         with pytest.raises(NotFoundError):
             service.list_members(991)
         with pytest.raises(NotFoundError):
@@ -268,7 +278,7 @@ class TestImportClassResolution:
         _class(db, "1班", "2026级")
         _class(db, "1班", "2027级")
 
-        result = UserService(db).batch_create([self._row(db, "u1", class_name="1班")])
+        result = UserService(db, _scope(db)).batch_create([self._row(db, "u1", class_name="1班")])
 
         assert result.created == 0
         assert result.skipped == 1
@@ -279,7 +289,9 @@ class TestImportClassResolution:
         older = _class(db, "1班", "2026级")
         newer = _class(db, "1班", "2027级")
 
-        result = UserService(db).batch_create([self._row(db, "u2", class_name="1班", cohort_label="2027级")])
+        result = UserService(db, _scope(db)).batch_create(
+            [self._row(db, "u2", class_name="1班", cohort_label="2027级")]
+        )
 
         assert (result.created, result.skipped) == (1, 0)
         membership = db.query(ClassMembership).one()
@@ -287,7 +299,9 @@ class TestImportClassResolution:
         assert membership.member_role == "student"
 
     def test_missing_class_is_created_with_cohort(self, db):
-        result = UserService(db).batch_create([self._row(db, "u3", class_name="新班", cohort_label="2028级")])
+        result = UserService(db, _scope(db)).batch_create(
+            [self._row(db, "u3", class_name="新班", cohort_label="2028级")]
+        )
 
         assert result.created == 1
         created = db.query(Class).filter(Class.name == "新班").one()
@@ -297,7 +311,7 @@ class TestImportClassResolution:
     def test_class_id_still_wins_over_name(self, db):
         cls = _class(db, "1班", "2026级")
 
-        result = UserService(db).batch_create([self._row(db, "u4", class_id=cls.id, class_name="不存在")])
+        result = UserService(db, _scope(db)).batch_create([self._row(db, "u4", class_id=cls.id, class_name="不存在")])
 
         assert result.created == 1
         assert db.query(ClassMembership).one().class_id == cls.id

@@ -36,9 +36,13 @@ def _schema():
 
 
 def _record(db) -> TrainingRecord:
-    role = Role(name="student", display_name="学生", is_system=True)
-    db.add(role)
-    db.flush()
+    # 同名角色可能已由别的用例**真实提交**过（savepoint 之外的提交不受回滚约束），
+    # 直接 INSERT 会撞 roles_name_key —— 取不到再建，保持用例对执行顺序不敏感。
+    role = db.query(Role).filter(Role.name == "student").first()
+    if role is None:
+        role = Role(name="student", display_name="学生", is_system=True)
+        db.add(role)
+        db.flush()
     user = User(username="enqueue-tx", password_hash="x", display_name="学生", role_id=role.id)
     case = Case(name="事务病例", description="", difficulty=1, time_limit_minutes=30)
     db.add_all([user, case])

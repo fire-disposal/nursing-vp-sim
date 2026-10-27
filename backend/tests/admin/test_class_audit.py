@@ -22,14 +22,17 @@ from core.audit import (
 )
 from core.database import Base
 from core.database import engine as pg_engine
-from models import AuditLog, Class, ClassMembership, Role, User
+from core.tenant import TenantScope
+from models import AuditLog, Class, ClassMembership, Role, School, User
 from models.audit import AUDIT_OUTCOME_SUCCESS
 from models.school import legacy_grades_table
 from modules.admin.class_memberships import ClassMembershipService
 from modules.admin.classes import ClassService
+from tests.conftest import ensure_school
 
 _TABLES = [
     legacy_grades_table,
+    School.__table__,
     Role.__table__,
     User.__table__,
     Class.__table__,
@@ -65,6 +68,8 @@ def _user(db, username: str) -> User:
         password_hash="x",
         role_id=role.id,
         display_name=username,
+        # 院校管理员：与班级同校（单校不变量）
+        school_id=ensure_school(db).id,
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )
@@ -86,13 +91,18 @@ def _audits(db, action: str) -> list[AuditLog]:
     return db.query(AuditLog).filter(AuditLog.action == action).order_by(AuditLog.id).all()
 
 
+def _scope(db) -> TenantScope:
+    """院校管理员视角：建班自动落在本校。"""
+    return TenantScope(school_id=ensure_school(db).id, class_ids=None, user_id=0)
+
+
 def _member_count(db, class_id: int) -> int:
     return db.query(ClassMembership).filter(ClassMembership.class_id == class_id).count()
 
 
 def test_create_class_writes_one_row_matching_db(db):
     admin = _user(db, "cls-admin-create")
-    view = ClassService(db).create("临床1班", "2026级", request=_request(admin, "req-create"))
+    view = ClassService(db, _scope(db)).create("临床1班", "2026级", request=_request(admin, "req-create"))
 
     rows = _audits(db, ACTION_CLASS_CREATED)
     assert len(rows) == 1
@@ -101,14 +111,15 @@ def test_create_class_writes_one_row_matching_db(db):
     assert row.target_id == str(view.id)
     assert row.target_label == "临床1班"
     assert row.outcome == AUDIT_OUTCOME_SUCCESS
-    assert row.payload == {"name": "临床1班", "cohort_label": "2026级"}
+    # 建班必带院校归属：payload 里的 school_id 与库内实况同源
+    assert row.payload == {"name": "临床1班", "cohort_label": "2026级", "school_id": view.school_id}
     assert (row.actor_id, row.request_id) == (admin.id, "req-create")
     assert db.get(Class, view.id) is not None
 
 
 def test_update_class_records_before_after_and_skips_noop(db):
     admin = _user(db, "cls-admin-update")
-    service = ClassService(db)
+    service = ClassService(db, _scope(db))
     view = service.create("临床2班", "2026级", request=_request(admin, "req-c"))
     cls = db.get(Class, view.id)
 
@@ -121,6 +132,8 @@ def test_update_class_records_before_after_and_skips_noop(db):
     assert rows[0].payload == {
         "name": {"before": "临床2班", "after": "临床2班(改)"},
         "cohort_label": {"before": "2026级", "after": "2027级"},
+        # 院校归属不可由院校管理员搬动：before == after
+        "school_id": {"before": view.school_id, "after": view.school_id},
     }
     # payload 的 after 必须与库内实况一致
     db.refresh(cls)
@@ -134,14 +147,14 @@ def test_update_class_records_before_after_and_skips_noop(db):
 
 def test_delete_class_records_identity_and_removed_members(db):
     admin = _user(db, "cls-admin-delete")
-    view = ClassService(db).create("待删班", "2026级", request=_request(admin, "req-c"))
+    view = ClassService(db, _scope(db)).create("待删班", "2026级", request=_request(admin, "req-c"))
     students = [_user(db, f"cls-del-stu-{i}") for i in range(3)]
-    ClassMembershipService(db).add_members(
+    ClassMembershipService(db, _scope(db)).add_members(
         view.id, [s.id for s in students], "student", request=_request(admin, "req-a")
     )
     assert _member_count(db, view.id) == 3
 
-    ClassService(db).delete(view.id, request=_request(admin, "req-d"))
+    ClassService(db, _scope(db)).delete(view.id, request=_request(admin, "req-d"))
 
     rows = _audits(db, ACTION_CLASS_DELETED)
     assert len(rows) == 1
@@ -155,8 +168,8 @@ def test_delete_class_records_identity_and_removed_members(db):
 
 def test_add_members_counts_match_membership_table(db):
     admin = _user(db, "cls-admin-add")
-    view = ClassService(db).create("成员班", "2026级", request=_request(admin, "req-c"))
-    service = ClassMembershipService(db)
+    view = ClassService(db, _scope(db)).create("成员班", "2026级", request=_request(admin, "req-c"))
+    service = ClassMembershipService(db, _scope(db))
     s1, s2 = _user(db, "cls-mem-1"), _user(db, "cls-mem-2")
 
     before = _member_count(db, view.id)
@@ -200,8 +213,8 @@ def test_add_members_counts_match_membership_table(db):
 
 def test_remove_members_counts_match_membership_table(db):
     admin = _user(db, "cls-admin-remove")
-    view = ClassService(db).create("移出班", "2026级", request=_request(admin, "req-c"))
-    service = ClassMembershipService(db)
+    view = ClassService(db, _scope(db)).create("移出班", "2026级", request=_request(admin, "req-c"))
+    service = ClassMembershipService(db, _scope(db))
     users = [_user(db, f"cls-rm-{i}") for i in range(3)]
     service.add_members(view.id, [u.id for u in users], "student", request=_request(admin, "req-a"))
 
@@ -231,10 +244,12 @@ def test_removing_non_member_leaves_no_row(db):
     """空操作不留痕：单删路由的 removed=0 会抛 NotFoundError（审计已随 service 的 commit 落库，
     故排除空操作必须在 service 内完成），批量移出同一路径亦然。"""
     admin = _user(db, "cls-admin-noop")
-    view = ClassService(db).create("空操作班", "2026级", request=_request(admin, "req-c"))
+    view = ClassService(db, _scope(db)).create("空操作班", "2026级", request=_request(admin, "req-c"))
     outsider = _user(db, "cls-outsider")
 
-    result = ClassMembershipService(db).remove_members(view.id, [outsider.id], request=_request(admin, "req-r"))
+    result = ClassMembershipService(db, _scope(db)).remove_members(
+        view.id, [outsider.id], request=_request(admin, "req-r")
+    )
 
     assert result.removed == 0
     assert _audits(db, ACTION_CLASS_MEMBERS_REMOVED) == []

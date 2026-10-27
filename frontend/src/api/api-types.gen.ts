@@ -350,6 +350,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/schools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Schools */
+        get: operations["list_schools_api_admin_schools_get"];
+        put?: never;
+        /** Create School */
+        post: operations["create_school_api_admin_schools_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/schools/{school_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update School */
+        put: operations["update_school_api_admin_schools__school_id__put"];
+        post?: never;
+        /** Delete School */
+        delete: operations["delete_school_api_admin_schools__school_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/secrets": {
         parameters: {
             query?: never;
@@ -3629,6 +3665,11 @@ export interface components {
              * @default
              */
             cohort_label: string;
+            /**
+             * School Id
+             * @description 院校 ID（平台角色必填）
+             */
+            school_id?: number | null;
         };
         /** ClassDetailResponse */
         ClassDetailResponse: {
@@ -3636,6 +3677,13 @@ export interface components {
             id: number;
             /** Name */
             name: string;
+            /** School Id */
+            school_id: number;
+            /**
+             * School Name
+             * @default
+             */
+            school_name: string;
             /**
              * Cohort Label
              * @default
@@ -3732,6 +3780,13 @@ export interface components {
             id: number;
             /** Name */
             name: string;
+            /** School Id */
+            school_id: number;
+            /**
+             * School Name
+             * @default
+             */
+            school_name: string;
             /**
              * Cohort Label
              * @default
@@ -3798,6 +3853,8 @@ export interface components {
             name?: string | null;
             /** Cohort Label */
             cohort_label?: string | null;
+            /** School Id */
+            school_id?: number | null;
         };
         /** CostBreakdown */
         CostBreakdown: {
@@ -3832,6 +3889,8 @@ export interface components {
             top_users: {
                 [key: string]: unknown;
             }[];
+            /** By School */
+            by_school?: components["schemas"]["SchoolCostItem"][];
         };
         /** CostSeriesPoint */
         CostSeriesPoint: {
@@ -3852,6 +3911,19 @@ export interface components {
             /**
              * Message
              * @default 删除成功
+             */
+            message: string;
+        };
+        /** DeleteSchoolResponse */
+        DeleteSchoolResponse: {
+            /**
+             * Ok
+             * @default true
+             */
+            ok: boolean;
+            /**
+             * Message
+             * @default
              */
             message: string;
         };
@@ -4844,6 +4916,8 @@ export interface components {
             student_id?: string | null;
             /** Class Id */
             class_id?: number | null;
+            /** School Id */
+            school_id?: number | null;
             /** Gender */
             gender?: string | null;
         };
@@ -6108,6 +6182,60 @@ export interface components {
             /** Messages */
             messages?: components["schemas"]["DeliveryMessage"][];
         };
+        /**
+         * SchoolCostItem
+         * @description 院校维度的成本行。``school_id=None`` 是归因不到院校的“未归属”桶（不会丢）。
+         */
+        SchoolCostItem: {
+            /** School Id */
+            school_id: number | null;
+            /** School Name */
+            school_name: string;
+            /** Llm Cost */
+            llm_cost: number;
+            /** Llm Calls */
+            llm_calls: number;
+            /** Voice Cost */
+            voice_cost: number;
+            /** Voice Calls */
+            voice_calls: number;
+            /** Total Cost */
+            total_cost: number;
+            /** Calls */
+            calls: number;
+        };
+        /** SchoolCreate */
+        SchoolCreate: {
+            /** Name */
+            name: string;
+        };
+        /** SchoolResponse */
+        SchoolResponse: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /**
+             * Class Count
+             * @default 0
+             */
+            class_count: number;
+            /**
+             * User Count
+             * @default 0
+             */
+            user_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** SchoolUpdate */
+        SchoolUpdate: {
+            /** Name */
+            name?: string | null;
+        };
         /** ScoreItem */
         ScoreItem: {
             /** Id */
@@ -7201,6 +7329,10 @@ export interface components {
             role: string;
             /** Role Display Name */
             role_display_name: string;
+            /** School Id */
+            school_id?: number | null;
+            /** School Name */
+            school_name?: string | null;
             /** Display Name */
             display_name: string;
             /** Student Id */
@@ -8297,6 +8429,125 @@ export interface operations {
             };
         };
     };
+    list_schools_api_admin_schools_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolResponse"][];
+                };
+            };
+        };
+    };
+    create_school_api_admin_schools_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SchoolCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_school_api_admin_schools__school_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                school_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SchoolUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_school_api_admin_schools__school_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                school_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteSchoolResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_secrets_api_admin_secrets_get: {
         parameters: {
             query?: never;
@@ -8596,6 +8847,8 @@ export interface operations {
                 search?: string | null;
                 /** @description 角色筛选 student/teacher */
                 role?: string | null;
+                /** @description 院校筛选（平台角色可跨院校查看） */
+                school_id?: number | null;
                 class_id?: number | null;
                 /** @description 届/年级标签精确过滤 */
                 cohort_label?: string | null;
@@ -8636,6 +8889,8 @@ export interface operations {
                 search?: string | null;
                 /** @description 角色筛选 student/teacher */
                 role?: string | null;
+                /** @description 院校筛选（平台角色可跨院校查看） */
+                school_id?: number | null;
                 class_id?: number | null;
                 /** @description 届/年级标签精确过滤 */
                 cohort_label?: string | null;
@@ -12007,7 +12262,7 @@ export interface operations {
             query?: {
                 /** @description 病例范围，缺省=全部病例 */
                 case_id?: number | null;
-                /** @description 班级筛选 */
+                /** @description 班级筛选；只能指向作用域内的班级，否则 404 */
                 class_id?: number | null;
                 /** @description 指定作业 */
                 assignment_id?: string | null;
@@ -12057,7 +12312,7 @@ export interface operations {
             query?: {
                 /** @description 病例范围，缺省=全部病例 */
                 case_id?: number | null;
-                /** @description 班级筛选 */
+                /** @description 班级筛选；只能指向作用域内的班级，否则 404 */
                 class_id?: number | null;
                 /** @description 指定作业 */
                 assignment_id?: string | null;
@@ -12131,6 +12386,7 @@ export interface operations {
             query?: {
                 offset?: number;
                 limit?: number;
+                /** @description 班级筛选；只能指向作用域内的班级，否则 404 */
                 class_id?: number | null;
             };
             header?: never;
@@ -12163,6 +12419,7 @@ export interface operations {
         parameters: {
             query?: {
                 cohort_label?: string | null;
+                /** @description 班级筛选；只能指向作用域内的班级，否则 404 */
                 class_id?: number | null;
             };
             header?: never;

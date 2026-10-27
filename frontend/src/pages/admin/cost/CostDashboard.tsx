@@ -202,6 +202,58 @@ function MonthlyBudgetCard({ data }: { data: CostDashboardResponse }) {
 	);
 }
 
+/**
+ * 院校费用拆分（仅平台角色可见 —— 后端只对平台视角返回 `by_school`）。
+ * 「未归属」是系统任务/平台账号的开销：各校之和 + 未归属 = 平台总计，不静默丢。
+ */
+function SchoolCostTable({ data }: { data: CostDashboardResponse }) {
+	const rows = data.by_school || [];
+	if (rows.length === 0) return null;
+
+	return (
+		<Card>
+			<CardHeader>
+				<Group justify="space-between" align="center" wrap="wrap">
+					<CardTitle>院校费用拆分（本月）</CardTitle>
+					<Text size="xs" c="dimmed">{rows.length} 项 · 按费用降序</Text>
+				</Group>
+			</CardHeader>
+			<CardContent>
+				<Table>
+					<Table.Thead>
+						<Table.Tr>
+							<Table.Th>院校</Table.Th>
+							<Table.Th style={{ textAlign: "right" }}>LLM</Table.Th>
+							<Table.Th style={{ textAlign: "right" }}>语音</Table.Th>
+							<Table.Th style={{ textAlign: "right" }}>调用数</Table.Th>
+							<Table.Th style={{ textAlign: "right" }}>合计</Table.Th>
+						</Table.Tr>
+					</Table.Thead>
+					<Table.Tbody>
+						{rows.map((r) => (
+							<Table.Tr key={r.school_id ?? "unattributed"}>
+								<Table.Td style={{ fontWeight: 500 }}>{r.school_name}</Table.Td>
+								<Table.Td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+									¥{r.llm_cost.toFixed(2)}
+								</Table.Td>
+								<Table.Td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+									¥{r.voice_cost.toFixed(2)}
+								</Table.Td>
+								<Table.Td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+									{r.calls}
+								</Table.Td>
+								<Table.Td style={{ textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+									¥{r.total_cost.toFixed(2)}
+								</Table.Td>
+							</Table.Tr>
+						))}
+					</Table.Tbody>
+				</Table>
+			</CardContent>
+		</Card>
+	);
+}
+
 function TopUsersTable({ data }: { data: CostDashboardResponse }) {
 	const users = data.top_users || [];
 
@@ -328,6 +380,7 @@ export default function CostDashboard() {
 		voice_monthly_budget: 0,
 		daily_series: [],
 		top_users: [],
+		by_school: [],
 	};
 	const d = data || empty;
 
@@ -344,6 +397,7 @@ export default function CostDashboard() {
 				</Grid.Col>
 			</Grid>
 
+			<SchoolCostTable data={d} />
 			<TopUsersTable data={d} />
 			<UserCostBreakdown />
 		</Stack>

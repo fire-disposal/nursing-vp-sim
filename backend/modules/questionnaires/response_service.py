@@ -5,21 +5,26 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from core.exceptions import NotFoundError, ValidationError
 from core.pagination import paginate
 from core.statuses import QuestionnaireTrigger, normalize_questionnaire_trigger, normalize_training_mode
+from core.tenant import TenantScope
 from core.unit_of_work import unit_of_work
 from infra.exporter import ColumnDef
 from models import (
+    MEMBER_ROLE_STUDENT,
     CaseQuestionnaire,
     CaseRevision,
+    ClassMembership,
     QuestionnaireAnswer,
     QuestionnaireQuestion,
     QuestionnaireResponse,
     QuestionnaireTemplate,
     TrainingRecord,
+    User,
 )
 from modules.questionnaires.service import template_to_detail
 from modules.training.manifest import experiment_label
@@ -193,10 +198,29 @@ class ResponseView:
 
 
 class QuestionnaireResponseService:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, scope: TenantScope):
         self.db = db
+        self.scope = scope
 
     # ── inlined repository methods ──
+
+    def _scoped(self, q):
+        """答卷按「归属学生」收窄：院校 → 本校，无全校权限的教师 → 自己任教班的学生。
+
+        模板是共享内容，不在收窄范围内；这里收窄的只有学生数据（答卷）。
+        """
+        if self.scope.school_id is not None:
+            q = q.join(User, User.id == QuestionnaireResponse.user_id).filter(User.school_id == self.scope.school_id)
+        if self.scope.class_ids is not None:
+            q = q.filter(
+                QuestionnaireResponse.user_id.in_(
+                    select(ClassMembership.user_id).where(
+                        ClassMembership.class_id.in_(self.scope.class_ids or {-1}),
+                        ClassMembership.member_role == MEMBER_ROLE_STUDENT,
+                    )
+                )
+            )
+        return q
 
     def _find_response(
         self,
@@ -223,7 +247,7 @@ class QuestionnaireResponseService:
             .filter(QuestionnaireResponse.template_id == template_id, QuestionnaireResponse.status == "completed")
             .order_by(QuestionnaireResponse.created_at.desc())
         )
-        return paginate(q, offset, limit)
+        return paginate(self._scoped(q), offset, limit)
 
     def _delete_answers(self, response_id: int) -> None:
         self.db.query(QuestionnaireAnswer).filter(QuestionnaireAnswer.response_id == response_id).delete(
@@ -459,16 +483,16 @@ class QuestionnaireResponseService:
         if not t:
             raise NotFoundError("问卷模板不存在")
 
-        completed = (
-            self.db.query(QuestionnaireResponse)
-            .filter(
+        completed = self._scoped(
+            self.db.query(QuestionnaireResponse).filter(
                 QuestionnaireResponse.template_id == template_id,
                 QuestionnaireResponse.status == "completed",
             )
-            .all()
-        )
+        ).all()
         total_completed = len(completed)
 
+        # “应作答”来自模板的病例绑定（共享内容），不做院校收窄：
+        # 收窄它等于凭空改写共享模板的分配数
         cq_count = self.db.query(CaseQuestionnaire).filter(CaseQuestionnaire.template_id == template_id).count()
 
         questions = (
@@ -538,7 +562,7 @@ class QuestionnaireResponseService:
         if not t:
             raise NotFoundError("问卷模板不存在")
 
-        responses = (
+        responses = self._scoped(
             self.db.query(QuestionnaireResponse)
             .options(
                 joinedload(QuestionnaireResponse.user),
@@ -552,8 +576,7 @@ class QuestionnaireResponseService:
                 QuestionnaireResponse.status == "completed",
             )
             .order_by(QuestionnaireResponse.completed_at.desc())
-            .all()
-        )
+        ).all()
 
         revision_ids = {r.record.case_revision_id for r in responses if r.record and r.record.case_revision_id}
         revisions: dict[int, int] = {}

@@ -1690,6 +1690,186 @@
         }
       }
     },
+    "/api/admin/schools": {
+      "get": {
+        "tags": [
+          "管理",
+          "院校管理"
+        ],
+        "summary": "List Schools",
+        "operationId": "list_schools_api_admin_schools_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SchoolResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Schools Api Admin Schools Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "管理",
+          "院校管理"
+        ],
+        "summary": "Create School",
+        "operationId": "create_school_api_admin_schools_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SchoolCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchoolResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/schools/{school_id}": {
+      "put": {
+        "tags": [
+          "管理",
+          "院校管理"
+        ],
+        "summary": "Update School",
+        "operationId": "update_school_api_admin_schools__school_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "school_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "School Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SchoolUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchoolResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "管理",
+          "院校管理"
+        ],
+        "summary": "Delete School",
+        "operationId": "delete_school_api_admin_schools__school_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "school_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "School Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteSchoolResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/secrets": {
       "get": {
         "tags": [
@@ -2212,6 +2392,24 @@
             "description": "角色筛选 student/teacher"
           },
           {
+            "name": "school_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "院校筛选（平台角色可跨院校查看）",
+              "title": "School Id"
+            },
+            "description": "院校筛选（平台角色可跨院校查看）"
+          },
+          {
             "name": "class_id",
             "in": "query",
             "required": false,
@@ -2341,6 +2539,24 @@
               "title": "Role"
             },
             "description": "角色筛选 student/teacher"
+          },
+          {
+            "name": "school_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "院校筛选（平台角色可跨院校查看）",
+              "title": "School Id"
+            },
+            "description": "院校筛选（平台角色可跨院校查看）"
           },
           {
             "name": "class_id",
@@ -8286,10 +8502,10 @@
                   "type": "null"
                 }
               ],
-              "description": "班级筛选",
+              "description": "班级筛选；只能指向作用域内的班级，否则 404",
               "title": "Class Id"
             },
-            "description": "班级筛选"
+            "description": "班级筛选；只能指向作用域内的班级，否则 404"
           },
           {
             "name": "assignment_id",
@@ -8501,10 +8717,10 @@
                   "type": "null"
                 }
               ],
-              "description": "班级筛选",
+              "description": "班级筛选；只能指向作用域内的班级，否则 404",
               "title": "Class Id"
             },
-            "description": "班级筛选"
+            "description": "班级筛选；只能指向作用域内的班级，否则 404"
           },
           {
             "name": "assignment_id",
@@ -8684,8 +8900,10 @@
                   "type": "null"
                 }
               ],
+              "description": "班级筛选；只能指向作用域内的班级，否则 404",
               "title": "Class Id"
-            }
+            },
+            "description": "班级筛选；只能指向作用域内的班级，否则 404"
           }
         ],
         "responses": {
@@ -8755,8 +8973,10 @@
                   "type": "null"
                 }
               ],
+              "description": "班级筛选；只能指向作用域内的班级，否则 404",
               "title": "Class Id"
-            }
+            },
+            "description": "班级筛选；只能指向作用域内的班级，否则 404"
           }
         ],
         "responses": {
@@ -12679,6 +12899,18 @@
             "title": "Cohort Label",
             "description": "届/年级标签，同一标签下班级名唯一",
             "default": ""
+          },
+          "school_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Id",
+            "description": "院校 ID（平台角色必填）"
           }
         },
         "additionalProperties": false,
@@ -12697,6 +12929,15 @@
           "name": {
             "type": "string",
             "title": "Name"
+          },
+          "school_id": {
+            "type": "integer",
+            "title": "School Id"
+          },
+          "school_name": {
+            "type": "string",
+            "title": "School Name",
+            "default": ""
           },
           "cohort_label": {
             "type": "string",
@@ -12735,6 +12976,7 @@
         "required": [
           "id",
           "name",
+          "school_id",
           "created_at"
         ],
         "title": "ClassDetailResponse"
@@ -12873,6 +13115,15 @@
             "type": "string",
             "title": "Name"
           },
+          "school_id": {
+            "type": "integer",
+            "title": "School Id"
+          },
+          "school_name": {
+            "type": "string",
+            "title": "School Name",
+            "default": ""
+          },
           "cohort_label": {
             "type": "string",
             "title": "Cohort Label",
@@ -12903,6 +13154,7 @@
         "required": [
           "id",
           "name",
+          "school_id",
           "created_at"
         ],
         "title": "ClassResponse"
@@ -12987,6 +13239,17 @@
               }
             ],
             "title": "Cohort Label"
+          },
+          "school_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Id"
           }
         },
         "additionalProperties": false,
@@ -13070,6 +13333,13 @@
             },
             "type": "array",
             "title": "Top Users"
+          },
+          "by_school": {
+            "items": {
+              "$ref": "#/components/schemas/SchoolCostItem"
+            },
+            "type": "array",
+            "title": "By School"
           }
         },
         "type": "object",
@@ -13125,6 +13395,22 @@
         },
         "type": "object",
         "title": "DeleteResponse"
+      },
+      "DeleteSchoolResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "default": true
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "DeleteSchoolResponse"
       },
       "DeliveryMessage": {
         "properties": {
@@ -15427,6 +15713,17 @@
               }
             ],
             "title": "Class Id"
+          },
+          "school_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Id"
           },
           "gender": {
             "anyOf": [
@@ -18305,6 +18602,132 @@
         "title": "SceneDelivery",
         "description": "本回合的最终交付（学生看到的话）。由模型循环产出，平台逐条校验后收下。"
       },
+      "SchoolCostItem": {
+        "properties": {
+          "school_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Id"
+          },
+          "school_name": {
+            "type": "string",
+            "title": "School Name"
+          },
+          "llm_cost": {
+            "type": "number",
+            "title": "Llm Cost"
+          },
+          "llm_calls": {
+            "type": "integer",
+            "title": "Llm Calls"
+          },
+          "voice_cost": {
+            "type": "number",
+            "title": "Voice Cost"
+          },
+          "voice_calls": {
+            "type": "integer",
+            "title": "Voice Calls"
+          },
+          "total_cost": {
+            "type": "number",
+            "title": "Total Cost"
+          },
+          "calls": {
+            "type": "integer",
+            "title": "Calls"
+          }
+        },
+        "type": "object",
+        "required": [
+          "school_id",
+          "school_name",
+          "llm_cost",
+          "llm_calls",
+          "voice_cost",
+          "voice_calls",
+          "total_cost",
+          "calls"
+        ],
+        "title": "SchoolCostItem",
+        "description": "院校维度的成本行。``school_id=None`` 是归因不到院校的“未归属”桶（不会丢）。"
+      },
+      "SchoolCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "SchoolCreate"
+      },
+      "SchoolResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "class_count": {
+            "type": "integer",
+            "title": "Class Count",
+            "default": 0
+          },
+          "user_count": {
+            "type": "integer",
+            "title": "User Count",
+            "default": 0
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "created_at"
+        ],
+        "title": "SchoolResponse"
+      },
+      "SchoolUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SchoolUpdate"
+      },
       "ScoreItem": {
         "properties": {
           "id": {
@@ -21032,6 +21455,28 @@
           "role_display_name": {
             "type": "string",
             "title": "Role Display Name"
+          },
+          "school_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Id"
+          },
+          "school_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Name"
           },
           "display_name": {
             "type": "string",

@@ -35,6 +35,9 @@ class UserBrief(BaseModel):
     username: str
     role: str
     role_display_name: str
+    #: 院校归属。None = 平台角色（跨院校可见，例如 super_admin）。
+    school_id: int | None = None
+    school_name: str | None = None
     display_name: str
     student_id: str | None
     gender: str | None = None

@@ -5,6 +5,7 @@ export const PERMISSION_KEYS = [
   "user_manage",
   "role_manage",
   "grade_class_manage",
+  "school_manage",
   "case_manage",
   "training_access",
   "score_review",
@@ -40,6 +41,10 @@ export const PERMISSION_DEFS: PermissionDef[] = [
   {
     "key": "grade_class_manage",
     "label": "班级管理"
+  },
+  {
+    "key": "school_manage",
+    "label": "院校管理"
   },
   {
     "key": "case_manage",
