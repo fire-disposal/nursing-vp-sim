@@ -26,6 +26,8 @@ interface UserFormProps {
   open: boolean;
   user: UserBrief | null;
   roles: RoleOption[];
+  /** 角色列表请求失败（多半是无 `role_manage` 权限）：不能用「加载中」冒充，见 listRoles 鉴权。 */
+  rolesFailed?: boolean;
   /** 全部班级（含 cohort_label），用于归属选择。 */
   classes: ClassItem[];
   onClose: () => void;
@@ -37,6 +39,10 @@ interface UserFormProps {
   isSaving: boolean;
   dirtyRef?: React.MutableRefObject<boolean>;
 }
+
+/** 空角色列表的诚实占位：失败就说失败，别永远停在「加载中」。 */
+const rolesPlaceholder = (roles: RoleOption[], failed?: boolean) =>
+  roles.length > 0 ? undefined : failed ? "角色列表不可用" : "加载中...";
 
 const roleData = (roles: RoleOption[]) =>
   roles.map((r) => ({ value: r.name, label: r.display_name }));
@@ -55,6 +61,7 @@ export default function UserForm({
   open,
   user,
   roles,
+  rolesFailed,
   classes,
   onClose,
   onSaveRegister,
@@ -183,7 +190,7 @@ export default function UserForm({
                 label="角色" withAsterisk
                 {...editForm.getInputProps("role")}
                 data={roleData(roles)}
-                placeholder={roles.length === 0 ? "加载中..." : undefined}
+                placeholder={rolesPlaceholder(roles, rolesFailed)}
                 allowDeselect={false}
               />
               <MembershipEditor
@@ -266,7 +273,7 @@ export default function UserForm({
                   label="角色" withAsterisk
                   {...regForm.getInputProps("role")}
                   data={roleData(roles)}
-                  placeholder={roles.length === 0 ? "加载中..." : undefined}
+                  placeholder={rolesPlaceholder(roles, rolesFailed)}
                   allowDeselect={false}
                 />
               </Box>

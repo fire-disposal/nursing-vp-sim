@@ -153,6 +153,23 @@ describe("UsersTab 多班级归属", () => {
 	});
 });
 
+describe("UsersTab 班级归属编辑", () => {
+	// 回归：选项曾以平铺 `{ value, label, group }` 传给 Mantine Select，
+	// 被 `getParsedComboboxData` 当成分组容器读 `items.map` → 整页 ErrorBoundary。
+	it("「添加班级」后能选出按届别分组的班级，不炸整页", async () => {
+		renderTab();
+		await userEvent.click(await screen.findByRole("button", { name: "编辑 小明" }));
+		await userEvent.click(await screen.findByRole("button", { name: "添加班级" }));
+
+		const combo = await screen.findByRole("combobox", { name: "第 1 个班级" });
+		await userEvent.click(combo);
+		const listbox = document.getElementById(combo.getAttribute("aria-controls") ?? "");
+
+		expect(within(listbox as HTMLElement).getByText("2024级")).toBeTruthy();
+		expect(within(listbox as HTMLElement).getByRole("option", { name: "护理1班", hidden: true })).toBeTruthy();
+	});
+});
+
 describe("UsersTab 账号生命周期操作", () => {
 	it("删除用户需二次确认，确认后调用 deleteUser", async () => {
 		mocks.deleteUser.mockResolvedValue({ data: { ok: true, message: "已删除" } });

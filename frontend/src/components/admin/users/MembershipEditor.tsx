@@ -30,6 +30,8 @@ export default function MembershipEditor({
 	error,
 }: MembershipEditorProps) {
 	// 已被**其他行**占用的班级在本行禁用，避免同一班级重复提交（后端会拒绝重复）。
+	// 分组必须用 Mantine 的 `{ group, items }` 形状：平铺选项上的 `group` 键会被
+	// `getParsedComboboxData` 当作分组容器去读 `item.items.map`，整页随之崩掉。
 	const options = useMemo(
 		() =>
 			value.map((_row, index) => {
@@ -39,12 +41,18 @@ export default function MembershipEditor({
 						.map((v) => v.class_id)
 						.filter(Boolean),
 				);
-				return classes.map((c) => ({
-					value: String(c.id),
-					label: c.cohort_label ? `${c.cohort_label} ${c.name}` : c.name,
-					group: c.cohort_label || "未标注届别",
-					disabled: usedElsewhere.has(String(c.id)),
-				}));
+				const groups = new Map<string, { value: string; label: string; disabled: boolean }[]>();
+				for (const c of classes) {
+					const group = c.cohort_label || "未标注届别";
+					const items = groups.get(group) ?? [];
+					items.push({
+						value: String(c.id),
+						label: c.name,
+						disabled: usedElsewhere.has(String(c.id)),
+					});
+					groups.set(group, items);
+				}
+				return [...groups].map(([group, items]) => ({ group, items }));
 			}),
 		[classes, value],
 	);

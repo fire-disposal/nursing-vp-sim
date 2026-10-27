@@ -129,7 +129,7 @@ export default function UsersTab({ currentUserId, onExportParamsChange }: UsersT
 	const { data: classes = [] } = useClassesQuery();
 
 	const { data: userData, isLoading } = useUserList(list.offset, list.params);
-	const { data: roles = [] } = useRolesQuery();
+	const { data: roles = [], isError: rolesFailed } = useRolesQuery();
 
 	const registerMutation = useRegisterMutation();
 	const updateMutation = useUpdateUserMutation();
@@ -492,6 +492,7 @@ export default function UsersTab({ currentUserId, onExportParamsChange }: UsersT
 				open={showUserForm && editingUser === null}
 				user={null}
 				roles={roles}
+				rolesFailed={rolesFailed}
 				classes={classes}
 				onClose={closeUserForm}
 				onSaveRegister={handleSaveRegister}
@@ -507,6 +508,7 @@ export default function UsersTab({ currentUserId, onExportParamsChange }: UsersT
 				open={showUserForm && editingUser !== null}
 				user={editingUser}
 				roles={roles}
+				rolesFailed={rolesFailed}
 				classes={classes}
 				onClose={closeUserForm}
 				onSaveRegister={handleSaveRegister}
