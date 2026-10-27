@@ -1,21 +1,9 @@
-import { IconMessageCircle } from "@tabler/icons-react";
 import FeedbackTab from "@/components/admin/FeedbackTab";
-import ExportButton from "@/components/ExportButton";
-import PageHeader from "@/components/ui/page-header";
-import { useState } from "react";
 
+/**
+ * 页头由 `FeedbackTab` 自己渲染（同 UsersTab）：导出按钮要跟随列表筛选，
+ * 两者必须共享同一份状态。
+ */
 export default function FeedbackPage() {
-	// 导出跟随列表筛选（筛选状态在 FeedbackTab 里，故由它回传）
-	const [exportParams, setExportParams] = useState<Record<string, unknown>>({});
-	return (
-		<>
-			<PageHeader
-				title="系统反馈"
-				subtitle="用户对系统本身的问题与建议（bug、功能、评分与内容错误等）"
-				icon={IconMessageCircle}
-				actions={<ExportButton endpoint="/admin/feedback/export" filename="系统反馈" params={exportParams} />}
-			/>
-			<FeedbackTab onExportParamsChange={setExportParams} />
-		</>
-	);
+	return <FeedbackTab />;
 }

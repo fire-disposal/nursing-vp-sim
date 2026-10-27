@@ -1,11 +1,14 @@
-import { IconAlertCircle, IconArchive, IconPencil, IconPlus, IconRefresh, IconRocket, IconSearch, IconTrash, IconWand, IconX } from "@tabler/icons-react";
-import { ActionIcon, Alert, Badge, Box, Button, Group, Loader, Paper, Select, Stack, Switch, Table, Text, TextInput } from "@mantine/core";
+import { IconAlertCircle, IconArchive, IconPencil, IconRefresh, IconRocket, IconTrash } from "@tabler/icons-react";
+import { ActionIcon, Alert, Badge, Box, Button, Group, Loader, Paper, Select, Stack, Switch, Table, Text } from "@mantine/core";
+import type { ReactNode } from "react";
 import Pagination from "@/components/ui/pagination";
 import { ACTIVITY_LABELS } from "@/config/activity-display";
 import type { components } from "@/api/api-types.gen";
 import { CaseStatusBadge } from "./CaseStatusBadge";
 import { CASE_STATUS_FILTER_OPTIONS } from "./caseStatus";
 import { FilterToolbar } from "@/components/ui/filter-toolbar";
+import ListPage from "@/components/ui/list-page";
+import { SearchInput } from "@/components/ui/search-input";
 
 type CaseManageItem = components["schemas"]["CaseManageItem"];
 
@@ -31,12 +34,12 @@ interface CaseListProps {
 	error?: boolean;
 	/** 正在发布/归档/删除的病例 id（行内 pending）。 */
 	pendingId?: number | null;
+	/** 页头（PageHeader）：由 CasesTab 传入，主行动进页头，列表工具条不再放按钮。 */
+	header?: ReactNode;
 	onSearchChange: (value: string) => void;
 	onFilterChange: (filters: CaseListFilters) => void;
 	onOffsetChange: (offset: number) => void;
 	onRetry?: () => void;
-	onAdd: () => void;
-	onAIAdd: () => void;
 	onEdit: (c: CaseManageItem) => void;
 	onDelete: (c: CaseManageItem) => void;
 	onToggleOpen: (c: CaseManageItem) => void;
@@ -62,84 +65,74 @@ function CapabilityBadges({ caps }: { caps: Record<string, boolean> | undefined 
 export default function CaseList({
 	cases, total, offset, limit,
 	filters, hasFilters, searchInput, loading, error, pendingId,
-	onSearchChange, onFilterChange, onOffsetChange, onRetry,
-	onAdd, onAIAdd, onEdit, onDelete, onToggleOpen, onPublish, onArchive,
+	header, onSearchChange, onFilterChange, onOffsetChange, onRetry,
+	onEdit, onDelete, onToggleOpen, onPublish, onArchive,
 }: CaseListProps) {
 
 	return (
-		<Stack gap="md">
-			{/* Toolbar */}
-			<Group gap={8}>
-				<Button size="sm" onClick={onAdd} leftSection={<IconPlus size={14} />}>新建病例</Button>
-				<Button size="sm" variant="outline" onClick={onAIAdd} leftSection={<IconWand size={14} />}>AI 生成</Button>
-				<div style={{ flex: 1 }} />
-				<TextInput
-					size="xs"
-					w={180}
-					value={searchInput}
-					onChange={(e) => onSearchChange(e.currentTarget.value)}
-					placeholder="搜索病例…"
-					leftSection={<IconSearch size={14} />}
-					rightSection={
-						searchInput ? (
-							<ActionIcon variant="subtle" color="gray" size="xs" onClick={() => onSearchChange("")} aria-label="清除搜索">
-								<IconX size={12} />
-							</ActionIcon>
-						) : undefined
+		<ListPage
+			header={header}
+			toolbar={
+				<FilterToolbar
+					compact
+					hasActiveFilters={hasFilters}
+					onClear={() => {
+						// 名称搜索走独立回调，必须一起复位（否则清除后输入框仍有值）
+						onSearchChange("");
+						onFilterChange({ name: "", difficulty: "", status: "", is_open: "" });
+						onOffsetChange(0);
+					}}
+					search={
+						<Box w={180}>
+							<SearchInput
+								size="xs"
+								value={searchInput}
+								onChange={onSearchChange}
+								placeholder="搜索病例…"
+								aria-label="搜索病例"
+							/>
+						</Box>
+					}
+					filters={
+						<>
+							<Select
+								data={[...CASE_STATUS_FILTER_OPTIONS]}
+								value={filters.status || "all"}
+								onChange={(v) => onFilterChange({ ...filters, status: v === "all" ? "" : v ?? "" })}
+								placeholder="全部状态"
+								size="xs"
+								w={130}
+								allowDeselect={false}
+								aria-label="按生命周期筛选"
+							/>
+							<Select
+								data={[{ value: "all", label: "全部难度" }, { value: "1", label: "初级" }, { value: "2", label: "中级" }, { value: "3", label: "高级" }]}
+								value={filters.difficulty || "all"}
+								onChange={(v) => onFilterChange({ ...filters, difficulty: v === "all" ? "" : v ?? "" })}
+								placeholder="全部难度"
+								size="xs"
+								w={110}
+								allowDeselect={false}
+								aria-label="按难度筛选"
+							/>
+							<Select
+								data={[{ value: "all", label: "全部可见" }, { value: "true", label: "已开放" }, { value: "false", label: "未开放" }]}
+								value={filters.is_open || "all"}
+								onChange={(v) => onFilterChange({ ...filters, is_open: v === "all" ? "" : v ?? "" })}
+								placeholder="全部可见"
+								size="xs"
+								w={110}
+								allowDeselect={false}
+								aria-label="按学生可见筛选"
+							/>
+						</>
 					}
 				/>
-			</Group>
-
-			<FilterToolbar
-				compact
-				hasActiveFilters={hasFilters}
-				onClear={() => {
-					// 名称搜索走独立回调，必须一起复位（否则清除后输入框仍有值）
-					onSearchChange("");
-					onFilterChange({ name: "", difficulty: "", status: "", is_open: "" });
-					onOffsetChange(0);
-				}}
-				filters={
-					<>
-				<Box w={130}>
-					<Select
-						data={[...CASE_STATUS_FILTER_OPTIONS]}
-						value={filters.status || "all"}
-						onChange={(v) => onFilterChange({ ...filters, status: v === "all" ? "" : v ?? "" })}
-						placeholder="全部状态"
-						size="xs"
-						allowDeselect={false}
-						aria-label="按生命周期筛选"
-					/>
-				</Box>
-				<Box w={110}>
-					<Select
-						data={[{ value: "all", label: "全部难度" }, { value: "1", label: "初级" }, { value: "2", label: "中级" }, { value: "3", label: "高级" }]}
-						value={filters.difficulty || "all"}
-						onChange={(v) => onFilterChange({ ...filters, difficulty: v === "all" ? "" : v ?? "" })}
-						placeholder="全部难度"
-						size="xs"
-						allowDeselect={false}
-						aria-label="按难度筛选"
-					/>
-				</Box>
-				<Box w={110}>
-					<Select
-						data={[{ value: "all", label: "全部可见" }, { value: "true", label: "已开放" }, { value: "false", label: "未开放" }]}
-						value={filters.is_open || "all"}
-						onChange={(v) => onFilterChange({ ...filters, is_open: v === "all" ? "" : v ?? "" })}
-						placeholder="全部可见"
-						size="xs"
-						allowDeselect={false}
-						aria-label="按学生可见筛选"
-					/>
-				</Box>
-					</>
-				}
-			/>
-
+			}
+			footer={total > limit ? <Pagination total={total} offset={offset} limit={limit} onChange={onOffsetChange} /> : undefined}
+		>
 			{error && (
-				<Alert variant="light" color="red" icon={<IconAlertCircle size={16} />}>
+				<Alert variant="light" color="red" mb="xs" icon={<IconAlertCircle size={16} />}>
 					<Group justify="space-between" gap={8} wrap="wrap">
 						<Text size="sm">加载病例列表失败，请检查网络后重试。</Text>
 						{onRetry && (
@@ -218,7 +211,8 @@ export default function CaseList({
 										)}
 									</Table.Td>
 									<Table.Td>
-										<Group gap={4} justify="center" wrap="nowrap">
+										{/* 四个图标按钮：换行会让操作列变高，故 nowrap；删除与其它三者再拉开 6px 间距，防误点 */}
+										<Group gap={6} justify="center" wrap="nowrap">
 											<ActionIcon
 												variant="subtle"
 												color="gray"
@@ -260,6 +254,7 @@ export default function CaseList({
 												variant="subtle"
 												color="red"
 												size="sm"
+												style={{ marginLeft: 6 }}
 												onClick={() => onDelete(c)}
 												aria-label="删除"
 												title="删除"
@@ -275,8 +270,6 @@ export default function CaseList({
 					</Table.Tbody>
 				</Table>
 			</Paper>
-
-			{total > limit && <Pagination total={total} offset={offset} limit={limit} onChange={onOffsetChange} />}
-		</Stack>
+		</ListPage>
 	);
 }

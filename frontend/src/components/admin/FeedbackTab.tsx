@@ -23,7 +23,7 @@ import {
 	IconChevronUp,
 	IconMessageCircle,
 } from "@tabler/icons-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
 	Bar,
 	BarChart,
@@ -43,6 +43,7 @@ import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import type { FeedbackAdminParams } from "@/api/query-params";
 import { useToast } from "@/components/Toast";
+import ExportButton from "@/components/ExportButton";
 import AuthImage from "@/components/ui/auth-image";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
 
@@ -50,6 +51,8 @@ import EmptyState from "@/components/ui/empty-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import Pagination from "@/components/ui/pagination";
 import { FilterToolbar } from "@/components/ui/filter-toolbar";
+import ListPage from "@/components/ui/list-page";
+import PageHeader from "@/components/ui/page-header";
 import { SearchInput } from "@/components/ui/search-input";
 import { Textarea } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
@@ -514,14 +517,9 @@ function RatingPieChart({ tag, dateFrom, dateTo }: RatingPieChartProps) {
 }
 
 
-interface FeedbackTabProps {
-	/** 把当前筛选回传页头（导出按钮据此带上同样的筛选，避免"筛完再导仍是全量"）。 */
-	onExportParamsChange?: (params: Record<string, unknown>) => void;
-}
-
 const LIMIT = 20;
 
-export default function FeedbackTab({ onExportParamsChange }: FeedbackTabProps) {
+export default function FeedbackTab() {
 	// 列表筛选的唯一持有者：列表请求参数与导出参数同源（见 useListFilters）
 	const list = useListFilters<FeedbackAdminParams>(
 		{ tag: "", date_from: "", date_to: "", search: "", replied: undefined },
@@ -533,11 +531,6 @@ export default function FeedbackTab({ onExportParamsChange }: FeedbackTabProps) 
 	// 回复状态在 UI 上是三态，进请求时映射为 replied: true / false / 不传
 	const replyStatus =
 		list.values.replied === true ? "replied" : list.values.replied === false ? "unreplied" : "";
-
-	// 把筛选回传页头（导出用）
-	useEffect(() => {
-		onExportParamsChange?.(list.exportParams);
-	}, [list.exportParams, onExportParamsChange]);
 
 	const { data: feedbacksData, isLoading, refetch } = useQuery({
 		queryKey: queryKeys.admin.feedback.list(list.params),
@@ -556,7 +549,97 @@ export default function FeedbackTab({ onExportParamsChange }: FeedbackTabProps) 
 	};
 
 	return (
-		<Paper p="md">
+		<ListPage
+			header={
+				<PageHeader
+					title="系统反馈"
+					subtitle="用户对系统本身的问题与建议（bug、功能、评分与内容错误等）"
+					icon={IconMessageCircle}
+					actions={
+						<ExportButton
+							endpoint="/admin/feedback/export"
+							filename="系统反馈"
+							params={list.exportParams}
+						/>
+					}
+				/>
+			}
+			toolbar={
+				// 统一工具栏：计数 / 筛选 / 搜索 + 一键复位（与其余列表页同范式）
+				<FilterToolbar
+					summary={`共 ${total} 条反馈`}
+					hasActiveFilters={list.hasActiveFilters}
+					onClear={list.reset}
+					search={
+						<SearchInput
+							value={list.searchInput}
+							onChange={list.onSearchChange}
+							placeholder="搜索反馈内容..."
+						/>
+					}
+					filters={
+						<>
+							<DatePickerInput
+								size="sm"
+								clearable
+								valueFormat="YYYY-MM-DD"
+								placeholder="开始日期"
+								value={list.values.date_from || null}
+								onChange={(v) => list.setFilter("date_from", typeof v === "string" ? v : "")}
+								w={130}
+							/>
+							<Text size="sm" c="dimmed">-</Text>
+							<DatePickerInput
+								size="sm"
+								clearable
+								valueFormat="YYYY-MM-DD"
+								placeholder="结束日期"
+								value={list.values.date_to || null}
+								onChange={(v) => list.setFilter("date_to", typeof v === "string" ? v : "")}
+								w={130}
+							/>
+							<Select
+								value={replyStatus || null}
+								onChange={(v) =>
+									list.setFilter("replied", v === "replied" ? true : v === "unreplied" ? false : undefined)
+								}
+								data={[
+									{ value: "", label: "全部回复" },
+									{ value: "replied", label: "已回复" },
+									{ value: "unreplied", label: "未回复" },
+								]}
+								size="sm"
+								clearable
+								w={110}
+							/>
+							<Select
+								size="sm"
+								clearable
+								w={130}
+								placeholder="全部标签"
+								value={list.values.tag || null}
+								onChange={(v) => list.setFilter("tag", v ?? "")}
+								data={TAG_OPTIONS.filter((opt) => opt.value !== "").map((opt) => ({
+									value: opt.value,
+									label: opt.label,
+								}))}
+							/>
+						</>
+					}
+				/>
+			}
+			footer={
+				total > 0 ? (
+					<Pagination
+						total={total}
+						offset={list.offset}
+						limit={LIMIT}
+						onChange={list.setOffset}
+					/>
+				) : undefined
+			}
+		>
+			{/* 统计概览是列表上方的可选视图，不是筛选条：跟着内容滚走，折叠态存 uiPrefsStore */}
 			<Box mb="md">
 				<Button
 					variant="subtle"
@@ -583,69 +666,6 @@ export default function FeedbackTab({ onExportParamsChange }: FeedbackTabProps) 
 				)}
 			</Box>
 
-			{/* 统一工具栏：计数 / 筛选 / 搜索 + 一键复位（与其余列表页同范式） */}
-			<FilterToolbar
-				summary={`共 ${total} 条反馈`}
-				hasActiveFilters={list.hasActiveFilters}
-				onClear={list.reset}
-				search={
-					<SearchInput
-						value={list.searchInput}
-						onChange={list.onSearchChange}
-						placeholder="搜索反馈内容..."
-					/>
-				}
-				filters={
-					<>
-						<DatePickerInput
-							size="sm"
-							clearable
-							valueFormat="YYYY-MM-DD"
-							placeholder="开始日期"
-							value={list.values.date_from || null}
-							onChange={(v) => list.setFilter("date_from", typeof v === "string" ? v : "")}
-							w={130}
-						/>
-						<Text size="sm" c="dimmed">-</Text>
-						<DatePickerInput
-							size="sm"
-							clearable
-							valueFormat="YYYY-MM-DD"
-							placeholder="结束日期"
-							value={list.values.date_to || null}
-							onChange={(v) => list.setFilter("date_to", typeof v === "string" ? v : "")}
-							w={130}
-						/>
-						<Select
-							value={replyStatus || null}
-							onChange={(v) =>
-								list.setFilter("replied", v === "replied" ? true : v === "unreplied" ? false : undefined)
-							}
-							data={[
-								{ value: "", label: "全部回复" },
-								{ value: "replied", label: "已回复" },
-								{ value: "unreplied", label: "未回复" },
-							]}
-							size="sm"
-							clearable
-							w={110}
-						/>
-						<Select
-							size="sm"
-							clearable
-							w={130}
-							placeholder="全部标签"
-							value={list.values.tag || null}
-							onChange={(v) => list.setFilter("tag", v ?? "")}
-							data={TAG_OPTIONS.filter((opt) => opt.value !== "").map((opt) => ({
-								value: opt.value,
-								label: opt.label,
-							}))}
-						/>
-					</>
-				}
-			/>
-
 			{isLoading ? (
 				<LoadingSkeleton variant="spinner" />
 			) : feedbacks.length === 0 ? (
@@ -657,12 +677,6 @@ export default function FeedbackTab({ onExportParamsChange }: FeedbackTabProps) 
 					))}
 				</Stack>
 			)}
-			<Pagination
-				total={total}
-				offset={list.offset}
-				limit={LIMIT}
-				onChange={list.setOffset}
-			/>
-		</Paper>
+		</ListPage>
 	);
 }

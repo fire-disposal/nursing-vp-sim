@@ -1,5 +1,5 @@
-import { Button, Stack } from "@mantine/core";
-import { IconArrowLeft } from "@tabler/icons-react";
+import { Button, Select, Stack } from "@mantine/core";
+import { IconArrowLeft, IconClipboardCheck, IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { getCases } from "@/api/cases";
@@ -23,14 +23,19 @@ import type {
 	TemplateListItem,
 	ViewMode,
 } from "@/components/admin/questionnaires/types";
-import { emptyForm } from "@/components/admin/questionnaires/types";
+import { TYPE_OPTIONS, emptyForm } from "@/components/admin/questionnaires/types";
 import {
 	useAssignTemplateMutation,
 	useDeleteTemplateMutation,
 	useSaveTemplateMutation,
 } from "@/components/admin/questionnaires/useQuestionnaireMutations";
+import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import { useConfirm } from "@/components/ui/confirm";
 import ErrorState from "@/components/ui/error-state";
+import ListPage from "@/components/ui/list-page";
+import PageHeader from "@/components/ui/page-header";
+import Pagination from "@/components/ui/pagination";
+import { SearchInput } from "@/components/ui/search-input";
 import { getApiErrorDetail } from "@/utils/error";
 import { useListFilters } from "@/hooks/useListFilters";
 
@@ -298,44 +303,98 @@ export default function QuestionnairesTab() {
 
 	return (
 		<>
-			{/* 失败 ≠ 没有问卷模板：落到列表空态会让人以为模板被删光，进而建出重复模板 */}
-			{isError ? (
-				<ErrorState
-					title="问卷模板加载失败"
-					error={error}
-					onRetry={() => refetch()}
-				/>
-			) : (
-			<QuestionnaireList
-				templates={templates}
-				isLoading={isLoading}
-				total={total}
-				offset={list.offset}
-				limit={LIMIT}
-				typeFilter={list.values.type ?? ""}
-				searchText={list.searchInput}
-				statusFilter={
-					list.values.is_active === undefined || list.values.is_active === null
-						? ""
-						: list.values.is_active
-							? "active"
-							: "inactive"
+			{/* 页头与本 Tab 共享同一份状态：主行动（新建问卷）和列表筛选都在这里，
+			    由 Tab 自己渲染页头，父级页面只负责路由（同 UsersTab）。 */}
+			<ListPage
+				header={
+					<PageHeader
+						title="问卷管理"
+						subtitle="管理前后测问卷模板、分配病例、查看数据"
+						icon={IconClipboardCheck}
+						actions={
+							<Button leftSection={<IconPlus size={16} />} onClick={openNew}>
+								新建问卷
+							</Button>
+						}
+					/>
 				}
-				onOffsetChange={list.setOffset}
-				onTypeFilterChange={(v) => list.setFilter("type", v)}
-				onSearchChange={list.onSearchChange}
-				hasActiveFilters={list.hasActiveFilters}
-				onClear={list.reset}
-				onStatusFilterChange={(v) =>
-					list.setFilter("is_active", v === "" ? undefined : v === "active")
+				toolbar={
+					// 统一工具栏：计数 / 筛选 / 搜索 + 一键复位（与其余列表页同范式）
+					<FilterToolbar
+						compact
+						summary={`共 ${total} 条`}
+						hasActiveFilters={list.hasActiveFilters}
+						onClear={list.reset}
+						search={
+							<SearchInput
+								value={list.searchInput}
+								onChange={list.onSearchChange}
+								placeholder="搜索标题..."
+							/>
+						}
+						filters={
+							<>
+								<Select
+									size="sm"
+									placeholder="问卷类型"
+									data={TYPE_OPTIONS}
+									value={list.values.type || null}
+									onChange={(v) => list.setFilter("type", v ?? "")}
+									w={130}
+								/>
+								<Select
+									size="sm"
+									placeholder="状态"
+									data={[
+										{ value: "", label: "全部" },
+										{ value: "active", label: "启用" },
+										{ value: "inactive", label: "禁用" },
+									]}
+									value={
+										list.values.is_active === undefined || list.values.is_active === null
+											? null
+											: list.values.is_active
+												? "active"
+												: "inactive"
+									}
+									onChange={(v) =>
+										list.setFilter("is_active", v === "" || v == null ? undefined : v === "active")
+									}
+									w={110}
+								/>
+							</>
+						}
+					/>
 				}
-				onCreate={openNew}
-				onEdit={openEdit}
-				onDelete={handleDelete}
-				onAssign={openAssign}
-				onViewStats={openStats}
-			/>
-			)}
+				footer={
+					total > 0 ? (
+						<Pagination
+							total={total}
+							offset={list.offset}
+							limit={LIMIT}
+							onChange={list.setOffset}
+						/>
+					) : undefined
+				}
+			>
+				{/* 失败 ≠ 没有问卷模板：落到列表空态会让人以为模板被删光，进而建出重复模板 */}
+				{isError ? (
+					<ErrorState
+						title="问卷模板加载失败"
+						error={error}
+						onRetry={() => refetch()}
+					/>
+				) : (
+					<QuestionnaireList
+						templates={templates}
+						isLoading={isLoading}
+						onEdit={openEdit}
+						onDelete={handleDelete}
+						onAssign={openAssign}
+						onViewStats={openStats}
+					/>
+				)}
+			</ListPage>
 
 			<QuestionnaireEditor
 				open={showEditor}

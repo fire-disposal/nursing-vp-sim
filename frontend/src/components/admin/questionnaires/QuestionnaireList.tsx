@@ -1,34 +1,18 @@
-import { Badge, Button, Group, Paper, Select, Text } from "@mantine/core";
+import { Badge, Button, Group, Text } from "@mantine/core";
 import {
 	IconChartBar,
 	IconClipboardCheck,
 	IconEdit,
 	IconFileText,
-	IconPlus,
 	IconTrash,
 } from "@tabler/icons-react";
 import type { TemplateListItem } from "@/components/admin/questionnaires/types";
-import { TYPE_LABEL, TYPE_OPTIONS } from "@/components/admin/questionnaires/types";
+import { TYPE_LABEL } from "@/components/admin/questionnaires/types";
 import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
-import { FilterToolbar } from "@/components/ui/filter-toolbar";
-import { SearchInput } from "@/components/ui/search-input";
 
 interface QuestionnaireListProps {
 	templates: TemplateListItem[];
 	isLoading: boolean;
-	total: number;
-	offset: number;
-	limit: number;
-	typeFilter: string;
-	searchText: string;
-	statusFilter: string;
-	onOffsetChange: (offset: number) => void;
-	onTypeFilterChange: (type: string) => void;
-	hasActiveFilters: boolean;
-	onClear: () => void;
-	onSearchChange: (search: string) => void;
-	onStatusFilterChange: (status: string) => void;
-	onCreate: () => void;
 	onEdit: (t: TemplateListItem) => void;
 	onDelete: (t: TemplateListItem) => void;
 	onAssign: (t: TemplateListItem) => void;
@@ -38,19 +22,6 @@ interface QuestionnaireListProps {
 export default function QuestionnaireList({
 	templates,
 	isLoading,
-	total,
-	hasActiveFilters,
-	onClear,
-	offset,
-	limit,
-	typeFilter,
-	searchText,
-	statusFilter,
-	onOffsetChange,
-	onTypeFilterChange,
-	onSearchChange,
-	onStatusFilterChange,
-	onCreate,
 	onEdit,
 	onDelete,
 	onAssign,
@@ -146,7 +117,7 @@ export default function QuestionnaireList({
 					</Button>
 					<Button
 						size="sm"
-						variant="light"
+						variant="subtle"
 						color="red"
 						onClick={() => onDelete(t)}
 						title="删除"
@@ -160,68 +131,17 @@ export default function QuestionnaireList({
 	];
 
 	return (
-		<>
-			<Group mb="md">
-				<Button onClick={onCreate}>
-					<IconPlus size={16} /> 新建问卷
-				</Button>
-			</Group>
-
-			<Paper withBorder shadow="sm" p="md">
-				{/* 统一工具栏：计数 / 筛选 / 搜索 + 一键复位（与其余列表页同范式） */}
-				<FilterToolbar
-					compact
-					summary={`共 ${total} 条`}
-					hasActiveFilters={hasActiveFilters}
-					onClear={onClear}
-					search={
-						<SearchInput
-							value={searchText}
-							onChange={onSearchChange}
-							placeholder="搜索标题..."
-						/>
-					}
-					filters={
-						<>
-							<Select
-								size="sm"
-								placeholder="问卷类型"
-								data={TYPE_OPTIONS}
-								value={typeFilter || null}
-								onChange={(v) => onTypeFilterChange(v ?? "")}
-								w={130}
-							/>
-							<Select
-								size="sm"
-								placeholder="状态"
-								data={[
-									{ value: "", label: "全部" },
-									{ value: "active", label: "启用" },
-									{ value: "inactive", label: "禁用" },
-								]}
-								value={statusFilter || null}
-								onChange={(v) => onStatusFilterChange(v ?? "")}
-								w={110}
-							/>
-						</>
-					}
-				/>
-
-				<DataTable
-					columns={columns}
-					rows={templates}
-					rowKey={(t) => t.id}
-					loading={isLoading}
-					emptyIcon={IconClipboardCheck as never}
-					emptyTitle="暂无问卷模板"
-					emptyDescription="点击上方按钮创建第一个问卷模板"
-					total={total}
-					offset={offset}
-					limit={limit}
-					onOffsetChange={onOffsetChange}
-					bare
-				/>
-			</Paper>
-		</>
+		<DataTable
+			columns={columns}
+			rows={templates}
+			rowKey={(t) => t.id}
+			loading={isLoading}
+			emptyIcon={IconClipboardCheck as never}
+			emptyTitle="暂无问卷模板"
+			emptyDescription="点击上方「新建问卷」创建第一个问卷模板"
+			// 表头不再自粘：ListPage 的筛选带已经吸顶，表头再 sticky top:0 会滑到带子上面盖住它
+			stickyHeader={false}
+			bare
+		/>
 	);
 }

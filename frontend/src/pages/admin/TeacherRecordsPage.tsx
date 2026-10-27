@@ -1,6 +1,6 @@
 import { formatDateTime } from "@/utils/date";
 import { recordDurationMinutes } from "@/utils/duration";
-import { Badge, Button, Group, Paper, Select, SimpleGrid, Stack, Text, UnstyledButton } from "@mantine/core";
+import { Badge, Button, Group, Select, SimpleGrid, Text, UnstyledButton } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	IconArrowDown, IconArrowUp, IconArrowsUpDown, IconClipboardList, IconPencil, IconShieldCheck, IconTrash } from "@tabler/icons-react";
@@ -18,6 +18,7 @@ import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import PageHeader from "@/components/ui/page-header";
+import ListPage from "@/components/ui/list-page";
 import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import { SearchInput } from "@/components/ui/search-input";
 import Pagination from "@/components/ui/pagination";
@@ -220,14 +221,15 @@ export default function TeacherRecordsPage() {
 	);
 
 	return (
-		<>
-			<PageHeader
-				title="训练记录管理"
-				subtitle="查看和管理所有学生的训练记录"
-				icon={IconClipboardList}
-			/>
-
-			<Stack gap="md">
+		<ListPage
+			header={
+				<PageHeader
+					title="训练记录管理"
+					subtitle="查看和管理所有学生的训练记录"
+					icon={IconClipboardList}
+				/>
+			}
+			toolbar={
 				<FilterToolbar
 					compact
 					hasActiveFilters={Boolean(
@@ -307,17 +309,31 @@ export default function TeacherRecordsPage() {
 						</>
 					}
 				/>
-
-				{/* Stats bar */}
-				<SimpleGrid cols={{ base: 2, sm: 4 }} spacing="sm">
+			}
+			footer={
+				total > 0 ? (
+					<Pagination
+						total={total}
+						offset={offset}
+						limit={LIMIT}
+						onChange={(newOffset) => setParam("offset", String(newOffset))}
+					/>
+				) : undefined
+			}
+		>
+			{/* 统计条：没有记录时不渲染 —— 一排 0 / "-" / 0% 的四张卡在空页上
+			    比空态本身更抢眼，且没有任何信息量。 */}
+			{total > 0 && (
+				<SimpleGrid cols={{ base: 2, sm: 4 }} spacing="sm" mb="sm">
 					<StatCard value={total} label="筛选结果" color="blue" />
 					<StatCard value={stats.completed} label="已完成" color="green" />
 					<StatCard value={stats.avgScore != null ? stats.avgScore.toFixed(1) : "-"} label="平均分" color="blue" />
 					<StatCard value={`${stats.scoringRate}%`} label="评分完成率" color="amber" />
 				</SimpleGrid>
+			)}
 
 				{isLoading ? (
-					<LoadingSkeleton variant="spinner" message="加载中..." />
+					<LoadingSkeleton variant="spinner" message="加载中…" />
 				) : isError ? (
 					<ErrorDisplay
 						icon={IconClipboardList}
@@ -326,12 +342,9 @@ export default function TeacherRecordsPage() {
 						onRetry={() => refetch()}
 					/>
 				) : sortedRecords.length === 0 ? (
-					<Paper withBorder>
-						<EmptyState icon={IconClipboardList} title="暂无训练记录" description="当前筛选条件下没有找到训练记录" />
-					</Paper>
+					<EmptyState icon={IconClipboardList} title="暂无训练记录" description="当前筛选条件下没有找到训练记录" />
 				) : (
-					<Paper withBorder style={{ overflow: "hidden" }}>
-						<Table.ScrollContainer minWidth={1000}>
+					<Table.ScrollContainer minWidth={1000}>
 							<Table>
 								<Table.Thead>
 									<Table.Tr>
@@ -424,7 +437,7 @@ export default function TeacherRecordsPage() {
 													<Group gap="xs" wrap="nowrap">
 														{r.scoring_status === "completed" ? (
 															<Button
-																variant={r.score_reviewed ? "light" : "filled"}
+																variant="subtle"
 																color={r.score_reviewed ? "green" : "brand"}
 																size="xs"
 																leftSection={
@@ -436,7 +449,8 @@ export default function TeacherRecordsPage() {
 														</Button>
 														) : (
 															<Button
-																variant="transparent"
+																variant="subtle"
+																color="gray"
 																size="xs"
 																onClick={() => navigate(`/admin/records/${r.id}`)}
 															>
@@ -445,7 +459,7 @@ export default function TeacherRecordsPage() {
 														)}
 														{r.status === "in_progress" && (
 															<Button
-																variant="transparent"
+																variant="subtle"
 																size="xs"
 																color="gray"
 																onClick={() => handleAbandonRecord(r)}
@@ -470,18 +484,7 @@ export default function TeacherRecordsPage() {
 								</Table.Tbody>
 							</Table>
 						</Table.ScrollContainer>
-					</Paper>
 				)}
-
-				<Paper withBorder px="md" py="sm">
-					<Pagination
-						total={total}
-						offset={offset}
-						limit={LIMIT}
-						onChange={(newOffset) => setParam("offset", String(newOffset))}
-					/>
-				</Paper>
-			</Stack>
-		</>
+		</ListPage>
 	);
 }

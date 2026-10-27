@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { IconRefresh } from "@tabler/icons-react";
 import { Button, Group, Loader, Modal, Stack, Text } from "@mantine/core";
 import { getCaseValidation, getManageCases, publishReportOf, toggleCaseOpen } from "@/api";
@@ -30,12 +31,24 @@ interface GateState {
 	publishing: boolean;
 }
 
+export interface CasesTabActions {
+	/** 新建病例（打开空白编辑弹窗） */
+	onAdd: () => void;
+	/** AI 生成（打开带 AI 面板的弹窗） */
+	onAIAdd: () => void;
+}
+
 interface CasesTabProps {
 	/** 导出参数（与列表参数同源）→ 页头的导出按钮，避免"筛完再导仍是全量"。 */
 	onExportParamsChange?: (params: Record<string, unknown>) => void;
+	/**
+	 * 页头渲染回调：主行动（新建病例 / AI 生成）要打开本组件的编辑弹窗，
+	 * 弹窗状态在本组件里，所以由这里把入口交回页头（props 回调，不引入 context/store）。
+	 */
+	renderHeader?: (actions: CasesTabActions) => ReactNode;
 }
 
-export default function CasesTab({ onExportParamsChange }: CasesTabProps) {
+export default function CasesTab({ onExportParamsChange, renderHeader }: CasesTabProps) {
 	// 筛选只有一个持有者：值 → 请求参数（含导出参数）由 useListFilters 构造一次
 	const list = useListFilters<CaseManageParams>(INITIAL_FILTERS, { limit: LIMIT, searchKey: "name" });
 	const [showEditor, setShowEditor] = useState(false);
@@ -185,7 +198,9 @@ export default function CasesTab({ onExportParamsChange }: CasesTabProps) {
 
 	return (
 		<>
+			{/* 页头由 CasesPage 排版，但主行动入口（新建 / AI 生成）必须绑定本组件的弹窗状态 */}
 			<CaseList
+				header={renderHeader?.({ onAdd: handleAdd, onAIAdd: handleAIAdd })}
 				cases={cases}
 				total={total}
 				offset={list.offset}
@@ -200,8 +215,6 @@ export default function CasesTab({ onExportParamsChange }: CasesTabProps) {
 				onFilterChange={handleFilterChange}
 				onOffsetChange={list.setOffset}
 				onRetry={() => { void refetch(); }}
-				onAdd={handleAdd}
-				onAIAdd={handleAIAdd}
 				onEdit={handleEdit}
 				onDelete={handleDelete}
 				onToggleOpen={handleToggleOpen}
