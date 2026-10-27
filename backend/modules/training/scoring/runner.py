@@ -494,8 +494,15 @@ async def enqueue_scoring(
     case_data: dict | None,
     *,
     priority: int = SCORING_PRIORITY,
+    db: Session | None = None,
 ) -> None:
     """评分入队的**唯一边界**（启动重放 / ``/end`` / retry / 走人 / 结算共用）。
+
+    ``db`` 是**调用方正在写该记录的事务**（``/end``、``retry-scoring``、患者走人都在
+    事务里持着 ``training_records`` 的行锁）：此时 jobs 行必须写在同一个事务里。
+    换连接写会在 FK 校验（``FOR KEY SHARE``）上等自己的 ``FOR UPDATE``，
+    撞上 ``lock_timeout=3000`` 后整条请求 500（2026-10-27 生产实证）。
+    不需要在同一事务里登记的任务（启动重放 / 结算，均已提前提交）传 ``None``。
 
     执行位置由 ``SCORING_EXECUTION`` 决定：
 
@@ -512,7 +519,11 @@ async def enqueue_scoring(
             按自己的恢复策略处理（HTTP 回滚 503 / 走人交给结算清扫 / 结算重开记录 / 启动告警）。
     """
     if SCORING_EXECUTION == "job":
-        await asyncio.to_thread(_enqueue_job_row, record_id, priority)
+        if db is not None:
+            # 同一事务：行锁已在本连接上，FK 校验不再跨事务等锁
+            _enqueue_job_row(record_id, priority, db=db)
+        else:
+            await asyncio.to_thread(_enqueue_job_row, record_id, priority)
         return
 
     task_queue = getattr(app_state, "task_queue", None)
@@ -530,8 +541,11 @@ async def enqueue_scoring(
     )
 
 
-def _enqueue_job_row(record_id: int, priority: int) -> int | None:
-    """``SCORING_EXECUTION=job`` 的入队：写一行 jobs（同步，由调用方放进线程）。
+def _enqueue_job_row(record_id: int, priority: int, *, db: Session | None = None) -> int | None:
+    """``SCORING_EXECUTION=job`` 的入队：写一行 jobs。
+
+    ``db`` 给定时复用**调用方事务**（不提交，提交/回滚跟着记录状态走）；
+    否则自开会话并在本函数内提交（启动重放、结算：调用方此时已无挂起写事务）。
 
     幂等：该记录已有挂起/执行中的评分任务时返回 None（``uq_jobs_active_scoring`` 去重）。
     这不是错误：记录自身的 ``scoring_status`` 才是执行期仲裁者，调用方要的结果
@@ -539,9 +553,12 @@ def _enqueue_job_row(record_id: int, priority: int) -> int | None:
     """
     from infra import jobs
 
-    with SessionLocal() as db:
+    if db is not None:
         job_id = jobs.enqueue(db, kind=JOB_KIND_SCORING, record_id=record_id, priority=priority)
-        db.commit()
+    else:
+        with SessionLocal() as own_db:
+            job_id = jobs.enqueue(own_db, kind=JOB_KIND_SCORING, record_id=record_id, priority=priority)
+            own_db.commit()
     if job_id is None:
         log.info("评分任务已存在，跳过重复入队 record_id=%d", record_id)
     return job_id
