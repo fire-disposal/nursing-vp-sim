@@ -239,13 +239,20 @@ describe("message flow", () => {
 		expect(getTrainingState().messages).toHaveLength(2);
 	});
 
-	it("handleStreamError removes both messages when no content", () => {
+	it("handleStreamError keeps the student message when the patient produced nothing", () => {
+		// 旧行为是连学生那句一起删：学生看到自己的问题凭空消失，只知道"患者没回"，
+		// 无从重试。现在只删空的占位气泡，学生消息留在原位并标为未送达。
 		useTrainingStore.getState().addStudentMessage("q");
 		const { messages } = getTrainingState();
 		const sid = messages[0].id as string;
 		const pid = messages[1].id as string;
 		useTrainingStore.getState().handleStreamError(sid, pid, "网络错误", false);
-		expect(getTrainingState().messages).toHaveLength(0);
+		const kept = getTrainingState().messages;
+		expect(kept).toHaveLength(1);
+		expect(kept[0].id).toBe(sid);
+		expect(kept[0].content).toBe("q");
+		expect(kept[0].streamError).toBe("网络错误");
+		expect(getTrainingState().sending).toBe(false);
 	});
 });
 

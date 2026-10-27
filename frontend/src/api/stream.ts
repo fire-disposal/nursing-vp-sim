@@ -2,6 +2,7 @@ import useAuthStore from "@/stores/authStore";
 import { waitForOnline } from "@/utils/network";
 import type { SSEHandlers } from "./sse";
 import { readSSEStream } from "./sse";
+import { getApiErrorMessage } from "@/utils/error";
 
 const MAX_RETRIES = 3;
 const FETCH_TIMEOUT = 30_000;
@@ -38,6 +39,7 @@ export async function postStream({ url, body, signal, reportFailure, handlers }:
 		});
 	};
 
+	let receivedAnyChunk = false;
 	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
 		try {
 			const timeoutController = new AbortController();
@@ -65,7 +67,9 @@ export async function postStream({ url, body, signal, reportFailure, handlers }:
 
 			if (!resp.ok) {
 				const err = await resp.json().catch(() => ({ detail: "请求失败" }));
-				handlers.onError?.(err.detail || "请求失败");
+				// detail 可能是数组/对象（FastAPI 校验、业务结构）：直接透传会让它被当 React 子节点渲染，
+				// 整块对话区落到 ErrorBoundary。这里统一翻成人话字符串。
+				handlers.onError?.(getApiErrorMessage({ response: { data: err, status: resp.status } }, "请求失败"));
 				return;
 			}
 
@@ -74,7 +78,17 @@ export async function postStream({ url, body, signal, reportFailure, handlers }:
 				return;
 			}
 
-			await readSSEStream(resp.body.getReader(), handlers);
+			// 一旦收到过任何增量，就**不能再自动重发**：后端已为这条提问落库并可能已产出回复，
+			// 重发会在服务端留下两条学生提问 + 两条患者回复，评分按重复问诊计。
+			// 此时把失败交给上层（气泡显示"未送达/中断" + 手动重试，由学生决定是否重发）。
+			receivedAnyChunk = false;
+			await readSSEStream(resp.body.getReader(), {
+				...handlers,
+				onChunk: (chunk: string) => {
+					receivedAnyChunk = true;
+					handlers.onChunk?.(chunk);
+				},
+			});
 			return;
 		} catch (e: unknown) {
 			if (signal?.aborted) return;
@@ -85,6 +99,11 @@ export async function postStream({ url, body, signal, reportFailure, handlers }:
 			}
 			const isNetworkError =
 				e instanceof TypeError || (e as { code?: string }).code === "ERR_NETWORK";
+			if (receivedAnyChunk) {
+				handlers.onError?.("回复中断（已收到部分内容，请手动重试或继续提问）");
+				reportFailure?.("StreamBroken", String(e), url);
+				return;
+			}
 			if (!isNetworkError || attempt >= MAX_RETRIES) {
 				handlers.onError?.(e instanceof Error ? e.message : "连接失败");
 				reportFailure?.("NetworkError", e instanceof Error ? e.message : "连接失败", url);

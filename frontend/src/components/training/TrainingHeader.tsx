@@ -169,18 +169,18 @@ export function TrainingHeader({
 		);
 	}
 
+	// 计时是参考信息，不是警报：去掉底色与边框，只在最后 5 分钟靠**文字色**提醒。
+	// （原实现用实心红/黄胶囊，整屏一直有个"红灯"，与"安静病室"的基调冲突。）
 	const timerTone =
-		remaining == null
-			? { background: "var(--mantine-color-default-hover)", color: "var(--mantine-color-dimmed)", border: "1px solid var(--mantine-color-default-border)" }
-			: remaining <= 120
-				? { background: "var(--mantine-color-red-6)", color: "var(--mantine-color-white)", border: "1px solid transparent" }
-				: remaining <= 300
-					? { background: "var(--mantine-color-yellow-6)", color: "var(--mantine-color-dark)", border: "1px solid transparent" }
-					: { background: "var(--mantine-color-body)", color: "var(--mantine-color-dimmed)", border: "1px solid var(--mantine-color-default-border)" };
+		remaining != null && remaining <= 120
+			? { color: "var(--mantine-color-red-6)" }
+			: remaining != null && remaining <= 300
+				? { color: "var(--mantine-color-yellow-7)" }
+				: { color: "var(--mantine-color-dimmed)" };
 
 	return (
 		<>
-			<Box component="header" pos="absolute" top={0} left={0} right={0} px="xs" style={headerStyle}>
+			<Box component="header" className="stu-header" pos="absolute" top={0} left={0} right={0} px="xs" style={headerStyle}>
 				<Group gap={8} h="100%" wrap="nowrap" justify="space-between">
 					<ActionIcon
 						variant="default"
@@ -217,6 +217,10 @@ export function TrainingHeader({
 					)}
 
 					<Group
+						className="stu-timer"
+						data-tone={
+							remaining != null && remaining <= 120 ? "danger" : remaining != null && remaining <= 300 ? "warn" : undefined
+						}
 						gap={6}
 						px={8}
 						py={4}
@@ -252,12 +256,13 @@ export function TrainingHeader({
 						</Text>
 					)}
 					<Button
+						className="stu-finish"
 						// 两态都用 danger 色：这个按钮无论完成条件是否满足，都进入"结束训练"流程
 						// （未满足时先展示还缺什么），属于终结性动作。曾试过阻塞态改 warning 橙，
 						// 实测 orange-9 on orange-1 = 3.62:1 低于 AA，而 red-9 on red-1 = 5.13:1 达标，
 						// 故保持红色；"条件未满足"由 aria-label 与主区阻塞提示承担，不靠颜色。
-						variant="light"
-						color="red"
+						variant="default"
+						color="gray"
 						size={isShort ? "xs" : "sm"}
 						px={isShort ? 8 : undefined}
 						onClick={handleEndClick}
@@ -281,8 +286,12 @@ export function TrainingHeader({
 				</Group>
 			</Box>
 			<Modal opened={endConfirmOpen} onClose={() => setEndConfirmOpen(false)} title="结束训练" size={420} centered withinPortal>
+				{/* 结束是不可逆的终结动作：只说「会自动生成评分」不说清代价，学生会以为还能回来补一句 */}
+				<Text size="sm" mb={4}>
+					确认结束后，本次对话立即提交并开始生成评分。
+				</Text>
 				<Text size="sm" c="dimmed" mb="md">
-					已发送 {studentMsgCount} 条消息。结束后系统将自动生成评分。
+					此操作不可撤销：结束后不能再继续问诊，已发送的 {studentMsgCount} 条消息与本次训练记录也不可再修改。
 				</Text>
 				<Box mb="md">
 					<CompletionChecklist onNavigated={() => setEndConfirmOpen(false)} />
@@ -294,14 +303,15 @@ export function TrainingHeader({
 				)}
 				<Group justify="flex-end" gap={8}>
 					<Button
-						variant="outline"
+						variant="default"
 						size="sm"
 						onClick={() => setEndConfirmOpen(false)}
 					>
 						取消
 					</Button>
-					<Button variant="filled" size="sm" onClick={() => void executeEnd()} disabled={!canComplete}>
-						确认结束
+					{/* 与顶栏入口同色：确认键此前是无色 filled，看起来比红色的入口更「安全」，与不可逆后果相反 */}
+					<Button color="red" variant="filled" size="sm" onClick={() => void executeEnd()} disabled={!canComplete}>
+						确认结束并评分
 					</Button>
 				</Group>
 			</Modal>

@@ -32,6 +32,9 @@ const TURN_LABEL: Record<DuplexTurn, string> = { listen: "听", think: "想", sa
 /** 遍历顺序稳定（听 → 想 → 说）。 */
 const TURNS: DuplexTurn[] = ["listen", "think", "say"];
 
+/** 学生回合的唯一文案：文字提示、语音提示、麦克风 tooltip 共用，避免同一状态三种说法。 */
+const IDLE_TURN_TEXT = "该你说话了";
+
 interface ConversationComposerProps {
 	onSend: (text: string) => void;
 	disabled?: boolean;
@@ -102,7 +105,7 @@ export function ConversationComposer({
 				? "患者在说…（你开口即可打断）"
 				: turn === "think"
 					? "患者在想…（你开口即可打断）"
-					: "该你说话了";
+					: IDLE_TURN_TEXT;
 
 	// 按住模式的旧话术（降级路径原样保留：松开自动发送）。
 	const holdHint =
@@ -113,7 +116,7 @@ export function ConversationComposer({
 			: voice.phase === "sending"
 				? "正在发送…"
 				: voice.phase === "ready"
-					? "该你说话了"
+					? IDLE_TURN_TEXT
 					: "";
 	const voiceHint = voice.notice ?? (duplex ? turnHint : holdHint);
 
@@ -135,7 +138,7 @@ export function ConversationComposer({
 			: voice.phase === "listening"
 				? "松开自动发送"
 				: voice.phase === "ready"
-					? "该你说话了"
+					? IDLE_TURN_TEXT
 					: "按住说话";
 
 	// 双工模式的麦克风必须**在患者说话时也可用**（否则无法打断，也无法取消），
@@ -164,7 +167,7 @@ export function ConversationComposer({
 						? "直接说话，停顿即发送（患者说话时开口可打断）"
 						: "点麦克风开启持续对谈，不必按住说话"
 					: "按住麦克风说话，松开自动发送"
-				: "输入消息与患者对话...";
+				: "输入消息与患者对话…";
 
 	const handleSend = useCallback(() => {
 		const trimmed = text.trim();
@@ -176,12 +179,15 @@ export function ConversationComposer({
 		inputRef.current?.focus();
 	}, [text, onSend, disabled, loading]);
 
+	// 中文输入法组字时回车是"选词"而不是"发送"：isComposing / keyCode 229 都要挡住，
+	// 否则学生半句话就发出去了（Mac Safari 与部分安卓输入法必现）。
+	const composingRef = useRef(false);
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
-			if (e.key === "Enter" && !e.shiftKey) {
-				e.preventDefault();
-				handleSend();
-			}
+			if (e.key !== "Enter" || e.shiftKey) return;
+			if (e.nativeEvent.isComposing || composingRef.current || e.keyCode === 229) return;
+			e.preventDefault();
+			handleSend();
 		},
 		[handleSend],
 	);
@@ -226,10 +232,15 @@ export function ConversationComposer({
 
 	return (
 		<Box
-			className="border-t"
+			className="stu-composer"
 			style={{ borderColor: "var(--mantine-color-default-border)", background: "var(--mantine-color-body)" }}
 			pb="env(safe-area-inset-bottom)"
 		>
+			<Box style={{ maxWidth: 768, margin: "0 auto", width: "100%" }}>
+				<Text className="stu-hint" px="md" pt={6} pb={2} aria-live="polite">
+					{trainingEnded ? "本次训练已结束" : loading ? "患者在回答…" : IDLE_TURN_TEXT}
+				</Text>
+			</Box>
 			<Group align="flex-end" gap={8} px="md" py="sm" wrap="nowrap" style={{ maxWidth: 768, margin: "0 auto", width: "100%" }}>
 				<Textarea
 					ref={inputRef}

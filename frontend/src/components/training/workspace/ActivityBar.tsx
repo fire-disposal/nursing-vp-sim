@@ -37,6 +37,7 @@ export default function ActivityBar() {
 		<>
 			<Box
 				component="nav"
+				className="stu-activity"
 				aria-label="训练能力条"
 				style={{
 					display: "flex",

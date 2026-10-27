@@ -139,6 +139,8 @@ export interface TrainingStore {
 	appendChunk: (placeholderId: string, chunk: string) => void;
 	finalizeMessage: (placeholderId: string, serverId?: number) => void;
 	handleStreamError: (studentId: string, placeholderId: string, err: string, hasContent: boolean) => void;
+	/** 移除一条消息（重试发送前先丢掉失败气泡，避免同一句话出现两条）。 */
+	discardMessage: (id: string | number) => void;
 	mergeHistory: (incoming: ChatMessage[]) => number;
 
 	setSending: (v: boolean) => void;
@@ -329,13 +331,19 @@ export const useTrainingStore = create<TrainingStore>()((set, get) => ({
 					sending: false,
 				};
 			}
+			// 患者一个字都没发出来时：删掉空的占位气泡，但**保留学生这句话**并标注未送达。
+			// 此前两句一起删 → 学生看到自己的问题凭空消失，只知道"患者没回"，无从重试。
 			return {
-				messages: s.messages.filter(
-					(m) => m.id !== placeholderId && m.id !== studentId,
-				),
+				messages: s.messages
+					.filter((m) => m.id !== placeholderId)
+					.map((m) => (m.id === studentId ? { ...m, streaming: false, streamError: err } : m)),
 				sending: false,
 			};
 		});
+	},
+
+	discardMessage(id) {
+		set((s) => ({ messages: s.messages.filter((m) => m.id !== id) }));
 	},
 
 	mergeHistory(incoming) {

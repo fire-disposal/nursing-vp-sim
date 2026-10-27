@@ -3,7 +3,7 @@ import { memo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { ChatMessage } from "@/engine/types";
-import { ActionIcon, Avatar, Badge, Box, Group, Loader, Stack, Text, Typography } from "@mantine/core";
+import { ActionIcon, Avatar, Badge, Box, Button, Group, Loader, Stack, Text, Typography } from "@mantine/core";
 import { Textarea } from "@mantine/core";
 
 interface ChatBubbleProps {
@@ -17,6 +17,8 @@ interface ChatBubbleProps {
 	canCorrect?: boolean;
 	correctionsRemaining?: number;
 	onCorrect?: (content: string) => void;
+	/** 失败重试：原样重发这句话（装配层负责先移除失败气泡，避免同一句出现两条）。 */
+	onRetry?: () => void;
 }
 
 function areBubblePropsEqual(
@@ -34,7 +36,8 @@ function areBubblePropsEqual(
 		oldProps.initiative === newProps.initiative &&
 		oldProps.showAvatar === newProps.showAvatar &&
 		oldProps.canCorrect === newProps.canCorrect &&
-		oldProps.correctionsRemaining === newProps.correctionsRemaining
+		oldProps.correctionsRemaining === newProps.correctionsRemaining &&
+		oldProps.onRetry === newProps.onRetry
 	);
 }
 
@@ -49,6 +52,7 @@ export const ChatBubble = memo(function ChatBubble({
 	canCorrect,
 	correctionsRemaining = 0,
 	onCorrect,
+	onRetry,
 }: ChatBubbleProps) {
 	const displayAvatar = portraitUrl || patientAvatar;
 	const [editing, setEditing] = useState(false);
@@ -132,21 +136,25 @@ export const ChatBubble = memo(function ChatBubble({
 						</Typography>
 					)}
 					{!isStreamingEmpty && message.streamError && (
-						<Text
-							size="xs"
-							mt={4}
-							c="var(--mantine-color-yellow-light-color)"
-							style={{
-								display: "inline-flex",
-								alignItems: "center",
-								gap: 4,
-								background: "var(--mantine-color-yellow-light)",
-								borderRadius: 4,
-								padding: "2px 6px",
-							}}
-						>
-							⚠ 回复中断
-						</Text>
+						<Group gap={8} mt={6} wrap="nowrap" align="center">
+							<Text
+								size="xs"
+								c="var(--mantine-color-yellow-light-color)"
+								style={{
+									background: "var(--mantine-color-yellow-light)",
+									borderRadius: 4,
+									padding: "2px 6px",
+								}}
+								title={message.streamError}
+							>
+								⚠ 回复中断：网络或服务繁忙
+							</Text>
+							{onRetry && (
+								<Button variant="light" color="yellow" size="compact-xs" onClick={onRetry}>
+									重试
+								</Button>
+							)}
+						</Group>
 					)}
 				</Box>
 			</Group>
@@ -226,12 +234,29 @@ export const ChatBubble = memo(function ChatBubble({
 						fontSize: 14,
 						lineHeight: 1.6,
 						wordBreak: "break-word",
-						background: "var(--mantine-primary-color-filled)",
-						color: "var(--mantine-primary-color-contrast)",
+						// 学生面基调由 .stu-surface 的变量决定；这里只声明"取哪个变量"，
+						// 不用 !important 去抢内联样式（那是拼凑感的来源之一）。
+						background: "var(--stu-bubble-own, var(--mantine-primary-color-filled))",
+						color: "var(--stu-bubble-own-ink, var(--mantine-primary-color-contrast))",
+						border: "1px solid var(--stu-bubble-own-line, transparent)",
+						// 未送达：压暗但保留，学生能看出"这句我说过、只是没送到"
+						opacity: message.streamError ? 0.55 : 1,
 					}}
 				>
 					<Text style={{ whiteSpace: "pre-wrap" }}>{message.content}</Text>
 				</Box>
+				{message.streamError && (
+					<Group gap={8} align="center" wrap="nowrap">
+						<Text size="xs" c="var(--mantine-color-red-light-color)" title={message.streamError}>
+							✕ 未送达：网络或服务繁忙
+						</Text>
+						{onRetry && (
+							<Button variant="light" color="gray" size="compact-xs" onClick={onRetry}>
+								重新发送
+							</Button>
+						)}
+					</Group>
+				)}
 				{canCorrect && (
 					<Box
 						component="button"

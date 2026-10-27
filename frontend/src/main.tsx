@@ -13,6 +13,7 @@ import App from "./App";
 import { cssVariablesResolver, theme } from "./theme";
 import { installChunkRecovery } from "./utils/chunk-recovery";
 import "./styles/global.css";
+import "@/styles/student.css";
 
 // chunk 加载失败的有界自恢复：同一构建同一标签页最多自动刷新一次，
 // 接口请求失败不刷新，额度用尽后交给 ErrorBoundary 显示可恢复错误。

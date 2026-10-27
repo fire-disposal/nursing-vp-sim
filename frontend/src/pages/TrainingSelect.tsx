@@ -30,6 +30,7 @@ import { getTrends } from "@/api/stats";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
+import ErrorState from "@/components/ui/error-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import Pagination from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
@@ -152,13 +153,14 @@ export default function TrainingSelect() {
 	const [dismissedNotificationIds, setDismissedNotificationIds] = useState<Set<number>>(() => new Set());
 	const [conflict, setConflict] = useState<{ recordId: number; caseName: string } | null>(null);
 
-	const { data: casesData, isLoading: casesLoading, isError: casesError } = useQuery({
+	const { data: casesData, isLoading: casesLoading, isError: isCasesError, error: casesError, refetch: refetchCases } = useQuery({
 		queryKey: queryKeys.cases.list({ difficulty: difficultyFilter, offset, search }),
 		queryFn: () => getCases({ offset, limit: LIMIT, ...(difficultyFilter > 0 ? { difficulty: difficultyFilter } : {}), ...(search ? { name: search } : {}) }).then((r) => r.data),
 		staleTime: 5 * 60_000, placeholderData: keepPreviousData, enabled: tab === "self",
 	});
 
-	const { data: assignmentsData } = useQuery({
+	// 失败必须能重试：作业列表此前只判 `!data` → 请求失败会永远停在骨架上，用户以为网络还没回。
+	const { data: assignmentsData, isPending: assignmentsLoading, isError: isAssignmentsError, error: assignmentsError, refetch: refetchAssignments } = useQuery({
 		queryKey: queryKeys.assignments.student(),
 		queryFn: () => getStudentAssignments().then((r) => r.data),
 		staleTime: 30_000,
@@ -166,17 +168,17 @@ export default function TrainingSelect() {
 
 	// 拆分三个轻量查询：进行中（主行动卡/续练态）、已完成计数（limit=1 取 total）、最近 5 条。
 	// 相比原来一次拉 50 条做客户端过滤，payload 更小且计数不再被 50 封顶截断。
-	const { data: inProgressData } = useQuery({
+	const { data: inProgressData, isError: isInProgressError, refetch: refetchInProgress } = useQuery({
 		queryKey: queryKeys.training.records({ status: "in_progress", limit: 50 }),
 		queryFn: () => getRecords({ status: "in_progress", limit: 50, only_student_practice: false, user_id: user?.id }).then((r) => r.data),
 		staleTime: 30_000,
 	});
-	const { data: completedData } = useQuery({
+	const { data: completedData, isError: isCompletedError, refetch: refetchCompleted } = useQuery({
 		queryKey: queryKeys.training.records({ status: "completed", limit: 1 }),
 		queryFn: () => getRecords({ status: "completed", limit: 1, only_student_practice: false, user_id: user?.id }).then((r) => r.data),
 		staleTime: 30_000,
 	});
-	const { data: recentData } = useQuery({
+	const { data: recentData, isPending: recentLoading, isError: isRecentError, error: recentError, refetch: refetchRecent } = useQuery({
 		queryKey: queryKeys.training.records({ limit: 5 }),
 		queryFn: () => getRecords({ limit: 5, only_student_practice: false, user_id: user?.id }).then((r) => r.data),
 		staleTime: 30_000,
@@ -190,12 +192,17 @@ export default function TrainingSelect() {
 		is_overdue?: boolean; max_attempts?: number | null; attempt_count?: number;
 	}>;
 
-	const inProgressCount = inProgressRecords.length;
-	const completedCount = completedData?.total ?? 0;
 	const pendingAssignments = useMemo(
 		() => assignments.filter((a) => a.status === "in_progress" && (!a.end_time || new Date(a.end_time) >= new Date())),
 		[assignments],
 	);
+
+	// 概览计数：拿不到数据给 null（磁贴渲染「—」）。
+	// 用 `?? 0` 会把请求失败洗成「已完成 0 次 / 暂无待完成作业」，学生读成事实后就不再点重试。
+	const inProgressCount = inProgressData ? inProgressRecords.length : null;
+	const completedCount = completedData ? (completedData.total ?? null) : null;
+	const pendingCount = assignmentsData ? pendingAssignments.length : null;
+	const overviewFailed = isInProgressError || isCompletedError || isAssignmentsError;
 
 	// ── Notifications (home tab) ──
 	const { data: notifData } = useQuery({
@@ -499,7 +506,15 @@ export default function TrainingSelect() {
 									查看全部
 								</Button>
 							</Group>
-							{pendingAssignments.length > 0 ? (
+							{isAssignmentsError ? (
+								// 失败不是「没有作业」：否则学生以为作业已清空，不再重试
+								<ErrorState title="作业加载失败" error={assignmentsError} onRetry={() => refetchAssignments()} />
+							) : assignmentsLoading ? (
+								<Stack gap="xs" mt="sm">
+									<LoadingSkeleton variant="text" />
+									<LoadingSkeleton variant="text" />
+								</Stack>
+							) : pendingAssignments.length > 0 ? (
 								<Stack gap="xs" mt="sm">
 									{pendingAssignments.slice(0, 3).map((a: { id: string; title: string; case_name: string; end_time?: string }) => (
 										<Paper key={a.id} withBorder p="sm">
@@ -552,7 +567,15 @@ export default function TrainingSelect() {
 									</Group>
 								</Paper>
 							)}
-							{recentRecords.length > 0 ? (
+							{isRecentError ? (
+								<ErrorState title="最近训练加载失败" error={recentError} onRetry={() => refetchRecent()} />
+							) : recentLoading ? (
+								<Stack gap="xs">
+									<LoadingSkeleton variant="text" />
+									<LoadingSkeleton variant="text" />
+									<LoadingSkeleton variant="text" />
+								</Stack>
+							) : recentRecords.length > 0 ? (
 								<Stack gap={4}>
 									{recentRecords.map((r) => (
 										<UnstyledButton
@@ -605,23 +628,42 @@ export default function TrainingSelect() {
 									value={inProgressCount}
 									label="进行中"
 									color="yellow"
-									onClick={() => { if (inProgressCount > 0) navigate("/history?status=in_progress"); }}
+									onClick={() => { if (inProgressCount != null && inProgressCount > 0) navigate("/history?status=in_progress"); }}
 								/>
 								<TrainingTile
 									icon={<IconClipboardCheck size={18} style={{ color: "var(--mantine-color-green-light-color)" }} />}
 									value={completedCount}
 									label="已完成"
 									color="green"
-									onClick={() => { if (completedCount > 0) navigate("/history?status=completed"); }}
+									onClick={() => { if (completedCount != null && completedCount > 0) navigate("/history?status=completed"); }}
 								/>
 								<TrainingTile
 									icon={<IconBook2 size={18} style={{ color: "var(--mantine-color-red-light-color)" }} />}
-									value={pendingAssignments.length}
+									value={pendingCount}
 									label="待做作业"
 									color="red"
-									onClick={() => { if (pendingAssignments.length > 0) setTab("assignments"); }}
+									onClick={() => { if (pendingCount != null && pendingCount > 0) setTab("assignments"); }}
 								/>
 							</SimpleGrid>
+							{overviewFailed && (
+								<Group justify="space-between" gap="sm" mt="xs" wrap="nowrap">
+									<Text size="xs" c="dimmed">
+										概览有一项没取到（显示「—」），重试可刷新。
+									</Text>
+									<Button
+										variant="light"
+										size="xs"
+										style={{ flexShrink: 0 }}
+										onClick={() => {
+											if (isInProgressError) refetchInProgress();
+											if (isCompletedError) refetchCompleted();
+											if (isAssignmentsError) refetchAssignments();
+										}}
+									>
+										重试
+									</Button>
+								</Group>
+							)}
 							{trends && (
 								<>
 									<SimpleGrid cols={{ base: 1, xs: 2, xl: 3 }} spacing="sm" mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
@@ -707,8 +749,8 @@ export default function TrainingSelect() {
 						<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
 							{Array.from({ length: 6 }).map((_, i) => <LoadingSkeleton key={i} variant="card" />)}
 						</SimpleGrid>
-					) : casesError ? (
-						<EmptyState icon={IconAlertTriangle} title="加载失败" description="请检查网络后重试" action={<Button variant="outline" size="sm" onClick={() => window.location.reload()}>重试</Button>} />
+					) : isCasesError ? (
+						<ErrorState title="病例加载失败" error={casesError} onRetry={() => refetchCases()} />
 					) : cases.length === 0 ? (
 						<EmptyState icon={IconAlertTriangle} title="暂无可用病例" description={search ? "没有匹配的病例" : "管理员尚未开放自主练习病例"} />
 					) : (
@@ -764,10 +806,13 @@ export default function TrainingSelect() {
 
 			{/* ═══ Tab: 我的作业 ═══ */}
 			{tab === "assignments" && (
-				!assignmentsData ? (
+				assignmentsLoading ? (
 					<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
 						{Array.from({ length: 3 }).map((_, i) => <LoadingSkeleton key={i} variant="card" />)}
 					</SimpleGrid>
+				) : isAssignmentsError ? (
+					// 失败先于空态判断：否则「教师尚未布置作业」会盖住真实错误
+					<ErrorState title="作业加载失败" error={assignmentsError} onRetry={() => refetchAssignments()} />
 				) : assignments.length === 0 ? (
 					<EmptyState icon={IconClipboardList} title="暂无作业" description="教师尚未布置作业，或所有作业已过期" />
 				) : (
@@ -845,7 +890,8 @@ function TrainingTile({
 	onClick,
 }: {
 	icon: ReactNode;
-	value: number;
+	/** null = 这项数据没取到：画「—」，不画 0（0 会被当成「真的没有」） */
+	value: number | null;
 	label: string;
 	color: "yellow" | "green" | "red";
 	onClick: () => void;
@@ -860,7 +906,7 @@ function TrainingTile({
 			<Stack gap={6} p="sm" align="flex-start" style={{ width: "100%" }}>
 				{icon}
 				<Text size="xl" fw={700} lh={1} className="tabular-nums">
-					{value}
+					{value ?? "—"}
 				</Text>
 				<Text size="xs" c="dimmed">
 					{label}

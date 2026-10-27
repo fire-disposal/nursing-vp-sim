@@ -1,0 +1,121 @@
+/**
+ * 学生训练面（.stu-surface）—— 与后台分离的"安静病室"基调。
+ *
+ * 为什么单独一层：后台是**扫描密度**（表格、批量、可对比），学生端是**单一任务**
+ * （盯着一场对话，只有必要信息）。同一套 Mantine 默认值撑两端，必然一边别扭：
+ * 后台太松，学生端太吵。这里只覆盖学生面需要的几处，不动管理端。
+ *
+ * 约定：只用语义 token，不在组件里写颜色/阴影；圆角、行高、留白都从这里取。
+ */
+
+.stu-surface {
+	/* 纸面与墨色：偏暖，不用纯白/纯黑，长时间阅读不刺眼 */
+	--stu-bg: #f6f5f2;
+	--stu-panel: #ffffff;
+	--stu-ink: #1b1f1e;
+	--stu-ink-dim: #6b7472;
+	--stu-line: rgba(24, 32, 30, 0.09);
+	--stu-line-strong: rgba(24, 32, 30, 0.16);
+	--stu-accent-soft: rgba(20, 122, 110, 0.08);
+	--stu-radius: 14px;
+	--stu-radius-sm: 10px;
+	--stu-gap: 12px;
+
+	background: var(--stu-bg);
+	color: var(--stu-ink);
+}
+
+[data-mantine-color-scheme="dark"] .stu-surface {
+	--stu-bg: #121413;
+	--stu-panel: #181b1a;
+	--stu-ink: #e8ecea;
+	--stu-ink-dim: #939c99;
+	--stu-line: rgba(232, 236, 234, 0.10);
+	--stu-line-strong: rgba(232, 236, 234, 0.18);
+	--stu-accent-soft: rgba(78, 200, 178, 0.12);
+}
+
+/* ── 顶栏：从"工具栏"变成"状态条" ─────────────────────────────
+   计时是参考信息而不是警报（只剩 2 分钟才变色，逻辑仍在 JS 里给 tone），
+   所以去掉实心底色与胶囊外形，只留等宽数字。 */
+.stu-header {
+	background: color-mix(in srgb, var(--stu-bg) 88%, transparent);
+	backdrop-filter: saturate(140%) blur(8px);
+	border-bottom: 1px solid var(--stu-line);
+}
+
+.stu-header .stu-timer {
+	color: var(--stu-ink-dim);
+	font-variant-numeric: tabular-nums;
+	gap: 5px;
+}
+
+.stu-header .stu-timer[data-tone="warn"] {
+	color: #b4761c;
+}
+
+.stu-header .stu-timer[data-tone="danger"] {
+	color: #c0432f;
+}
+
+/* 交卷是"最后一步"，不是常驻警报：按钮本身用 variant="default"（JSX 决定），
+   这里只负责 hover 时把它显成危险色。 */
+.stu-header .stu-finish:hover {
+	color: #c0432f;
+	border-color: rgba(192, 67, 47, 0.45);
+	background: rgba(192, 67, 47, 0.06);
+}
+
+/* ── 开场任务卡：从"说明书卡片"变成"一行进度 + 一句话" ───────── */
+.stu-welcome .mantine-Card-root,
+.stu-welcome .mantine-Paper-root {
+	background: var(--stu-panel) !important;
+	border: 1px solid var(--stu-line) !important;
+	border-radius: var(--stu-radius) !important;
+	box-shadow: none !important;
+}
+
+/* ── 对话气泡：描边取代阴影，学生侧用浅色强调（不是实心深绿） ──
+   深色实心底在长对话里会把整屏压暗，且和"我"对"患者"的语义没有关系。 */
+.stu-chat {
+	background: var(--stu-bg);
+}
+
+.stu-chat [data-role="patient"] > div:first-child {
+	box-shadow: none !important;
+	border-width: 1px !important;
+	border-color: var(--stu-line) !important;
+}
+
+
+
+/* ── 输入区：一行提示 + 单个圆角输入框 ───────────────────────── */
+.stu-composer {
+	border-top: 1px solid var(--stu-line) !important;
+	background: color-mix(in srgb, var(--stu-bg) 92%, transparent);
+}
+
+.stu-composer .stu-hint {
+	color: var(--stu-ink-dim);
+	font-size: 12px;
+	letter-spacing: 0.01em;
+}
+
+/* ── 能力条：状态用圆点，不用徽标堆文字 ──────────────────────── */
+.stu-activity {
+	border-top: 1px solid var(--stu-line) !important;
+	background: var(--stu-panel) !important;
+	padding: 8px 10px !important;
+	gap: 8px !important;
+}
+
+.stu-activity button {
+	border-radius: 999px !important;
+	border: 1px solid var(--stu-line) !important;
+	background: transparent !important;
+}
+
+.stu-activity button[data-active="true"] {
+	border-color: color-mix(in srgb, var(--mantine-color-brand-6) 40%, transparent) !important;
+	background: var(--stu-accent-soft) !important;
+}

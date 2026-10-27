@@ -19,6 +19,8 @@ interface ChatDisplayProps {
   initiativeMsgs?: Set<string>;
   hasStreaming?: boolean;
   onCorrectLast?: (messageId: string | number, text: string) => void;
+  /** 失败重试（学生消息未送达 / 患者回复中断）。 */
+  onRetry?: (message: ChatMessage) => void;
 }
 
 const ChatDisplayInner = memo(function ChatDisplayInner({
@@ -27,6 +29,7 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
   bus,
   initiativeMsgs,
   onCorrectLast,
+  onRetry,
 }: ChatDisplayProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -175,6 +178,7 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 	return (
 		<Box
 			ref={scrollRef}
+			className="stu-chat"
 			style={{ height: "100%", overflowY: "auto", position: "relative" }}
 			onScroll={handleScroll}
 		>
@@ -220,6 +224,9 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 											onCorrectLast && msg.id != null
 												? (text) => onCorrectLast(msg.id!, text)
 												: undefined
+										}
+										onRetry={
+											onRetry && msg.streamError ? () => onRetry(msg) : undefined
 										}
 									/>
 								);

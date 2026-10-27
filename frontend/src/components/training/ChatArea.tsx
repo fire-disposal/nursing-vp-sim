@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import { Box, Group, Stack, Text } from "@mantine/core";
 import { IconCloudOff, IconPlugConnectedX } from "@tabler/icons-react";
+import type { ChatMessage } from "@/engine/types";
 import { useInitialMessages, useExamResults, usePatientData } from "@/engine/TrainingDataContext";
 import { useTrainingStore } from "@/stores/trainingStore";
 
@@ -52,6 +53,8 @@ export function ConnectionNotice() {
 interface ChatAreaProps {
 	onSend: (text: string) => void;
 	onCorrectLast: (messageId: string | number, text: string) => void;
+	/** 失败重试：学生消息未送达时重发原句；患者回复中断时重发上一条学生消息。 */
+	onRetrySend?: (message: ChatMessage) => void;
 	/** 打断出口：学生开口而患者仍在说话/回复时调用（由训练装配层停播 + 取消在途生成）。 */
 	onBargeIn?: () => void;
 }
@@ -59,6 +62,7 @@ interface ChatAreaProps {
 export function ChatArea({
 	onSend,
 	onCorrectLast,
+	onRetrySend,
 	onBargeIn,
 }: ChatAreaProps) {
   const messages = useTrainingStore(s => s.messages);
@@ -118,10 +122,9 @@ export function ChatArea({
 						style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}
 					>
 						<Box miw={0} style={{ flex: 1, overflowY: "auto", overscrollBehavior: "contain" }}>
-							<WelcomeScreen
-								patient={patient}
-								onQuickPrompt={onSend}
-							/>
+							{!messages.some((m) => m.role === "student") && (
+								<WelcomeScreen patient={patient} onQuickPrompt={onSend} />
+							)}
 							{greeting && (
 								<Box px="xs" mt="xs" mx="auto" w="100%" maw={800} miw={0}>
 									<Group justify="flex-start">
@@ -161,6 +164,7 @@ export function ChatArea({
 								initiativeMsgs={initiativeMsgs}
 								hasStreaming={sending}
 								onCorrectLast={onCorrectLast}
+								onRetry={onRetrySend}
 							/>
 						</Box>
 						<ActivityBar />

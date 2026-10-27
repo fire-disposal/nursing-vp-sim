@@ -10,7 +10,7 @@ import { abandonRecord, deleteRecord, getRecords } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
-import ErrorDisplay from "@/components/ui/error-display";
+import ErrorState from "@/components/ui/error-state";
 import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import { SearchInput } from "@/components/ui/search-input";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
@@ -193,12 +193,7 @@ export default function History() {
 			{isLoading ? (
 				<LoadingSkeleton variant="spinner" message="加载中..." />
 			) : isError ? (
-				<ErrorDisplay
-					icon={IconClipboardList}
-					message={(error as { response?: { data?: { detail?: string } } })
-						?.response?.data?.detail || "加载记录失败"}
-					onRetry={() => refetch()}
-				/>
+				<ErrorState title="训练记录加载失败" error={error} onRetry={() => refetch()} />
 			) : records.length === 0 ? (
 				<Paper withBorder>
 					<EmptyState icon={IconClipboardList} title="暂无训练记录" description="前往病例列表选择病例开始训练" />
@@ -215,7 +210,18 @@ export default function History() {
 									return (
 										<Paper key={r.id} p="sm" bg="var(--mantine-color-default-hover)">
 											<UnstyledButton
-												onClick={() => navigate(`/record/${r.id}`)}
+												// 进行中的记录点卡片直接回对话：手机上只有这里能一键续练，
+												// 落到只读复盘页会把「继续问诊」藏成二次跳转
+												onClick={() =>
+													status === "in_progress"
+														? goTraining(navigate, r.id, trainingFrom)
+														: navigate(`/record/${r.id}`)
+												}
+												aria-label={
+													status === "in_progress"
+														? `继续训练：${r.case_name}`
+														: `查看记录：${r.case_name}`
+												}
 												style={{ width: "100%", textAlign: "left" }}
 											>
 												<Group justify="space-between" align="flex-start" gap="xs" wrap="nowrap">
@@ -237,6 +243,11 @@ export default function History() {
 
 															{durMins != null ? ` · ${durMins} 分钟` : ""}
 														</Text>
+														{status === "in_progress" && (
+															<Text size="xs" fw={500} mt={4} style={{ color: "var(--mantine-color-brand-6)" }}>
+																点卡片继续问诊
+															</Text>
+														)}
 													</Box>
 													<Box style={{ flexShrink: 0 }}>
 														{status === "completed" ? (
@@ -256,7 +267,10 @@ export default function History() {
 																已放弃
 															</Text>
 														) : (
-															<Badge variant="light" color="brand">进行中</Badge>
+															// 进行中卡片要点得动：标记 + 副文案给出手势预期，避免被当成只读行
+															<Badge variant="light" color="brand" leftSection={<IconPlayerPlay size={10} />}>
+																进行中
+															</Badge>
 														)}
 													</Box>
 												</Group>

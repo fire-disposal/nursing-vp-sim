@@ -25,6 +25,7 @@ import {
 	requiredArtifacts,
 } from "./manifest";
 import { createMessageBus } from "./MessageBus";
+import type { ChatMessage } from "@/engine/types";
 import { getTrainingState } from "@/stores/trainingStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import {
@@ -206,6 +207,24 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 			});
 		},
 		[flushNursingRecord, handlePatientWalkout, toastError],
+	);
+
+	/** 失败重试：学生消息 → 原句重发；患者气泡 → 重发触发它的那条学生消息。 */
+	const retryMessage = useCallback(
+		async (msg: ChatMessage) => {
+			const store = getTrainingState();
+			const source =
+				msg.role === "student"
+					? msg.content
+					: [...store.messages].reverse().find((m) => m.role === "student" && !m.streamError)?.content;
+			if (!source) {
+				toastError("找不到可重发的消息，请重新输入");
+				return;
+			}
+			if (msg.id != null) store.discardMessage(msg.id);
+			await sendMessage(source);
+		},
+		[sendMessage, toastError],
 	);
 
 	const correctLastMessage = useCallback(
@@ -419,7 +438,7 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 	}
 
 	return (
-		<Flex flex={1} mih={0} pos="relative">
+		<Flex flex={1} mih={0} pos="relative" className="stu-surface">
 			<Flex direction="column" flex={1} miw={0}>
 				<TrainingHeader
 					toggleTts={toggleTts}
@@ -468,6 +487,7 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 							<ChatArea
 								onSend={sendMessage}
 								onCorrectLast={correctLastMessage}
+								onRetrySend={retryMessage}
 								onBargeIn={handleBargeIn}
 							/>
 						</ErrorBoundary>
