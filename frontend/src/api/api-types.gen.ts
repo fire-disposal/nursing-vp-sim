@@ -6226,6 +6226,11 @@ export interface components {
              */
             user_count: number;
             /**
+             * Admin Count
+             * @default 0
+             */
+            admin_count: number;
+            /**
              * Created At
              * Format: date-time
              */

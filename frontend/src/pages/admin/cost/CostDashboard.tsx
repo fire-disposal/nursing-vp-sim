@@ -1,6 +1,6 @@
 import { Grid, Group, Progress, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
-import { IconCoin, IconTrendingUp, IconUsers, IconVolume2 } from "@tabler/icons-react";
+import { IconCoin, IconCoins, IconCpu, IconTrendingUp, IconUsers, IconVolume2 } from "@tabler/icons-react";
 import {
 	Area,
 	AreaChart,
@@ -48,9 +48,16 @@ function BudgetProgress({
 	);
 }
 
+/**
+ * 费用 KPI 的唯一一处：4 张卡都取自同一个 dashboard 响应。
+ * 此前页头还叠了一排来自 `api_secrets` 汇总的 4 张卡（今日/本月/调用次数/预算），
+ * 与这里的口径两套、还有两个重复标签，用户得自己对哪排数字算数 —— 已合并。
+ */
 function StatGrid({ data }: { data: CostDashboardResponse }) {
+	const budgetPct =
+		data.monthly_budget > 0 ? (data.monthly_used / data.monthly_budget) * 100 : 0;
 	return (
-		<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
+		<SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
 			<StatCard
 				icon={IconCoin}
 				value={`¥${data.llm_today.total_cost.toFixed(2)}`}
@@ -64,10 +71,16 @@ function StatGrid({ data }: { data: CostDashboardResponse }) {
 				color="blue"
 			/>
 			<StatCard
+				icon={IconCpu}
+				value={`¥${data.this_month.total_cost.toFixed(2)}`}
+				label={`本月合计 · ${data.this_month.calls} 次调用`}
+				color="amber"
+			/>
+			<StatCard
 				icon={IconTrendingUp}
-				value={`${data.monthly_budget > 0 ? ((data.monthly_used / data.monthly_budget) * 100).toFixed(1) : 0}%`}
-				label="月度预算使用率"
-				color={data.monthly_budget > 0 && data.monthly_used / data.monthly_budget > 0.9 ? "red" : "green"}
+				value={`${budgetPct.toFixed(1)}%`}
+				label={`月度预算 已用 ¥${data.monthly_used.toFixed(0)} / ¥${data.monthly_budget.toFixed(0)}`}
+				color={budgetPct > 90 ? "red" : "green"}
 			/>
 		</SimpleGrid>
 	);
@@ -384,22 +397,38 @@ export default function CostDashboard() {
 	};
 	const d = data || empty;
 
+	const noUsage = d.this_month.calls === 0;
+
 	return (
 		<Stack gap="xl" mt="md">
 			<StatGrid data={d} />
 
-			<Grid gap="md">
-				<Grid.Col span={{ base: 12, lg: 8 }}>
-					<CostTrendChart data={d} />
-				</Grid.Col>
-				<Grid.Col span={{ base: 12, lg: 4 }}>
-					<MonthlyBudgetCard data={d} />
-				</Grid.Col>
-			</Grid>
+			{noUsage ? (
+				<Card>
+					<CardContent>
+						<EmptyState
+							icon={IconCoins}
+							title="本月还没有费用记录"
+							description="学生开始训练后，LLM 与语音的实际花费会出现在这里。预算在「TTS 管理」和「API 密钥」里配置。"
+						/>
+					</CardContent>
+				</Card>
+			) : (
+				<>
+					<Grid gap="md">
+						<Grid.Col span={{ base: 12, lg: 8 }}>
+							<CostTrendChart data={d} />
+						</Grid.Col>
+						<Grid.Col span={{ base: 12, lg: 4 }}>
+							<MonthlyBudgetCard data={d} />
+						</Grid.Col>
+					</Grid>
 
-			<SchoolCostTable data={d} />
-			<TopUsersTable data={d} />
-			<UserCostBreakdown />
+					<SchoolCostTable data={d} />
+					<TopUsersTable data={d} />
+					<UserCostBreakdown />
+				</>
+			)}
 		</Stack>
 	);
 }

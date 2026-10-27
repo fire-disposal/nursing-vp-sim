@@ -169,6 +169,9 @@ export default function Login() {
 						<Stack gap="md">
 							<TextInput
 								type="text"
+								name="username"
+								aria-label="用户名"
+								aria-required="true"
 								placeholder="用户名"
 								autoComplete="username"
 								autoFocus
@@ -177,6 +180,9 @@ export default function Login() {
 								{...form.getInputProps("username")}
 							/>
 							<PasswordInput
+								name="password"
+								aria-label="密码"
+								aria-required="true"
 								placeholder="密码"
 								autoComplete="current-password"
 								size="lg"
@@ -185,7 +191,7 @@ export default function Login() {
 								{...form.getInputProps("password")}
 							/>
 							<Button type="submit" disabled={isSubmitting} size="lg" fullWidth mt="xs">
-								{isSubmitting ? "登录中..." : "登 录"}
+								{isSubmitting ? "登录中…" : "登 录"}
 							</Button>
 						</Stack>
 					</form>

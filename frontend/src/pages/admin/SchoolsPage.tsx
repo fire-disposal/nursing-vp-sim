@@ -1,24 +1,26 @@
 import {
+	Box,
 	Button,
 	Group,
 	Modal,
 	Stack,
 	Text,
 	TextInput,
+	Tooltip,
 } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
-import { IconAlertTriangle, IconSchool } from "@tabler/icons-react";
+import { IconSchool } from "@tabler/icons-react";
 import { useState } from "react";
 import { z } from "zod";
 
 import type { SchoolItem } from "@/api/admin/schools";
+import { useConfirm } from "@/components/ui/confirm";
 import type { DataTableColumn } from "@/components/ui/data-table";
-import EmptyState from "@/components/ui/empty-state";
+import ErrorState from "@/components/ui/error-state";
+import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import PageHeader from "@/components/ui/page-header";
 import ResponsiveTable from "@/components/ui/responsive-table";
 import { SearchInput } from "@/components/ui/search-input";
-import { useConfirm } from "@/components/ui/confirm";
-import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import {
 	useCreateSchool,
@@ -44,7 +46,13 @@ export default function SchoolsPage() {
 	const [editId, setEditId] = useState<number | null>(null);
 	const { confirm } = useConfirm();
 
-	const { data: schools = [], isLoading, isError } = useSchoolsQuery();
+	const {
+		data: schools = [],
+		isLoading,
+		isError,
+		error,
+		refetch,
+	} = useSchoolsQuery();
 	const createMut = useCreateSchool();
 	const updateMut = useUpdateSchool();
 	const deleteMut = useDeleteSchool();
@@ -75,12 +83,18 @@ export default function SchoolsPage() {
 
 	const onSubmit = async (values: SchoolFormValues) => {
 		const name = values.name.trim();
-		if (editId == null) {
-			await createMut.mutateAsync({ name }).catch(() => null);
-		} else {
-			await updateMut.mutateAsync({ id: editId, name }).catch(() => null);
+		// 失败时保持弹窗与输入：关闭弹窗等于把用户刚输入的内容也一起丢掉，
+		// 用户只能凭记忆重来一遍（错误提示已由 useApiMutation 统一弹出）。
+		try {
+			if (editId == null) {
+				await createMut.mutateAsync({ name });
+			} else {
+				await updateMut.mutateAsync({ id: editId, name });
+			}
+			closeModal();
+		} catch {
+			/* toast 已提示，保留表单 */
 		}
-		closeModal();
 	};
 
 	const handleDelete = async (item: SchoolItem) => {
@@ -98,10 +112,30 @@ export default function SchoolsPage() {
 		? schools.filter((s) => s.name.toLowerCase().includes(search.toLowerCase()))
 		: schools;
 
+	const num = (v: number) => (
+		<Text size="sm" ta="right" style={{ fontVariantNumeric: "tabular-nums" }}>
+			{v}
+		</Text>
+	);
+
 	const columns: DataTableColumn<SchoolItem>[] = [
 		{ key: "name", header: "院校名称", render: (s) => <Text size="sm" fw={500}>{s.name}</Text> },
-		{ key: "class_count", header: "班级数", render: (s) => s.class_count },
-		{ key: "user_count", header: "账号数", render: (s) => s.user_count },
+		{
+			key: "admin_count",
+			header: "管理员",
+			render: (s) =>
+				s.admin_count > 0 ? (
+					num(s.admin_count)
+				) : (
+					<Tooltip label="这所院校还没有管理员，账号与班级目前只能由平台创建">
+						<Text size="sm" ta="right" c="orange" style={{ fontVariantNumeric: "tabular-nums" }}>
+							0
+						</Text>
+					</Tooltip>
+				),
+		},
+		{ key: "class_count", header: "班级数", render: (s) => num(s.class_count) },
+		{ key: "user_count", header: "账号数", render: (s) => num(s.user_count) },
 		{
 			key: "created_at",
 			header: "创建时间",
@@ -110,16 +144,34 @@ export default function SchoolsPage() {
 		{
 			key: "actions",
 			header: "操作",
-			render: (s) => (
-				<Group gap={4} wrap="nowrap">
-					<Button variant="subtle" color="gray" size="sm" onClick={() => openEdit(s)}>
-						重命名
-					</Button>
-					<Button variant="subtle" size="sm" color="red" onClick={() => handleDelete(s)}>
+			render: (s) => {
+				const blocked = s.class_count + s.user_count > 0;
+				const btn = (
+					<Button
+						variant="subtle"
+						size="sm"
+						color="red"
+						disabled={blocked}
+						onClick={() => handleDelete(s)}
+					>
 						删除
 					</Button>
-				</Group>
-			),
+				);
+				return (
+					<Group gap={4} wrap="nowrap">
+						<Button variant="subtle" color="gray" size="sm" onClick={() => openEdit(s)}>
+							重命名
+						</Button>
+						{blocked ? (
+							<Tooltip label={`该院校下还有 ${s.class_count} 个班级、${s.user_count} 个账号，先清空才能删除`}>
+								<Box>{btn}</Box>
+							</Tooltip>
+						) : (
+							btn
+						)}
+					</Group>
+				);
+			},
 		},
 	];
 
@@ -146,11 +198,7 @@ export default function SchoolsPage() {
 			/>
 
 			{isError ? (
-				<EmptyState
-					icon={IconAlertTriangle}
-					title="院校列表加载失败"
-					description="请检查网络或稍后重试"
-				/>
+				<ErrorState title="院校列表加载失败" error={error} onRetry={refetch} />
 			) : (
 				<ResponsiveTable<SchoolItem>
 					columns={columns}

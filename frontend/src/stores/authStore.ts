@@ -86,6 +86,10 @@ const useAuthStore = create<ExtendedAuthState>()(
 								...current,
 								role_display_name: me.role_display_name || data.role,
 								memberships: me.memberships ?? [],
+								// 院校归属只存在于 /auth/me（登录响应没有）：漏合并会让院校管理员
+								// 在壳里被显示成「平台」，等于告诉他"你是跨校的"
+								school_id: me.school_id ?? null,
+								school_name: me.school_name ?? null,
 							},
 							// 权限以 /auth/me 现取为准（返回数组即覆盖，空数组 = 真的没权限）；
 							// 字段缺失才留用登录响应里的值。
@@ -139,6 +143,8 @@ const useAuthStore = create<ExtendedAuthState>()(
 						gender: data.gender ?? null,
 						avatar: data.avatar ?? null,
 						memberships: data.memberships ?? [],
+						school_id: data.school_id ?? null,
+						school_name: data.school_name ?? null,
 					};
 					// 与登录路径一致：顺带刷新权限集合（/auth/me 现取，数组为准，空数组也覆盖）
 					set({

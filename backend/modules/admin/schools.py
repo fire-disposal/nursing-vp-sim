@@ -22,7 +22,7 @@ from core.deps import DbSession
 from core.exceptions import NotFoundError, ValidationError
 from core.security import require_permission
 from core.unit_of_work import unit_of_work
-from models import Class, School, User
+from models import Class, Role, RolePermission, School, User
 from schemas import DeleteSchoolResponse, SchoolCreate, SchoolResponse, SchoolUpdate
 
 if TYPE_CHECKING:
@@ -37,25 +37,41 @@ class SchoolService:
     def __init__(self, db: Session):
         self.db = db
 
-    def list_all(self) -> list[SchoolResponse]:
-        rows = self.db.query(School).order_by(School.name).all()
-        class_counts = {
+    def _counts(self) -> dict[str, dict[int, int]]:
+        """三类计数一次算完（列表用；单条走 `_view`，口径同源）。"""
+        classes = {
             row[0]: row[1]
             for row in self.db.query(Class.school_id, func.count(Class.id)).group_by(Class.school_id).all()
         }
-        user_counts = {
+        users = {
             row[0]: row[1]
             for row in self.db.query(User.school_id, func.count(User.id))
             .filter(User.school_id.isnot(None))
             .group_by(User.school_id)
             .all()
         }
+        # 院校管理员 = 该院校里持有 user_manage 的账号；没有它等于没人能管这所院校
+        admins = {
+            row[0]: row[1]
+            for row in self.db.query(User.school_id, func.count(func.distinct(User.id)))
+            .join(Role, Role.id == User.role_id)
+            .join(RolePermission, RolePermission.role_id == Role.id)
+            .filter(User.school_id.isnot(None), RolePermission.permission == "user_manage")
+            .group_by(User.school_id)
+            .all()
+        }
+        return {"class": classes, "user": users, "admin": admins}
+
+    def list_all(self) -> list[SchoolResponse]:
+        rows = self.db.query(School).order_by(School.name).all()
+        counts = self._counts()
         return [
             SchoolResponse(
                 id=s.id,
                 name=s.name,
-                class_count=class_counts.get(s.id, 0),
-                user_count=user_counts.get(s.id, 0),
+                class_count=counts["class"].get(s.id, 0),
+                user_count=counts["user"].get(s.id, 0),
+                admin_count=counts["admin"].get(s.id, 0),
                 created_at=s.created_at,
             )
             for s in rows
@@ -130,10 +146,14 @@ class SchoolService:
         return school
 
     def _view(self, school: School) -> SchoolResponse:
-        classes = self.db.query(func.count(Class.id)).filter(Class.school_id == school.id).scalar() or 0
-        users = self.db.query(func.count(User.id)).filter(User.school_id == school.id).scalar() or 0
+        counts = self._counts()
         return SchoolResponse(
-            id=school.id, name=school.name, class_count=classes, user_count=users, created_at=school.created_at
+            id=school.id,
+            name=school.name,
+            class_count=counts["class"].get(school.id, 0),
+            user_count=counts["user"].get(school.id, 0),
+            admin_count=counts["admin"].get(school.id, 0),
+            created_at=school.created_at,
         )
 
 

@@ -23,6 +23,8 @@ class SchoolResponse(BaseModel):
     name: str
     class_count: int = 0
     user_count: int = 0
+    #: 该院校里持有 `user_manage` 的账号数（= 院校管理员数量）。0 意味着没人能管这所院校。
+    admin_count: int = 0
     created_at: datetime
 
 

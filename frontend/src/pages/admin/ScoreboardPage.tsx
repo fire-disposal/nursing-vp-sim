@@ -24,6 +24,7 @@ import StudentTrendDialog, {
 import { formatDuration } from "@/utils/duration";
 import { TextInput } from "@mantine/core";
 import PageHeader from "@/components/ui/page-header";
+import ErrorState from "@/components/ui/error-state";
 import ResponsiveTable from "@/components/ui/responsive-table";
 import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import StatCard from "@/components/ui/stat-card";
@@ -258,7 +259,13 @@ export default function ScoreboardPage() {
 		[caseId, classId, assignmentId, assignmentStatus, includeFree],
 	);
 
-	const { data, isLoading } = useQuery({
+	const {
+		data,
+		isLoading,
+		isError,
+		error,
+		refetch,
+	} = useQuery({
 		queryKey: queryKeys.scoreboard.ranking({
 			case_id: scope.case_id,
 			class_id: scope.class_id,
@@ -544,26 +551,48 @@ export default function ScoreboardPage() {
 			/>
 
 			<SimpleGrid cols={{ base: 2, sm: 4 }} spacing="sm">
-				<StatCard icon={IconBolt} value={summary?.record_count ?? "-"} label="计入训练次数" color="blue" />
-				<StatCard icon={IconUsers} value={summary?.student_count ?? "-"} label="入榜学生" color="blue" />
+				{/*
+				 * 失败时统计值写「—」而不是 0：整页取数失败时显示 0 会被读成
+				 * 「这学期确实没人训练」，正好是要避免的误读。
+				 */}
+				<StatCard
+					icon={IconBolt}
+					value={isError ? "—" : (summary?.record_count ?? "-")}
+					label="计入训练次数"
+					color="blue"
+				/>
+				<StatCard
+					icon={IconUsers}
+					value={isError ? "—" : (summary?.student_count ?? "-")}
+					label="入榜学生"
+					color="blue"
+				/>
 				<StatCard
 					icon={IconMedal}
-					value={summary?.avg_score ?? "-"}
+					value={isError ? "—" : (summary?.avg_score ?? "-")}
 					label="学生平均分"
 					color="green"
 				/>
 				<StatCard
 					icon={IconClock}
-					value={formatDuration(summary?.avg_duration_seconds)}
+					value={isError ? "—" : formatDuration(summary?.avg_duration_seconds)}
 					label="平均用时"
 					color="amber"
 				/>
 			</SimpleGrid>
 
-			<TierDistribution summary={summary} policy={policy} />
+			{/* 分段分布同理：失败时整块不渲染，避免「全是 0%」的假分布 */}
+			{!isError && <TierDistribution summary={summary} policy={policy} />}
 
 			{/* 与其它列表页同形：Paper + 表格自身当唯一描边层（原先 Card + CardContent 多一层） */}
 			<Paper withBorder style={{ overflow: "hidden" }}>
+				{isError ? (
+					<ErrorState
+						title="成绩数据加载失败"
+						error={error}
+						onRetry={() => refetch()}
+					/>
+				) : (
 				<ResponsiveTable
 						columns={columns}
 						rows={items}
@@ -609,6 +638,7 @@ export default function ScoreboardPage() {
 							</Group>
 						)}
 					/>
+				)}
 			</Paper>
 
 			<StudentTrendDialog

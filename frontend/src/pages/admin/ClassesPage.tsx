@@ -1,19 +1,15 @@
 import { Autocomplete, Box, Button, Group, Modal, Paper, Select, Stack, Text, TextInput } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
-import { IconAlertTriangle, IconSchool } from "@tabler/icons-react";
+import { IconSchool } from "@tabler/icons-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useConfirm } from "@/components/ui/confirm";
-import EmptyState from "@/components/ui/empty-state";
 import type { DataTableColumn } from "@/components/ui/data-table";
-
+import ErrorState from "@/components/ui/error-state";
+import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import PageHeader from "@/components/ui/page-header";
 import ResponsiveTable from "@/components/ui/responsive-table";
 import { SearchInput } from "@/components/ui/search-input";
-
-import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
-import { useSchoolsQuery } from "@/hooks/useSchools";
-import useAuthStore from "@/stores/authStore";
 import {
 	useClassesQuery,
 	useCohortLabels,
@@ -21,10 +17,12 @@ import {
 	useDeleteClass,
 	useUpdateClass,
 } from "@/hooks/useClasses";
+import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
+import { useSchoolsQuery } from "@/hooks/useSchools";
 import { type ClassFormValues, classFormSchema } from "@/schemas/class";
+import useAuthStore from "@/stores/authStore";
 import type { ClassItem } from "@/types/store";
 import { formatDate } from "@/utils/date";
-import { FilterToolbar } from "@/components/ui/filter-toolbar";
 
 export default function ClassesPage() {
 	const navigate = useNavigate();
@@ -50,7 +48,13 @@ export default function ClassesPage() {
 	});
 
 	const { labels: cohortLabels } = useCohortLabels();
-	const { data: classes = [], isLoading, isError } = useClassesQuery(cohortFilter || null);
+	const {
+		data: classes = [],
+		isLoading,
+		isError,
+		error: classesError,
+		refetch: refetchClasses,
+	} = useClassesQuery(cohortFilter || null);
 	const createMut = useCreateClass();
 	const updateMut = useUpdateClass();
 	const deleteMut = useDeleteClass();
@@ -126,6 +130,13 @@ export default function ClassesPage() {
 			(schoolFilter == null || c.school_id === schoolFilter),
 	);
 
+	// 数字列统一右对齐 + 等宽数字：三列计数扫读时不再左右漂移
+	const num = (v: number) => (
+		<Text size="sm" ta="right" style={{ fontVariantNumeric: "tabular-nums" }}>
+			{v}
+		</Text>
+	);
+
 	const columns: DataTableColumn<ClassItem>[] = [
 		...(isPlatform
 			? [
@@ -151,9 +162,9 @@ export default function ClassesPage() {
 			header: "班级名称",
 			render: (c) => <Text size="sm" fw={500}>{c.name}</Text>,
 		},
-		{ key: "student_count", header: "学生数", render: (c) => c.student_count },
-		{ key: "teacher_count", header: "教师数", render: (c) => c.teacher_count },
-		{ key: "assignment_count", header: "作业数", render: (c) => c.assignment_count },
+		{ key: "student_count", header: "学生数", render: (c) => num(c.student_count) },
+		{ key: "teacher_count", header: "教师数", render: (c) => num(c.teacher_count) },
+		{ key: "assignment_count", header: "作业数", render: (c) => num(c.assignment_count) },
 		{
 			key: "created_at",
 			header: "创建时间",
@@ -224,11 +235,7 @@ export default function ClassesPage() {
 
 			<Box mt="md">
 				{isError ? (
-					<EmptyState
-						icon={IconAlertTriangle}
-						title="班级列表加载失败"
-						description="请检查网络或稍后重试"
-					/>
+					<ErrorState title="班级列表加载失败" error={classesError} onRetry={refetchClasses} />
 				) : (
 					<ResponsiveTable<ClassItem>
 						columns={columns}

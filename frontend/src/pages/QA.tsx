@@ -651,12 +651,14 @@ function Composer({
 					padding: 8,
 				}}
 			>
+				{/* 无可见 label：placeholder 不能当无障碍名（输入后即消失），必须给 aria-label */}
 				<Textarea
 					ref={inputRef}
 					variant="unstyled"
 					autosize
 					minRows={1}
 					maxRows={6}
+					aria-label="输入护理学问题"
 					style={{ flex: 1 }}
 					value={input}
 					onChange={(event) => onInput(event.target.value)}

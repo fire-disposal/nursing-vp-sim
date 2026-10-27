@@ -7,6 +7,8 @@ interface SearchInputProps {
 	onChange: (value: string) => void;
 	placeholder?: string;
 	size?: "xs" | "sm" | "md";
+	/** 可访问名。默认「搜索」：placeholder 不是标签，用完即消失。 */
+	"aria-label"?: string;
 }
 
 /**
@@ -16,14 +18,16 @@ interface SearchInputProps {
 export function SearchInput({
 	value,
 	onChange,
-	placeholder = "搜索...",
+	placeholder = "搜索…",
 	size = "sm",
+	"aria-label": ariaLabel = "搜索",
 }: SearchInputProps) {
 	const [focused, setFocused] = useState(false);
 	const handleClear = useCallback(() => onChange(""), [onChange]);
 
 	return (
 		<TextInput
+			aria-label={ariaLabel}
 			value={value}
 			onChange={(e) => onChange(e.currentTarget.value)}
 			placeholder={placeholder}

@@ -1,12 +1,12 @@
-import { APP_TIME_ZONE } from "@/utils/date";
+import { formatDateTime } from "@/utils/date";
 import { recordDurationMinutes } from "@/utils/duration";
-import { Badge, Button, Group, Paper, Select, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Badge, Button, Group, Paper, Select, SimpleGrid, Stack, Text, UnstyledButton } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	IconArrowDown, IconArrowUp, IconArrowsUpDown, IconClipboardList, IconPencil, IconShieldCheck, IconTrash } from "@tabler/icons-react";
 import ErrorDisplay from "@/components/ui/error-display";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
-import { useCallback, useMemo, useState } from "react";
+import { type CSSProperties, useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { abandonRecord, deleteRecord, getCases, getRecords } from "@/api";
 import type { GetRecordsParams } from "@/api";
@@ -32,6 +32,16 @@ type SortField = "start_time" | "score_total" | "duration" | null;
 type SortDir = "asc" | "desc";
 
 const LIMIT = 50;
+
+// 表头排序按钮：继承 th 的字重/颜色（UnstyledButton 会重置），整格可点又不撑破列宽
+const SORT_BUTTON_STYLE: CSSProperties = {
+	display: "flex",
+	alignItems: "center",
+	width: "100%",
+	color: "inherit",
+	font: "inherit",
+	textAlign: "left",
+};
 
 export default function TeacherRecordsPage() {
 	const [searchParams, setSearchParams] = useSearchParams();
@@ -129,6 +139,10 @@ export default function TeacherRecordsPage() {
 		);
 	};
 
+	// 排序状态本来就只靠图标方向表达，屏读者拿不到；aria-sort 挂在 th 上才是标准宣告方式
+	const ariaSort = (field: SortField): "ascending" | "descending" | "none" =>
+		sortField === field ? (sortDir === "asc" ? "ascending" : "descending") : "none";
+
 	const stats = useMemo(() => {
 		const completed = records.filter((r) => r.status === "completed");
 		const scored = completed.filter(
@@ -138,9 +152,11 @@ export default function TeacherRecordsPage() {
 			scored.length > 0
 				? scored.reduce((sum, r) => sum + (r.score_total ?? 0), 0) / scored.length
 				: null;
+		// 分子（scored）只来自当前页 records，分母就必须同为当前页条数：
+		// 原先分母用全局 total，翻页后分母变大而分子不变，只能算出虚低的百分比
 		const scoringRate =
-			total > 0
-				? Math.round((scored.length / total) * 100)
+			records.length > 0
+				? Math.round((scored.length / records.length) * 100)
 				: 0;
 		return {
 			completed: completed.length,
@@ -148,7 +164,7 @@ export default function TeacherRecordsPage() {
 			avgScore,
 			scoringRate,
 		};
-	}, [records, total]);
+	}, [records]);
 
 	const deleteMutation = useMutation({
 		mutationFn: (id: number) => deleteRecord(id),
@@ -324,18 +340,22 @@ export default function TeacherRecordsPage() {
 										<Table.Th style={{ minWidth: 170 }}>病例</Table.Th>
 										<Table.Th style={{ width: 84, whiteSpace: "nowrap" }}>来源</Table.Th>
 										{/* 「类型」列恒为「问诊」，零信息量，2026-09-26 删除（审计 UI-ADM-6/表格列集） */}
-										<Table.Th style={{ width: 132, cursor: "pointer", whiteSpace: "nowrap" }} onClick={() => handleSort("start_time")}>
-											开始时间{sortIcon("start_time")}
+										{/* 可排序列：Th 上挂 onClick 键盘到不了，改由 Th 内的真按钮触发，排序态交 aria-sort 宣告 */}
+										<Table.Th style={{ width: 132, whiteSpace: "nowrap" }} aria-sort={ariaSort("start_time")}>
+											<UnstyledButton onClick={() => handleSort("start_time")} style={SORT_BUTTON_STYLE}>
+												开始时间{sortIcon("start_time")}
+											</UnstyledButton>
 										</Table.Th>
-										<Table.Th
-											style={{ width: 76, cursor: "pointer", whiteSpace: "nowrap" }}
-											onClick={() => handleSort("duration")}
-										>
-											时长{sortIcon("duration")}
+										<Table.Th style={{ width: 76, whiteSpace: "nowrap" }} aria-sort={ariaSort("duration")}>
+											<UnstyledButton onClick={() => handleSort("duration")} style={SORT_BUTTON_STYLE}>
+												时长{sortIcon("duration")}
+											</UnstyledButton>
 										</Table.Th>
 										<Table.Th style={{ width: 76, whiteSpace: "nowrap" }}>状态</Table.Th>
-										<Table.Th style={{ width: 96, cursor: "pointer", whiteSpace: "nowrap" }} onClick={() => handleSort("score_total")}>
-											评分{sortIcon("score_total")}
+										<Table.Th style={{ width: 96, whiteSpace: "nowrap" }} aria-sort={ariaSort("score_total")}>
+											<UnstyledButton onClick={() => handleSort("score_total")} style={SORT_BUTTON_STYLE}>
+												评分{sortIcon("score_total")}
+											</UnstyledButton>
 										</Table.Th>
 										<Table.Th style={{ width: 132, whiteSpace: "nowrap" }}>操作</Table.Th>
 									</Table.Tr>
@@ -358,7 +378,7 @@ export default function TeacherRecordsPage() {
 													)}
 												</Table.Td>
 												<Table.Td style={{ fontSize: 12, color: "var(--mantine-color-dimmed)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-													{new Date(r.start_time).toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE })}
+													{formatDateTime(r.start_time)}
 												</Table.Td>
 												<Table.Td style={{ fontSize: 12, color: "var(--mantine-color-dimmed)", whiteSpace: "nowrap", opacity: durMins != null ? 1 : 0.5 }}>
 													{durMins != null ? `${durMins} 分钟` : "进行中"}
@@ -438,6 +458,7 @@ export default function TeacherRecordsPage() {
 															size="xs" w={32} h={32} p={0}
 															color="red"
 															onClick={() => handleDeleteRecord(r)}
+															aria-label={`删除 ${r.user_display_name} 的「${r.case_name}」记录`}
 														>
 															<IconTrash size={14} />
 														</Button>

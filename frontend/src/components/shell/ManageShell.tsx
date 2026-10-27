@@ -1,8 +1,8 @@
-import { ActionIcon, AppShell, Box, Burger, Button, Group, Text, Tooltip, UnstyledButton } from "@mantine/core";
+import { ActionIcon, AppShell, Badge, Box, Burger, Button, Group, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { IconLogout, IconMessageCirclePlus, IconStethoscope, IconX } from "@tabler/icons-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, matchPath, useLocation } from "react-router-dom";
 import { SHELL } from "@/config/layout-scale";
 import { APP_VERSION } from "@/version";
 import { useFeedback } from "@/components/FeedbackProvider";
@@ -43,6 +43,13 @@ export default function ManageShell({
 	children: ReactNode;
 }) {
 	const permissions = useAuthStore((s) => s.permissions);
+	const authUser = useAuthStore((s) => s.user);
+	// 当前院校：院校管理员/教师/学生看到自己的学校；平台角色（school_id 为空）标示「平台」。
+	// 名称来自 `/auth/me`，院校重命名后下次会话同步（不为此加轮询）。
+	const schoolLabel = authUser
+		? (authUser.school_name ?? (authUser.school_id == null ? "平台" : `院校 #${authUser.school_id}`))
+		: null;
+	const canManageSchools = permissions.includes("school_manage");
 	const isAdmin = isAdminPermissions(permissions);
 	const isOnline = useNetworkStatus();
 	const { openFeedback } = useFeedback();
@@ -68,13 +75,33 @@ export default function ManageShell({
 		setSidebarCollapsed(!desktopOpened);
 	}, [desktopOpened, setSidebarCollapsed]);
 
-	// 路由切换时主内容滚动回顶（避免停留在旧页面滚动位置）
+	// 路由切换时主内容滚动回顶（避免停留在旧页面滚动位置），并把焦点交给主内容：
+	// 否则键盘/读屏用户点完侧栏后焦点还停在导航里，得重新 Tab 穿过 20+ 项才知道页面换了。
 	const mainRef = useRef<HTMLDivElement>(null);
+	const firstRender = useRef(true);
+	const allNavItems = useRef<NavItem[]>([]);
+	// 先精确匹配，再按前缀匹配（`/admin/classes/3` 归到「班级管理」）
+	const activeLabel =
+		allNavItems.current.find((l) => matchPath({ path: l.to, end: true }, pathname))?.label ??
+		allNavItems.current.find((l) => matchPath({ path: l.to, end: false }, pathname))?.label ??
+		null;
+
+	useEffect(() => {
+		document.title = activeLabel ? `${activeLabel} · 虚拟患者训练系统` : "虚拟患者训练系统";
+	}, [activeLabel]);
+
 	useEffect(() => {
 		mainRef.current?.scrollTo({ top: 0 });
+		if (firstRender.current) {
+			firstRender.current = false;
+			return;
+		}
+		mainRef.current?.focus({ preventScroll: true });
 	}, [pathname]);
 
 	const allLinks = [...userLinks, ...adminLinks];
+	// 路由表 → 页面标题（浏览器标签页/历史记录别再全是「虚拟患者训练系统」）
+	allNavItems.current = allLinks;
 	// 底部 Tab 由路由表派生：本轨有 Tab 才渲染底栏（学生 5 项、教师 3 项 + 更多）
 	const hasTabs = allLinks.some((l) => l.mobile?.tier === (isAdmin ? "staff" : "student"));
 	// 「管理后台建议用桌面端」只对**管理页**有意义，而且必须留在内容流里——
@@ -101,6 +128,10 @@ export default function ManageShell({
 			}
 			padding={0}
 		>
+			{/* 键盘用户的第一跳：DOM 里必须排在最前，否则 Tab 先穿过整条侧栏（20+ 项） */}
+			<a href="#main" className="skip-link">
+				跳到主内容
+			</a>
 			<AppShell.Header>
 				<Group h="100%" px="md" gap="sm" wrap="nowrap">
 					{isAdmin && (
@@ -139,6 +170,30 @@ export default function ManageShell({
 						<Text fw={700} size="sm" visibleFrom="xs">
 							虚拟患者系统
 						</Text>
+						{schoolLabel &&
+							(canManageSchools ? (
+								<Badge
+									variant="light"
+									color="brand"
+									size="sm"
+									visibleFrom="sm"
+									component={Link}
+									to="/admin/schools"
+									style={{ flexShrink: 0, textTransform: "none" }}
+								>
+									{schoolLabel}
+								</Badge>
+							) : (
+								<Badge
+									variant="light"
+									color="gray"
+									size="sm"
+									visibleFrom="sm"
+									style={{ flexShrink: 0, textTransform: "none" }}
+								>
+									{schoolLabel}
+								</Badge>
+							))}
 						<UnstyledButton
 							onClick={onAbout}
 							title="关于系统"
@@ -195,7 +250,7 @@ export default function ManageShell({
 				/>
 			</AppShell.Navbar>
 
-			<AppShell.Main ref={mainRef}>
+			<AppShell.Main ref={mainRef} id="main" tabIndex={-1}>
 				{!isOnline && <NetworkBanner />}
 				{showMobileHint && (
 					<Group

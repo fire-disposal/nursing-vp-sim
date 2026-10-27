@@ -18694,6 +18694,11 @@
             "title": "User Count",
             "default": 0
           },
+          "admin_count": {
+            "type": "integer",
+            "title": "Admin Count",
+            "default": 0
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",

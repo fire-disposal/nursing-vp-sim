@@ -43,6 +43,9 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 	const [images, setImages] = useState<{ file: File; url: string }[]>([]);
 	const [compressing, setCompressing] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
+	// 文件 input 改为"视觉隐藏但可聚焦"后，焦点落在被裁切的 input 上屏显不可见，
+	// 因此把焦点态回写到外层的「添加」方块，键盘用户才知道当前停在哪里
+	const [addInputFocused, setAddInputFocused] = useState(false);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const urlsRef = useRef<string[]>([]);
 	const toast = useToast();
@@ -149,7 +152,8 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 							(选填)
 						</Text>
 					</Text>
-					<Group gap={4} wrap="nowrap" justify="space-between">
+					{/* role=radiogroup + aria-pressed：分数是"单选一组"，仅靠边框高亮色屏读者读不到当前选择 */}
+					<Group gap={4} wrap="nowrap" justify="space-between" role="radiogroup" aria-label="整体评价">
 						{RATING_META.map((meta, i) => {
 							const val = i + 1;
 							const active = rating === val;
@@ -157,6 +161,7 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 								<UnstyledButton
 									key={val}
 									onClick={() => setRating(val)}
+									aria-pressed={active}
 									style={{
 										flex: 1,
 										minWidth: 0,
@@ -199,13 +204,14 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 							(选填)
 						</Text>
 					</Text>
-					<Group gap={8}>
+					<Group gap={8} role="radiogroup" aria-label="反馈类型">
 						{tags.map((t) => (
 							<Button
 								key={t.value}
 								variant={tag === t.value ? "filled" : "outline"}
 								size="sm"
 								radius="md"
+								aria-pressed={tag === t.value}
 								onClick={() => setTag(tag === t.value ? "" : t.value)}
 							>
 								{t.label}
@@ -223,6 +229,7 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 					</Text>
 					<Textarea
 						placeholder="请详细描述你的想法..."
+						aria-label="详细描述"
 						value={content}
 						onChange={(e) => setContent(e.target.value)}
 						rows={4}
@@ -295,19 +302,37 @@ export default function FeedbackModal({ open, onClose, onSubmitted }: FeedbackMo
 									gap: 2,
 									cursor: "pointer",
 									flexShrink: 0,
+									position: "relative",
+									outline: addInputFocused ? "2px solid var(--mantine-color-blue-6)" : "none",
+									outlineOffset: 2,
 								}}
 							>
 								<IconPlus size={18} style={{ color: "var(--mantine-color-dimmed)" }} />
 								<Text fz="xs" c="dimmed">
 									添加
 								</Text>
+								{/* 不能用 display:none —— 那样 Tab 会跳过它，键盘/读屏用户无法上传截图。
+								    这里用裁剪式视觉隐藏：仍在无障碍树里、仍可聚焦、点 label 仍能唤起选择器 */}
 								<input
 									ref={fileInputRef}
 									type="file"
 									accept="image/*"
 									capture="environment"
 									multiple
-									style={{ display: "none" }}
+									aria-label="添加截图"
+									onFocus={() => setAddInputFocused(true)}
+									onBlur={() => setAddInputFocused(false)}
+									style={{
+										position: "absolute",
+										width: 1,
+										height: 1,
+										padding: 0,
+										margin: -1,
+										overflow: "hidden",
+										clip: "rect(0 0 0 0)",
+										whiteSpace: "nowrap",
+										border: 0,
+									}}
 									onChange={handleAddImages}
 								/>
 							</Box>

@@ -28,10 +28,12 @@ import {
 } from "@tabler/icons-react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { isAxiosError } from "axios";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import EmptyState from "@/components/ui/empty-state";
+import ErrorState from "@/components/ui/error-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import Pagination from "@/components/ui/pagination";
@@ -73,7 +75,13 @@ export default function ClassDetailPage() {
 	const [showAddDialog, setShowAddDialog] = useState(false);
 	const { searchInput, debouncedValue, handleSearchChange } = useDebouncedSearch();
 
-	const { data: cls, isLoading: clsLoading, isError } = useClassDetailQuery(cid);
+	const {
+		data: cls,
+		isLoading: clsLoading,
+		isError,
+		error: clsError,
+		refetch: refetchClass,
+	} = useClassDetailQuery(cid);
 	const { data: summary } = useClassSummaryQuery(cid);
 	const membersQuery = useClassMembersQuery(cid, {
 		role: roleTab,
@@ -85,7 +93,29 @@ export default function ClassDetailPage() {
 	const removeBulk = useRemoveClassMembers(cid);
 
 	if (clsLoading) return <LoadingSkeleton />;
-	if (isError || !cls) {
+	if (isError) {
+		// 404 才是「班级真的没了」；网络/5xx 只是这次没取到，给重试而不是让人以为链接失效
+		const missing = isAxiosError(clsError) && clsError.response?.status === 404;
+		return missing ? (
+			<EmptyState
+				icon={IconAlertTriangle}
+				title="班级不存在"
+				description="该班级可能已被删除，或链接有误"
+				action={
+					<Button variant="outline" onClick={() => navigate("/admin/classes")}>
+						返回班级管理
+					</Button>
+				}
+			/>
+		) : (
+			<ErrorState
+				title="班级信息加载失败"
+				error={clsError}
+				onRetry={() => refetchClass()}
+			/>
+		);
+	}
+	if (!cls) {
 		return (
 			<EmptyState
 				icon={IconAlertTriangle}
@@ -226,7 +256,7 @@ export default function ClassDetailPage() {
 								/>
 							</Box>
 							<Text size="sm" c="dimmed">
-								{ROLE_LABEL[roleTab]}共 {total} 人
+								{ROLE_LABEL[roleTab]}共 {membersQuery.isError ? "—" : total} 人
 							</Text>
 							{selectedIds.size > 0 && (
 								<>
@@ -244,7 +274,14 @@ export default function ClassDetailPage() {
 							)}
 						</Group>
 
-						{membersQuery.isLoading && members.length === 0 ? (
+						{membersQuery.isError ? (
+							/* 先判失败再判空：取数失败时「没有匹配的成员」会让人以为班里真没人（或搜索词写错） */
+							<ErrorState
+								title="花名册加载失败"
+								error={membersQuery.error}
+								onRetry={() => membersQuery.refetch()}
+							/>
+						) : membersQuery.isLoading && members.length === 0 ? (
 							<Center py={48}>
 								<Loader size={24} color="gray" />
 							</Center>

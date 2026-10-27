@@ -15,6 +15,7 @@ import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 
 import EmptyState from "@/components/ui/empty-state";
+import ErrorState from "@/components/ui/error-state";
 import { SearchInput } from "@/components/ui/search-input";
 import Pagination from "@/components/ui/pagination";
 import { useClassesQuery } from "@/hooks/useClasses";
@@ -130,7 +131,12 @@ export default function UsersTab({ currentUserId, onExportParamsChange }: UsersT
 	const userFormDirtyRef = useRef(false);
 	const { data: classes = [] } = useClassesQuery();
 
-	const { data: userData, isLoading } = useUserList(list.offset, list.params);
+	const {
+		data: userData,
+		isLoading,
+		isError: usersFailed,
+		refetch: refetchUsers,
+	} = useUserList(list.offset, list.params);
 	const { data: roles = [], isError: rolesFailed } = useRolesQuery();
 	// 院校维度只对平台角色有意义：院校管理员本来就只看本校，多一个下拉只是噪音。
 	// 用 `school_manage` 判，而不是 `school_id == null` —— 权限是服务端权威口径，
@@ -413,7 +419,10 @@ export default function UsersTab({ currentUserId, onExportParamsChange }: UsersT
 			<Paper p="md">
 				<FilterToolbar
 					compact
-					summary={`共 ${total} 人`}
+					// 未拿到数据时不要显示「共 0 人」——那是把「还不知道」伪装成业务事实
+					summary={
+						usersFailed ? "人数暂不可用" : userData ? `共 ${total} 人` : "—"
+					}
 					hasActiveFilters={list.hasActiveFilters}
 					onClear={handleClearFilters}
 					search={
@@ -467,6 +476,12 @@ export default function UsersTab({ currentUserId, onExportParamsChange }: UsersT
 					<Center py="xl">
 						<Loader size="sm" />
 					</Center>
+				) : usersFailed ? (
+					<ErrorState
+						title="用户列表加载失败"
+						description="请检查网络或稍后重试。这不代表没有用户——是这次请求失败了。"
+						onRetry={refetchUsers}
+					/>
 				) : users.length === 0 ? (
 					<EmptyState
 						icon={IconUsers}
@@ -480,6 +495,7 @@ export default function UsersTab({ currentUserId, onExportParamsChange }: UsersT
 								<UserCard
 									key={u.id}
 									user={u}
+									showSchool={isPlatform}
 									selected={selectedIds.has(u.id)}
 									onSelect={handleToggleSelect}
 									onEdit={openEditUser}
