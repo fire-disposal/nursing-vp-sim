@@ -12,7 +12,7 @@ from pathlib import Path
 from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
 from core.database import SessionLocal
 from core.roles import SYSTEM_PERMISSIONS, SYSTEM_ROLES
-from core.security import hash_password
+from core.security import clear_permission_cache, hash_password
 from core.time_limits import DEFAULT_TIME_LIMIT_MINUTES
 from models import (
     CASE_STATUS_ARCHIVED,
@@ -79,35 +79,48 @@ def _seed_user(
         log.debug("%s 已创建 (%s)", default_display, username)
 
 
+def sync_system_roles(db) -> dict[str, int]:
+    """把库里的系统角色与权限对齐到 `core/roles.py`，返回 role_name → id。
+
+    **每次启动都要跑**（幂等）。此前这段在「角色表非空」的早退之后，于是新增权限 key
+    永远不会写进既有库：2026-10-27 上线 `school_manage` 后，线上没有任何角色拿到它，
+    院校管理页对所有人 403 —— 只有空库新装才正常。角色权限由代码拥有（UI 改权限下次启动
+    会被这里覆盖），这是既有设计，不是副作用。
+    """
+    role_ids: dict[str, int] = {}
+    for name, display_name in SYSTEM_ROLES:
+        role = db.query(Role).filter(Role.name == name).first()
+        if not role:
+            role = Role(name=name, display_name=display_name, is_system=True)
+            db.add(role)
+            db.flush()
+        role_ids[name] = role.id
+    db.flush()
+
+    for role_name, perms in SYSTEM_PERMISSIONS.items():
+        rid = role_ids.get(role_name)
+        if not rid:
+            continue
+        existing = {rp.permission for rp in db.query(RolePermission).filter(RolePermission.role_id == rid).all()}
+        target = set(perms)
+        for p in existing - target:
+            db.query(RolePermission).filter(RolePermission.role_id == rid, RolePermission.permission == p).delete()
+        for p in target - existing:
+            db.add(RolePermission(role_id=rid, permission=p))
+    db.flush()
+    return role_ids
+
+
 def _seed_data() -> None:
     db = SessionLocal()
     try:
-        if db.query(Role).count() > 0:
+        first_run = db.query(Role).count() == 0
+        role_ids = sync_system_roles(db)
+        db.commit()
+        clear_permission_cache()
+
+        if not first_run:
             return
-
-        # 1. 创建系统角色（无 school_id），并同步权限
-        role_ids = {}
-        for name, display_name in SYSTEM_ROLES:
-            role = db.query(Role).filter(Role.name == name).first()
-            if not role:
-                role = Role(name=name, display_name=display_name, is_system=True)
-                db.add(role)
-                db.flush()
-            role_ids[name] = role.id
-        db.commit()
-
-        # 清理并重建角色权限
-        for role_name, perms in SYSTEM_PERMISSIONS.items():
-            rid = role_ids.get(role_name)
-            if not rid:
-                continue
-            existing = {rp.permission for rp in db.query(RolePermission).filter(RolePermission.role_id == rid).all()}
-            target = set(perms)
-            for p in existing - target:
-                db.query(RolePermission).filter(RolePermission.role_id == rid, RolePermission.permission == p).delete()
-            for p in target - existing:
-                db.add(RolePermission(role_id=rid, permission=p))
-        db.commit()
 
         # 3. 各角色初始用户（幂等：已存在则只修正 role_id，不重复创建）
         _seed_user(
