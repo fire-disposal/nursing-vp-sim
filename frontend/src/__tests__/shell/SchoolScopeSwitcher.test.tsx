@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@/__tests__/render";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SchoolScopeSwitcher } from "@/components/shell/SchoolScopeSwitcher";
 import useAuthStore from "@/stores/authStore";
@@ -22,11 +23,20 @@ const SCHOOLS = [
 	{ id: 8, name: "另一院校", theme_color: null, has_logo: false, logo_updated_at: null },
 ];
 
-function renderSwitcher() {
+/** 把当前 search 打印出来，验证"切换院校会清掉与院校/班级相关的旧筛选"。 */
+function SearchProbe() {
+	const location = useLocation();
+	return <div data-testid="search">{location.search}</div>;
+}
+
+function renderSwitcher(initialEntry = "/admin/records") {
 	const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	return render(
 		<QueryClientProvider client={qc}>
-			<SchoolScopeSwitcher />
+			<MemoryRouter initialEntries={[initialEntry]}>
+				<SchoolScopeSwitcher />
+				<SearchProbe />
+			</MemoryRouter>
 		</QueryClientProvider>,
 	);
 }
@@ -68,6 +78,26 @@ describe("当前院校切换器", () => {
 				logoUpdatedAt: null,
 			}),
 		);
+	});
+
+	it("切换院校会清掉作用域外的旧筛选（class_id / school_id），避免切完就 404", async () => {
+		useAuthStore.setState({ permissions: ["school_manage"] });
+		renderSwitcher("/admin/records?class_id=3&school_id=9&review_status=pending");
+
+		const combo = await screen.findByRole("combobox", { name: "当前院校" });
+		await userEvent.click(combo);
+		const listbox = document.getElementById(combo.getAttribute("aria-controls") ?? "");
+		await userEvent.click(
+			within(listbox as HTMLElement).getByRole("option", { name: "杭州师范大学", hidden: true }),
+		);
+
+		await waitFor(() => {
+			const search = screen.getByTestId("search").textContent ?? "";
+			expect(search).not.toContain("class_id");
+			expect(search).not.toContain("school_id");
+			// 与院校无关的筛选（如待批阅）保留
+			expect(search).toContain("review_status=pending");
+		});
 	});
 
 	it("院校被删除后作用域退回全部院校，而不是指向不存在的院校", async () => {

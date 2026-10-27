@@ -1,6 +1,7 @@
 import { Select } from "@mantine/core";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import type { SchoolItem } from "@/api/admin/schools";
 import { useSchoolsQuery } from "@/hooks/useSchools";
 import useAuthStore from "@/stores/authStore";
@@ -47,6 +48,8 @@ export function SchoolScopeSwitcher({ width = 200 }: { width?: number | string }
 	const scoped = useSchoolScopeStore((s) => s.school);
 	const setSchool = useSchoolScopeStore((s) => s.setSchool);
 	const queryClient = useQueryClient();
+	const location = useLocation();
+	const navigate = useNavigate();
 
 	useEffect(() => {
 		if (!isPlatform || schools.length === 0 || !scoped) return;
@@ -87,6 +90,17 @@ export function SchoolScopeSwitcher({ width = 200 }: { width?: number | string }
 				if (!value) return;
 				const next = value === ALL_SCHOOLS ? null : schools.find((s) => String(s.id) === value);
 				setSchool(next ? toScoped(next) : null);
+				// 换语境 = 与院校/班级相关的筛选全部失效：留着旧 class_id/school_id 会让列表
+				// 直接撞 404（作用域外筛选在后端按越权处理），表现为"切换学校后列表打不开"。
+				const query = new URLSearchParams(location.search);
+				const stale = ["class_id", "cohort_label", "school_id"].filter((key) => query.has(key));
+				if (stale.length > 0) {
+					for (const key of stale) query.delete(key);
+					navigate(
+						{ pathname: location.pathname, search: query.toString() },
+						{ replace: true },
+					);
+				}
 				// 作用域换了：所有院校维度的缓存都不再成立，让活动查询整体重取一次
 				void queryClient.invalidateQueries();
 			}}
