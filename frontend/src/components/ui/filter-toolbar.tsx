@@ -1,4 +1,4 @@
-import { Button, Group, Paper, Text } from "@mantine/core";
+import { Button, Group, Text } from "@mantine/core";
 import { IconFilterOff } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 
@@ -29,9 +29,10 @@ export function FilterToolbar({
 	onClear,
 	compact,
 }: FilterToolbarProps) {
+	// 不再自己套 Paper：列表页的骨架（ListPage）已经给了"筛选条"这层，
+	// 组件再画一个边框就是三层盒子（页面 → 筛选条 → 卡）。需要外框的调用方自己包。
 	return (
-		<Paper withBorder p={compact ? "xs" : "sm"}>
-			<Group gap="sm" align="center" wrap="wrap">
+		<Group gap="sm" align="center" wrap="wrap" p={compact ? 0 : 2}>
 				{summary && (
 					<Text size="xs" c="dimmed" className="tabular-nums">
 						{summary}
@@ -61,8 +62,7 @@ export function FilterToolbar({
 						)}
 					</Group>
 				)}
-			</Group>
-		</Paper>
+		</Group>
 	);
 }
 

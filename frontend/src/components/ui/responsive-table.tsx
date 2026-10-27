@@ -93,8 +93,10 @@ export default function ResponsiveTable<T>({
 	}
 
 	if (rows.length === 0) {
+		// 空态不再套表格外壳：一个没有任何行的卡片边框，是页面上最大的一块"空盒子"，
+		// 视觉上比没有边框更糟（页面 → 筛选条 → 空表格 = 三层）。空态直接落在页面底色上。
 		return (
-			<DataTable<T> rows={rows} loading={loading} bare={bare} className={className} rowKey={rowKey} total={total} offset={offset} limit={limit} onOffsetChange={onOffsetChange} {...dataTableProps} />
+			<DataTable<T> rows={rows} loading={loading} bare rowKey={rowKey} total={total} offset={offset} limit={limit} onOffsetChange={onOffsetChange} {...dataTableProps} />
 		);
 	}
 

@@ -1,4 +1,4 @@
-import { Box, Paper } from "@mantine/core";
+import { Box } from "@mantine/core";
 import type { ReactNode } from "react";
 
 interface ListPageProps {
@@ -28,22 +28,22 @@ export default function ListPage({ header, toolbar, footer, children, padded = t
 	return (
 		<Box>
 			{header}
+			{/* 筛选条是一条"带"而不是一张"卡"：加边框会与下方表格/卡片形成第二层盒子，
+			    页面上立刻出现"框套框"。这里用发丝分隔线，滚动时靠不透明底色遮住穿过的内容。 */}
 			<Box
 				style={{
 					position: "sticky",
 					top: 0,
 					zIndex: 3,
-					// 吸顶时列表从它下面穿过：用画布底色遮住，而不是半透明（半透明会让文字重叠）
 					background: "var(--mantine-color-body)",
-					paddingBottom: 8,
+					borderBottom: "1px solid var(--mantine-color-default-border)",
+					padding: "4px 2px 10px",
 				}}
 			>
-				<Paper withBorder p="xs">
-					{toolbar}
-				</Paper>
+				{toolbar}
 			</Box>
 
-			<Box mt="sm" pb={footer ? 64 : 0} style={padded ? undefined : { marginTop: 8 }}>
+			<Box mt="xs" pb={footer ? 56 : 0} style={padded ? undefined : { marginTop: 8 }}>
 				{children}
 			</Box>
 

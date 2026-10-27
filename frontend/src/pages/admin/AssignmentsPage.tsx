@@ -446,6 +446,10 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 						<Select
 							value={statusFilter || null}
 							onChange={(v) => updateParam("status", v ?? "")}
+							// 空值项的 value 是 ""，Mantine 会把它当"未选择"→ 不显示任何文字，
+							// 于是筛选条上出现一个看不出是什么的空框。用 aria-label + placeholder 兜住。
+							placeholder="全部状态"
+							aria-label="作业状态筛选"
 							data={[
 								{ value: "", label: "全部状态" },
 								{ value: "active", label: "进行中" },
