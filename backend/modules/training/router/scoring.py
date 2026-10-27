@@ -202,7 +202,7 @@ async def end_training(
         # kind == "completed" 保证 finalize_training 返回了 case_data
         assert case_data is not None
         try:
-            await enqueue_scoring(request.app.state, record_id, case_data)
+            await enqueue_scoring(request.app.state, record_id, case_data, db=db)
         except QueueFullError:
             db.rollback()
             raise HTTPException(status_code=503, detail="评分队列繁忙，请稍后重试")
@@ -298,7 +298,7 @@ async def retry_scoring(
         case_data = training_record.case_snapshot or (case.case_data if case else {})
 
         try:
-            await enqueue_scoring(request.app.state, record_id, case_data)
+            await enqueue_scoring(request.app.state, record_id, case_data, db=db)
         except QueueFullError:
             db.rollback()
             release_scoring(record_id, db)

@@ -129,7 +129,7 @@ async def _end_by_patient_walkout(ctx: PipelineContext, app) -> None:
     try:
         # 入队边界只捕获标量（record_id/case_data）：闭包在 worker 阶段才执行，
         # 彼时 ctx.record 已随请求 session 脱离（DetachedInstanceError 回归）。
-        await enqueue_scoring(app, record_id, case_data)
+        await enqueue_scoring(app, record_id, case_data, db=ctx.db)
     except QueueFullError:
         # 响应已在流式输出中，无法回 503：残留的 pending 交给 settlement 的卡死评分清扫
         log.error("Patient walkout: scoring queue full: record_id=%d", record_id)
