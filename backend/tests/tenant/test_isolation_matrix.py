@@ -15,9 +15,10 @@ from core.exceptions import NotFoundError, ValidationError
 from core.roles import SYSTEM_PERMISSIONS
 from core.security import clear_permission_cache
 from core.tenant import platform_scope, resolve_scope
-from models import Class, ClassMembership, Role, RolePermission, School, User
+from models import Case, Class, ClassMembership, Role, RolePermission, School, TrainingRecord, User
 from modules.admin.class_memberships import upsert_members
 from modules.admin.classes import ClassService
+from modules.admin.exports import RecordService
 from modules.admin.stats import StatsService
 from modules.admin.users import UserFilters, UserService
 from modules.scoreboard.service import ScoreboardScope, ScoreboardService
@@ -190,6 +191,37 @@ def test_scoreboard_ranking_scoped(world):
     board = ScoreboardService(world["db"], world["scope_a"]).ranking(scope=ScoreboardScope())
     students = {item.display_name for item in board.items}
     assert "stu-b" not in students
+
+
+def test_export_does_not_leak_other_school(world):
+    """导出走的是与列表同一条收窄链路：串校一次就等于把别人的数据带走。"""
+    db = world["db"]
+    case = Case(name="甲病例", description="", difficulty=1, time_limit_minutes=30)
+    db.add(case)
+    db.flush()
+    for user in (world["stu_a"], world["stu_b"]):
+        db.add(
+            TrainingRecord(
+                user_id=user.id,
+                case_id=case.id,
+                status="completed",
+                start_time=NOW,
+            )
+        )
+    db.flush()
+
+    rows, _ = RecordService(db, world["scope_a"]).get_records_for_export()
+    assert {r.user_id for r in rows} == {world["stu_a"].id}
+
+    all_rows, _ = RecordService(db, world["scope_platform"]).get_records_for_export()
+    assert {r.user_id for r in all_rows} == {world["stu_a"].id, world["stu_b"].id}
+
+
+def test_user_export_list_is_scoped(world):
+    """`/api/admin/export` 与用户列表共用 `list_filtered` —— 同一处收窄，两处口径一致。"""
+    total, users = UserService(world["db"], world["scope_b"]).list_filtered(UserFilters(), offset=0, limit=50)
+    assert total == 2
+    assert {u.username for u in users} == {"admin-b", "stu-b"}
 
 
 def test_platform_scope_is_not_accidentally_used_by_scoped_services(world):
