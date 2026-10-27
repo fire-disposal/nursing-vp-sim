@@ -14,7 +14,9 @@ import { execFileSync } from "child_process";
 const args = process.argv.slice(2);
 const doPush = args.includes("--push");
 const force = args.includes("--force");
-const isCI = !!process.env.CI || !!process.env.GITHUB_ACTIONS;
+// 只认 GITHUB_ACTIONS：通用 `CI` 变量在本地 shell/容器里也常为真，一旦误判就会在
+// "本地发布"时把当前 HEAD rebase 到 origin/master —— 实测把刚做好的 merge 提交改写掉并撞冲突。
+const isCI = !!process.env.GITHUB_ACTIONS;
 const MAX_ATTEMPTS = 3;
 
 const bj = new Date(new Date().getTime() + 8 * 3600 * 1000);
@@ -66,18 +68,30 @@ function cleanTag(tag) {
 // Only when pushing: if origin/master has not changed since the newest tag,
 // a new tag would be redundant. 非代码类变更（配置/运维）需要发版时用 --force。
 if (doPush && !force) {
-  const allSorted = git("tag", "--sort=-creatordate", "-l", "v*")
+  const latestTag = git("tag", "--sort=-creatordate", "-l", "v*")
     .split("\n")
-    .filter(Boolean);
-  const latestTag = allSorted[0];
+    .filter(Boolean)[0];
   if (latestTag) {
     gitQuiet("fetch", "origin", "master");
+    let remoteSameAsTag = false;
     try {
       gitQuiet("diff", "--quiet", latestTag, "origin/master");
+      remoteSameAsTag = true;
+    } catch {
+      // diff exits non-zero — origin/master 已前进，正常打 tag
+    }
+    // 本地还有未推送提交时不能跳过：否则"merge 已就绪但远端未变"会打不出 tag
+    // （本次发布实测撞到过）。只有两边都追平才算冗余。
+    const headAhead = (() => {
+      try {
+        return git("rev-list", "--count", "origin/master..HEAD").trim() !== "0";
+      } catch {
+        return true;
+      }
+    })();
+    if (remoteSameAsTag && !headAhead) {
       console.log(`origin/master unchanged since ${latestTag} — skipping redundant tag`);
       process.exit(0);
-    } catch {
-      // diff exits non-zero — proceed
     }
   }
 }
