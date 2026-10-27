@@ -125,6 +125,22 @@ CI 失败，未通过时原样透出该审计的输出；**不带** `--notify`�
 bash deploy/backup-audit.sh yecaoyun
 ```
 
+### 账本判据的三条硬规（2026-10-27 修复后）
+
+1. **目录里每个产物都必须记账**。审计按 `dir + glob` 非递归比对账本里的 `artifact`，未记账即治理级
+   失败。所以任何绕过 `cli.py` 直接产备份文件的脚本，都必须在落盘后自己 `emit` 一条
+   `op=backup` 事件——`/srv/carehaven/deploy.sh` 就是因为漏了这一步，从 2026-10-15 起让 CI 连红
+   12 次（3 个 10-15 的 zip 不在账本里）。
+2. **`op=verify` 不是备份**。校验事件只说明"最近产物还能过 `unzip -t`"，不刷新新鲜度，也不参与
+   异地腿比较。此前 verify 被记成 `kind=run`，导致 twinsia-db 每周一 08:00 被误报"备份比推送新 3.8h"。
+3. **异地推送带 3 次重试**（20s/40s 退避）。此前单次尝试，一次 `Broken pipe` 或树莓派短暂离线
+   （`ECONNREFUSED 127.0.0.1:6022`，Pi 的 frpc 未注册端口）就会留下永久缺口：
+   10-26 nursing-db、10-22 twinsia-predeploy 都是这么来的。补推用
+   `python3 backup/cli.py offsite <dataset>`，缺口看 `offsite-report`。
+
+宿主脚本（`/opt/server-ops/backup/cli.py`、`/srv/carehaven/deploy.sh`）**不在版本控制里**：
+本次修改前留了 `*.bak-20261027` 同目录备份，重建宿主时需按上面三条重做，或先把这两个文件纳入仓。
+
 ## 手动恢复
 
 ```bash
