@@ -1,6 +1,7 @@
 import { ActionIcon, Box, Button, Group, Select, Stack, Text } from "@mantine/core";
 import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { useMemo } from "react";
+import { useClassGroupLabel } from "@/hooks/useClasses";
 import type { ClassItem, MemberRole } from "@/types/store";
 import type { MembershipDraft } from "./types";
 
@@ -32,6 +33,7 @@ export default function MembershipEditor({
 	// 已被**其他行**占用的班级在本行禁用，避免同一班级重复提交（后端会拒绝重复）。
 	// 分组必须用 Mantine 的 `{ group, items }` 形状：平铺选项上的 `group` 键会被
 	// `getParsedComboboxData` 当作分组容器去读 `item.items.map`，整页随之崩掉。
+	const classGroupLabel = useClassGroupLabel();
 	const options = useMemo(
 		() =>
 			value.map((_row, index) => {
@@ -43,7 +45,7 @@ export default function MembershipEditor({
 				);
 				const groups = new Map<string, { value: string; label: string; disabled: boolean }[]>();
 				for (const c of classes) {
-					const group = c.cohort_label || "未标注届别";
+					const group = classGroupLabel(c);
 					const items = groups.get(group) ?? [];
 					items.push({
 						value: String(c.id),
@@ -54,7 +56,7 @@ export default function MembershipEditor({
 				}
 				return [...groups].map(([group, items]) => ({ group, items }));
 			}),
-		[classes, value],
+		[classes, value, classGroupLabel],
 	);
 
 	const patch = (index: number, next: Partial<MembershipDraft>) => {

@@ -286,8 +286,6 @@ class UserService:
         user = self.get_with_relations(user_id)
         if not user:
             raise NotFoundError("用户不存在")
-        # 院校归属不在此端点可变（`UserUpdateRequest` 没有该字段）：只在创建时由
-        # `_target_school` 定，避免院校管理员借着编辑把人搬出本校。
         before_role = user.role.name if user.role else None
         before_active = user.is_active
         audit_events: list[tuple[str, dict]] = []
@@ -307,6 +305,10 @@ class UserService:
                 self._assert_role_within_scope(current_user, role_obj, action="授予角色")
                 user.role_id = role_obj.id
                 audit_events.append((ACTION_USER_UPDATED, {"role": {"before": before_role, "after": role_obj.name}}))
+            # 院校归属（单位）可在编辑时调整：放在角色变更之后，守卫看的是**改后**的角色
+            # （把账号提为平台角色后再挂院校，会静默丢掉跨院校作用域）
+            if req.school_id is not None and req.school_id != user.school_id:
+                self._change_school(user, req.school_id, audit_events)
             if req.password is not None and req.password:
                 if len(req.password) < 6:
                     raise ValidationError("密码长度不能少于6位")
@@ -375,6 +377,30 @@ class UserService:
         foreign = sorted(cid for cid, school_id in class_schools.items() if school_id != user.school_id)
         if foreign:
             raise ValidationError(f"班级 {foreign} 不属于该账号所属院校")
+
+    def _change_school(self, user: User, school_id: int, audit_events: list[tuple[str, dict]]) -> None:
+        """调整账号的院校归属（编辑用户的唯一写入点）。
+
+        三条规则只在这里判：
+        - 平台超级管理员不属于任何院校 → 拒绝设置（否则会静默丢掉跨院校作用域，超管自锁）；
+        - 院校管理员只能提交本校（`writable_school_id` 越界 = 404），不能借编辑把人搬走；
+        - 单校不变量：账号还在别的院校的班级里时拒绝，先解除那些班级归属（不静默删归属）。
+        """
+        if user.role is not None and user.role.name == _SUPER_ADMIN_ROLE:
+            raise ValidationError("平台超级管理员不属于任何院校，不能设置院校归属")
+        target = writable_school_id(self.scope, school_id)
+        if self.db.get(School, target) is None:
+            raise ValidationError("院校不存在")
+        class_ids = [m.class_id for m in user.memberships if m.class_id is not None]
+        if class_ids:
+            foreign = sorted(
+                cid for (cid,) in self.db.query(Class.id).filter(Class.id.in_(class_ids), Class.school_id != target)
+            )
+            if foreign:
+                raise ValidationError(f"该账号仍属于其他院校的班级 {foreign}，请先解除这些班级归属")
+        before = user.school_id
+        user.school_id = target
+        audit_events.append((ACTION_USER_UPDATED, {"school_id": {"before": before, "after": target}}))
 
     def _replace_memberships(self, user: User, desired_items: list[UserMembershipUpdate]) -> None:
         desired: dict[int, str] = {}

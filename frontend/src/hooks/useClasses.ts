@@ -12,6 +12,8 @@ import {
 	updateClass,
 } from "@/api";
 import { queryKeys } from "@/api/query-keys";
+import { useActiveSchoolBrand } from "@/hooks/useActiveSchoolBrand";
+import type { ClassItem } from "@/types/store";
 import { useApiMutation } from "./useApiMutation";
 
 /**
@@ -36,6 +38,42 @@ export function useCohortLabels() {
 		(a, b) => a.localeCompare(b, "zh-CN"),
 	);
 	return { labels, ...rest };
+}
+
+/**
+ * 班级选项文案（**唯一实现**：筛选、作业、班级归属、成员编辑器共用）。
+ *
+ * 平台角色在「全部院校」视角下会同时看到多所院校的班级：只显示「届别 + 名称」时分不清
+ * 同名的两所学校同名班级。院校前缀只在**跨院校可见时**出现（收窄到本校后是噪音），
+ * 与列表里「院校列」的显隐规则同一口径（`useActiveSchoolBrand`）。
+ */
+export function useClassLabel() {
+	const withSchool = useCrossSchoolLabels();
+	return (item: ClassItem, options: { withCohort?: boolean } = {}) => {
+		const withCohort = options.withCohort ?? true;
+		return [
+			withSchool ? item.school_name : null,
+			withCohort ? item.cohort_label : null,
+			item.name,
+		]
+			.filter(Boolean)
+			.join(" ");
+	};
+}
+
+/** 班级分组的文案（成员编辑器按届别分组时用）：跨院校可见时把院校并进分组名。 */
+export function useClassGroupLabel() {
+	const withSchool = useCrossSchoolLabels();
+	return (item: ClassItem) =>
+		[withSchool ? item.school_name : null, item.cohort_label || "未标注届别"]
+			.filter(Boolean)
+			.join(" · ");
+}
+
+/** 是否需要带院校前缀：平台角色 + 未收窄到某一所（与列表「院校列」同一显隐口径）。 */
+function useCrossSchoolLabels(): boolean {
+	const { isPlatform, school } = useActiveSchoolBrand();
+	return isPlatform && !school;
 }
 
 export function useClassDetailQuery(classId: number | string | undefined) {
@@ -72,7 +110,7 @@ const classKeys = () => [queryKeys.classes.all, queryKeys.admin.users.all];
 
 export function useCreateClass() {
 	return useApiMutation({
-		mutationFn: (body: { name: string; cohort_label: string }) =>
+		mutationFn: (body: { name: string; cohort_label: string; school_id?: number }) =>
 			createClass(body).then((r) => r.data),
 		invalidateKeys: classKeys(),
 		successMsg: "班级已创建",
@@ -86,7 +124,7 @@ export function useUpdateClass() {
 			body,
 		}: {
 			id: number;
-			body: { name?: string; cohort_label?: string };
+			body: { name?: string; cohort_label?: string; school_id?: number };
 		}) => updateClass(id, body).then((r) => r.data),
 		invalidateKeys: classKeys(),
 		successMsg: "班级已更新",

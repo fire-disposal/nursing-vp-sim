@@ -21,11 +21,13 @@ import EmptyState from "@/components/ui/empty-state";
 import ErrorState from "@/components/ui/error-state";
 import { SearchInput } from "@/components/ui/search-input";
 import Pagination from "@/components/ui/pagination";
-import { useClassesQuery } from "@/hooks/useClasses";
+import { useClassLabel, useClassesQuery } from "@/hooks/useClasses";
 import { useSchoolsQuery } from "@/hooks/useSchools";
 import useAuthStore from "@/stores/authStore";
+import { useSchoolScopeStore } from "@/stores/schoolScopeStore";
 import { useListFilters } from "@/hooks/useListFilters";
 import type { UserListParams } from "@/api/query-params";
+import { getApiErrorMessage } from "@/utils/error";
 import BatchImport from "./users/BatchImport";
 import type {
 	BatchUser,
@@ -64,12 +66,6 @@ function toMembershipUpdates(
 		items.push({ class_id: classId, member_role: draft.member_role });
 	}
 	return items;
-}
-
-function classLabel(classId: string, classes: Schemas["ClassResponse"][]): string {
-	const found = classes.find((c) => String(c.id) === classId);
-	if (!found) return classId;
-	return found.cohort_label ? `${found.cohort_label} ${found.name}` : found.name;
 }
 
 interface UsersTabProps {
@@ -126,13 +122,28 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	const queryClient = useQueryClient();
 	const userFormDirtyRef = useRef(false);
 	const { data: classes = [] } = useClassesQuery();
+	// 班级选项文案的唯一实现（跨院校可见时带院校前缀）
+	const formatClass = useClassLabel();
+	const labelForClassId = (classId: string) => {
+		const found = classes.find((c) => String(c.id) === classId);
+		return found ? formatClass(found) : classId;
+	};
+
+	// 平台角色已把工作视图收窄到某一所院校时：逐列表的院校筛选是同一件事的第二种表达 → 隐藏，
+	// 且**请求里也不许再带 school_id** —— 作用域 A + 筛选 B 会被后端判越权（404），
+	// 页面表现为"列表加载失败"，URL 里残留的旧筛选就成了一个自相矛盾的状态。
+	const scopedSchool = useSchoolScopeStore((s) => s.school);
+	const listParams = scopedSchool ? { ...list.params, school_id: undefined } : list.params;
+	const listExportParams = scopedSchool
+		? { ...list.exportParams, school_id: undefined }
+		: list.exportParams;
 
 	const {
 		data: userData,
 		isLoading,
 		isError: usersFailed,
 		refetch: refetchUsers,
-	} = useUserList(list.offset, list.params);
+	} = useUserList(list.offset, listParams);
 	const { data: roles = [], isError: rolesFailed } = useRolesQuery();
 	// 院校维度只对平台角色有意义：院校管理员本来就只看本校，多一个下拉只是噪音。
 	// 用 `school_manage` 判，而不是 `school_id == null` —— 权限是服务端权威口径，
@@ -140,7 +151,6 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	const permissions = useAuthStore((s) => s.permissions);
 	const isPlatform = permissions.includes("school_manage");
 	const { data: schools = [] } = useSchoolsQuery({ enabled: isPlatform });
-
 	const registerMutation = useRegisterMutation();
 	const updateMutation = useUpdateUserMutation();
 	const deleteMutation = useDeleteUserMutation();
@@ -170,7 +180,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 
 	const handleAddConfirm = async () => {
 		if (!addDialog.classId) return;
-		const label = classLabel(addDialog.classId, classes);
+		const label = labelForClassId(addDialog.classId);
 		const roleLabel = addDialog.memberRole === "teacher" ? "教师" : "学生";
 		const ok = await confirm({
 			title: "添加到班级",
@@ -205,7 +215,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 
 	const handleRemoveConfirm = async () => {
 		if (!removeDialog.classId) return;
-		const label = classLabel(removeDialog.classId, classes);
+		const label = labelForClassId(removeDialog.classId);
 		const ok = await confirm({
 			title: "从班级移除",
 			message: `将选中的 ${selectedIds.size} 名用户从「${label}」移除？\n\n他们在其他班级的归属不受影响。`,
@@ -296,6 +306,8 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 			display_name: form.display_name,
 			student_id: form.student_id || null,
 		};
+		// 单位只由平台角色选：院校管理员的账号一律落本校，不需要（也不该）在请求里指定
+		if (isPlatform) payload.school_id = form.school_id ? Number(form.school_id) : null;
 		registerMutation.mutate(
 			{ payload, memberships: toMembershipUpdates(form.memberships) },
 			{
@@ -304,8 +316,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 					closeUserForm();
 				},
 				onError: (err: unknown) => {
-					const e = err as { response?: { data?: { detail?: string } } };
-					setRegMsg(e.response?.data?.detail || "注册失败");
+					setRegMsg(getApiErrorMessage(err, "注册失败"));
 				},
 			},
 		);
@@ -319,6 +330,8 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 		payload.student_id = form.student_id || null;
 		if (form.role) payload.role = form.role;
 		if (form.password) payload.password = form.password;
+		// 省略 = 不修改院校；平台账号（空单位）同样发送空 → 省略，避免把账号从院校里摘出去
+		if (isPlatform && form.school_id) payload.school_id = Number(form.school_id);
 		updateMutation.mutate(
 			{ id: editingUser!.id, data: payload },
 			{
@@ -327,8 +340,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 					closeUserForm();
 				},
 				onError: (err: unknown) => {
-					const e = err as { response?: { data?: { detail?: string } } };
-					setEditUserMsg(e.response?.data?.detail || "保存失败");
+					setEditUserMsg(getApiErrorMessage(err, "保存失败"));
 				},
 			},
 		);
@@ -410,7 +422,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 						icon={IconUsers}
 						actions={
 							<Group gap={8}>
-								<ExportButton endpoint="/admin/export" filename="用户列表" params={list.exportParams} />
+								<ExportButton endpoint="/admin/export" filename="用户列表" params={listExportParams} />
 								<Button variant="default" leftSection={<IconUpload size={16} />} onClick={() => setShowBatchImport(true)}>
 									批量导入
 								</Button>
@@ -439,7 +451,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 					}
 					filters={
 						<>
-							{isPlatform && schools.length > 0 && (
+							{isPlatform && !scopedSchool && schools.length > 0 && (
 								<Select
 									value={list.values.school_id ? String(list.values.school_id) : null}
 									onChange={(v) => list.setFilter("school_id", v ? Number(v) : undefined)}
@@ -533,6 +545,8 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				roles={roles}
 				rolesFailed={rolesFailed}
 				classes={classes}
+				schools={schools}
+				isPlatform={isPlatform}
 				onClose={closeUserForm}
 				onSaveRegister={handleSaveRegister}
 				onSaveEdit={handleSaveEdit}
@@ -549,6 +563,8 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				roles={roles}
 				rolesFailed={rolesFailed}
 				classes={classes}
+				schools={schools}
+				isPlatform={isPlatform}
 				onClose={closeUserForm}
 				onSaveRegister={handleSaveRegister}
 				onSaveEdit={handleSaveEdit}
@@ -634,7 +650,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 							onChange={(v) => setAddDialog((d) => ({ ...d, classId: v ?? "" }))}
 							data={classes.map((c) => ({
 								value: String(c.id),
-								label: c.cohort_label ? `${c.cohort_label} ${c.name}` : c.name,
+								label: formatClass(c),
 							}))}
 							placeholder="选择班级…"
 							searchable
@@ -689,7 +705,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 							onChange={(v) => setRemoveDialog((d) => ({ ...d, classId: v ?? "" }))}
 							data={classes.map((c) => ({
 								value: String(c.id),
-								label: c.cohort_label ? `${c.cohort_label} ${c.name}` : c.name,
+								label: formatClass(c),
 							}))}
 							placeholder="选择班级…"
 							searchable

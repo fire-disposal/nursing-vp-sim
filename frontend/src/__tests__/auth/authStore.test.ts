@@ -79,6 +79,8 @@ describe("authStore", () => {
 			memberships: [],
 			// 登录成功即启用态（后端在鉴权层拒绝停用账号登录，见 auth.service）
 			is_active: true,
+			// 登录响应不含院校品牌字段：占位 false，/auth/me 补齐
+			school_has_logo: false,
 		});
 		const persisted = JSON.parse(
 			localStorage.getItem("nursing-auth") || "{}",

@@ -12,12 +12,14 @@ import {
   registerUserSchema,
 } from "@/schemas/user";
 import type { ClassItem } from "@/types/store";
+import { useSchoolScopeStore } from "@/stores/schoolScopeStore";
 import { useConfirm } from "@/components/ui/confirm";
 import MembershipEditor from "./MembershipEditor";
 import type {
   EditUserFormValues,
   MembershipDraft,
   RoleOption,
+  SchoolOption,
   UserBrief,
   UserFormValues,
 } from "./types";
@@ -30,6 +32,10 @@ interface UserFormProps {
   rolesFailed?: boolean;
   /** 全部班级（含 cohort_label），用于归属选择。 */
   classes: ClassItem[];
+  /** 可选的院校（单位）。只有平台角色能跨院校选；院校管理员由服务端强制本校。 */
+  schools: SchoolOption[];
+  /** 当前操作者是否平台角色（`school_manage`）：决定「单位」是否可选。 */
+  isPlatform: boolean;
   onClose: () => void;
   onSaveRegister: (values: UserFormValues) => void;
   onSaveEdit: (values: EditUserFormValues) => void;
@@ -39,6 +45,9 @@ interface UserFormProps {
   isSaving: boolean;
   dirtyRef?: React.MutableRefObject<boolean>;
 }
+
+/** 平台角色的名字：它们不属于任何院校，表单里不选单位。 */
+const PLATFORM_ROLE = "super_admin";
 
 /** 空角色列表的诚实占位：失败就说失败，别永远停在「加载中」。 */
 const rolesPlaceholder = (roles: RoleOption[], failed?: boolean) =>
@@ -63,6 +72,8 @@ export default function UserForm({
   roles,
   rolesFailed,
   classes,
+  schools,
+  isPlatform,
   onClose,
   onSaveRegister,
   onSaveEdit,
@@ -73,6 +84,10 @@ export default function UserForm({
   dirtyRef,
 }: UserFormProps) {
   const isEdit = user !== null;
+  // 单位下拉的数据形式只需要 id/name：调用方传院校列表，这里只做一次形状转换
+  const schoolOptions = schools.map((s) => ({ value: String(s.id), label: s.name }));
+  // 平台角色已收窄到某一所院校时，新建账号默认落在该校（表单里锁住，避免两个答案）
+  const scopedSchool = useSchoolScopeStore((s) => s.school);
 
   const regForm = useForm<RegisterUserValues>({
     initialValues: {
@@ -81,9 +96,17 @@ export default function UserForm({
       role: "student",
       display_name: "",
       student_id: "",
+      school_id: "",
       memberships: [],
     },
-    validate: schemaResolver(registerUserSchema),
+    validate: async (values) => {
+      const errors = await schemaResolver(registerUserSchema)(values);
+      // 平台角色建学生/教师必须选单位：服务端没有「默认院校」，缺了就 404「需要指定院校」
+      if (isPlatform && values.role !== PLATFORM_ROLE && !values.school_id) {
+        errors.school_id = "请选择所属院校";
+      }
+      return errors;
+    },
   });
 
   const editForm = useForm<EditUserValues>({
@@ -92,6 +115,7 @@ export default function UserForm({
       student_id: "",
       role: "",
       password: "",
+      school_id: "",
       memberships: [],
     },
     validate: schemaResolver(editUserSchema),
@@ -115,6 +139,7 @@ export default function UserForm({
         student_id: user.student_id || "",
         role: user.role,
         password: "",
+        school_id: user.school_id != null ? String(user.school_id) : "",
         memberships: toDrafts(user),
       });
       editForm.resetDirty();
@@ -125,11 +150,34 @@ export default function UserForm({
         role: "student",
         display_name: "",
         student_id: "",
+        school_id: isPlatform && scopedSchool ? String(scopedSchool.id) : "",
         memberships: [],
       });
       regForm.resetDirty();
     }
-  }, [open, user]);
+  }, [open, user, isPlatform, scopedSchool]);
+
+  // 平台角色不属于任何院校：切成 super_admin 时把已选单位清空，避免提交出「超管 + 院校」
+  useEffect(() => {
+    if (regForm.values.role === PLATFORM_ROLE && regForm.values.school_id) {
+      regForm.setFieldValue("school_id", "");
+    }
+    if (editForm.values.role === PLATFORM_ROLE && editForm.values.school_id) {
+      editForm.setFieldValue("school_id", "");
+    }
+  }, [regForm.values.role, regForm.values.school_id, editForm.values.role, editForm.values.school_id]);
+
+  // 选了班级就以班级所在院校为准（服务端注册同样是「班级优先」）：表单里不能同时存在
+  // 两个互相矛盾的答案，否则账号会落进和学生所选院校不同的院校。
+  const regClassSchoolId =
+    isPlatform && regForm.values.role !== PLATFORM_ROLE
+      ? classes.find((c) => String(c.id) === regForm.values.memberships[0]?.class_id)?.school_id
+      : undefined;
+  useEffect(() => {
+    if (regClassSchoolId == null) return;
+    const next = String(regClassSchoolId);
+    if (regForm.values.school_id !== next) regForm.setFieldValue("school_id", next);
+  }, [regClassSchoolId, regForm]);
 
   const onRegisterSubmit = (values: RegisterUserValues) => {
     onSaveRegister(values as UserFormValues);
@@ -193,6 +241,25 @@ export default function UserForm({
                 placeholder={rolesPlaceholder(roles, rolesFailed)}
                 allowDeselect={false}
               />
+              {isPlatform && (
+                <Select
+                  label="院校"
+                  {...editForm.getInputProps("school_id")}
+                  data={schoolOptions}
+                  placeholder={editForm.values.role === PLATFORM_ROLE ? "平台账号（不属于任何院校）" : "选择所属院校"}
+                  // 平台角色不属于任何院校；院校管理员没有这个下拉（服务端强制本校）；
+                  // 已收窄到某校时跨校搬迁需要先切到「全部院校」，否则只会得到 404
+                  disabled={
+                    isSaving || editForm.values.role === PLATFORM_ROLE || scopedSchool !== null
+                  }
+                  description={
+                    scopedSchool !== null && editForm.values.role !== PLATFORM_ROLE
+                      ? "跟随当前院校；如需跨院校调整，先切到「全部院校」"
+                      : undefined
+                  }
+                  allowDeselect={false}
+                />
+              )}
               <MembershipEditor
                 value={editForm.values.memberships}
                 onChange={(memberships) => editForm.setFieldValue("memberships", memberships)}
@@ -283,6 +350,32 @@ export default function UserForm({
               <Box flex={1} miw={100}>
                 <TextInput label="学号" {...regForm.getInputProps("student_id")} />
               </Box>
+              {isPlatform && (
+                <Box flex={1} miw={140}>
+                  <Select
+                    label="院校"
+                    withAsterisk={regForm.values.role !== PLATFORM_ROLE}
+                    {...regForm.getInputProps("school_id")}
+                    data={schoolOptions}
+                    placeholder={regForm.values.role === PLATFORM_ROLE ? "平台账号" : "选择所属院校"}
+                    // 选了班级（班级决定院校）或已收窄到某校时，这里不再让人另选一个答案
+                    disabled={
+                      isSaving ||
+                      regForm.values.role === PLATFORM_ROLE ||
+                      regClassSchoolId != null ||
+                      scopedSchool !== null
+                    }
+                    description={
+                      regClassSchoolId != null
+                        ? "由所选班级决定"
+                        : scopedSchool !== null && regForm.values.role !== PLATFORM_ROLE
+                          ? "跟随当前院校"
+                          : undefined
+                    }
+                    allowDeselect={false}
+                  />
+                </Box>
+              )}
             </Group>
             <MembershipEditor
               value={regForm.values.memberships}

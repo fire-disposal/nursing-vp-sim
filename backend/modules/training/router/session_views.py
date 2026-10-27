@@ -14,12 +14,13 @@ from core.exceptions import AuthError, NotFoundError
 from core.pagination import paginate
 from core.security import get_current_user
 from core.statuses import ScoringStatus, TrainingMode, TrainingStatus, normalize_training_mode
-from core.tenant import Scope, TenantScope, require_school, visible_class
+from core.tenant import Scope, TenantScope, require_school, school_name_map, visible_class
 from models import (
     MEMBER_ROLE_STUDENT,
     Assignment,
     Case,
     CaseRevision,
+    Class,
     ClassMembership,
     Score,
     ScoreReview,
@@ -328,9 +329,12 @@ def get_records(
     # 查询裁剪：列表只需少量字段，避免整行 case_data/Score JSONB 灌入内存
     query = base.options(
         joinedload(TrainingRecord.case).load_only(Case.id, Case.name),
-        joinedload(TrainingRecord.user).load_only(User.id, User.display_name, User.student_id),
+        joinedload(TrainingRecord.user).load_only(User.id, User.display_name, User.student_id, User.school_id),
         joinedload(TrainingRecord.score).load_only(Score.id, Score.total_score, Score.reviewed_total),
-        joinedload(TrainingRecord.assignment).load_only(Assignment.id, Assignment.title),
+        joinedload(TrainingRecord.assignment)
+        .load_only(Assignment.id, Assignment.title)
+        .joinedload(Assignment.class_)
+        .load_only(Class.id, Class.school_id),
     )
 
     # 服务端排序（教师页按分数/时长排序需全局正确，不能只排当前页）
@@ -348,6 +352,14 @@ def get_records(
             row[0] for row in db.query(ScoreReview.score_id).filter(ScoreReview.score_id.in_(score_ids)).all()
         }
 
+    # 院校归属：学生账号的院校优先；平台角色试跑的记录没有院校，回退到作业班级的院校
+    school_of = {
+        r.id: (r.user.school_id if r.user else None)
+        or (r.assignment.class_.school_id if r.assignment and r.assignment.class_ else None)
+        for r in records
+    }
+    school_names = school_name_map(db, school_of.values())
+
     items = [
         TrainingRecordBrief(
             id=r.id,
@@ -356,6 +368,8 @@ def get_records(
             user_id=r.user_id,
             user_display_name=r.user.display_name if r.user else "",
             user_student_id=r.user.student_id if r.user else None,
+            school_id=school_of.get(r.id),
+            school_name=school_names.get(school_of.get(r.id) or 0),
             score_reviewed=bool(r.score and r.score.id in reviewed_map),
             status=r.status,
             start_time=r.start_time,

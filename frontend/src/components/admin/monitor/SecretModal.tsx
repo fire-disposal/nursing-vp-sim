@@ -1,4 +1,4 @@
-import { ActionIcon, Button, Group, Modal, Stack } from "@mantine/core";
+import { ActionIcon, Button, Group, Modal, SimpleGrid, Stack, Text } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
 import { IconEye, IconEyeOff } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
@@ -34,6 +34,8 @@ export default function SecretModal({
 			baseUrl: "https://api.deepseek.com",
 			rawKey: "",
 			monthlyLimit: null,
+			priceInput: 0.5,
+			priceOutput: 0.5,
 			priority: 0,
 			modelOverride: null,
 		},
@@ -47,6 +49,8 @@ export default function SecretModal({
 				baseUrl: secret?.base_url || "https://api.deepseek.com",
 				rawKey: "",
 				monthlyLimit: secret?.monthly_cost_limit ?? null,
+				priceInput: secret?.price_input_per_1m ?? 0.5,
+				priceOutput: secret?.price_output_per_1m ?? 0.5,
 				priority: secret?.priority ?? 0,
 				modelOverride: secret?.model_override ?? null,
 			});
@@ -63,6 +67,8 @@ export default function SecretModal({
 		try {
 			const common = {
 				monthly_cost_limit: values.monthlyLimit,
+				price_input_per_1m: values.priceInput,
+				price_output_per_1m: values.priceOutput,
 				priority: values.priority,
 				model_override: values.modelOverride ?? undefined,
 			};
@@ -78,9 +84,6 @@ export default function SecretModal({
 					label: values.label.trim(),
 					raw_key: values.rawKey?.trim() ?? "",
 					base_url: values.baseUrl?.trim() || "https://api.deepseek.com",
-					// 与后端默认一致（price 默认 0.5），仅将隐式默认显式化
-					price_input_per_1m: 0.5,
-					price_output_per_1m: 0.5,
 					...common,
 				});
 				success("密钥已创建");
@@ -161,6 +164,33 @@ export default function SecretModal({
 								)
 							}
 						/>
+						<SimpleGrid cols={2} spacing="sm">
+							<TextInput
+								label="输入价格 (¥ / 1M tokens)"
+								type="number"
+								step="0.01"
+								min="0"
+								{...form.getInputProps("priceInput")}
+								value={form.values.priceInput}
+								onChange={(e) =>
+									form.setFieldValue("priceInput", e.currentTarget.valueAsNumber || 0)
+								}
+							/>
+							<TextInput
+								label="输出价格 (¥ / 1M tokens)"
+								type="number"
+								step="0.01"
+								min="0"
+								{...form.getInputProps("priceOutput")}
+								value={form.values.priceOutput}
+								onChange={(e) =>
+									form.setFieldValue("priceOutput", e.currentTarget.valueAsNumber || 0)
+								}
+							/>
+						</SimpleGrid>
+						<Text size="xs" c="dimmed" mt={-8}>
+							成本统计按这两个单价折算；不同供应商/模型定价不同，别沿用默认值
+						</Text>
 						<TextInput
 							label="优先级 (数字越大越优先)" withAsterisk
 							type="number"

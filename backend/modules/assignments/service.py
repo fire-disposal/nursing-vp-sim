@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 from core.exceptions import AuthError, NotFoundError, ValidationError
 from core.pagination import paginate
 from core.statuses import ScoringStatus, TrainingStatus
-from core.tenant import TenantScope, require_school, scope_query, visible_class
+from core.tenant import TenantScope, require_school, school_name_map, scope_query, visible_class
 from core.unit_of_work import unit_of_work
 from models import (
     AUDIENCE_CLASS,
@@ -64,6 +64,9 @@ class AssignmentListView:
     is_closed: bool = False
     max_attempts: int | None = None
     audience_mode: str = AUDIENCE_CLASS
+    #: 院校归属（作业班级的院校）：平台角色「全部院校」视图下逐行认院校
+    school_id: int | None = None
+    school_name: str | None = None
 
 
 @dataclass
@@ -439,12 +442,17 @@ class AssignmentService:
             visible_class(self.db, self.scope, class_id)
         rows, total = self.list_with_counts(teacher_id, class_id, status, datetime.now(UTC), offset, limit)
 
+        school_of = {r[0].id: (r[0].class_.school_id if r[0].class_ else None) for r in rows}
+        school_names = school_name_map(self.db, school_of.values())
+
         items = [
             AssignmentListView(
                 id=r[0].id,
                 title=r[0].title,
                 case_name=r[0].case.name if r[0].case else "",
                 class_name=r[0].class_.name if r[0].class_ else "",
+                school_id=school_of.get(r[0].id),
+                school_name=school_names.get(school_of.get(r[0].id) or 0),
                 teacher_name=r[0].teacher.display_name if r[0].teacher else "",
                 start_time=r[0].start_time,
                 end_time=r[0].end_time,

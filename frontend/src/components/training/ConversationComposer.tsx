@@ -119,6 +119,9 @@ export function ConversationComposer({
 					? IDLE_TURN_TEXT
 					: "";
 	const voiceHint = voice.notice ?? (duplex ? turnHint : holdHint);
+	// 学生回合的那句话由顶部提示单独承担：状态行再写一遍就是同一状态两种说法（页面上出现两处
+	// 「该你说话了」）。状态行只补充语音特有信息（打断/正在听你说/患者在说/在想/故障说明）。
+	const showVoiceHint = !!voiceHint && !(duplex && !voice.notice && turn === "say" && !capturing);
 
 	// notice 全部产生于失败/回退路径（不支持、识别失败、启动失败、发送失败），此时 phase 恰好是
 	// idle —— 旧条件 `phase !== "idle"` 让这些提示永远不渲染，语音故障被静默吞掉。
@@ -317,9 +320,11 @@ export function ConversationComposer({
 								</Badge>
 							))}
 						</Group>
-						<Text size="xs" c={voice.notice ? "red" : turnColor} truncate>
-							{voiceHint}
-						</Text>
+						{showVoiceHint && (
+							<Text size="xs" c={voice.notice ? "red" : turnColor} truncate>
+								{voiceHint}
+							</Text>
+						)}
 					</Group>
 				</Box>
 			) : null}

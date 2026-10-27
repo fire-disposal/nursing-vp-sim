@@ -27,7 +27,33 @@
 1. 取目标行用 `visible_class(db, scope, class_id)` / 显式 `require_school(...)`，不要自己 `db.get`。
 2. 新行的院校归属用 `writable_school_id(scope, requested)`：院校管理员强制本校，
    平台角色必须显式给出。**不要**允许把 `users.school_id` 改成 NULL（那是平台角色专属）。
+   - 编辑用户（`PUT /admin/users/{id}` 的 `school_id`，唯一写入点是 `UserService._change_school`）
+     同一口径：院校管理员只能提交本校（跨校 = 404）；`super_admin` 不能被挂院校（否则静默丢掉
+     跨院校作用域）；账号仍在原院校的班级里时拒绝搬迁，先解除那些班级归属。
 3. 单校不变量：一个用户的班级成员必须全在其院校。跨校加入 → `ValidationError`（本仓映射 400）。
+
+## 平台角色的「当前院校」（`X-School-Scope`）
+
+平台角色（`school_manage`）可以在壳顶栏把**工作视图**收窄到某一所院校。实现只有一处：
+前端 axios 拦截器带 `X-School-Scope: <school_id>`，后端 `core/tenant.py::get_tenant_scope`
+经 `apply_school_scope` 收窄 `TenantScope`。
+
+- **只收窄、不放宽**：院校角色的 `scope.school_id` 非空 → 头一律忽略；非法值（非整数/非正）
+  视为未指定，退回全部院校。
+- 头只影响**读**（所有经 `Scope` 依赖收窄的查询）；写端点仍按各自规则（`writable_school_id` /
+  `visible_class`）判定，创建表单的院校默认跟随作用域、并在收窄时锁住选择。
+- 前端把作用域快照（名称/主题色/院徽版本）持久化在 `school-scope`（localStorage），
+  退出登录即清空 —— 换账号不能带走上一个平台的视图偏好。
+
+## 院校品牌（可选，不影响隔离）
+
+- `schools.theme_color`：主题色调色板键（闭集见 `frontend/src/theme/school-palettes.ts`），
+  空 = 平台默认品牌色。**不存任意 hex**：品牌色会当主色用在填充按钮上，任意色无法保证对比度。
+- `schools.logo` / `logo_mime` / `logo_updated_at`：院徽字节入库（与场景图片同构，不读文件系统），
+  上传入口先归一（剥元数据、长边 512、WebP，原始上传 ≤2MB）。
+- 院徽读取是**公开端点** `GET /api/schools/{id}/logo`（`<img>` 带不了 Authorization；
+  院徽本身就是对外标识）。URL 带 `?v=<logo_updated_at>` 做缓存版本号。
+- 品牌只影响观感：主题色在 `main.tsx` 换 `theme.colors.brand`；隔离仍只由本文件的租户作用域决定。
 
 ## 为什么用查询助手而不是 RLS
 

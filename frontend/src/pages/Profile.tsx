@@ -32,15 +32,18 @@ import { APP_VERSION } from "@/version";
 import { useFeedback } from "@/components/FeedbackProvider";
 import { Card } from "@/components/ui/card";
 import { FormMessageBanner } from "@/components/ui/form-message-banner";
-import { TextInput } from "@mantine/core";
+import { PasswordInput, TextInput } from "@mantine/core";
+import { getApiErrorMessage } from "@/utils/error";
 import ProfileTabs from "@/components/shell/ProfileTabs";
 import PageHeader from "@/components/ui/page-header";
 import {
-	type PasswordChangeFormValues,
 	type ProfileFormValues,
-	passwordChangeSchema,
 	profileSchema,
 } from "@/schemas/profile";
+import {
+	type ChangePasswordFormValues,
+	changePasswordSchema,
+} from "@/schemas/auth";
 import useAuthStore from "@/stores/authStore";
 import { getUserAvatar } from "@/utils/avatar";
 
@@ -67,9 +70,9 @@ export default function Profile() {
 		validate: schemaResolver(profileSchema),
 	});
 
-	const pwForm = useForm<PasswordChangeFormValues>({
-		initialValues: { oldPassword: "", newPassword: "" },
-		validate: schemaResolver(passwordChangeSchema),
+	const pwForm = useForm<ChangePasswordFormValues>({
+		initialValues: { oldPassword: "", newPassword: "", confirmPassword: "" },
+		validate: schemaResolver(changePasswordSchema),
 	});
 
 	const openEditDialog = () => {
@@ -95,20 +98,18 @@ export default function Profile() {
 			setSaveMsg("保存成功");
 			setTimeout(() => { setEditOpen(false); setSaveMsg(""); }, 800);
 		} catch (err: unknown) {
-			const e = err as { response?: { data?: { detail?: string } } };
-			setSaveMsg(e.response?.data?.detail || "保存失败");
+			setSaveMsg(getApiErrorMessage(err, "保存失败"));
 		}
 	};
 
-	const handleChangePassword = async (values: PasswordChangeFormValues) => {
+	const handleChangePassword = async (values: ChangePasswordFormValues) => {
 		setPwdMsg("");
 		try {
 			await changePassword(values.oldPassword, values.newPassword);
 			setPwdMsg("密码修改成功");
 			setTimeout(() => { setPwdOpen(false); pwForm.reset(); setPwdMsg(""); }, 1000);
 		} catch (err: unknown) {
-			const e = err as { response?: { data?: { detail?: string } } };
-			setPwdMsg(e.response?.data?.detail || "修改失败");
+			setPwdMsg(getApiErrorMessage(err, "修改失败"));
 		}
 	};
 
@@ -143,6 +144,10 @@ export default function Profile() {
 									学号: {storeUser.student_id}
 								</Text>
 							)}
+							{/* 院校身份常驻：租户隔离下"我在哪所学校"是会改变可见范围的事实 */}
+							<Text size="xs" c="dimmed" mt={2}>
+								院校: {storeUser?.school_name ?? (storeUser?.school_id == null ? "平台账号（跨院校）" : "—")}
+							</Text>
 						</Box>
 						{/* 层级：本页唯一 filled 主行动 = 编辑资料（其余都是可选的设置项，归 subtle 列表） */}
 						<Button size="sm" onClick={openEditDialog}>
@@ -320,8 +325,9 @@ export default function Profile() {
 						<FormMessageBanner type={pwdMsg.includes("成功") ? "success" : "error"} message={pwdMsg} />
 						<form onSubmit={pwForm.onSubmit(handleChangePassword)}>
 							<Stack gap="sm" mt="xs">
-								<TextInput type="password" label="当前密码" withAsterisk {...pwForm.getInputProps("oldPassword")} />
-								<TextInput type="password" label="新密码" withAsterisk {...pwForm.getInputProps("newPassword")} />
+								<PasswordInput label="当前密码" withAsterisk {...pwForm.getInputProps("oldPassword")} />
+								<PasswordInput label="新密码" withAsterisk {...pwForm.getInputProps("newPassword")} />
+								<PasswordInput label="确认新密码" withAsterisk {...pwForm.getInputProps("confirmPassword")} />
 								<Group justify="flex-end" gap="xs" pt="xs">
 									<Button type="button" variant="default" onClick={() => setPwdOpen(false)}>取消</Button>
 									<Button type="submit" loading={pwForm.submitting}>

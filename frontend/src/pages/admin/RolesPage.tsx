@@ -252,6 +252,7 @@ export default function RolesPage() {
 											value={editDisplayName}
 											onChange={(e) => setEditDisplayName(e.target.value)}
 											placeholder={role.display_name}
+											aria-label="显示名称"
 											maw={192}
 											size="xs"
 										/>

@@ -7,6 +7,7 @@ import {
 	getMe,
 } from "@/api";
 import { dispatchForceLogout } from "@/events";
+import { useSchoolScopeStore } from "@/stores/schoolScopeStore";
 import type { AuthState, User } from "../types/store";
 
 interface ExtendedAuthState extends AuthState {
@@ -72,6 +73,8 @@ const useAuthStore = create<ExtendedAuthState>()(
 					is_active: true,
 					avatar: data.avatar ?? null,
 					memberships: [],
+					// 登录响应不含院校品牌字段：占位为 false，紧接着的 /auth/me 会补齐
+					school_has_logo: false,
 				};
 				set({ user, token: data.access_token, permissions: data.permissions });
 
@@ -145,6 +148,9 @@ const useAuthStore = create<ExtendedAuthState>()(
 						memberships: data.memberships ?? [],
 						school_id: data.school_id ?? null,
 						school_name: data.school_name ?? null,
+						school_theme_color: data.school_theme_color ?? null,
+						school_has_logo: data.school_has_logo ?? false,
+						school_logo_updated_at: data.school_logo_updated_at ?? null,
 					};
 					// 与登录路径一致：顺带刷新权限集合（/auth/me 现取，数组为准，空数组也覆盖）
 					set({
@@ -201,6 +207,8 @@ const useAuthStore = create<ExtendedAuthState>()(
 				stopRefreshTimer();
 				apiLogout().catch(() => {}).finally(() => { isLoggingOut = false; });
 				set({ user: null, token: null, permissions: [] });
+				// 「当前院校」是上一个平台的偏好，换人登录不能带走（换账号后作用域必须回到全部院校）
+				useSchoolScopeStore.getState().setSchool(null);
 				dispatchForceLogout();
 			},
 		}),

@@ -10,6 +10,9 @@ export const secretFormSchema = z.object({
 		}),
 	rawKey: z.string().optional(),
 	monthlyLimit: z.number().min(0).nullable(),
+	/** 计费单价（¥ / 1M tokens）：成本归因直接用它，缺了只能按后端默认值记假账。 */
+	priceInput: z.number().min(0),
+	priceOutput: z.number().min(0),
 	priority: z.number().int().min(0),
 	modelOverride: z.string().nullable(),
 });

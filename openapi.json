@@ -406,6 +406,22 @@
               "title": "Cohort Label"
             },
             "description": "届/年级标签精确过滤"
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "responses": {
@@ -445,6 +461,24 @@
         "security": [
           {
             "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "requestBody": {
@@ -503,6 +537,22 @@
               "type": "integer",
               "title": "Class Id"
             }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "responses": {
@@ -548,6 +598,22 @@
             "schema": {
               "type": "integer",
               "title": "Class Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
             }
           }
         ],
@@ -604,6 +670,22 @@
             "schema": {
               "type": "integer",
               "title": "Class Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
             }
           }
         ],
@@ -712,6 +794,22 @@
               "default": 50,
               "title": "Limit"
             }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "responses": {
@@ -757,6 +855,22 @@
             "schema": {
               "type": "integer",
               "title": "Class Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
             }
           }
         ],
@@ -815,6 +929,22 @@
             "schema": {
               "type": "integer",
               "title": "Class Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
             }
           }
         ],
@@ -883,6 +1013,22 @@
               "type": "integer",
               "title": "User Id"
             }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "responses": {
@@ -917,6 +1063,29 @@
         ],
         "summary": "Get Voice Usage",
         "operationId": "get_voice_usage_api_admin_costs_usage_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -927,13 +1096,18 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/costs/dashboard": {
@@ -944,6 +1118,29 @@
         ],
         "summary": "Get Cost Dashboard",
         "operationId": "get_cost_dashboard_api_admin_costs_dashboard_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -954,13 +1151,18 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/costs/users": {
@@ -971,6 +1173,29 @@
         ],
         "summary": "Get User Cost Breakdown",
         "operationId": "get_user_cost_breakdown_api_admin_costs_users_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -979,13 +1204,18 @@
                 "schema": {}
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/costs/export": {
@@ -1050,6 +1280,22 @@
               "type": "string",
               "default": "json",
               "title": "Format"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
             }
           }
         ],
@@ -1870,6 +2116,111 @@
         }
       }
     },
+    "/api/admin/schools/{school_id}/logo": {
+      "post": {
+        "tags": [
+          "管理",
+          "院校管理"
+        ],
+        "summary": "Upload School Logo",
+        "description": "上传/替换院徽（可选）。入口先归一：剥元数据、限长边、统一 WebP。",
+        "operationId": "upload_school_logo_api_admin_schools__school_id__logo_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "school_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "School Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_school_logo_api_admin_schools__school_id__logo_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchoolResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "管理",
+          "院校管理"
+        ],
+        "summary": "Delete School Logo",
+        "operationId": "delete_school_logo_api_admin_schools__school_id__logo_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "school_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "School Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchoolResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/secrets": {
       "get": {
         "tags": [
@@ -2454,6 +2805,22 @@
               "title": "Include Inactive"
             },
             "description": "是否包含已停用账号（默认隐藏）"
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "responses": {
@@ -2603,6 +2970,22 @@
               "title": "Include Inactive"
             },
             "description": "是否包含已停用账号（默认隐藏）"
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "responses": {
@@ -2647,6 +3030,22 @@
             "schema": {
               "type": "integer",
               "title": "User Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
             }
           }
         ],
@@ -2703,6 +3102,22 @@
               "type": "integer",
               "title": "User Id"
             }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "responses": {
@@ -2748,6 +3163,22 @@
               "type": "integer",
               "title": "User Id"
             }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "responses": {
@@ -2781,19 +3212,42 @@
         ],
         "summary": "Batch Create Users",
         "operationId": "batch_create_users_api_admin_users_batch_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
+                "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/BatchUserItem"
                 },
-                "type": "array",
                 "title": "Users"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -2816,12 +3270,7 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/users/bulk-assign-class": {
@@ -2831,15 +3280,38 @@
         ],
         "summary": "Bulk Assign Class",
         "operationId": "bulk_assign_class_api_admin_users_bulk_assign_class_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/BulkAssignClassRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -2862,12 +3334,7 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/versions/attribution": {
@@ -3111,6 +3578,24 @@
             "HTTPBearer": []
           }
         ],
+        "parameters": [
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -3212,6 +3697,22 @@
               "title": "Status"
             },
             "description": "active|ended"
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "responses": {
@@ -3259,6 +3760,22 @@
               "type": "string",
               "title": "Assignment Id"
             }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "responses": {
@@ -3303,6 +3820,22 @@
             "schema": {
               "type": "string",
               "title": "Assignment Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
             }
           }
         ],
@@ -3359,6 +3892,22 @@
               "type": "string",
               "title": "Assignment Id"
             }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "responses": {
@@ -3405,6 +3954,22 @@
             "schema": {
               "type": "string",
               "title": "Assignment Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
             }
           }
         ],
@@ -4974,6 +5539,22 @@
               "default": "csv",
               "title": "Format"
             }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "responses": {
@@ -5018,6 +5599,22 @@
             "schema": {
               "type": "integer",
               "title": "Record Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
             }
           }
         ],
@@ -6713,6 +7310,22 @@
               "title": "Trigger"
             },
             "description": "触发时点: before_training / after_scoring"
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "responses": {
@@ -6746,15 +7359,38 @@
         ],
         "summary": "Submit Questionnaire",
         "operationId": "submit_questionnaire_api_questionnaires_responses_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/QuestionnaireSubmitRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -6777,12 +7413,7 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/api/questionnaires/responses/{template_id}": {
@@ -6828,6 +7459,22 @@
               "minimum": 1,
               "default": 20,
               "title": "Limit"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
             }
           }
         ],
@@ -6876,6 +7523,22 @@
               "type": "integer",
               "title": "Template Id"
             }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "responses": {
@@ -6922,6 +7585,22 @@
             "schema": {
               "type": "integer",
               "title": "Template Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
             }
           }
         ],
@@ -8458,6 +9137,47 @@
         ]
       }
     },
+    "/api/schools/{school_id}/logo": {
+      "get": {
+        "tags": [
+          "院校"
+        ],
+        "summary": "Read School Logo",
+        "description": "院徽公开读（品牌标识；`<img src>` 带不了 Authorization）。\n\nURL 上带 `?v=<logo_updated_at>` 做版本号，换图即换 URL；这里给一天缓存。",
+        "operationId": "read_school_logo_api_schools__school_id__logo_get",
+        "parameters": [
+          {
+            "name": "school_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "School Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/scoreboard/ranking": {
       "get": {
         "tags": [
@@ -8638,6 +9358,22 @@
               "default": 100,
               "title": "Limit"
             }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "responses": {
@@ -8769,6 +9505,22 @@
               "title": "Include Free"
             },
             "description": "是否纳入自主训练（无作业关联）记录"
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "responses": {
@@ -8825,6 +9577,22 @@
               "title": "Date From"
             },
             "description": "窗口起点 ISO 格式（含），如 2026-09-24T00:00:00+08:00；不传 = 不限"
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "responses": {
@@ -8904,6 +9672,22 @@
               "title": "Class Id"
             },
             "description": "班级筛选；只能指向作用域内的班级，否则 404"
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "responses": {
@@ -8977,6 +9761,22 @@
               "title": "Class Id"
             },
             "description": "班级筛选；只能指向作用域内的班级，否则 404"
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "responses": {
@@ -9381,6 +10181,22 @@
               "type": "integer",
               "title": "Record Id"
             }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "responses": {
@@ -9685,6 +10501,22 @@
               "title": "Only Student Practice"
             },
             "description": "只返回学生练习(true)；false=含教师试跑/演示记录"
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "responses": {
@@ -9896,6 +10728,22 @@
               "title": "Only Student Practice"
             },
             "description": "只返回学生练习(true)；false=含教师试跑/演示记录"
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "responses": {
@@ -9944,6 +10792,22 @@
               "type": "integer",
               "title": "Record Id"
             }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "responses": {
@@ -9989,6 +10853,22 @@
             "schema": {
               "type": "integer",
               "title": "Record Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
             }
           }
         ],
@@ -11353,6 +12233,28 @@
             "title": "Class Name",
             "default": ""
           },
+          "school_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Id"
+          },
+          "school_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Name"
+          },
           "teacher_name": {
             "type": "string",
             "title": "Teacher Name",
@@ -12069,6 +12971,20 @@
         },
         "type": "object",
         "title": "Body_submit_feedback_api_feedback_post"
+      },
+      "Body_upload_school_logo_api_admin_schools__school_id__logo_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_school_logo_api_admin_schools__school_id__logo_post"
       },
       "BulkAssignClassRequest": {
         "properties": {
@@ -18665,6 +19581,19 @@
             "maxLength": 80,
             "minLength": 1,
             "title": "Name"
+          },
+          "theme_color": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z]{3,20}$|^$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Theme Color",
+            "description": "主题色调色板键；空串 = 清除"
           }
         },
         "additionalProperties": false,
@@ -18699,6 +19628,34 @@
             "title": "Admin Count",
             "default": 0
           },
+          "theme_color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Theme Color"
+          },
+          "has_logo": {
+            "type": "boolean",
+            "title": "Has Logo",
+            "default": false
+          },
+          "logo_updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Updated At"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -18727,6 +19684,19 @@
               }
             ],
             "title": "Name"
+          },
+          "theme_color": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z]{3,20}$|^$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Theme Color",
+            "description": "主题色调色板键；空串 = 清除"
           }
         },
         "additionalProperties": false,
@@ -19276,6 +20246,28 @@
             "type": "string",
             "title": "Class Name",
             "default": ""
+          },
+          "school_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Id"
+          },
+          "school_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Name"
           },
           "avg_score": {
             "anyOf": [
@@ -20912,6 +21904,28 @@
               }
             ],
             "title": "Assignment Title"
+          },
+          "school_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Id"
+          },
+          "school_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Name"
           }
         },
         "type": "object",
@@ -21483,6 +22497,34 @@
             ],
             "title": "School Name"
           },
+          "school_theme_color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Theme Color"
+          },
+          "school_has_logo": {
+            "type": "boolean",
+            "title": "School Has Logo",
+            "default": false
+          },
+          "school_logo_updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Logo Updated At"
+          },
           "display_name": {
             "type": "string",
             "title": "Display Name"
@@ -21732,6 +22774,19 @@
             ],
             "title": "Memberships",
             "description": "成员关系全量替换；省略该键 = 不修改"
+          },
+          "school_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Id",
+            "description": "所属院校；省略 = 不修改"
           },
           "role": {
             "anyOf": [

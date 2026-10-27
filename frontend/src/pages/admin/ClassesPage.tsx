@@ -22,6 +22,7 @@ import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import { useSchoolsQuery } from "@/hooks/useSchools";
 import { type ClassFormValues, classFormSchema } from "@/schemas/class";
 import useAuthStore from "@/stores/authStore";
+import { useSchoolScopeStore } from "@/stores/schoolScopeStore";
 import type { ClassItem } from "@/types/store";
 import { formatDate } from "@/utils/date";
 
@@ -33,6 +34,8 @@ export default function ClassesPage() {
 	const permissions = useAuthStore((s) => s.permissions);
 	const isPlatform = permissions.includes("school_manage");
 	const { data: schools = [] } = useSchoolsQuery({ enabled: isPlatform });
+	// 平台角色已收窄到某一所院校时：列表筛选不再重复表达，新建/编辑的院校跟随作用域
+	const scopedSchool = useSchoolScopeStore((s) => s.school);
 	const [schoolFilter, setSchoolFilter] = useState<number | null>(null);
 	const {
 		searchInput,
@@ -65,7 +68,13 @@ export default function ClassesPage() {
 		form.setValues({
 			name: "",
 			cohortLabel: cohortFilter,
-			schoolId: schoolFilter ? String(schoolFilter) : schools[0] ? String(schools[0].id) : "",
+			schoolId: scopedSchool
+				? String(scopedSchool.id)
+				: schoolFilter
+					? String(schoolFilter)
+					: schools[0]
+						? String(schools[0].id)
+						: "",
 		});
 		form.resetDirty();
 		setModalOpen(true);
@@ -125,10 +134,12 @@ export default function ClassesPage() {
 		await deleteMut.mutateAsync(item.id);
 	};
 
+	// 作用域收窄时院校由作用域决定：残留的逐列表院校筛选会自相矛盾（列表为空），一律忽略
+	const effectiveSchoolFilter = scopedSchool ? null : schoolFilter;
 	const filtered = classes.filter(
 		(c) =>
 			(!search || c.name.toLowerCase().includes(search.toLowerCase())) &&
-			(schoolFilter == null || c.school_id === schoolFilter),
+			(effectiveSchoolFilter == null || c.school_id === effectiveSchoolFilter),
 	);
 
 	// 数字列统一右对齐 + 等宽数字：三列计数扫读时不再左右漂移
@@ -207,7 +218,7 @@ export default function ClassesPage() {
 			<FilterToolbar
 				compact
 				summary={`共 ${filtered.length} 个班级`}
-				hasActiveFilters={Boolean(searchInput || cohortFilter || schoolFilter != null)}
+				hasActiveFilters={Boolean(searchInput || cohortFilter || effectiveSchoolFilter != null)}
 				onClear={() => {
 					handleSearchChange("");
 					setCohortFilter("");
@@ -216,7 +227,7 @@ export default function ClassesPage() {
 				search={<SearchInput value={searchInput} onChange={handleSearchChange} placeholder="搜索班级名称..." />}
 				filters={
 					<>
-					{isPlatform && schools.length > 0 && (
+					{isPlatform && !scopedSchool && schools.length > 0 && (
 						<Select
 							value={schoolFilter ? String(schoolFilter) : null}
 							onChange={(v) => setSchoolFilter(v ? Number(v) : null)}
@@ -298,7 +309,9 @@ export default function ClassesPage() {
 									label="所属院校" withAsterisk
 									placeholder={schools.length ? "选择院校" : "请先在院校管理里创建院校"}
 									data={schools.map((s) => ({ value: String(s.id), label: s.name }))}
-									disabled={Boolean(editId) && false}
+									// 已收窄到某校时院校由作用域决定，避免构造跨校班级
+									disabled={scopedSchool !== null}
+									description={scopedSchool !== null ? "跟随当前院校" : undefined}
 									{...form.getInputProps("schoolId")}
 								/>
 							)}

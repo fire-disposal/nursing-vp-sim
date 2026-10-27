@@ -11,11 +11,13 @@ import NotificationBell from "@/components/NotificationBell";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useShortViewport } from "@/hooks/useShortViewport";
+import { useActiveSchoolBrand } from "@/hooks/useActiveSchoolBrand";
 import { useUiPrefsStore } from "@/stores/uiPrefsStore";
 import useAuthStore from "@/stores/authStore";
 import { isAdminPermissions } from "@/utils/permissions";
 import SidebarNav from "./SidebarNav";
 import { BottomTabBar } from "./BottomTabBar";
+import { SchoolLogo, SchoolScopeSwitcher } from "./SchoolScopeSwitcher";
 import ShellTransition from "./ShellTransition";
 import type { NavItem } from "./navigation";
 
@@ -44,8 +46,9 @@ export default function ManageShell({
 }) {
 	const permissions = useAuthStore((s) => s.permissions);
 	const authUser = useAuthStore((s) => s.user);
-	// 当前院校：院校管理员/教师/学生看到自己的学校；平台角色（school_id 为空）标示「平台」。
-	// 名称来自 `/auth/me`，院校重命名后下次会话同步（不为此加轮询）。
+	// 当前院校：院校管理员/教师/学生看到自己的学校；平台角色（school_id 为空）用切换器选
+	// 「当前院校」（默认全部院校）。名称/主题色/院徽同源：`useActiveSchoolBrand`。
+	const { school: activeSchool } = useActiveSchoolBrand();
 	const schoolLabel = authUser
 		? (authUser.school_name ?? (authUser.school_id == null ? "平台" : `院校 #${authUser.school_id}`))
 		: null;
@@ -170,30 +173,24 @@ export default function ManageShell({
 						<Text fw={700} size="sm" visibleFrom="xs">
 							虚拟患者系统
 						</Text>
-						{schoolLabel &&
-							(canManageSchools ? (
-								<Badge
-									variant="light"
-									color="brand"
-									size="sm"
-									visibleFrom="sm"
-									component={Link}
-									to="/admin/schools"
-									style={{ flexShrink: 0, textTransform: "none" }}
-								>
-									{schoolLabel}
-								</Badge>
-							) : (
+						{canManageSchools ? (
+							<Box visibleFrom="sm" style={{ flexShrink: 0 }}>
+								<SchoolScopeSwitcher width={180} />
+							</Box>
+						) : (
+							schoolLabel && (
 								<Badge
 									variant="light"
 									color="gray"
 									size="sm"
 									visibleFrom="sm"
+									leftSection={activeSchool ? <SchoolLogo school={activeSchool} size={14} /> : undefined}
 									style={{ flexShrink: 0, textTransform: "none" }}
 								>
 									{schoolLabel}
 								</Badge>
-							))}
+							)
+						)}
 						<UnstyledButton
 							onClick={onAbout}
 							title="关于系统"
@@ -242,6 +239,14 @@ export default function ManageShell({
 			</AppShell.Header>
 
 			<AppShell.Navbar p="sm">
+				{canManageSchools && (
+					<Box hiddenFrom="sm" mb="sm">
+						<Text size="xs" c="dimmed" mb={4}>
+							当前院校
+						</Text>
+						<SchoolScopeSwitcher width="100%" />
+					</Box>
+				)}
 				<SidebarNav
 					userLinks={userLinks}
 					adminLinks={adminLinks}

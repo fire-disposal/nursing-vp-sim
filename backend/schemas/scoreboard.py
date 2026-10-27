@@ -61,6 +61,9 @@ class ScoreboardRankingItem(BaseModel):
     display_name: str
     student_id: str | None = None
     class_name: str = ""
+    #: 院校归属：平台角色「全部院校」视图下逐行认院校
+    school_id: int | None = None
+    school_name: str | None = None
     avg_score: float | None = None
     """学生平均分（保留 1 位）。"""
     best_score: float | None = None

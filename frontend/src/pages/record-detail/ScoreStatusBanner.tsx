@@ -1,14 +1,14 @@
-import { Box, Button, Group, Loader, Paper, Progress, Stack, Text, Title } from "@mantine/core";
-import { IconRefresh, IconRotateClockwise } from "@tabler/icons-react";
+import { Alert, Box, Button, Group, Loader, Paper, Progress, Stack, Text, Title } from "@mantine/core";
+import { IconInfoCircle, IconRefresh, IconRotateClockwise } from "@tabler/icons-react";
 
-interface ScoringPendingRecord {
+interface ScoreStatusRecord {
 	status?: string;
 	scoring_status?: string | null;
 	scoring_error?: string | null;
 }
 
 interface Props {
-	record: ScoringPendingRecord;
+	record: ScoreStatusRecord;
 	/** 「重新评分」（POST retry-scoring）在途 */
 	retrying?: boolean;
 	/** 「刷新状态」（GET 记录详情）在途 */
@@ -20,23 +20,54 @@ interface Props {
 }
 
 /**
- * 评分进行中 / 失败横幅。
+ * 记录「分数状态」的唯一呈现（学生结果页与教师记录页共用）。
  *
- * 两个动作严格分开，语义不同不能合并：
- * - 「刷新状态」= 只读 GET（页面本身在 pending/processing 期间也会自动轮询到终态）；
- * - 「重新评分」= POST retry-scoring，**仅在 `scoring_status === 'failed'` 时**提供。
+ * 三档，动作严格分开、不能合并：
+ * - 评分未出终态（pending/processing/未触发）→ 黄色横幅 +「刷新状态」（只读 GET）；
+ * - 评分失败（failed）→ 说明原因 +「重新评分」（POST retry-scoring）；
+ * - **没走正常评分流程**（discarded/abandoned/failed 训练）→ 灰色说明，无按钮：
+ *   这类记录没有可重试的评分，给「重新评分」只会制造必然失败的点击。
  *
- * 进度条为不定态：后端没有给出可靠进度时，前端不编造百分比（旧的 retryProgress/30 已删除）。
+ * 进度条为不定态：后端没有给出可靠进度时，前端不编造百分比。
  */
-export default function ScoringPendingBanner({
+const UNSCORED_NOTICE: Record<string, { title: string; description: string }> = {
+	discarded: {
+		title: "未生成评分",
+		description: "本次训练没有有效问诊内容（未向患者提问），不参与评分，对话记录仍保留在下方。",
+	},
+	abandoned: {
+		title: "本次训练未完成",
+		description: "会话长时间没有继续，已自动放弃，未生成评分。需要成绩请重新开始一次训练。",
+	},
+	failed: {
+		title: "本次训练未正常完成",
+		description: "未生成评分。如需确认原因，请联系教师查看这条记录。",
+	},
+};
+
+export default function ScoreStatusBanner({
 	record,
 	retrying,
 	refreshing,
 	onRefresh,
 	onRetry,
 }: Props) {
-	if (record.status !== "completed" || record.scoring_status === "completed") {
-		return null;
+	if (record.scoring_status === "completed") return null;
+
+	// 没走完正常评分流程：先把「为什么没有分数」说清楚，而不是留一页空白让人猜
+	if (record.status !== "completed") {
+		const notice = record.status ? UNSCORED_NOTICE[record.status] : undefined;
+		if (!notice) return null;
+		return (
+			<Alert variant="light" color="gray" icon={<IconInfoCircle size={18} />}>
+				<Text size="sm" fw={600}>
+					{notice.title}
+				</Text>
+				<Text size="sm" c="dimmed" mt={2}>
+					{notice.description}
+				</Text>
+			</Alert>
+		);
 	}
 
 	const isGenerating =

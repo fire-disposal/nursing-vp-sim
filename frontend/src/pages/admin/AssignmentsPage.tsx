@@ -30,7 +30,9 @@ import PageHeader from "@/components/ui/page-header";
 import ResponsiveTable from "@/components/ui/responsive-table";
 import { SearchInput } from "@/components/ui/search-input";
 import { ACTIVITY_LABELS } from "@/config/activity-display";
+import { useActiveSchoolBrand } from "@/hooks/useActiveSchoolBrand";
 import { type AssignmentValues, assignmentSchema } from "@/schemas/assignment";
+import { useClassLabel } from "@/hooks/useClasses";
 import { fromDatetimeLocal, toDatetimeLocal } from "@/utils/date";
 import { FilterToolbar } from "@/components/ui/filter-toolbar";
 
@@ -85,6 +87,9 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 	const toast = useToast();
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
+	// 平台角色在「全部院校」视角下逐行标院校；收窄到某校时标出来只是噪音
+	const { isPlatform, school: activeSchool } = useActiveSchoolBrand();
+	const showSchoolColumn = isPlatform && !activeSchool;
 
 	const [searchParams, setSearchParams] = useSearchParams();
 	const classId = searchParams.get("class_id") || "";
@@ -162,6 +167,8 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 		.filter(Boolean)
 		.join("、");
 	const classes = classesData ?? [];
+	// 班级选项文案的唯一实现：跨院校可见时带院校前缀（同名班级不再混淆）
+	const formatClass = useClassLabel();
 
 	// 编辑已有作业时，它引用的病例可能已不是 published（旧数据或后续归档）。
 	const referencedCaseId = editingId && editingCaseRef ? editingCaseRef.id : null;
@@ -311,6 +318,18 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 		}
 	};
 
+	const schoolColumns: DataTableColumn<AssignmentListItem>[] = showSchoolColumn
+		? [
+				{
+					key: "school_name",
+					header: "院校",
+					render: (a) => (
+						<Text size="sm" c="dimmed">{a.school_name ?? "平台"}</Text>
+					),
+				},
+			]
+		: [];
+
 	const columns: DataTableColumn<AssignmentListItem>[] = [
 		{
 			key: "title",
@@ -327,6 +346,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 			header: "班级",
 			render: (a) => <Text size="sm">{a.class_name}</Text>,
 		},
+		...schoolColumns,
 		{
 			key: "audience",
 			header: "受众",
@@ -575,7 +595,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 								disabled={audienceLocked}
 								data={classes.map((c) => ({
 									value: String(c.id),
-									label: c.cohort_label ? `${c.cohort_label} ${c.name}` : c.name,
+									label: formatClass(c),
 								}))}
 							/>
 							<Box>

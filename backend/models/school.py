@@ -21,6 +21,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     String,
     Table,
     UniqueConstraint,
@@ -55,7 +56,13 @@ legacy_grades_table = Table(
 
 
 class School(Base):
-    """院校（租户）。名称全局唯一；院校之间互不可见对方数据。"""
+    """院校（租户）。名称全局唯一；院校之间互不可见对方数据。
+
+    品牌可选项（都不影响隔离）：
+    - ``theme_color``：主题色键（见前端 ``theme/school-palettes``），空 = 平台默认品牌色；
+    - ``logo`` / ``logo_mime`` / ``logo_updated_at``：院徽字节入库（与场景图片同构：
+      部署与环境无关，不读文件系统），并留更新时间做缓存版本号。
+    """
 
     __tablename__ = "schools"
     __table_args__ = (UniqueConstraint("name", name="uq_schools_name"),)
@@ -63,6 +70,10 @@ class School(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(80))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
+    theme_color: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    logo: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    logo_mime: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    logo_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     classes: Mapped[list[Class]] = relationship(back_populates="school")
 

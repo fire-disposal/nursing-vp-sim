@@ -386,6 +386,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/schools/{school_id}/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload School Logo
+         * @description 上传/替换院徽（可选）。入口先归一：剥元数据、限长边、统一 WebP。
+         */
+        post: operations["upload_school_logo_api_admin_schools__school_id__logo_post"];
+        /** Delete School Logo */
+        delete: operations["delete_school_logo_api_admin_schools__school_id__logo_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/secrets": {
         parameters: {
             query?: never;
@@ -2149,6 +2170,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/schools/{school_id}/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read School Logo
+         * @description 院徽公开读（品牌标识；`<img src>` 带不了 Authorization）。
+         *
+         *     URL 上带 `?v=<logo_updated_at>` 做版本号，换图即换 URL；这里给一天缓存。
+         */
+        get: operations["read_school_logo_api_schools__school_id__logo_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/scoreboard/ranking": {
         parameters: {
             query?: never;
@@ -3043,6 +3086,10 @@ export interface components {
              * @default
              */
             class_name: string;
+            /** School Id */
+            school_id?: number | null;
+            /** School Name */
+            school_name?: string | null;
             /**
              * Teacher Name
              * @default
@@ -3286,6 +3333,11 @@ export interface components {
             content?: string | null;
             /** Images */
             images?: string[] | null;
+        };
+        /** Body_upload_school_logo_api_admin_schools__school_id__logo_post */
+        Body_upload_school_logo_api_admin_schools__school_id__logo_post: {
+            /** File */
+            file: string;
         };
         /** BulkAssignClassRequest */
         BulkAssignClassRequest: {
@@ -6208,6 +6260,11 @@ export interface components {
         SchoolCreate: {
             /** Name */
             name: string;
+            /**
+             * Theme Color
+             * @description 主题色调色板键；空串 = 清除
+             */
+            theme_color?: string | null;
         };
         /** SchoolResponse */
         SchoolResponse: {
@@ -6230,6 +6287,15 @@ export interface components {
              * @default 0
              */
             admin_count: number;
+            /** Theme Color */
+            theme_color?: string | null;
+            /**
+             * Has Logo
+             * @default false
+             */
+            has_logo: boolean;
+            /** Logo Updated At */
+            logo_updated_at?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -6240,6 +6306,11 @@ export interface components {
         SchoolUpdate: {
             /** Name */
             name?: string | null;
+            /**
+             * Theme Color
+             * @description 主题色调色板键；空串 = 清除
+             */
+            theme_color?: string | null;
         };
         /** ScoreItem */
         ScoreItem: {
@@ -6399,6 +6470,10 @@ export interface components {
              * @default
              */
             class_name: string;
+            /** School Id */
+            school_id?: number | null;
+            /** School Name */
+            school_name?: string | null;
             /** Avg Score */
             avg_score?: number | null;
             /** Best Score */
@@ -7087,6 +7162,10 @@ export interface components {
             assignment_id?: string | null;
             /** Assignment Title */
             assignment_title?: string | null;
+            /** School Id */
+            school_id?: number | null;
+            /** School Name */
+            school_name?: string | null;
         };
         /** TrainingRecordDetail */
         TrainingRecordDetail: {
@@ -7338,6 +7417,15 @@ export interface components {
             school_id?: number | null;
             /** School Name */
             school_name?: string | null;
+            /** School Theme Color */
+            school_theme_color?: string | null;
+            /**
+             * School Has Logo
+             * @default false
+             */
+            school_has_logo: boolean;
+            /** School Logo Updated At */
+            school_logo_updated_at?: string | null;
             /** Display Name */
             display_name: string;
             /** Student Id */
@@ -7416,6 +7504,11 @@ export interface components {
              * @description 成员关系全量替换；省略该键 = 不修改
              */
             memberships?: components["schemas"]["UserMembershipUpdate"][] | null;
+            /**
+             * School Id
+             * @description 所属院校；省略 = 不修改
+             */
+            school_id?: number | null;
             /** Role */
             role?: string | null;
             /** Password */
@@ -7717,7 +7810,9 @@ export interface operations {
                 /** @description 届/年级标签精确过滤 */
                 cohort_label?: string | null;
             };
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -7746,7 +7841,9 @@ export interface operations {
     create_class_api_admin_classes_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -7779,7 +7876,9 @@ export interface operations {
     get_class_api_admin_classes__class_id__get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path: {
                 class_id: number;
             };
@@ -7810,7 +7909,9 @@ export interface operations {
     update_class_api_admin_classes__class_id__put: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path: {
                 class_id: number;
             };
@@ -7845,7 +7946,9 @@ export interface operations {
     delete_class_api_admin_classes__class_id__delete: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path: {
                 class_id: number;
             };
@@ -7883,7 +7986,9 @@ export interface operations {
                 offset?: number;
                 limit?: number;
             };
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path: {
                 class_id: number;
             };
@@ -7914,7 +8019,9 @@ export interface operations {
     add_class_members_api_admin_classes__class_id__members_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path: {
                 class_id: number;
             };
@@ -7949,7 +8056,9 @@ export interface operations {
     remove_class_members_api_admin_classes__class_id__members_bulk_remove_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path: {
                 class_id: number;
             };
@@ -7984,7 +8093,9 @@ export interface operations {
     remove_class_member_api_admin_classes__class_id__members__user_id__delete: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path: {
                 class_id: number;
                 user_id: number;
@@ -8016,7 +8127,9 @@ export interface operations {
     get_voice_usage_api_admin_costs_usage_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -8031,12 +8144,23 @@ export interface operations {
                     "application/json": components["schemas"]["VoiceUsageResponse"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     get_cost_dashboard_api_admin_costs_dashboard_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -8051,12 +8175,23 @@ export interface operations {
                     "application/json": components["schemas"]["CostDashboardResponse"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     get_user_cost_breakdown_api_admin_costs_users_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -8071,6 +8206,15 @@ export interface operations {
                     "application/json": unknown;
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     export_costs_api_admin_costs_export_get: {
@@ -8082,7 +8226,9 @@ export interface operations {
                 granularity?: string;
                 format?: string;
             };
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -8553,6 +8699,72 @@ export interface operations {
             };
         };
     };
+    upload_school_logo_api_admin_schools__school_id__logo_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                school_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_school_logo_api_admin_schools__school_id__logo_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_school_logo_api_admin_schools__school_id__logo_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                school_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_secrets_api_admin_secrets_get: {
         parameters: {
             query?: never;
@@ -8860,7 +9072,9 @@ export interface operations {
                 /** @description 是否包含已停用账号（默认隐藏） */
                 include_inactive?: boolean;
             };
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -8902,7 +9116,9 @@ export interface operations {
                 /** @description 是否包含已停用账号（默认隐藏） */
                 include_inactive?: boolean;
             };
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -8931,7 +9147,9 @@ export interface operations {
     get_user_detail_api_admin_users__user_id__get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path: {
                 user_id: number;
             };
@@ -8962,7 +9180,9 @@ export interface operations {
     update_user_api_admin_users__user_id__put: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path: {
                 user_id: number;
             };
@@ -8997,7 +9217,9 @@ export interface operations {
     delete_user_api_admin_users__user_id__delete: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path: {
                 user_id: number;
             };
@@ -9028,7 +9250,9 @@ export interface operations {
     batch_create_users_api_admin_users_batch_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -9061,7 +9285,9 @@ export interface operations {
     bulk_assign_class_api_admin_users_bulk_assign_class_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -9244,7 +9470,9 @@ export interface operations {
                 /** @description active|ended */
                 status?: string | null;
             };
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -9273,7 +9501,9 @@ export interface operations {
     create_assignment_api_assignments_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -9306,7 +9536,9 @@ export interface operations {
     get_assignment_api_assignments__assignment_id__get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path: {
                 assignment_id: string;
             };
@@ -9337,7 +9569,9 @@ export interface operations {
     update_assignment_api_assignments__assignment_id__put: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path: {
                 assignment_id: string;
             };
@@ -9372,7 +9606,9 @@ export interface operations {
     delete_assignment_api_assignments__assignment_id__delete: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path: {
                 assignment_id: string;
             };
@@ -9403,7 +9639,9 @@ export interface operations {
     export_assignment_api_assignments__assignment_id__export_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path: {
                 assignment_id: string;
             };
@@ -10346,7 +10584,9 @@ export interface operations {
             query?: {
                 format?: string;
             };
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -10375,7 +10615,9 @@ export interface operations {
     export_record_detail_api_export_record__record_id__post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path: {
                 record_id: number;
             };
@@ -11198,7 +11440,9 @@ export interface operations {
                 /** @description 触发时点: before_training / after_scoring */
                 trigger?: components["schemas"]["QuestionnaireTrigger"] | null;
             };
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -11227,7 +11471,9 @@ export interface operations {
     submit_questionnaire_api_questionnaires_responses_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -11263,7 +11509,9 @@ export interface operations {
                 offset?: number;
                 limit?: number;
             };
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path: {
                 template_id: number;
             };
@@ -11294,7 +11542,9 @@ export interface operations {
     response_stats_api_questionnaires_responses__template_id__stats_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path: {
                 template_id: number;
             };
@@ -11325,7 +11575,9 @@ export interface operations {
     export_responses_api_questionnaires_responses__template_id__export_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path: {
                 template_id: number;
             };
@@ -12262,6 +12514,37 @@ export interface operations {
             };
         };
     };
+    read_school_logo_api_schools__school_id__logo_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                school_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     scoreboard_ranking_api_scoreboard_ranking_get: {
         parameters: {
             query?: {
@@ -12286,7 +12569,9 @@ export interface operations {
                 offset?: number;
                 limit?: number;
             };
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -12326,7 +12611,9 @@ export interface operations {
                 /** @description 是否纳入自主训练（无作业关联）记录 */
                 include_free?: boolean;
             };
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path: {
                 user_id: number;
             };
@@ -12360,7 +12647,9 @@ export interface operations {
                 /** @description 窗口起点 ISO 格式（含），如 2026-09-24T00:00:00+08:00；不传 = 不限 */
                 date_from?: string | null;
             };
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -12394,7 +12683,9 @@ export interface operations {
                 /** @description 班级筛选；只能指向作用域内的班级，否则 404 */
                 class_id?: number | null;
             };
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -12427,7 +12718,9 @@ export interface operations {
                 /** @description 班级筛选；只能指向作用域内的班级，否则 404 */
                 class_id?: number | null;
             };
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -12668,7 +12961,9 @@ export interface operations {
     get_record_detail_api_training_records__record_id__get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path: {
                 record_id: number;
             };
@@ -12787,7 +13082,9 @@ export interface operations {
                 /** @description 只返回学生练习(true)；false=含教师试跑/演示记录 */
                 only_student_practice?: boolean;
             };
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -12836,7 +13133,9 @@ export interface operations {
                 /** @description 只返回学生练习(true)；false=含教师试跑/演示记录 */
                 only_student_practice?: boolean;
             };
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -12865,7 +13164,9 @@ export interface operations {
     get_emotion_events_api_training_records__record_id__emotion_events_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path: {
                 record_id: number;
             };
@@ -12896,7 +13197,9 @@ export interface operations {
     export_record_experience_api_training_records__record_id__experience_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path: {
                 record_id: number;
             };

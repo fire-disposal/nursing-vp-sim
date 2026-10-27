@@ -50,6 +50,7 @@ __all__ = [
 def get_top_level_routers():
     from .exports import router as exports_router
     from .rubrics import router as rubrics_router
+    from .schools import public_router as schools_public_router
     from .stats import router as stats_router
 
-    return exports_router, rubrics_router, stats_router
+    return exports_router, rubrics_router, schools_public_router, stats_router

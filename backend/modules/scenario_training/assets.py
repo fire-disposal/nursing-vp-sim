@@ -9,14 +9,14 @@
 
 from __future__ import annotations
 
-import io
 import logging
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
-from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy import select
 
+from core.images import ImageRejected
+from core.images import normalize_image as _normalize_image
 from models.scenario_training import StAsset
 
 from .schema import ScenarioPack
@@ -48,45 +48,20 @@ def suffix_mime(filename: str | None) -> str:
 
 
 MAX_EDGE = 1600  # 场景图长边上限（再大对展示无意义，只增体积）
-WEBP_QUALITY = 82
 
 
 def normalize_image(data: bytes) -> tuple[bytes, str]:
-    """管理侧上传入口：把任意来源图片归一成**干净**的 WebP。
-
-    做的四件事（用户裁定 2026-09-27「隐私字段裁剪」）：
-    1. **先把 Orientation 用掉**（手机竖拍照片不转正会歪 90°），再让元数据整体消失；
-    2. 去 EXIF/XMP/IPTC（GPS、设备、拍摄时间等——对场景无意义且有隐私风险）；
-    3. 长边限到 `MAX_EDGE`；
-    4. 统一 WebP（含 alpha），只保留首帧（动图退化为静态）。
-    """
-    try:
-        with Image.open(io.BytesIO(data)) as raw:
-            frames = getattr(raw, "n_frames", 1)
-            image = ImageOps.exif_transpose(raw)  # 先把方向应用到像素
-            if frames > 1:
-                image.seek(0)
-            image = image.convert("RGBA" if _has_alpha(image) else "RGB")
-            image.thumbnail((MAX_EDGE, MAX_EDGE))
-            out = io.BytesIO()
-            image.save(out, format="WEBP", quality=WEBP_QUALITY, method=6)
-            return out.getvalue(), "image/webp"
-    except Image.DecompressionBombError as exc:
-        raise AssetRejected("图片像素过大") from exc
-    except (UnidentifiedImageError, OSError, ValueError) as exc:
-        raise AssetRejected(f"不是可用图片：{type(exc).__name__}") from exc
-
-
-def _has_alpha(image: Image.Image) -> bool:
-    return image.mode in ("RGBA", "LA", "PA") or (image.mode == "P" and "transparency" in image.info)
+    """管理侧上传入口：任意来源图片 → 干净 WebP（实现与院校院徽共用 `core.images`）。"""
+    return _normalize_image(data, max_edge=MAX_EDGE)
 
 
 class AssetNotFound(RuntimeError):
     """资源未声明、或库里没有它的字节。"""
 
 
-class AssetRejected(RuntimeError):
-    """资源被拒（过大或类型不支持）。"""
+#: 资源被拒（过大 / 类型不支持 / 不是图片）：与图片归一化的拒绝同一类型，
+#: 这样"归一化失败"与"存储校验失败"在路由层只需一个 except。
+AssetRejected = ImageRejected
 
 
 def declared_ids(pack: ScenarioPack) -> set[str]:

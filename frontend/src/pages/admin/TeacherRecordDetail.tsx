@@ -24,7 +24,7 @@ import MessagePlayback from "../record-detail/MessagePlayback";
 import NursingRecordSection from "../record-detail/NursingRecordSection";
 import RecordStatsBar from "../record-detail/RecordStatsBar";
 import ScoreResultSection from "../record-detail/ScoreResultSection";
-import ScoringPendingBanner from "../record-detail/ScoringPendingBanner";
+import ScoreStatusBanner from "../record-detail/ScoreStatusBanner";
 
 export default function TeacherRecordDetail() {
 	const { id } = useParams<{ id: string }>();
@@ -198,7 +198,7 @@ export default function TeacherRecordDetail() {
 					scoreMax={scoreMax}
 				/>
 
-				<ScoringPendingBanner
+				<ScoreStatusBanner
 					record={record as { status?: string; scoring_status?: string | null; scoring_error?: string | null }}
 					retrying={retrying}
 					onRefresh={refresh}

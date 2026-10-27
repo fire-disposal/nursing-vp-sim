@@ -29,6 +29,8 @@ import ResponsiveTable from "@/components/ui/responsive-table";
 import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import StatCard from "@/components/ui/stat-card";
 import type { GradePolicy } from "@/types/score";
+import { useActiveSchoolBrand } from "@/hooks/useActiveSchoolBrand";
+import { useClassLabel } from "@/hooks/useClasses";
 import { bandLabel, capabilityNotice, numericBandSummary, toGradePolicy } from "@/utils/grade-bands";
 import type { DataTableColumn } from "@/components/ui/data-table";
 
@@ -220,6 +222,9 @@ function FilterSelect({ label, value, onChange, data, searchable, width }: Filte
 
 export default function ScoreboardPage() {
 	const [searchParams, setSearchParams] = useSearchParams();
+	// 平台角色在「全部院校」视角下逐行标院校；收窄到某校时排名只含本校，不重复标注
+	const { isPlatform, school: activeSchool } = useActiveSchoolBrand();
+	const showSchoolColumn = isPlatform && !activeSchool;
 
 	const caseId = searchParams.get("case_id") || "";
 	const classId = searchParams.get("class_id") || "";
@@ -315,6 +320,8 @@ export default function ScoreboardPage() {
 
 	const cases = (casesData?.items ?? []) as { id: number; name: string }[];
 	const classes = classesData ?? [];
+	// 班级选项文案的唯一实现：跨院校可见时带院校前缀（同名班级不再混淆）
+	const formatClass = useClassLabel();
 	const assignments = (assignmentsData?.items ?? []) as {
 		id: string;
 		title: string;
@@ -366,6 +373,18 @@ export default function ScoreboardPage() {
 		<Text ta="right" size="sm" style={{ fontVariantNumeric: "tabular-nums" }}>{node}</Text>
 	);
 
+	const schoolColumns: DataTableColumn<ScoreboardRankingItem>[] = showSchoolColumn
+		? [
+				{
+					key: "school_name",
+					header: "院校",
+					render: (r) => (
+						<Text size="sm" c="dimmed">{r.school_name ?? "平台"}</Text>
+					),
+				},
+			]
+		: [];
+
 	const columns: DataTableColumn<ScoreboardRankingItem>[] = [
 		{
 			key: "rank",
@@ -389,6 +408,7 @@ export default function ScoreboardPage() {
 			header: "班级",
 			render: (r) => <Text size="sm" c="dimmed">{r.class_name}</Text>,
 		},
+		...schoolColumns,
 		{
 			key: "avg_score",
 			header: "平均分",
@@ -494,7 +514,7 @@ export default function ScoreboardPage() {
 								{ value: "all", label: "全部班级" },
 								...classes.map((c) => ({
 									value: String(c.id),
-									label: c.cohort_label ? `${c.cohort_label} ${c.name}` : c.name,
+									label: formatClass(c),
 								})),
 							]}
 						/>

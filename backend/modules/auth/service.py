@@ -60,22 +60,36 @@ class AuthService:
             avatar=user.avatar,
         )
 
-    def _school_name(self, school_id: int | None) -> str | None:
+    def _school_brand(self, school_id: int | None):
+        """院校品牌（只取展示需要的列，不把院徽字节读进 /auth/me）。"""
         if school_id is None:
             return None
-        return self.db.query(School.name).filter(School.id == school_id).scalar()
+        return (
+            self.db.query(
+                School.name,
+                School.theme_color,
+                School.logo_updated_at,
+                School.logo.isnot(None),
+            )
+            .filter(School.id == school_id)
+            .first()
+        )
 
     def _user_to_brief(self, user: User) -> UserBrief:
         # 单用户多班级：返回 memberships 数组，不再取第一条（多班学生「显示 B 班」的老毛病）
         rows = [m for m in user.memberships if m.class_id is not None and m.class_ is not None]
         rows.sort(key=lambda m: (m.class_.cohort_label, m.class_.name, m.class_id))
+        brand = self._school_brand(getattr(user, "school_id", None))
         return UserBrief(
             id=user.id,
             username=user.username,
             role=user.role.name if user.role else "",
             role_display_name=user.role.display_name if user.role else "",
             school_id=getattr(user, "school_id", None),
-            school_name=(self._school_name(getattr(user, "school_id", None))),
+            school_name=brand[0] if brand else None,
+            school_theme_color=brand[1] if brand else None,
+            school_has_logo=bool(brand[3]) if brand else False,
+            school_logo_updated_at=brand[2] if brand else None,
             display_name=user.display_name,
             student_id=user.student_id,
             gender=user.gender,

@@ -1,15 +1,18 @@
 import {
 	Box,
 	Button,
+	ColorSwatch,
+	FileButton,
 	Group,
 	Modal,
 	Stack,
 	Text,
 	TextInput,
 	Tooltip,
+	UnstyledButton,
 } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
-import { IconSchool } from "@tabler/icons-react";
+import { IconCheck, IconPhoto, IconSchool, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
 import { z } from "zod";
 
@@ -25,13 +28,18 @@ import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import {
 	useCreateSchool,
 	useDeleteSchool,
+	useDeleteSchoolLogo,
 	useSchoolsQuery,
 	useUpdateSchool,
+	useUploadSchoolLogo,
 } from "@/hooks/useSchools";
+import { SCHOOL_PALETTES, schoolPalette } from "@/theme/school-palettes";
 import { formatDate } from "@/utils/date";
 
 const schoolSchema = z.object({
 	name: z.string().trim().min(1, "院校名称不能为空").max(80, "院校名称最多 80 字"),
+	// 空串 = 默认（平台品牌色）
+	themeColor: z.string(),
 });
 
 type SchoolFormValues = z.infer<typeof schoolSchema>;
@@ -56,22 +64,24 @@ export default function SchoolsPage() {
 	const createMut = useCreateSchool();
 	const updateMut = useUpdateSchool();
 	const deleteMut = useDeleteSchool();
+	const uploadLogoMut = useUploadSchoolLogo();
+	const deleteLogoMut = useDeleteSchoolLogo();
 
 	const form = useForm<SchoolFormValues>({
-		initialValues: { name: "" },
+		initialValues: { name: "", themeColor: "" },
 		validate: schemaResolver(schoolSchema),
 	});
 
 	const openCreate = () => {
 		setEditId(null);
-		form.setValues({ name: "" });
+		form.setValues({ name: "", themeColor: "" });
 		form.resetDirty();
 		setModalOpen(true);
 	};
 
 	const openEdit = (item: SchoolItem) => {
 		setEditId(item.id);
-		form.setValues({ name: item.name });
+		form.setValues({ name: item.name, themeColor: item.theme_color ?? "" });
 		form.resetDirty();
 		setModalOpen(true);
 	};
@@ -87,9 +97,10 @@ export default function SchoolsPage() {
 		// 用户只能凭记忆重来一遍（错误提示已由 useApiMutation 统一弹出）。
 		try {
 			if (editId == null) {
-				await createMut.mutateAsync({ name });
+				await createMut.mutateAsync({ name, theme_color: values.themeColor || null });
 			} else {
-				await updateMut.mutateAsync({ id: editId, name });
+				// 空串 = 恢复平台默认品牌色（后端按 "" 语义处理）
+				await updateMut.mutateAsync({ id: editId, name, theme_color: values.themeColor });
 			}
 			closeModal();
 		} catch {
@@ -112,6 +123,28 @@ export default function SchoolsPage() {
 		? schools.filter((s) => s.name.toLowerCase().includes(search.toLowerCase()))
 		: schools;
 
+	// 院徽地址带版本号：换图即换 URL（公开读端点，`<img>` 带不了 Authorization）
+	const logoSrc = (s: SchoolItem) =>
+		`/api/schools/${s.id}/logo${s.logo_updated_at ? `?v=${encodeURIComponent(s.logo_updated_at)}` : ""}`;
+	const editingSchool = editId == null ? undefined : schools.find((s) => s.id === editId);
+
+	/** 院校标识：有院徽用院徽，没有就用主题色块（两者都是可选品牌，不占位成破图）。 */
+	const identity = (s: SchoolItem) =>
+		s.has_logo ? (
+			<img
+				src={logoSrc(s)}
+				alt=""
+				width={24}
+				height={24}
+				style={{ borderRadius: 4, objectFit: "contain" }}
+			/>
+		) : (
+			<ColorSwatch
+				size={16}
+				color={schoolPalette(s.theme_color)?.shades[7] ?? "var(--mantine-color-brand-7)"}
+			/>
+		);
+
 	const num = (v: number) => (
 		<Text size="sm" ta="right" style={{ fontVariantNumeric: "tabular-nums" }}>
 			{v}
@@ -119,7 +152,16 @@ export default function SchoolsPage() {
 	);
 
 	const columns: DataTableColumn<SchoolItem>[] = [
-		{ key: "name", header: "院校名称", render: (s) => <Text size="sm" fw={500}>{s.name}</Text> },
+		{
+			key: "name",
+			header: "院校名称",
+			render: (s) => (
+				<Group gap={8} wrap="nowrap">
+					{identity(s)}
+					<Text size="sm" fw={500}>{s.name}</Text>
+				</Group>
+			),
+		},
 		{
 			key: "admin_count",
 			header: "管理员",
@@ -160,7 +202,7 @@ export default function SchoolsPage() {
 				return (
 					<Group gap={4} wrap="nowrap">
 						<Button variant="subtle" color="gray" size="sm" onClick={() => openEdit(s)}>
-							重命名
+							编辑
 						</Button>
 						{blocked ? (
 							<Tooltip label={`该院校下还有 ${s.class_count} 个班级、${s.user_count} 个账号，先清空才能删除`}>
@@ -209,13 +251,16 @@ export default function SchoolsPage() {
 					rowKey={(s) => s.id}
 					renderCard={(s) => (
 						<Stack gap={6}>
-							<Text fw={500}>{s.name}</Text>
+							<Group gap={8} wrap="nowrap">
+								{identity(s)}
+								<Text fw={500}>{s.name}</Text>
+							</Group>
 							<Text size="xs" c="dimmed">
 								{s.class_count} 个班级 · {s.user_count} 个账号
 							</Text>
 							<Group gap={4}>
 								<Button variant="subtle" color="gray" size="xs" onClick={() => openEdit(s)}>
-									重命名
+									编辑
 								</Button>
 								<Button variant="subtle" color="red" size="xs" onClick={() => handleDelete(s)}>
 									删除
@@ -235,8 +280,19 @@ export default function SchoolsPage() {
 
 			<Modal
 				opened={modalOpen}
-				onClose={closeModal}
-				title={editId == null ? "新建院校" : "重命名院校"}
+				onClose={async () => {
+					// 与其它表单同一范式：有未保存改动时先确认（名称/主题色都可能刚改过）
+					if (form.isDirty()) {
+						const ok = await confirm({
+							title: "未保存的更改",
+							message: "内容未保存，确定关闭？",
+							danger: true,
+						});
+						if (!ok) return;
+					}
+					closeModal();
+				}}
+				title={editId == null ? "新建院校" : "编辑院校"}
 				centered
 			>
 				<form onSubmit={form.onSubmit(onSubmit)}>
@@ -247,8 +303,109 @@ export default function SchoolsPage() {
 							placeholder="例如：杭州师范大学"
 							{...form.getInputProps("name")}
 						/>
+						<Stack gap={6}>
+							<Text size="sm" fw={500}>主题色（可选）</Text>
+							<Group gap={8}>
+								<Tooltip label="默认（平台品牌色）">
+									<UnstyledButton
+										aria-label="主题色：默认"
+										onClick={() => form.setFieldValue("themeColor", "")}
+									>
+										<ColorSwatch color="var(--mantine-color-brand-7)" size={26}>
+											{form.values.themeColor === "" && <IconCheck size={14} color="white" />}
+										</ColorSwatch>
+									</UnstyledButton>
+								</Tooltip>
+								{SCHOOL_PALETTES.map((palette) => (
+									<Tooltip key={palette.key} label={palette.label}>
+										<UnstyledButton
+											aria-label={`主题色：${palette.label}`}
+											onClick={() => form.setFieldValue("themeColor", palette.key)}
+										>
+											<ColorSwatch color={palette.shades[7]} size={26}>
+												{form.values.themeColor === palette.key && <IconCheck size={14} color="white" />}
+											</ColorSwatch>
+										</UnstyledButton>
+									</Tooltip>
+								))}
+							</Group>
+							<Text size="xs" c="dimmed">换色后该校所有账号的主色随之变化，便于一眼认出当前院校</Text>
+						</Stack>
+						<Stack gap={6}>
+							<Text size="sm" fw={500}>院徽（可选）</Text>
+							<Group gap={10} align="center">
+								<Box
+									w={48}
+									h={48}
+									style={{
+										border: "1px solid var(--mantine-color-default-border)",
+										borderRadius: 6,
+										display: "flex",
+										alignItems: "center",
+										justifyContent: "center",
+										overflow: "hidden",
+										background: "var(--mantine-color-default-hover)",
+									}}
+								>
+									{editingSchool?.has_logo ? (
+										<img
+											src={logoSrc(editingSchool)}
+											alt="院徽"
+											style={{ maxWidth: "100%", maxHeight: "100%" }}
+										/>
+									) : (
+										<IconPhoto size={20} color="var(--mantine-color-dimmed)" />
+									)}
+								</Box>
+								{editingSchool ? (
+									<>
+										<FileButton
+											accept="image/png,image/jpeg,image/webp"
+											onChange={(file) => {
+												if (file) uploadLogoMut.mutate({ id: editingSchool.id, file });
+											}}
+										>
+											{(props) => (
+												<Button {...props} variant="default" size="xs" loading={uploadLogoMut.isPending}>
+													{editingSchool.has_logo ? "替换院徽" : "上传院徽"}
+												</Button>
+											)}
+										</FileButton>
+										{editingSchool.has_logo && (
+											<Button
+												variant="subtle"
+												color="red"
+												size="xs"
+												leftSection={<IconTrash size={14} />}
+												loading={deleteLogoMut.isPending}
+												onClick={() => deleteLogoMut.mutate(editingSchool.id)}
+											>
+												移除
+											</Button>
+										)}
+									</>
+								) : (
+									<Text size="xs" c="dimmed">创建院校后可上传院徽</Text>
+								)}
+							</Group>
+							<Text size="xs" c="dimmed">PNG/JPG/WebP，≤2MB；上传时自动去元数据并统一为 WebP</Text>
+						</Stack>
 						<Group justify="flex-end" gap={8}>
-							<Button type="button" variant="default" onClick={closeModal}>
+							<Button
+								type="button"
+								variant="default"
+								onClick={async () => {
+									if (form.isDirty()) {
+										const ok = await confirm({
+											title: "未保存的更改",
+											message: "内容未保存，确定关闭？",
+											danger: true,
+										});
+										if (!ok) return;
+									}
+									closeModal();
+								}}
+							>
 								取消
 							</Button>
 							<Button

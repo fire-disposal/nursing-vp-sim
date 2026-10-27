@@ -1,6 +1,6 @@
 import { Group, Select } from "@mantine/core";
 import { useState } from "react";
-import { useClassesQuery, useCohortLabels } from "@/hooks/useClasses";
+import { useClassLabel, useClassesQuery, useCohortLabels } from "@/hooks/useClasses";
 
 export interface ClassFilterParams {
 	/** 届/年级标签精确过滤（null = 不限）。 */
@@ -32,6 +32,7 @@ export default function ClassFilter({
 	);
 	const { labels: cohortLabels } = useCohortLabels();
 	const { data: classes = [] } = useClassesQuery(selCohort || null);
+	const classLabel = useClassLabel();
 
 	const handleCohortChange = (value: string | null) => {
 		const next = value === "all" ? "" : (value ?? "");
@@ -70,7 +71,8 @@ export default function ClassFilter({
 					{ value: "all", label: "全部班级" },
 					...classes.map((c) => ({
 						value: String(c.id),
-						label: selCohort || !c.cohort_label ? c.name : `${c.cohort_label} ${c.name}`,
+						// 已按届别收窄时不必重复届别；跨院校可见时带院校前缀
+						label: classLabel(c, { withCohort: !selCohort && Boolean(c.cohort_label) }),
 					})),
 				]}
 				placeholder="全部班级"

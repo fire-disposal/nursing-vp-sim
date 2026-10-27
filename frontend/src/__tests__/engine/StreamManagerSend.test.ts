@@ -136,16 +136,22 @@ describe("StreamManager.send 主流程", () => {
 		expect(useTrainingStore.getState().sending).toBe(false);
 	});
 
-	it("stream error without content removes both messages", async () => {
+	it("stream error without content keeps the student message and flags it undelivered", async () => {
+		// 契约以 trainingStore.handleStreamError 为准：只删空的患者占位气泡，学生那句留下并标错误，
+		// 否则学生的问题凭空消失，既不知道没送达，也没有可重试的落点。
 		const cb = captureCallbacks();
 		const manager = new StreamManager(1);
 		const promise = manager.send("提问", {});
 		cb.onError("失败");
 		await promise;
-		expect(useTrainingStore.getState().messages).toHaveLength(0);
+
+		const msgs = useTrainingStore.getState().messages;
+		expect(msgs).toHaveLength(1);
+		expect(msgs[0]).toMatchObject({ role: "student", content: "提问", streamError: "失败" });
+		expect(useTrainingStore.getState().sending).toBe(false);
 	});
 
-	it("api rejection rolls back and notifies", async () => {
+	it("api rejection keeps the student message and notifies", async () => {
 		mockStream.mockRejectedValue(new Error("服务器异常"));
 		const manager = new StreamManager(1);
 		const onError = vi.fn();
@@ -153,7 +159,9 @@ describe("StreamManager.send 主流程", () => {
 		await manager.send("提问", { onError });
 
 		expect(onError).toHaveBeenCalledWith("服务器异常");
-		expect(useTrainingStore.getState().messages).toHaveLength(0);
+		const msgs = useTrainingStore.getState().messages;
+		expect(msgs).toHaveLength(1);
+		expect(msgs[0]).toMatchObject({ role: "student", content: "提问", streamError: "服务器异常" });
 		expect(useTrainingStore.getState().sending).toBe(false);
 	});
 

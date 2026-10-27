@@ -8,18 +8,23 @@
 
 用法：端点依赖 ``Scope``，所有取他人数据的查询经 ``scope_query`` 收窄；写操作先用
 ``require_school`` 校验目标行的院校。越权一律 404（不暴露存在性），缺权限才是 403。
+
+平台角色还可以用请求头 ``X-School-Scope`` 把**工作视图**收窄到某一所院校（见
+``apply_school_scope``）：这是视图偏好，不是授权 —— 院校角色的院校是硬边界，
+任何头都不能改。
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated
 
-from fastapi import Depends
+from fastapi import Depends, Header
 
 from core.deps import CurrentUser, DbSession
 from core.exceptions import NotFoundError
-from models import MEMBER_ROLE_TEACHER, Class, ClassMembership, User
+from models import MEMBER_ROLE_TEACHER, Class, ClassMembership, School, User
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Query, Session
@@ -68,11 +73,42 @@ def resolve_scope(db: Session, user: User) -> TenantScope:
     )
 
 
-def get_tenant_scope(current_user: CurrentUser, db: DbSession) -> TenantScope:
-    return resolve_scope(db, current_user)
+def apply_school_scope(scope: TenantScope, requested: str | None) -> TenantScope:
+    """把平台角色的工作视图收窄到请求头指定的院校。
+
+    只收窄、不放宽：
+    - 院校角色（``scope.school_id`` 非空）的院校是硬边界 —— 头一律忽略；
+    - 平台角色本来跨院校，``X-School-Scope`` 只是"我现在只看这一所"的视图偏好；
+    - 非法值（非整数/非正数）按"未指定"处理，退回全部院校，不制造空白页。
+    """
+    if scope.school_id is not None or not requested:
+        return scope
+    try:
+        school_id = int(requested)
+    except ValueError:
+        return scope
+    if school_id <= 0:
+        return scope
+    return TenantScope(school_id=school_id, class_ids=scope.class_ids, user_id=scope.user_id)
+
+
+def get_tenant_scope(
+    current_user: CurrentUser,
+    db: DbSession,
+    requested_school: Annotated[str | None, Header(alias="X-School-Scope")] = None,
+) -> TenantScope:
+    return apply_school_scope(resolve_scope(db, current_user), requested_school)
 
 
 Scope = Annotated[TenantScope, Depends(get_tenant_scope)]
+
+
+def school_name_map(db: Session, school_ids: Iterable[int | None]) -> dict[int, str]:
+    """院校 id → 名称。列表展示共用：缺 id 自动跳过，查不到的 id 不返回（调用方按空处理）。"""
+    ids = {int(sid) for sid in school_ids if sid is not None}
+    if not ids:
+        return {}
+    return {row[0]: row[1] for row in db.query(School.id, School.name).filter(School.id.in_(ids)).all()}
 
 
 def scope_query(query: Query, column, scope: TenantScope) -> Query:

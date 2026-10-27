@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { Box, Button, Center, Stack, Text } from "@mantine/core";
+import { Box, Text } from "@mantine/core";
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
 import { queryKeys } from "@/api/query-keys";
 import { QuestionnaireModal } from "@/components/QuestionnaireModal";
+import { TrainingUnavailable } from "@/components/training/TrainingUnavailable";
 import { useQuestionnaire } from "@/hooks/useQuestionnaire";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { getRecordDetail, pauseTraining, pauseTrainingOnHide, resumeTraining } from "../api/training";
@@ -18,7 +19,7 @@ export default function TrainingEntry() {
 	const questionnairePauseRequestRef = useRef<Promise<unknown> | null>(null);
 
 	// 唯一数据查询 — 整个训练页子树共享此缓存
-	const { data: record, isLoading, error, refetch } = useQuery({
+	const { data: record, isLoading, isFetching, error, refetch } = useQuery({
 		queryKey: queryKeys.training.detail(recordId ?? ""),
 		queryFn: () => getRecordDetail(Number(recordId!)).then((r) => r.data),
 		enabled: !!recordId,
@@ -120,20 +121,31 @@ export default function TrainingEntry() {
 	if (isLoading) return <TrainingSkeleton />;
 	if (error) {
 		return (
-			<Center style={{ minHeight: "60vh" }}>
-				<Stack align="center" gap="sm" p="xl" ta="center">
-					<Text fw={500}>加载训练记录失败</Text>
-					<Text size="xs" c="dimmed" maw={384} style={{ wordBreak: "break-word" }}>
-						{error instanceof Error ? error.message : String(error)}
-					</Text>
-					<Button variant="outline" mt={4} onClick={() => refetch()}>
-						重试
-					</Button>
-				</Stack>
-			</Center>
+			<TrainingUnavailable
+				title="加载训练记录失败"
+				detail={error instanceof Error ? error.message : String(error)}
+				onRetry={() => refetch()}
+				retrying={isFetching}
+			/>
 		);
 	}
-	if (!record) return <Text p="md">记录不存在</Text>;
+	if (!record) {
+		return (
+			<TrainingUnavailable
+				title="记录不存在"
+				detail="该训练记录可能已被删除，或你没有查看权限。"
+				onRetry={() => refetch()}
+				retrying={isFetching}
+			/>
+		);
+	}
+	// 会话一旦结束（本端交卷、他端结束、超时结算、患者中止），训练工作区就不再适用：
+	// 服务端 manifest 会把唯一的「结束训练」动作置为不可用（`SESSION_NOT_ACTIVE`），而结果、
+	// 评分进度与重试都只在记录详情页。旧实现继续渲染训练界面，学生点开确认框只能看到
+	// 禁用按钮与「训练已结束」的阻塞项——既拿不到评分，也找不到出口。
+	if (record.status !== "in_progress") {
+		return <Navigate to={`/record/${recordId}`} replace />;
+	}
 	if (!qHasChecked) return <TrainingSkeleton />;
 
 	// 工作区由服务端 manifest 的 workflow 决定
@@ -144,17 +156,12 @@ export default function TrainingEntry() {
 	const SceneComponent = TRAINING_SCENES[manifest.workflow.id];
 	if (!SceneComponent) {
 		return (
-			<Center style={{ minHeight: "60vh" }}>
-				<Stack align="center" gap="sm" p="xl" ta="center">
-					<Text fw={500}>该训练工作区尚未在此版本提供</Text>
-					<Text size="xs" c="dimmed">
-						工作区：{manifest.workflow.label || manifest.workflow.id}
-					</Text>
-					<Button variant="outline" mt={4} onClick={() => refetch()}>
-						重新加载
-					</Button>
-				</Stack>
-			</Center>
+			<TrainingUnavailable
+				title="该训练工作区尚未在此版本提供"
+				detail={`工作区：${manifest.workflow.label || manifest.workflow.id}`}
+				onRetry={() => refetch()}
+				retrying={isFetching}
+			/>
 		);
 	}
 

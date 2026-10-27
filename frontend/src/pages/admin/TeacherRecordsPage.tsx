@@ -25,6 +25,7 @@ import Pagination from "@/components/ui/pagination";
 import StatCard from "@/components/ui/stat-card";
 import { Table } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
+import { useActiveSchoolBrand } from "@/hooks/useActiveSchoolBrand";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 
 type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
@@ -50,6 +51,9 @@ export default function TeacherRecordsPage() {
 	const toast = useToast();
 	const { confirm } = useConfirm();
 	const queryClient = useQueryClient();
+	// 平台角色在「全部院校」视角下逐行标院校；收窄到某校时整页同校，标出来只是噪音
+	const { isPlatform, school: activeSchool } = useActiveSchoolBrand();
+	const showSchoolColumn = isPlatform && !activeSchool;
 
 	const [sortField, setSortField] = useState<SortField>(null);
 	const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -350,6 +354,7 @@ export default function TeacherRecordsPage() {
 									<Table.Tr>
 										<Table.Th style={{ width: 88, whiteSpace: "nowrap" }}>学生</Table.Th>
 										<Table.Th style={{ width: 122, whiteSpace: "nowrap" }}>学号</Table.Th>
+										{showSchoolColumn && <Table.Th style={{ width: 120, whiteSpace: "nowrap" }}>院校</Table.Th>}
 										<Table.Th style={{ minWidth: 170 }}>病例</Table.Th>
 										<Table.Th style={{ width: 84, whiteSpace: "nowrap" }}>来源</Table.Th>
 										{/* 「类型」列恒为「问诊」，零信息量，2026-09-26 删除（审计 UI-ADM-6/表格列集） */}
@@ -382,6 +387,15 @@ export default function TeacherRecordsPage() {
 												<Table.Td style={{ color: "var(--mantine-color-dimmed)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
 													{r.user_student_id ?? ""}
 												</Table.Td>
+												{showSchoolColumn && (
+													<Table.Td style={{ whiteSpace: "nowrap" }}>
+														{r.school_name ? (
+															<Badge variant="light" color="gray" size="xs">{r.school_name}</Badge>
+														) : (
+															<Text size="xs" c="dimmed" opacity={0.4}>平台</Text>
+														)}
+													</Table.Td>
+												)}
 												<Table.Td style={{ fontWeight: 500 }}>{r.case_name}</Table.Td>
 												<Table.Td>
 													{r.assignment_title ? (

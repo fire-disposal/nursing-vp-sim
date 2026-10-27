@@ -43,6 +43,11 @@ export default function MessagePlayback({ messages, highlightId }: Props) {
 			</Text>
 			<Box style={{ flex: 1, overflowY: "auto", minHeight: 240 }}>
 				<Stack gap="xs" px={2}>
+					{messages.length === 0 && (
+						<Text size="xs" c="dimmed" ta="center" py="xl">
+							本次训练没有对话记录
+						</Text>
+					)}
 					{messages.map((msg) => {
 						const isStudent = msg.role === "student";
 						const isHighlighted = highlightId != null && msg.id === highlightId;

@@ -14,7 +14,7 @@ import pytest
 from core.exceptions import NotFoundError, ValidationError
 from core.roles import SYSTEM_PERMISSIONS
 from core.security import clear_permission_cache
-from core.tenant import platform_scope, resolve_scope
+from core.tenant import apply_school_scope, platform_scope, resolve_scope, school_name_map
 from models import Case, Class, ClassMembership, Role, RolePermission, School, TrainingRecord, User
 from modules.admin.class_memberships import upsert_members
 from modules.admin.classes import ClassService
@@ -231,3 +231,29 @@ def test_platform_scope_is_not_accidentally_used_by_scoped_services(world):
     narrow = TenantScope(school_id=world["school_a"].id, class_ids=frozenset(), user_id=world["stu_a"].id)
     assert ClassService(world["db"], narrow).list_all() == []
     assert platform_scope().is_global
+
+
+# ── 平台角色的「当前院校」视图（X-School-Scope）──
+# 语义：只收窄、不放宽。院校角色的院校是硬边界，头一律忽略。
+
+
+def test_school_scope_narrows_platform_view(world):
+    narrowed = apply_school_scope(world["scope_platform"], str(world["school_a"].id))
+
+    assert narrowed.school_id == world["school_a"].id
+    page = UserService(world["db"], narrowed).list_all(UserFilters(), offset=0, limit=50)
+    assert {u.username for u in page.items} == {"admin-a", "stu-a"}
+
+
+def test_school_scope_header_cannot_widen_school_admin(world):
+    assert apply_school_scope(world["scope_a"], str(world["school_b"].id)).school_id == world["school_a"].id
+
+
+def test_school_scope_header_invalid_values_fall_back_to_global(world):
+    for raw in ("", "abc", "-1", "0", None):
+        assert apply_school_scope(world["scope_platform"], raw).is_global
+
+
+def test_school_name_map_is_batched_lookup(world):
+    names = school_name_map(world["db"], [world["school_a"].id, world["school_b"].id, None, 999_999])
+    assert names == {world["school_a"].id: "甲大学", world["school_b"].id: "乙学院"}

@@ -4,13 +4,15 @@ import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
 import "@mantine/spotlight/styles.css";
 import "@mantine/dates/styles.css";
-import { MantineProvider } from "@mantine/core";
+import { colorsTuple, MantineProvider } from "@mantine/core";
 import { DatesProvider } from "@mantine/dates";
 import "dayjs/locale/zh-cn";
-import React from "react";
+import React, { useMemo } from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
+import { useActiveSchoolBrand } from "./hooks/useActiveSchoolBrand";
 import { cssVariablesResolver, theme } from "./theme";
+import { schoolPalette } from "./theme/school-palettes";
 import { installChunkRecovery } from "./utils/chunk-recovery";
 import "./styles/global.css";
 import "@/styles/student.css";
@@ -21,9 +23,18 @@ import "@/styles/student.css";
 installChunkRecovery();
 
 function Root() {
+	// 院校品牌色（可选）：换院校即换主色，学生/教师/平台都能一眼认出"现在在谁的语境里"。
+	// 只影响观感，隔离仍由服务端租户作用域决定。
+	const { school } = useActiveSchoolBrand();
+	const activeTheme = useMemo(() => {
+		const palette = schoolPalette(school?.themeColor);
+		if (!palette) return theme;
+		return { ...theme, colors: { ...theme.colors, brand: colorsTuple([...palette.shades]) } };
+	}, [school?.themeColor]);
+
 	return (
 		<MantineProvider
-			theme={theme}
+			theme={activeTheme}
 			defaultColorScheme="light"
 			cssVariablesResolver={cssVariablesResolver}
 		>

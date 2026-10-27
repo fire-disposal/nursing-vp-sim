@@ -20,3 +20,13 @@ export const deleteSchool = (id: number) =>
 	api.delete<Schemas["DeleteSchoolResponse"]>(
 		`/admin/schools/${id}` as ApiPath,
 	);
+
+/** 院徽上传（可选）：入口先归一（剥元数据、限长边、WebP），返回更新后的院校。 */
+export const uploadSchoolLogo = (id: number, file: File) => {
+	const form = new FormData();
+	form.append("file", file);
+	return api.post<SchoolItem>(`/admin/schools/${id}/logo` as ApiPath, form);
+};
+
+export const deleteSchoolLogo = (id: number) =>
+	api.delete<SchoolItem>(`/admin/schools/${id}/logo` as ApiPath);

@@ -44,6 +44,8 @@ export default function QuestionnairesTab() {
 	const [showEditor, setShowEditor] = useState(false);
 	const [editingId, setEditingId] = useState<number | null>(null);
 	const [form, setForm] = useState<TemplateForm>(emptyForm());
+	/** 编辑器打开/载入时的快照：关闭前据此判断"有没有未保存的改动"。 */
+	const [editorBaseline, setEditorBaseline] = useState("");
 	const [editMsg, setEditMsg] = useState("");
 	const [statsTemplate, setStatsTemplate] = useState<TemplateListItem | null>(
 		null,
@@ -134,7 +136,7 @@ export default function QuestionnairesTab() {
 
 	useEffect(() => {
 		if (editingId && templateDetail && showEditor) {
-			setForm({
+			const next = {
 				title: templateDetail.title,
 				type: templateDetail.type,
 				description: templateDetail.description || "",
@@ -147,13 +149,17 @@ export default function QuestionnairesTab() {
 					sort_order: q.sort_order,
 					options: q.options || [],
 				})),
-			});
+			};
+			setForm(next);
+			setEditorBaseline(JSON.stringify(next));
 		}
 	}, [editingId, templateDetail, showEditor]);
 
 	const openNew = () => {
+		const blank = emptyForm();
 		setEditingId(null);
-		setForm(emptyForm());
+		setForm(blank);
+		setEditorBaseline(JSON.stringify(blank));
 		setEditMsg("");
 		setShowEditor(true);
 	};
@@ -164,10 +170,20 @@ export default function QuestionnairesTab() {
 		setShowEditor(true);
 	};
 
-	const closeEditor = () => {
+	// 与其它表单同一范式：有未保存改动时先确认，别让点遮罩/× 把改动静默丢掉
+	const closeEditor = async (options: { force?: boolean } = {}) => {
+		if (!options.force && editorBaseline && JSON.stringify(form) !== editorBaseline) {
+			const ok = await confirm({
+				title: "未保存的更改",
+				message: "问卷内容未保存，确定关闭？",
+				danger: true,
+			});
+			if (!ok) return;
+		}
 		setShowEditor(false);
 		setEditingId(null);
 		setForm(emptyForm());
+		setEditorBaseline("");
 		setEditMsg("");
 	};
 
@@ -197,7 +213,8 @@ export default function QuestionnairesTab() {
 			{ form, editingId },
 			{
 				onSuccess: () => {
-					closeEditor();
+					// 已保存：关窗不再询问（否则刚保存完又被"未保存的更改"拦一下）
+					void closeEditor({ force: true });
 				},
 				onError: (err: unknown) => {
 					// detail 可能是 pydantic 的数组：直接上屏会触发 React child 白屏
@@ -403,7 +420,7 @@ export default function QuestionnairesTab() {
 				editMsg={editMsg}
 				isLoadingDetail={isLoadingDetail}
 				isSaving={saveMutation.isPending}
-				onClose={closeEditor}
+				onClose={() => { void closeEditor(); }}
 				onSave={handleSave}
 				setForm={setForm}
 			/>

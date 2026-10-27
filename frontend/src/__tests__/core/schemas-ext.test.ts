@@ -3,7 +3,7 @@ import { assignmentSchema } from "@/schemas/assignment";
 import { classFormSchema } from "@/schemas/class";
 import { llmConfigSchema } from "@/schemas/llm-config";
 import { notificationSchema } from "@/schemas/notification";
-import { passwordChangeSchema, profileSchema } from "@/schemas/profile";
+import { profileSchema } from "@/schemas/profile";
 import { roleCreateSchema } from "@/schemas/role";
 import { secretFormSchema } from "@/schemas/secret";
 import { editUserSchema, registerUserSchema } from "@/schemas/user";
@@ -100,7 +100,7 @@ describe("assignmentSchema", () => {
 });
 
 describe("secretFormSchema", () => {
-	const valid = { label: "主密钥", monthlyLimit: 100, priority: 1, modelOverride: null };
+	const valid = { label: "主密钥", monthlyLimit: 100, priceInput: 0.5, priceOutput: 0.5, priority: 1, modelOverride: null };
 
 	it("accepts valid secret without optional fields", () => {
 		expect(secretFormSchema.safeParse(valid).success).toBe(true);
@@ -124,6 +124,11 @@ describe("secretFormSchema", () => {
 		expect(secretFormSchema.safeParse({ ...valid, monthlyLimit: -5 }).success).toBe(false);
 	});
 
+	it("rejects negative token price", () => {
+		expect(secretFormSchema.safeParse({ ...valid, priceInput: -1 }).success).toBe(false);
+		expect(secretFormSchema.safeParse({ ...valid, priceOutput: -0.01 }).success).toBe(false);
+	});
+
 	it("rejects non-integer priority", () => {
 		expect(secretFormSchema.safeParse({ ...valid, priority: 1.5 }).success).toBe(false);
 	});
@@ -140,22 +145,6 @@ describe("profileSchema", () => {
 
 	it("accepts optional studentId", () => {
 		expect(profileSchema.safeParse({ displayName: "王", studentId: "2026001", gender: "女" }).success).toBe(true);
-	});
-});
-
-describe("passwordChangeSchema", () => {
-	it("accepts password >= 6 chars", () => {
-		expect(passwordChangeSchema.safeParse({ oldPassword: "old", newPassword: "newpass" }).success).toBe(true);
-	});
-
-	it("rejects short new password", () => {
-		const r = passwordChangeSchema.safeParse({ oldPassword: "old", newPassword: "12345" });
-		expect(r.success).toBe(false);
-		if (!r.success) expect(errorMsg(r, "newPassword")).toContain("6");
-	});
-
-	it("rejects empty old password", () => {
-		expect(passwordChangeSchema.safeParse({ oldPassword: "", newPassword: "newpass" }).success).toBe(false);
 	});
 });
 

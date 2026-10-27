@@ -361,7 +361,7 @@ from modules.training.router import router as _training
 from modules.training.router.chat import router as _chat
 from modules.voice.router import router as _tts
 
-_exports, _rubrics, _stats = get_top_level_routers()
+_exports, _rubrics, _schools_public, _stats = get_top_level_routers()
 for r in (
     _admin,
     _assignments,
@@ -376,6 +376,7 @@ for r in (
     _questionnaires,
     _rubrics,
     _scenario,
+    _schools_public,
     _scoreboard,
     _stats,
     _telemetry,

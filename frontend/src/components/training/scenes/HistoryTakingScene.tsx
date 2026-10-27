@@ -1,5 +1,6 @@
-import { Box, Stack, Text } from "@mantine/core";
+import { Box } from "@mantine/core";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { TrainingUnavailable } from "@/components/training/TrainingUnavailable";
 import { ActivityRail } from "@/components/training/workspace/ActivityRail";
 import { TrainingEngine } from "@/engine/TrainingEngine";
 
@@ -16,10 +17,12 @@ export default function HistoryTakingScene({ recordId }: { recordId: string }) {
 		>
 			<ErrorBoundary
 				fallback={
-					<Stack align="center" justify="center" gap={12} p="xl" h="100%" ta="center" c="dimmed">
-						<Text size="sm" fw={500}>训练加载失败</Text>
-						<Text size="xs">请返回重试或刷新页面</Text>
-					</Stack>
+					// 训练页没有 App 导航：崩溃态也必须保留出口，否则学生只能靠浏览器后退
+					<TrainingUnavailable
+						title="训练加载失败"
+						detail="工作区渲染出错，请重试或返回。"
+						onRetry={() => window.location.reload()}
+					/>
 				}
 			>
 				<TrainingEngine recordId={recordId}>

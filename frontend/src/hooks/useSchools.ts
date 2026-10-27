@@ -2,8 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import {
 	createSchool,
 	deleteSchool,
+	deleteSchoolLogo,
 	getSchools,
 	updateSchool,
+	uploadSchoolLogo,
 } from "@/api/admin/schools";
 import { queryKeys } from "@/api/query-keys";
 import { useApiMutation } from "./useApiMutation";
@@ -34,11 +36,38 @@ export function useCreateSchool() {
 
 export function useUpdateSchool() {
 	return useApiMutation({
-		mutationFn: ({ id, name }: { id: number; name: string }) =>
-			updateSchool(id, { name }),
+		mutationFn: ({
+			id,
+			name,
+			theme_color,
+		}: {
+			id: number;
+			name?: string;
+			theme_color?: string | null;
+		}) => updateSchool(id, { name, theme_color }),
 		invalidateKeys: invalidate,
 		successMsg: "院校已更新",
 		errorMsg: "更新院校失败",
+	});
+}
+
+/** 院徽上传/移除：只影响院校品牌，不动班级/账号缓存。 */
+export function useUploadSchoolLogo() {
+	return useApiMutation({
+		mutationFn: ({ id, file }: { id: number; file: File }) =>
+			uploadSchoolLogo(id, file),
+		invalidateKeys: [queryKeys.schools.all],
+		successMsg: "院徽已更新",
+		errorMsg: "上传院徽失败",
+	});
+}
+
+export function useDeleteSchoolLogo() {
+	return useApiMutation({
+		mutationFn: (id: number) => deleteSchoolLogo(id),
+		invalidateKeys: [queryKeys.schools.all],
+		successMsg: "院徽已移除",
+		errorMsg: "移除院徽失败",
 	});
 }
 

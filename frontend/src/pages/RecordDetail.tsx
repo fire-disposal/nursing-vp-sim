@@ -29,7 +29,7 @@ import ScoreResultSection from "./record-detail/ScoreResultSection";
 import { toPracticeMarker, toPracticeOptions, toReviewFocus } from "./record-detail/record-view";
 import { EmotionTrajectory } from "./record-detail/EmotionTrajectory";
 import NursingRecordSection from "./record-detail/NursingRecordSection";
-import ScoringPendingBanner from "./record-detail/ScoringPendingBanner";
+import ScoreStatusBanner from "./record-detail/ScoreStatusBanner";
 
 /** 评分未出终态时的自动轮询间隔（GET 记录详情，无自造进度） */
 const PENDING_POLL_INTERVAL_MS = 3000;
@@ -240,7 +240,7 @@ export default function RecordDetail() {
 				scoreMax={scoreMax}
 			/>
 
-			<ScoringPendingBanner
+			<ScoreStatusBanner
 				record={record as { status?: string; scoring_status?: string | null; scoring_error?: string | null }}
 				retrying={retrying}
 				refreshing={refreshing}

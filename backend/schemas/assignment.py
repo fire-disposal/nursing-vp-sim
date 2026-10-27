@@ -96,6 +96,9 @@ class AssignmentListItem(BaseModel):
     title: str
     case_name: str = ""
     class_name: str = ""
+    #: 院校归属（作业班级的院校）：平台角色「全部院校」视图下逐行认院校
+    school_id: int | None = None
+    school_name: str | None = None
     teacher_name: str = ""
     start_time: datetime
     end_time: datetime

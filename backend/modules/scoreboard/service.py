@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from core.exceptions import NotFoundError
 from core.statuses import ScoringStatus, TrainingStatus
-from core.tenant import TenantScope, visible_class
+from core.tenant import TenantScope, school_name_map, visible_class
 from models import MEMBER_ROLE_STUDENT, Assignment, Class, ClassMembership, Score, TrainingRecord, User
 from modules.training.scoring.comparability import build_comparability, comparability_key, key_label
 from modules.training.scoring.grade_policy import (
@@ -367,6 +367,7 @@ class ScoreboardService:
         user_ids = [r.user_id for r in page_rows]
         users = {u.id: u for u in self.db.query(User).filter(User.id.in_(user_ids)).all()}
         class_names = class_names if class_names is not None else {}
+        school_names = school_name_map(self.db, [u.school_id for u in users.values()])
 
         items: list[ScoreboardRankingItem] = []
         for i, r in enumerate(page_rows):
@@ -380,6 +381,8 @@ class ScoreboardService:
                     display_name=user.display_name if user else f"用户 {r.user_id}",
                     student_id=user.student_id if user else None,
                     class_name=class_names.get(r.user_id, ""),
+                    school_id=user.school_id if user else None,
+                    school_name=school_names.get(user.school_id) if user and user.school_id else None,
                     avg_score=avg_score,
                     best_score=round(float(r.best_score), 1) if r.best_score is not None else None,
                     total_score=round(float(r.total_score), 1) if r.total_score is not None else None,

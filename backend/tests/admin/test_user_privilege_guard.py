@@ -15,10 +15,10 @@ from sqlalchemy.orm import Session
 
 from core.database import Base
 from core.database import engine as pg_engine
-from core.exceptions import AuthError, ValidationError
+from core.exceptions import AuthError, NotFoundError, ValidationError
 from core.roles import SYSTEM_PERMISSIONS
 from core.security import clear_permission_cache
-from core.tenant import platform_scope
+from core.tenant import TenantScope, platform_scope
 from models import Class, ClassMembership, Role, RolePermission, School, User
 from modules.admin.users import UserService
 from schemas import UserMembershipUpdate, UserUpdateRequest
@@ -343,3 +343,92 @@ class TestHighPrivilegeAccountLifecycle:
         UserService(db, _PLATFORM).update(peer.id, UserUpdateRequest(is_active=False), current_user=actor)
 
         assert db.get(User, peer.id).is_active is False
+
+
+def _make_school(db: Session, name: str) -> School:
+    school = db.query(School).filter(School.name == name).first()
+    if school is None:
+        school = School(name=name)
+        db.add(school)
+        db.commit()
+        db.refresh(school)
+    return school
+
+
+class TestSchoolAssignment:
+    """编辑用户的院校归属（单位）。
+
+    缺陷背景（2026-10-27 反馈）：``UserUpdateRequest`` 没有 ``school_id``，编辑用户时
+    单位既看不到也改不了；新账号的单位只能靠「先加入一个班级」间接推导。
+    """
+
+    def test_platform_admin_can_move_user_between_schools(self, db):
+        actor = _make_user(db, "root-actor-school", "super_admin")
+        target = _make_user(db, "student-school-1", "student")
+        other = _make_school(db, "另一院校")
+
+        view = UserService(db, _PLATFORM).update(target.id, UserUpdateRequest(school_id=other.id), current_user=actor)
+
+        assert view.school_id == other.id
+        assert view.school_name == "另一院校"
+        assert db.get(User, target.id).school_id == other.id
+
+    def test_omitting_school_leaves_it_untouched(self, db):
+        actor = _make_user(db, "root-actor-school2", "super_admin")
+        target = _make_user(db, "student-school-2", "student")
+        before = db.get(User, target.id).school_id
+
+        UserService(db, _PLATFORM).update(target.id, UserUpdateRequest(display_name="改个名"), current_user=actor)
+
+        assert db.get(User, target.id).school_id == before
+
+    def test_school_admin_cannot_move_user_out_of_own_school(self, db):
+        actor = _make_user(db, "admin-school-actor", "admin")
+        target = _make_user(db, "student-school-3", "student")
+        other = _make_school(db, "另一院校")
+        school_scope = TenantScope(school_id=actor.school_id, class_ids=None, user_id=actor.id)
+
+        with pytest.raises(NotFoundError):
+            UserService(db, school_scope).update(target.id, UserUpdateRequest(school_id=other.id), current_user=actor)
+
+        assert db.get(User, target.id).school_id == actor.school_id
+
+    def test_user_with_class_in_old_school_cannot_be_moved(self, db):
+        """单校不变量：账号还在原院校的班里时先解除归属，不静默搬人。"""
+        actor = _make_user(db, "root-actor-school3", "super_admin")
+        target = _make_user(db, "student-school-4", "student")
+        cls = _make_class(db, "5班")
+        UserService(db, _PLATFORM).update(
+            target.id,
+            UserUpdateRequest(memberships=[UserMembershipUpdate(class_id=cls.id)]),
+            current_user=actor,
+        )
+        other = _make_school(db, "另一院校")
+
+        with pytest.raises(ValidationError) as exc:
+            UserService(db, _PLATFORM).update(target.id, UserUpdateRequest(school_id=other.id), current_user=actor)
+
+        assert "其他院校的班级" in str(exc.value)
+        assert db.get(User, target.id).school_id == cls.school_id
+
+    def test_platform_role_cannot_be_given_a_school(self, db):
+        actor = _make_user(db, "root-actor-school4", "super_admin")
+        target = _make_user(db, "root-target-school", "super_admin")
+        other = _make_school(db, "另一院校")
+
+        with pytest.raises(ValidationError) as exc:
+            UserService(db, _PLATFORM).update(target.id, UserUpdateRequest(school_id=other.id), current_user=actor)
+
+        assert "平台超级管理员" in str(exc.value)
+        assert db.get(User, target.id).school_id == ensure_school(db).id
+
+    def test_unknown_school_is_rejected(self, db):
+        actor = _make_user(db, "root-actor-school5", "super_admin")
+        target = _make_user(db, "student-school-5", "student")
+        before = db.get(User, target.id).school_id
+
+        with pytest.raises(ValidationError) as exc:
+            UserService(db, _PLATFORM).update(target.id, UserUpdateRequest(school_id=999_999), current_user=actor)
+
+        assert "院校不存在" in str(exc.value)
+        assert db.get(User, target.id).school_id == before

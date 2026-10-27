@@ -1,5 +1,6 @@
 import axios from "axios";
 import useAuthStore, { isRefreshing, setRefreshing } from "@/stores/authStore";
+import { useSchoolScopeStore } from "@/stores/schoolScopeStore";
 
 export const api = axios.create({
 	baseURL: "/api",
@@ -23,6 +24,12 @@ api.interceptors.request.use((config) => {
 	const token = useAuthStore.getState().token;
 	if (token) {
 		config.headers.Authorization = `Bearer ${token}`;
+	}
+	// 平台角色的「当前院校」工作视图。服务端只对平台角色生效（院校角色的院校是硬边界），
+	// 因此这里无条件带上：没有作用域时不带，院校角色带了也不会被采纳。
+	const scopedSchool = useSchoolScopeStore.getState().school;
+	if (scopedSchool) {
+		config.headers["X-School-Scope"] = String(scopedSchool.id);
 	}
 	return config;
 });

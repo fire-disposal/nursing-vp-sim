@@ -27,6 +27,8 @@ export interface UserFormValues {
 	role: string;
 	display_name: string;
 	student_id: string;
+	/** 所属单位（院校 id 的字符串形式）；平台账号为空串。 */
+	school_id: string;
 	memberships: MembershipDraft[];
 }
 
@@ -35,10 +37,18 @@ export interface EditUserFormValues {
 	student_id: string;
 	role: string;
 	password: string;
+	/** 所属单位（院校 id 的字符串形式）；省略 = 不修改。 */
+	school_id: string;
 	memberships: MembershipDraft[];
 }
 
 export interface RoleOption {
 	name: string;
 	display_name: string;
+}
+
+/** 院校（单位）选项：用户表单只需要 id 与名称。 */
+export interface SchoolOption {
+	id: number;
+	name: string;
 }

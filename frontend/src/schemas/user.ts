@@ -11,6 +11,8 @@ export const registerUserSchema = z.object({
   role: z.string().min(1, "请选择角色"),
   display_name: z.string().min(1, "姓名不能为空"),
   student_id: z.string().optional(),
+  // 空串 = 未选（平台角色 / 院校管理员由服务端强制本校）。必填性由 UserForm 按角色动态判。
+  school_id: z.string().optional(),
   memberships: z.array(membershipDraftSchema).default([]),
 });
 
@@ -19,6 +21,7 @@ export const editUserSchema = z.object({
   student_id: z.string().optional(),
   role: z.string().min(1, "请选择角色"),
   password: z.string().optional(),
+  school_id: z.string().optional(),
   memberships: z.array(membershipDraftSchema).default([]),
 });
 

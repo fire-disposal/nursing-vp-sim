@@ -8,9 +8,4 @@ export const profileSchema = z.object({
 
 export type ProfileFormValues = z.infer<typeof profileSchema>;
 
-export const passwordChangeSchema = z.object({
-	oldPassword: z.string().min(1, "请输入原密码"),
-	newPassword: z.string().min(6, "新密码至少 6 个字符"),
-});
-
-export type PasswordChangeFormValues = z.infer<typeof passwordChangeSchema>;
+// 修改密码的表单规则只有 `schemas/auth.ts::changePasswordSchema`（含二次确认）一份。

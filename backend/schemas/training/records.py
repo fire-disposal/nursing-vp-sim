@@ -28,6 +28,10 @@ class TrainingRecordBrief(BaseModel):
     is_student_practice: bool = True
     assignment_id: str | None = None
     assignment_title: str | None = None
+    #: 院校归属（学生账号的院校；平台角色试跑记录回退到作业班级的院校）。
+    #: 平台角色在「全部院校」视图下靠它逐行认院校；院校角色恒为本校。
+    school_id: int | None = None
+    school_name: str | None = None
 
 
 class TrainingRecordSummary(BaseModel):

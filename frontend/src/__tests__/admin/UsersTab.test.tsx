@@ -2,13 +2,17 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@/__tests__/render";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import UsersTab from "@/components/admin/UsersTab";
+import useAuthStore from "@/stores/authStore";
+import { useSchoolScopeStore } from "@/stores/schoolScopeStore";
 
 const mocks = vi.hoisted(() => ({
 	getUsers: vi.fn(),
 	getRoles: vi.fn(),
 	getClasses: vi.fn(),
+	getSchools: vi.fn(),
+	register: vi.fn(),
 	updateUser: vi.fn(),
 	deleteUser: vi.fn(),
 }));
@@ -26,6 +30,13 @@ vi.mock("@/api/admin/roles", () => ({
 	getRoles: mocks.getRoles,
 }));
 
+vi.mock("@/api/admin/schools", () => ({
+	getSchools: mocks.getSchools,
+	createSchool: vi.fn(),
+	updateSchool: vi.fn(),
+	deleteSchool: vi.fn(),
+}));
+
 vi.mock("@/api/classes", () => ({
 	getClasses: mocks.getClasses,
 	getClass: vi.fn(),
@@ -40,7 +51,7 @@ vi.mock("@/api/classes", () => ({
 }));
 
 vi.mock("@/api/auth", () => ({
-	register: vi.fn(),
+	register: mocks.register,
 	login: vi.fn(),
 	logout: vi.fn(),
 	refreshToken: vi.fn(),
@@ -211,5 +222,121 @@ describe("UsersTab 账号生命周期操作", () => {
 			const last = mocks.getUsers.mock.calls.at(-1)?.[0] as Record<string, unknown>;
 			expect(last.include_inactive).toBe(true);
 		});
+	});
+});
+
+const SCHOOLS = [
+	{ id: 7, name: "杭州师范大学", class_count: 2, user_count: 3, created_at: "2026-01-01T00:00:00Z" },
+	{ id: 8, name: "另一院校", class_count: 0, user_count: 0, created_at: "2026-01-01T00:00:00Z" },
+];
+
+/**
+ * 院校归属（用户口中的「单位」）：编辑用户时能看到并改；平台角色建号必须选。
+ * 现场（2026-10-27）：表单里没有这一项 → 归属错了既改不了，新建账号也只能
+ * 靠「顺手加个班级」间接推导，属于核心业务断链。
+ */
+describe("UsersTab 院校归属", () => {
+	beforeEach(() => {
+		useAuthStore.setState({ permissions: ["school_manage"] });
+		mocks.getSchools.mockResolvedValue({ data: SCHOOLS });
+	});
+
+	afterEach(() => {
+		useAuthStore.setState({ permissions: [] });
+	});
+
+	async function pickSchool(name: string) {
+		const combo = await screen.findByRole("combobox", { name: "院校" });
+		await userEvent.click(combo);
+		const listbox = document.getElementById(combo.getAttribute("aria-controls") ?? "");
+		await userEvent.click(
+			within(listbox as HTMLElement).getByRole("option", { name, hidden: true }),
+		);
+	}
+
+	it("编辑用户时改院校，保存请求带上 school_id", async () => {
+		mocks.updateUser.mockResolvedValue({ data: MULTI_CLASS_USER });
+		renderTab();
+		await userEvent.click(await screen.findByRole("button", { name: "编辑 小明" }));
+
+		await pickSchool("另一院校");
+		await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+		await waitFor(() =>
+			expect(mocks.updateUser).toHaveBeenCalledWith(
+				42,
+				expect.objectContaining({ school_id: 8 }),
+			),
+		);
+	});
+
+	it("平台角色建号必须选院校：未选先拦住，选了再随注册请求提交", async () => {
+		mocks.register.mockResolvedValue({
+			data: { id: 99, username: "newbie", role: "student", display_name: "新人", student_id: null },
+		});
+		renderTab();
+		await userEvent.click(await screen.findByRole("button", { name: "注册新用户" }));
+
+		await userEvent.type(screen.getByLabelText(/用户名/), "newbie");
+		await userEvent.type(screen.getByLabelText(/密码/), "secret123");
+		await userEvent.type(screen.getByLabelText(/姓名/), "新人");
+		await userEvent.click(screen.getByRole("button", { name: "注册" }));
+
+		expect(await screen.findByText("请选择所属院校")).toBeTruthy();
+		expect(mocks.register).not.toHaveBeenCalled();
+
+		await pickSchool("杭州师范大学");
+		await userEvent.click(screen.getByRole("button", { name: "注册" }));
+
+		await waitFor(() =>
+			expect(mocks.register).toHaveBeenCalledWith(
+				expect.objectContaining({ school_id: 7 }),
+			),
+		);
+	});
+});
+
+/**
+ * 「当前院校」作用域：平台角色把工作视图收窄到某一所后，
+ * 逐列表的院校筛选不再重复出现，新建账号的院校默认跟随作用域。
+ */
+describe("UsersTab 当前院校作用域", () => {
+	beforeEach(() => {
+		useAuthStore.setState({ permissions: ["school_manage"] });
+		mocks.getSchools.mockResolvedValue({ data: SCHOOLS });
+		useSchoolScopeStore.getState().setSchool({
+			id: 7,
+			name: "杭州师范大学",
+			themeColor: null,
+			hasLogo: false,
+			logoUpdatedAt: null,
+		});
+	});
+
+	afterEach(() => {
+		useAuthStore.setState({ permissions: [] });
+		useSchoolScopeStore.getState().setSchool(null);
+	});
+
+	it("收窄到某校：不再显示院校筛选，新建账号默认落在该校", async () => {
+		mocks.register.mockResolvedValue({
+			data: { id: 99, username: "newbie", role: "student", display_name: "新人", student_id: null },
+		});
+		renderTab();
+		await screen.findByText("小明");
+
+		expect(screen.queryByRole("combobox", { name: "院校筛选" })).toBeNull();
+
+		await userEvent.click(screen.getByRole("button", { name: "注册新用户" }));
+		await userEvent.type(screen.getByLabelText(/用户名/), "newbie");
+		await userEvent.type(screen.getByLabelText(/密码/), "secret123");
+		await userEvent.type(screen.getByLabelText(/姓名/), "新人");
+		await userEvent.click(screen.getByRole("button", { name: "注册" }));
+
+		await waitFor(() =>
+			expect(mocks.register).toHaveBeenCalledWith(
+				expect.objectContaining({ school_id: 7 }),
+			),
+		);
 	});
 });

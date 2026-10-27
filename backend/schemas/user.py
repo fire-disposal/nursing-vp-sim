@@ -38,6 +38,11 @@ class UserBrief(BaseModel):
     #: 院校归属。None = 平台角色（跨院校可见，例如 super_admin）。
     school_id: int | None = None
     school_name: str | None = None
+    #: 院校品牌（品牌只影响观感，不参与隔离）：
+    #: 主题色调色板键、是否有院徽、院徽版本号（前端 `<img src=...?v=...>` 缓存用）。
+    school_theme_color: str | None = None
+    school_has_logo: bool = False
+    school_logo_updated_at: datetime | None = None
     display_name: str
     student_id: str | None
     gender: str | None = None
@@ -65,6 +70,9 @@ class UserUpdateRequest(BaseModel):
     memberships: list[UserMembershipUpdate] | None = Field(
         default=None, description="成员关系全量替换；省略该键 = 不修改"
     )
+    #: 院校归属（单位）。省略 = 不修改。平台角色可跨院校调整；院校管理员只能提交本校
+    #: （跨校 = 404），越界写入规则见 ``core.tenant.writable_school_id``。
+    school_id: int | None = Field(default=None, gt=0, description="所属院校；省略 = 不修改")
     role: str | None = None
     password: str | None = Field(default=None, min_length=6)
     gender: str | None = _GENDER
