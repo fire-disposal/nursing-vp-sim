@@ -90,3 +90,6 @@ sync-log.txt
 
 # Local pnpm store (sandbox: store must live inside workspace)
 .pnpm-store/
+
+# 子目录里的 env 模板一律不入库（唯一模板是根目录 .env.example，已跟踪）
+**/.env.example
