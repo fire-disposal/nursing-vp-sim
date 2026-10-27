@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import {
-	Checkbox, Button, Center, Group, Loader, Modal, Paper, Select, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
+	Checkbox, Button, Center, Group, Loader, Modal, Select, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
 import { IconPlus, IconUpload, IconUsers } from "@tabler/icons-react";
 import { useCallback, useRef, useState } from "react";
 import { removeClassMembers } from "@/api";
@@ -10,6 +10,7 @@ import { queryKeys } from "@/api/query-keys";
 import ClassFilter, { type ClassFilterParams } from "@/components/admin/ClassFilter";
 import { ActionBar } from "@mantine/core";
 import { FilterToolbar } from "@/components/ui/filter-toolbar";
+import ListPage from "@/components/ui/list-page";
 import PageHeader from "@/components/ui/page-header";
 import ExportButton from "@/components/ExportButton";
 import UserCard from "@/components/admin/users/UserCard";
@@ -401,24 +402,26 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 			{/* 页头承担「本页唯一主行动」：注册新用户。导出/批量导入是次级动作，
 			    跟着主行动排在同一处，工具栏只留搜索与筛选 —— 此前主按钮在工具栏、
 			    页头只有导出，两级动作的位置在页面之间来回漂。 */}
-			<PageHeader
-				title="用户管理"
-				subtitle="搜索、注册、编辑和管理所有用户账号"
-				icon={IconUsers}
-				actions={
-					<Group gap={8}>
-						<ExportButton endpoint="/admin/export" filename="用户列表" params={list.exportParams} />
-						<Button variant="default" leftSection={<IconUpload size={16} />} onClick={() => setShowBatchImport(true)}>
-							批量导入
-						</Button>
-						<Button leftSection={<IconPlus size={16} />} onClick={openCreateUser}>
-							注册新用户
-						</Button>
-					</Group>
+			<ListPage
+				header={
+					<PageHeader
+						title="用户管理"
+						subtitle="搜索、注册、编辑和管理所有用户账号"
+						icon={IconUsers}
+						actions={
+							<Group gap={8}>
+								<ExportButton endpoint="/admin/export" filename="用户列表" params={list.exportParams} />
+								<Button variant="default" leftSection={<IconUpload size={16} />} onClick={() => setShowBatchImport(true)}>
+									批量导入
+								</Button>
+								<Button leftSection={<IconPlus size={16} />} onClick={openCreateUser}>
+									注册新用户
+								</Button>
+							</Group>
+						}
+					/>
 				}
-			/>
-
-			<Paper p="md">
+				toolbar={
 				<FilterToolbar
 					compact
 					// 未拿到数据时不要显示「共 0 人」——那是把「还不知道」伪装成业务事实
@@ -474,6 +477,13 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 						</>
 					}
 				/>
+				}
+				footer={
+					total > 0 ? (
+						<Pagination total={total} offset={list.offset} limit={50} onChange={list.setOffset} />
+					) : undefined
+				}
+			>
 				{isLoading && users.length === 0 ? (
 					<Center py="xl">
 						<Loader size="sm" />
@@ -491,7 +501,6 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 						description="注册第一个用户后这里会显示"
 					/>
 				) : (
-					<>
 						<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
 							{users.map((u) => (
 								<UserCard
@@ -506,15 +515,8 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 								/>
 							))}
 						</SimpleGrid>
-						<Pagination
-							total={total}
-							offset={list.offset}
-							limit={50}
-							onChange={list.setOffset}
-						/>
-					</>
 				)}
-			</Paper>
+			</ListPage>
 
 			<ActionBar opened={selectedIds.size > 0} onClose={deselectAll} shadow="md">
 				<Text size="sm" fw={500}>已选 {selectedIds.size} 人</Text>

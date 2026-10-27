@@ -9,6 +9,7 @@ import ErrorState from "@/components/ui/error-state";
 import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import PageHeader from "@/components/ui/page-header";
 import ResponsiveTable from "@/components/ui/responsive-table";
+import ListPage from "@/components/ui/list-page";
 import { SearchInput } from "@/components/ui/search-input";
 import {
 	useClassesQuery,
@@ -190,16 +191,19 @@ export default function ClassesPage() {
 	];
 
 	return (
-		<div>
-			<PageHeader
-				title="班级管理"
-				subtitle="按届别组织班级，管理学生与教师归属"
-				actions={
-					/* 层级：本页唯一 filled = 新建班级（列表页的主行动是新增） */
-					<Button onClick={openCreate}>新建班级</Button>
-				}
-			/>
-
+		<>
+		<ListPage
+			header={
+				<PageHeader
+					title="班级管理"
+					subtitle="按届别组织班级，管理学生与教师归属"
+					actions={
+						/* 层级：本页唯一 filled = 新建班级（列表页的主行动是新增） */
+						<Button onClick={openCreate}>新建班级</Button>
+					}
+				/>
+			}
+			toolbar={
 			<FilterToolbar
 				compact
 				summary={`共 ${filtered.length} 个班级`}
@@ -235,8 +239,9 @@ export default function ClassesPage() {
 					</>
 				}
 			/>
-
-			<Box mt="md">
+			}
+		>
+			<Box>
 				{isError ? (
 					<ErrorState title="班级列表加载失败" error={classesError} onRetry={refetchClasses} />
 				) : (
@@ -274,8 +279,9 @@ export default function ClassesPage() {
 					/>
 				)}
 			</Box>
+		</ListPage>
 
-			<Modal
+		<Modal
 				opened={modalOpen}
 				onClose={() => {
 					void requestCloseModal();
@@ -327,7 +333,7 @@ export default function ClassesPage() {
 							</Group>
 						</Stack>
 					</form>
-			</Modal>
-		</div>
+		</Modal>
+		</>
 	);
 }
