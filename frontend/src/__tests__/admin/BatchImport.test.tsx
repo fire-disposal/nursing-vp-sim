@@ -29,7 +29,7 @@ const CLASSES: ClassItem[] = [
 	},
 ];
 
-function renderImport(classes: ClassItem[] = CLASSES) {
+function renderImport(classes: ClassItem[] = CLASSES, onImport = vi.fn()) {
 	return render(
 		<BatchImport
 			open
@@ -37,7 +37,7 @@ function renderImport(classes: ClassItem[] = CLASSES) {
 			roles={ROLES}
 			classes={classes}
 			isImporting={false}
-			onImport={vi.fn()}
+			onImport={onImport}
 		/>,
 	);
 }
@@ -73,6 +73,24 @@ describe("BatchImport 班级消歧", () => {
 		expect(screen.getByText(/预览（1 名学生）/)).toBeInTheDocument();
 		expect(screen.getByText("2024级 护理1班")).toBeInTheDocument();
 		expect(screen.queryByText(/将新建/)).not.toBeInTheDocument();
+	});
+
+	it("「学校」列会解析进预览并随导入提交", () => {
+		const onImport = vi.fn();
+		renderImport(CLASSES, onImport);
+
+		paste([
+			"用户名,密码,姓名,角色,学号,学校,届别,班级名称",
+			"s1,123456,张三,student,S1,杭州师范大学,2024级,护理1班",
+		]);
+
+		expect(screen.getByText(/预览（1 名学生）/)).toBeInTheDocument();
+		expect(screen.getByText("杭州师范大学")).toBeInTheDocument();
+
+		fireEvent.click(screen.getByRole("button", { name: /导入 1 名学生/ }));
+		expect(onImport).toHaveBeenCalledWith([
+			expect.objectContaining({ school_name: "杭州师范大学" }),
+		]);
 	});
 
 	it("班级不存在时标注将新建", () => {

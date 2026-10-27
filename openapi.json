@@ -12844,6 +12844,18 @@
             ],
             "title": "Cohort Label",
             "description": "班级名歧义时用于消歧"
+          },
+          "school_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Name"
           }
         },
         "additionalProperties": false,

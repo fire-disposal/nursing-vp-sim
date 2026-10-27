@@ -19,6 +19,8 @@ export interface BatchUser {
 	class_id: number | null;
 	class_name?: string | null;
 	cohort_label?: string | null;
+	/** 「学校」列：院校名称（平台角色没填班级时必填；院校管理员可留空） */
+	school_name?: string | null;
 }
 
 export interface UserFormValues {

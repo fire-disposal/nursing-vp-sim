@@ -535,12 +535,28 @@ class UserService:
         created = 0
         skipped = 0
         errors: list[str] = []
-        # (cohort_label, class_name) → class_id：同名班级跨 cohort 时按 cohort 消歧
-        resolved: dict[tuple[str, str], int] = {}
+        # (school_id, cohort_label, class_name) → class_id：同一个「届别 + 班级名」在不同院校
+        # 是两门课，缓存键必须带院校，否则跨院校导入会互相串班
+        resolved: dict[tuple[int | None, str, str], int] = {}
         # class_id → 班级所属院校：账号的院校归属与单校不变量都取它
         class_schools: dict[int, int] = {}
-        # 院校管理员只能往本校导；平台角色没有院校，账号院校改由行内班级推导
+        # 院校管理员只能往本校导；平台角色没有院校，账号院校由行内「学校 / 班级」推导
         own_school = self._target_school()
+        # 学校名 → id（本批次内缓存）；未知名字即报错，不猜
+        requested_schools: dict[str, int | None] = {}
+
+        def resolve_school(raw: object) -> tuple[int | None, str | None]:
+            name = str(raw or "").strip()
+            if not name:
+                return None, None
+            if name not in requested_schools:
+                requested_schools[name] = self.db.query(School.id).filter(School.name == name).scalar()
+            found = requested_schools[name]
+            if found is None:
+                return None, f"学校「{name}」不存在（名称需与「院校管理」里的一致）"
+            if own_school is not None and found != own_school:
+                return None, f"学校「{name}」不属于当前院校"
+            return found, None
 
         for i, u in enumerate(users_data, 1):
             username = (u.get("username") or "").strip()
@@ -571,17 +587,34 @@ class UserService:
                 skipped += 1
                 continue
 
-            class_id, class_school, class_error = self._resolve_import_class(u, resolved, class_schools, own_school)
+            # 行内「学校」列：平台角色可以不填班级、直接指定院校；院校管理员填了就必须是本校
+            row_school, school_error = resolve_school(u.get("school_name"))
+            if school_error:
+                errors.append(f"第{i}行跳过 {username}: {school_error}")
+                skipped += 1
+                continue
+
+            class_id, class_school, class_error = self._resolve_import_class(
+                u,
+                resolved,
+                class_schools,
+                own_school if own_school is not None else row_school,
+            )
             if class_error:
                 errors.append(f"第{i}行跳过 {username}: {class_error}")
                 skipped += 1
                 continue
 
-            # 院校归属：院校管理员 = 本校；平台角色只能由行内班级推导。推导不到就跳过该行，
-            # 否则会造出「无院校的学生账号」——既不属于任何院校，谁管理都说不清。
-            school_id = own_school if own_school is not None else class_school
+            # 院校归属：院校管理员 = 本校；平台角色 = 行内学校（与班级冲突则不猜）。
+            # 推导不到就跳过该行，否则会造出「无院校的学生账号」——既不属于任何院校，
+            # 谁管理都说不清（空院校在作用域里等于跨院校）。
+            if row_school is not None and class_school is not None and row_school != class_school:
+                errors.append(f"第{i}行跳过 {username}: 「学校」与班级所属院校不一致")
+                skipped += 1
+                continue
+            school_id = own_school if own_school is not None else (row_school or class_school)
             if school_id is None:
-                errors.append(f"第{i}行跳过 {username}: 无法确定院校归属，请为该学生指定班级")
+                errors.append(f"第{i}行跳过 {username}: 请填写「学校」列，或指定一个已存在的班级（两者至少要有一个）")
                 skipped += 1
                 continue
 
@@ -617,17 +650,18 @@ class UserService:
     def _resolve_import_class(
         self,
         row: dict,
-        resolved: dict[tuple[str, str], int],
+        resolved: dict[tuple[int | None, str, str], int],
         class_schools: dict[int, int],
-        own_school: int | None,
+        default_school: int | None,
     ) -> tuple[int | None, int | None, str | None]:
-        """导入行的班级解析：``class_id`` > (cohort_label, class_name) 精确匹配 > 新建。
+        """导入行的班级解析：``class_id`` > (学校, cohort, 班级名) 精确匹配 > 在该学校下新建。
 
-        返回 ``(class_id, 班级所属院校, 错误)``。班级只在作用域内可见/可建（跨院校 = 404），
-        新建班级落在导入者本校；平台角色没有院校就无法凭空建班。
+        返回 ``(class_id, 班级所属院校, 错误)``。``default_school`` 是行内「学校」列
+        （院校管理员恒为本校）：有它时只在该校范围内匹配/新建；没有它（平台角色又没填学校）
+        只能指向已存在的班级 —— 否则班级没有院校可落。
 
-        班级名在同 cohort 内重复，或跨 cohort 有多条同名而请求又未给出 cohort_label 时，
-        报错而不是静默挑一个。
+        班级名在同校同届内重复、跨届/跨院校有多条同名而请求未消歧、或同名班级属于别的院校时
+        一律报错，绝不静默挑一个。
         """
         raw_id = row.get("class_id")
         if raw_id:
@@ -636,7 +670,7 @@ class UserService:
                 if cls is None:
                     return None, None, f"班级ID {raw_id} 不存在"
                 visible_class(self.db, self.scope, raw_id)  # 跨院校/跨班 → 404
-                if own_school is not None and cls.school_id != own_school:
+                if default_school is not None and cls.school_id != default_school:
                     return None, None, f"班级ID {raw_id} 不属于当前院校"
                 class_schools[raw_id] = cls.school_id
             return raw_id, class_schools[raw_id], None
@@ -645,33 +679,47 @@ class UserService:
         if not name:
             return None, None, None
         cohort_label = (row.get("cohort_label") or "").strip()
-        key = (cohort_label, name)
+        key = (default_school, cohort_label, name)
         if key in resolved:
             class_id = resolved[key]
             return class_id, class_schools[class_id], None
 
         q = self.db.query(Class).filter(Class.name == name)
-        if own_school is not None:
-            q = q.filter(Class.school_id == own_school)
+        if default_school is not None:
+            q = q.filter(Class.school_id == default_school)
         if cohort_label:
             q = q.filter(Class.cohort_label == cohort_label)
         matches = q.limit(2).all()
         if len(matches) > 1:
-            return None, None, f"班级名称「{name}」在多个 cohort 下存在，请补充 cohort_label 或 class_id"
+            # 已限定学校时歧义只可能来自届别；没给学校时还可能跨院校
+            if default_school is not None:
+                return None, None, f"班级名称「{name}」在多个 cohort 下存在，请补充 cohort_label 或 class_id"
+            return None, None, f"班级名称「{name}」在多个院校/届别下存在，请补充「学校」或「届别」列"
         if matches:
             resolved[key] = matches[0].id
             class_schools[matches[0].id] = matches[0].school_id
             return matches[0].id, matches[0].school_id, None
 
-        if own_school is None:
-            return None, None, f"班级「{name}」不存在：平台账号没有院校归属，导入只能指向已有班级"
+        # 同名班级属于别的院校：明确报错，不在这所学校里悄悄建一个同名班
+        if default_school is not None:
+            foreign = (
+                self.db.query(School.name)
+                .join(Class, Class.school_id == School.id)
+                .filter(Class.name == name, Class.school_id != default_school)
+                .first()
+            )
+            if foreign is not None:
+                return None, None, f"班级「{name}」属于其他院校（{foreign[0]}），请核对「学校」列"
 
-        cls = Class(name=name, cohort_label=cohort_label, school_id=own_school)
+        if default_school is None:
+            return None, None, f"班级「{name}」不存在：请填写「学校」列，或指向已有班级"
+
+        cls = Class(name=name, cohort_label=cohort_label, school_id=default_school)
         self.db.add(cls)
         self.db.flush()
         resolved[key] = cls.id
-        class_schools[cls.id] = own_school
-        return cls.id, own_school, None
+        class_schools[cls.id] = default_school
+        return cls.id, default_school, None
 
     def bulk_assign_class(
         self,

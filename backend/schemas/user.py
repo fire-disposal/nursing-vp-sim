@@ -136,6 +136,9 @@ class BatchUserItem(BaseModel):
     class_id: int | None = None
     class_name: str | None = None
     cohort_label: str | None = Field(default=None, max_length=40, description="班级名歧义时用于消歧")
+    #: 院校名称（导入模板的「学校」列）。平台角色没有班级时必须给出；与班级同时给出且
+    #: 不一致会被拒（院校归属不能有两个答案）。院校管理员可留空（强制本校）。
+    school_name: str | None = Field(default=None, max_length=80)
 
 
 class RegisterResponse(BaseModel):

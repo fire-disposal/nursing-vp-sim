@@ -6,15 +6,16 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 import { useRef, useState } from "react";
-import { Alert, Box, Button, Group, Modal, ScrollArea, Stack, Text } from "@mantine/core";
+import { Alert, Box, Button, Group, Modal, Stack, Text } from "@mantine/core";
 
 import { RoleBadge } from "@/components/ui/role-badge";
+import TableScroll from "@/components/ui/table-scroll";
 import { Textarea } from "@mantine/core";
 import { Table } from "@mantine/core";
 import type { ClassItem } from "@/types/store";
 import type { BatchUser, RoleOption } from "./types";
 
-const CSV_HEADERS = ["用户名", "密码", "姓名", "角色", "学号", "届别", "班级名称"];
+const CSV_HEADERS = ["用户名", "密码", "姓名", "角色", "学号", "学校", "届别", "班级名称"];
 const BOM = "\uFEFF";
 
 function parseCSVLine(line: string): string[] {
@@ -113,7 +114,7 @@ export default function BatchImport({ open, onClose, roles, classes, isImporting
       const parts = parseCSVLine(row);
 
       let username = "", password = "", displayName = "", role = "student", studentId: string | null = null;
-      let className: string = "", cohortLabel = "";
+      let className: string = "", cohortLabel = "", schoolName = "";
       if (isHeader) {
         const colIdx = (h: string) => firstParts.indexOf(h);
         username = parts[colIdx("用户名")] || "";
@@ -121,6 +122,7 @@ export default function BatchImport({ open, onClose, roles, classes, isImporting
         displayName = parts[colIdx("姓名")] || "";
         role = parts[colIdx("角色")] || "student";
         studentId = parts[colIdx("学号")] || null;
+        schoolName = parts[colIdx("学校")] || "";
         cohortLabel = parts[colIdx("届别")] || "";
         className = parts[colIdx("班级名称")] || "";
       } else {
@@ -129,8 +131,9 @@ export default function BatchImport({ open, onClose, roles, classes, isImporting
         displayName = parts[2] || "";
         role = parts[3] || "student";
         studentId = parts[4] || null;
-        cohortLabel = parts[5] || "";
-        className = parts[6] || "";
+        schoolName = parts[5] || "";
+        cohortLabel = parts[6] || "";
+        className = parts[7] || "";
       }
 
       // 有表头时数据从第 2 行开始，行号与用户在 CSV 里看到的一致。
@@ -153,6 +156,7 @@ export default function BatchImport({ open, onClose, roles, classes, isImporting
         display_name: displayName,
         role: "student",
         student_id: studentId,
+        school_name: schoolName || null,
         class_name: className || null,
         cohort_label: cohortLabel || null,
         class_id: classId,
@@ -191,8 +195,8 @@ export default function BatchImport({ open, onClose, roles, classes, isImporting
 
   function handleDownloadTemplate() {
     const csvContent = BOM + CSV_HEADERS.join(",") + "\n" +
-      "student01,123456,张同学,student,S2024001,2024级,护理1班\n" +
-      "student02,myp@ss,李同学,student,S2024002,2024级,护理1班\n";
+      "student01,123456,张同学,student,S2024001,<院校名称>,2024级,护理1班\n" +
+      "student02,myp@ss,李同学,student,S2024002,<院校名称>,2024级,护理1班\n";
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -225,7 +229,10 @@ export default function BatchImport({ open, onClose, roles, classes, isImporting
         <Text size="xs" c="dimmed" mb="md">
           支持 CSV 文件上传或直接粘贴文本。表头行自动识别，无表头按位置匹配。
           仅限创建<strong>学生</strong>角色账号；班级不存在时自动创建。
-          同名班级存在于多个届别时，必须填写「届别」列消歧，否则该行报错丢弃。
+          「学校」列填「院校管理」里的院校名称：平台角色每行必须给出学校或已存在的班级之一；
+          院校管理员可留空（自动落本校），填了就必须是本校。
+          学校不存在、或学校与班级所属院校不一致时，该行报错丢弃。
+          同名班级存在于多个届别/院校时，必须补充「届别」或用「学校」消歧。
         </Text>
         <Box mb="md">
           <Group gap={6} mb={8}>
@@ -234,14 +241,14 @@ export default function BatchImport({ open, onClose, roles, classes, isImporting
           </Group>
           <Textarea
             rows={5}
-            placeholder={`${CSV_HEADERS.join(",")}\nstudent01,123456,张同学,student,S2024001,2024级,护理1班`}
+            placeholder={`${CSV_HEADERS.join(",")}\nstudent01,123456,张同学,student,S2024001,<院校名称>,2024级,护理1班`}
             value={batchText}
             onChange={(e) => { setBatchText(e.currentTarget.value); parseBatchText(e.currentTarget.value); }}
             disabled={isImporting}
             style={{ fontFamily: "var(--mantine-font-family-monospace)" }}
           />
           <Text size="xs" c="dimmed" mt={4}>
-            列顺序：{CSV_HEADERS.join(" / ")}（届别与班级名称可选）
+            列顺序：{CSV_HEADERS.join(" / ")}（学校、届别与班级名称按需填写）
           </Text>
         </Box>
         <Group gap={12} mb="md" wrap="wrap">
@@ -287,7 +294,7 @@ export default function BatchImport({ open, onClose, roles, classes, isImporting
         {batchPreview.length > 0 && (
           <Box mb="md">
             <Text fw={600} size="sm" mb="xs">预览（{batchPreview.length} 名学生）</Text>
-            <ScrollArea h={200}>
+            <TableScroll minWidth={880} maxHeight={200}>
               <Table stickyHeader>
                 <Table.Thead>
                   <Table.Tr>
@@ -304,13 +311,14 @@ export default function BatchImport({ open, onClose, roles, classes, isImporting
                       <Table.Td>{u.display_name}</Table.Td>
                       <Table.Td><RoleBadge role={u.role} label={roles.find((r) => r.name === u.role)?.display_name || u.role} /></Table.Td>
                       <Table.Td><Text size="sm" c="dimmed">{u.student_id || "-"}</Text></Table.Td>
+                      <Table.Td><Text size="sm" c="dimmed">{u.school_name || "-"}</Text></Table.Td>
                       <Table.Td><Text size="sm" c="dimmed">{u.cohort_label || "-"}</Text></Table.Td>
                       <Table.Td><Text size="sm" c="dimmed">{classCell(u)}</Text></Table.Td>
                     </Table.Tr>
                   ))}
                 </Table.Tbody>
               </Table>
-            </ScrollArea>
+            </TableScroll>
           </Box>
         )}
         <Group gap={12} justify="flex-end">

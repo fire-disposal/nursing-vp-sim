@@ -3279,6 +3279,8 @@ export interface components {
              * @description 班级名歧义时用于消歧
              */
             cohort_label?: string | null;
+            /** School Name */
+            school_name?: string | null;
         };
         /** Body_admin_import_pack_api_scenario_admin_packs_import_post */
         Body_admin_import_pack_api_scenario_admin_packs_import_post: {

@@ -105,6 +105,44 @@ h1, h2, h3 {
 	text-wrap: balance;
 }
 
+/* ── 表格横滑容器（TableScroll，唯一实现）───────────────
+   外层只管滚动，内层只管最小宽度（由 <TableScroll minWidth> 给出）。
+
+   - 触屏惯性：`-webkit-overflow-scrolling: touch`（老 iOS；新内核默认就有）。
+   - `overscroll-behavior-x: contain`：横滑到头不把滚动传染给页面，页面不会整体左右晃。
+   - `touch-action: pan-x pan-y`：容器内既横滑表格也纵滑页面（别写成 pan-x，会锁死页面纵向滚动）。
+   - 两端的"还能往右滑"暗示用 Lea Verou 的分层背景法：`local` 底色层随内容一起滚，
+     滑到头时正好盖住 `scroll` 阴影层 —— 纯 CSS，无状态、无动画（因此也不涉及 reduced-motion）。
+   - 表头吸顶由 DataTable 的 `position: sticky; top: 0` 负责；横滑时它随内容走，不会被钉住。 */
+.table-scroll {
+	/* 底色层必须和表格所在容器同色：默认取 Mantine 的 body 色（Paper/Card 的默认底），
+	   放在有色底上的表格用 `--table-scroll-bg` 覆盖。 */
+	--table-scroll-bg: var(--mantine-color-body);
+	--table-scroll-shadow: rgba(0, 0, 0, 0.14);
+	overflow: auto;
+	-webkit-overflow-scrolling: touch;
+	overscroll-behavior-x: contain;
+	touch-action: pan-x pan-y;
+	background-color: var(--table-scroll-bg);
+	background-image:
+		linear-gradient(to right, var(--table-scroll-bg) 30%, transparent),
+		linear-gradient(to left, var(--table-scroll-bg) 30%, transparent),
+		radial-gradient(farthest-side at 0 50%, var(--table-scroll-shadow), transparent),
+		radial-gradient(farthest-side at 100% 50%, var(--table-scroll-shadow), transparent);
+	background-position: left center, right center, left center, right center;
+	background-size: 28px 100%, 28px 100%, 10px 100%, 10px 100%;
+	background-repeat: no-repeat;
+	background-attachment: local, local, scroll, scroll;
+}
+
+.table-scroll-inner {
+	min-width: 100%;
+}
+
+[data-mantine-color-scheme="dark"] .table-scroll {
+	--table-scroll-shadow: rgba(0, 0, 0, 0.5);
+}
+
 /* 数据表格行 hover 高亮（DataTable / ResponsiveTable 共用） */
 .data-table-row:hover,
 .data-table-row[aria-selected="true"] {
