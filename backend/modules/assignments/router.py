@@ -9,9 +9,9 @@ from sqlalchemy.orm import Session, joinedload
 
 from core.database import get_db
 from core.deps import DbSession
-from core.exceptions import AuthError, NotFoundError
 from core.security import get_current_user, require_permission
 from core.statuses import AssignmentLifecycle, AssignmentProgressStatus
+from core.tenant import Scope, TenantScope
 from infra.exporter import ColumnDef, ExportAudit, export_response
 from models import Assignment, AssignmentRecipient, TrainingRecord, User
 from modules.admin.class_memberships import student_class_ids
@@ -35,6 +35,13 @@ from schemas import (
 
 
 class StudentService:
+    """学生自助侧：**不接院校作用域**。
+
+    可见性只由「本人是否仍是该班学生成员」+「发布时固化的受众快照」决定，
+    ``user_id`` 一直是本人，所以院校收窄不会减少学生能看到的作业；
+    这里刻意不引入 scope，避免给学生的自身路径加一道可能与院校数据不一致的门。
+    """
+
     def __init__(self, db: Session):
         self.db = db
 
@@ -109,15 +116,23 @@ router = APIRouter(prefix="/api/assignments", tags=["练习发布"])
 _AssignmentManager = Annotated[User, Depends(require_permission("assignment_manage"))]
 
 
+def _sees_whole_school(scope: TenantScope) -> bool:
+    """无任教班收窄（院校管理员/平台角色）才可越过"必须是发布者"。
+
+    教师只看自己发布的作业；院校边界由 ``AssignmentService`` 统一收窄。
+    """
+    return scope.class_ids is None
+
+
 def _detail_resp(view) -> AssignmentDetail:
     """Serialize the service's sole detail view; schemas own field projection."""
     return AssignmentDetail.model_validate(view)
 
 
 @router.post("", response_model=AssignmentDetail)
-def create_assignment(req: AssignmentCreateRequest, current_user: _AssignmentManager, db: DbSession):
+def create_assignment(req: AssignmentCreateRequest, current_user: _AssignmentManager, db: DbSession, scope: Scope):
     return _detail_resp(
-        AssignmentService(db).create(
+        AssignmentService(db, scope).create(
             case_id=req.case_id,
             class_id=req.class_id,
             title=req.title,
@@ -138,14 +153,15 @@ def create_assignment(req: AssignmentCreateRequest, current_user: _AssignmentMan
 def list_assignments(
     current_user: _AssignmentManager,
     db: DbSession,
+    scope: Scope,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     class_id: Annotated[int | None, Query()] = None,
     status: Annotated[str | None, Query(description="active|ended")] = None,
 ):
-    is_admin = current_user.has_permission("user_manage")
-    items, total = AssignmentService(db).list_all(
-        teacher_id=None if is_admin else current_user.id,
+    # 院校边界由服务层收窄；教师在本校范围内仍只看自己发布的作业
+    items, total = AssignmentService(db, scope).list_all(
+        teacher_id=None if _sees_whole_school(scope) else current_user.id,
         class_id=class_id,
         status=status,
         offset=offset,
@@ -157,18 +173,22 @@ def list_assignments(
 
 
 @router.get("/{assignment_id}", response_model=AssignmentDetail)
-def get_assignment(assignment_id: str, current_user: _AssignmentManager, db: DbSession):
-    is_admin = current_user.has_permission("user_manage")
-    return _detail_resp(AssignmentService(db).get(assignment_id, current_user.id, skip_ownership=is_admin))
+def get_assignment(assignment_id: str, current_user: _AssignmentManager, db: DbSession, scope: Scope):
+    return _detail_resp(
+        AssignmentService(db, scope).get(assignment_id, current_user.id, skip_ownership=_sees_whole_school(scope))
+    )
 
 
 @router.put("/{assignment_id}", response_model=AssignmentDetail)
 def update_assignment(
-    assignment_id: str, req: AssignmentUpdateRequest, current_user: _AssignmentManager, db: DbSession
+    assignment_id: str,
+    req: AssignmentUpdateRequest,
+    current_user: _AssignmentManager,
+    db: DbSession,
+    scope: Scope,
 ):
-    is_admin = current_user.has_permission("user_manage")
     return _detail_resp(
-        AssignmentService(db).update(
+        AssignmentService(db, scope).update(
             assignment_id=assignment_id,
             teacher_id=current_user.id,
             case_id=req.case_id,
@@ -184,15 +204,14 @@ def update_assignment(
             is_closed=req.is_closed,
             # 显式 null = 不限制；请求未带该键 = 不修改
             max_attempts=req.max_attempts if "max_attempts" in req.model_fields_set else UNSET,
-            skip_ownership=is_admin,
+            skip_ownership=_sees_whole_school(scope),
         )
     )
 
 
 @router.delete("/{assignment_id}", response_model=DeleteResponse)
-def delete_assignment(assignment_id: str, current_user: _AssignmentManager, db: DbSession):
-    is_admin = current_user.has_permission("user_manage")
-    return AssignmentService(db).delete(assignment_id, current_user.id, skip_ownership=is_admin)
+def delete_assignment(assignment_id: str, current_user: _AssignmentManager, db: DbSession, scope: Scope):
+    return AssignmentService(db, scope).delete(assignment_id, current_user.id, skip_ownership=_sees_whole_school(scope))
 
 
 # ── Export ──
@@ -203,21 +222,12 @@ def export_assignment(
     assignment_id: str,
     current_user: Annotated[User, Depends(require_permission("export_data"))],
     db: Annotated[Session, Depends(get_db)],
+    scope: Scope,
     request: Request,
 ):
-    assignment = (
-        db.query(Assignment)
-        .options(joinedload(Assignment.case), joinedload(Assignment.class_))
-        .filter(Assignment.id == assignment_id)
-        .first()
-    )
-    if not assignment:
-        raise NotFoundError("练习发布不存在")
-    if assignment.teacher_id != current_user.id and not current_user.has_permission("user_manage"):
-        raise AuthError("无权导出", status_code=403)
-
-    service = AssignmentService(db)
-    detail = service._build_detail_view(assignment)
+    # 可见性与归属校验复用详情口径：跨院校/跨任教班 404，非发布者 403；
+    # 明细与文件名都取自同一份 detail，避免两套取数逻辑对不上
+    detail = AssignmentService(db, scope).get(assignment_id, current_user.id, skip_ownership=_sees_whole_school(scope))
     students_data = detail.students
 
     columns: list[ColumnDef] = [
@@ -237,13 +247,13 @@ def export_assignment(
         ColumnDef(header="评分状态", value=lambda r: r.scoring_status or ""),
     ]
 
-    safe_title = assignment.title.replace(" ", "_")[:50]
+    safe_title = detail.title.replace(" ", "_")[:50]
     return export_response(
         students_data,
         columns,
-        filename=f"assignment_{safe_title}_{assignment.id[:8]}",
+        filename=f"assignment_{safe_title}_{detail.id[:8]}",
         format="csv",
-        audit=ExportAudit(request=request, target_label=f"作业：{assignment.title}"),
+        audit=ExportAudit(request=request, target_label=f"作业：{detail.title}"),
     )
 
 

@@ -1,6 +1,6 @@
 """班级成员（``ClassMembership``，表名沿用 ``user_class``）管理 + **可复用成员范围查询**。
 
-读路径口径（唯一来源，供 admin/stats、scoreboard、assignments 复用）：
+读路径口径（唯一来源，供 scoreboard、assignments、teacher-summary 复用）：
 
 - **学生名单 / 作业受众候选 / 班级排名 / 完成率** → ``member_role='student'`` 的成员；
 - **teacher membership** 是「教师在哪个班」的数据来源。本轮只落地数据与 API，
@@ -27,6 +27,7 @@ from core.deps import DbSession
 from core.exceptions import NotFoundError, ValidationError
 from core.pagination import paginate
 from core.security import require_permission
+from core.tenant import Scope, TenantScope, visible_class
 from core.unit_of_work import unit_of_work
 from models import MEMBER_ROLE_STUDENT, MEMBER_ROLES, Class, ClassMembership, User
 from schemas import (
@@ -47,6 +48,55 @@ _AUDIT_USER_ID_SAMPLE = 20
 def _assert_role(role: str | None) -> None:
     if role is not None and role not in MEMBER_ROLES:
         raise ValidationError(f"成员角色必须是 {'/'.join(MEMBER_ROLES)} 之一，收到 {role!r}")
+
+
+def _target_class(db: Session, class_id: int, scope: TenantScope | None) -> Class:
+    """写路径的班级归属校验：有 scope 按 scope（越权 404），没 scope 只保证班级存在。
+
+    ``scope=None`` 给的是「调用方已自行校验归属」的复用入口（如 ``UserService``）；
+    单校不变量与 scope 无关，两种情况都会在下面强制。
+    """
+    if scope is not None:
+        return visible_class(db, scope, class_id)
+    cls = db.get(Class, class_id)
+    if cls is None:
+        raise NotFoundError("班级不存在")
+    return cls
+
+
+def _assert_users_same_school(db: Session, cls: Class, user_ids: list[int]) -> list[int]:
+    """校验待加入的用户都能进这个班，返回不存在的 user_id。
+
+    单校不变量：成员关系不得跨院校。平台角色（``school_id IS NULL``）没有院校，
+    进任何班级都会让「成员同校」失去意义，一律拒绝。一次报清全部违规者，避免前端逐个撞墙。
+    """
+    rows = db.query(User.id, User.username, User.school_id).filter(User.id.in_(user_ids)).all()
+    found = {uid: (username, school_id) for uid, username, school_id in rows}
+    problems: list[str] = []
+    for uid in user_ids:
+        if uid not in found:
+            continue
+        username, school_id = found[uid]
+        if school_id is None:
+            problems.append(f"用户 {username}(id={uid}) 未归属院校，不能加入班级「{cls.name}」")
+        elif school_id != cls.school_id:
+            problems.append(
+                f"用户 {username}(id={uid}) 属于院校 {school_id}，与班级「{cls.name}」所在院校 {cls.school_id} 不一致"
+            )
+    if problems:
+        raise ValidationError("；".join(problems))
+    return [uid for uid in user_ids if uid not in found]
+
+
+def _visible_class_ids(db: Session, class_ids: list[int], scope: TenantScope) -> list[int]:
+    """把一批班级 id 收窄到作用域内（跨校/跨班静默剔除，不暴露存在性）。"""
+    ids = [cid for cid in dict.fromkeys(class_ids) if scope.allows_class(cid)]
+    if not ids:
+        return []
+    q = db.query(Class.id).filter(Class.id.in_(ids))
+    if scope.school_id is not None:
+        q = q.filter(Class.school_id == scope.school_id)
+    return [row[0] for row in q.all()]
 
 
 def member_id_query(class_id: int, *, role: str | None = None) -> Select:
@@ -106,9 +156,17 @@ def student_class_ids(db: Session, user_id: int) -> list[int]:
     return member_class_ids(db, user_id, role=MEMBER_ROLE_STUDENT)
 
 
-def member_counts(db: Session, class_ids: list[int], *, role: str | None = None) -> dict[int, int]:
-    """批量统计班级成员数（按角色可选），用于列表页避免 N+1。"""
+def member_counts(
+    db: Session, class_ids: list[int], *, role: str | None = None, scope: TenantScope | None = None
+) -> dict[int, int]:
+    """批量统计班级成员数（按角色可选），用于列表页避免 N+1。
+
+    给 ``scope`` 时只统计作用域内班级——计数也是数据，不能靠调用方自觉；
+    调用方已在同一作用域里取到 ``class_ids``（见 ``ClassService._list_classes``）时可省略。
+    """
     _assert_role(role)
+    if scope is not None:
+        class_ids = _visible_class_ids(db, class_ids, scope)
     if not class_ids:
         return {}
     q = db.query(ClassMembership.class_id, func.count(ClassMembership.id)).filter(
@@ -136,17 +194,27 @@ def memberships_by_user(db: Session, user_ids: list[int]) -> dict[int, list[Clas
     return out
 
 
-def upsert_members(db: Session, class_id: int, user_ids: list[int], *, member_role: str) -> tuple[int, int, list[int]]:
+def upsert_members(
+    db: Session,
+    class_id: int,
+    user_ids: list[int],
+    *,
+    member_role: str,
+    scope: TenantScope | None = None,
+) -> tuple[int, int, list[int]]:
     """批量加入/改角色（幂等）。
 
     返回 ``(added, updated, missing_user_ids)``：``updated`` 只统计角色被改写的成员。
+    归属校验：班级必须在 ``scope`` 内（404）；用户必须与班级同院校（422），
+    否则一旦写入就会造出跨院校的成员关系，单校不变量只能靠这里守。
     """
     _assert_role(member_role)
     wanted = list(dict.fromkeys(user_ids))
     if not wanted:
         return 0, 0, []
-    existing_users = {uid for (uid,) in db.query(User.id).filter(User.id.in_(wanted)).all()}
-    missing = [uid for uid in wanted if uid not in existing_users]
+    cls = _target_class(db, class_id, scope)
+    # 先整体校验再落库：一条跨校就整批拒绝，不留半截成员关系
+    missing = _assert_users_same_school(db, cls, wanted)
     present = {
         m.user_id: m
         for m in db.query(ClassMembership)
@@ -167,11 +235,15 @@ def upsert_members(db: Session, class_id: int, user_ids: list[int], *, member_ro
     return added, updated, missing
 
 
-def remove_members(db: Session, class_id: int, user_ids: list[int]) -> int:
-    """从班级移除成员，返回实际删除行数。"""
+def remove_members(db: Session, class_id: int, user_ids: list[int], *, scope: TenantScope | None = None) -> int:
+    """从班级移除成员，返回实际删除行数。
+
+    移除不做同院校校验：它只会减少成员关系，遗留的跨校脏数据也该能被删掉。
+    """
     wanted = list(dict.fromkeys(user_ids))
     if not wanted:
         return 0
+    _target_class(db, class_id, scope)
     return (
         db.query(ClassMembership)
         .filter(ClassMembership.class_id == class_id, ClassMembership.user_id.in_(wanted))
@@ -180,7 +252,10 @@ def remove_members(db: Session, class_id: int, user_ids: list[int]) -> int:
 
 
 def delete_class_members(db: Session, class_id: int) -> int:
-    """班级删除时清掉成员行（FK 是 SET NULL，这里显式删除避免留下悬空行）。"""
+    """班级删除时清掉成员行（FK 是 SET NULL，这里显式删除避免留下悬空行）。
+
+    无归属校验：调用方 ``ClassService.delete`` 必须先经 ``visible_class`` 拿到这个班。
+    """
     return db.query(ClassMembership).filter(ClassMembership.class_id == class_id).delete(synchronize_session=False)
 
 
@@ -197,9 +272,21 @@ class MemberView:
     joined_at: datetime
 
 
-def member_query(db: Session, class_id: int, *, role: str | None = None, search: str | None = None):
-    """班级成员基础查询（含用户信息），供分页/详情共用。"""
+def member_query(
+    db: Session,
+    class_id: int,
+    *,
+    role: str | None = None,
+    search: str | None = None,
+    scope: TenantScope | None = None,
+):
+    """班级成员基础查询（含用户信息），供分页/详情共用。
+
+    给 ``scope`` 时先做班级归属校验（越权 404）再查成员：成员列表是数据，不能只靠端点自觉。
+    """
     _assert_role(role)
+    if scope is not None:
+        visible_class(db, scope, class_id)
     q = (
         db.query(ClassMembership)
         .options(joinedload(ClassMembership.user))
@@ -225,12 +312,15 @@ def to_member_view(m: ClassMembership) -> MemberView:
     )
 
 
-def member_views(db: Session, class_id: int, *, role: str | None = None) -> list[MemberView]:
+def member_views(
+    db: Session, class_id: int, *, role: str | None = None, scope: TenantScope | None = None
+) -> list[MemberView]:
     """某班全部成员（详情页用；分页走 :class:`ClassMembershipService`）。"""
-    return [to_member_view(m) for m in member_query(db, class_id, role=role).all()]
+    return [to_member_view(m) for m in member_query(db, class_id, role=role, scope=scope).all()]
 
 
 def member_item(v: MemberView) -> ClassMemberItem:
+    """纯映射，本身无越权面：``v`` 必须来自已收窄的查询（``member_views`` / ``list_members``）。"""
     return ClassMemberItem(
         user_id=v.user_id,
         username=v.username,
@@ -242,14 +332,13 @@ def member_item(v: MemberView) -> ClassMemberItem:
 
 
 class ClassMembershipService:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, scope: TenantScope):
         self.db = db
+        self.scope = scope
 
     def get_class(self, class_id: int) -> Class:
-        cls = self.db.get(Class, class_id)
-        if cls is None:
-            raise NotFoundError("班级不存在")
-        return cls
+        """取作用域内的班级；跨院校/跨班一律 404（不暴露存在性）。"""
+        return visible_class(self.db, self.scope, class_id)
 
     def list_members(
         self,
@@ -260,8 +349,9 @@ class ClassMembershipService:
         offset: int = 0,
         limit: int = 50,
     ) -> tuple[list[MemberView], int]:
-        self.get_class(class_id)
-        rows, total = paginate(member_query(self.db, class_id, role=role, search=search), offset, limit)
+        rows, total = paginate(
+            member_query(self.db, class_id, role=role, search=search, scope=self.scope), offset, limit
+        )
         return [to_member_view(m) for m in rows], total
 
     def add_members(
@@ -276,7 +366,9 @@ class ClassMembershipService:
         # 与 upsert/remove 同一口径：先按去重后的名单计数，added+updated+skipped 恒等于 requested_count
         wanted = list(dict.fromkeys(user_ids))
         with unit_of_work(self.db, conflict_detail="成员变更冲突，请重试"):
-            added, updated, missing = upsert_members(self.db, class_id, user_ids, member_role=member_role)
+            added, updated, missing = upsert_members(
+                self.db, class_id, user_ids, member_role=member_role, scope=self.scope
+            )
             record(
                 self.db,
                 action=ACTION_CLASS_MEMBERS_ADDED,
@@ -311,7 +403,7 @@ class ClassMembershipService:
         cls = self.get_class(class_id)
         wanted = list(dict.fromkeys(user_ids))
         with unit_of_work(self.db, conflict_detail="成员变更冲突，请重试"):
-            removed = remove_members(self.db, class_id, wanted)
+            removed = remove_members(self.db, class_id, wanted, scope=self.scope)
             if removed:
                 # removed=0 不落行：单删路由在此之后抛 NotFoundError，而审计已随本次 commit 落库，
                 # 故"没删掉任何行"的空操作必须在写审计前就排除（与 ClassService.update 同一原则）。
@@ -342,12 +434,13 @@ def list_class_members(
     class_id: int,
     current_user: _Manager,
     db: DbSession,
+    scope: Scope,
     role: Annotated[str | None, Query(description="student|teacher")] = None,
     search: Annotated[str | None, Query(description="搜索用户名/姓名/学号")] = None,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ):
-    items, total = ClassMembershipService(db).list_members(
+    items, total = ClassMembershipService(db, scope).list_members(
         class_id, role=role, search=search, offset=offset, limit=limit
     )
     return PaginatedResponse(items=[member_item(v) for v in items], total=total, offset=offset, limit=limit)
@@ -359,9 +452,10 @@ def add_class_members(
     body: ClassMemberAddRequest,
     current_user: _Manager,
     db: DbSession,
+    scope: Scope,
     request: Request,
 ):
-    return ClassMembershipService(db).add_members(class_id, body.user_ids, body.member_role, request=request)
+    return ClassMembershipService(db, scope).add_members(class_id, body.user_ids, body.member_role, request=request)
 
 
 @router.post("/{class_id}/members/bulk-remove", response_model=ClassMemberMutationResult)
@@ -370,14 +464,22 @@ def remove_class_members(
     body: ClassMemberRemoveRequest,
     current_user: _Manager,
     db: DbSession,
+    scope: Scope,
     request: Request,
 ):
-    return ClassMembershipService(db).remove_members(class_id, body.user_ids, request=request)
+    return ClassMembershipService(db, scope).remove_members(class_id, body.user_ids, request=request)
 
 
 @router.delete("/{class_id}/members/{user_id}", response_model=DeleteResponse)
-def remove_class_member(class_id: int, user_id: int, current_user: _Manager, db: DbSession, request: Request):
-    result = ClassMembershipService(db).remove_members(class_id, [user_id], request=request)
+def remove_class_member(
+    class_id: int,
+    user_id: int,
+    current_user: _Manager,
+    db: DbSession,
+    scope: Scope,
+    request: Request,
+):
+    result = ClassMembershipService(db, scope).remove_members(class_id, [user_id], request=request)
     if result.removed == 0:
         raise NotFoundError("该用户不在这个班级里")
     return {"message": "成员已移出班级"}

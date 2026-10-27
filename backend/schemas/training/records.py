@@ -30,6 +30,23 @@ class TrainingRecordBrief(BaseModel):
     assignment_title: str | None = None
 
 
+class TrainingRecordSummary(BaseModel):
+    """训练记录的**集合统计** —— `GET /records` 列表的聚合视图。
+
+    参数与列表完全相同（同一份 `RecordFilters`），因此"数字"与"它下钻的列表"
+    由构造保证一致：同一参数下 `total` 必然等于列表的 `total`。
+    """
+
+    model_config = _RESP_CFG
+    total: int
+    #: 集合内的去重学生数（"今天/这段时间有多少人在练"的诚实来源）
+    students: int = 0
+    #: INV-3/INV-5 口径的平均分（复核分优先、兜底分不进均值）；无有效成绩时为 None
+    avg_score: float | None = None
+    #: 已完成记录的 (end_time - start_time) 均值（分钟）；无已完成记录时为 None
+    avg_duration_min: float | None = None
+
+
 class MessageItem(BaseModel):
     model_config = _RESP_CFG
     id: int

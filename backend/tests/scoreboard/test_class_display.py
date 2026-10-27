@@ -19,10 +19,14 @@ import pytest
 
 from core.database import Base
 from core.database import engine as pg_engine
-from models import Class, ClassMembership, Role, User
+from core.tenant import TenantScope
+from models import Class, ClassMembership, Role, School, User
 from modules.scoreboard.service import ScoreboardScope, ScoreboardService
 
-_TABLES = [Role.__table__, User.__table__, Class.__table__, ClassMembership.__table__]
+_TABLES = [Role.__table__, User.__table__, School.__table__, Class.__table__, ClassMembership.__table__]
+
+# 本文件只验「班级名口径」，不验院校边界 → 用跨院校作用域，让作用域过滤恒为真。
+_TENANT = TenantScope(school_id=None, class_ids=None, user_id=0)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -51,8 +55,15 @@ def _seed(db) -> tuple[Class, Class]:
     db.add(role)
     db.flush()
 
-    class_a = Class(id=1, name="A班", cohort_label="2026级")
-    class_b = Class(id=2, name="B班", cohort_label="2026级")
+    # classes.school_id 必填（院校/班级组织模型），种子班必须挂在一个院校下
+    school = db.query(School).filter(School.id == 1).first()
+    if school is None:
+        school = School(id=1, name="测试院校")
+        db.add(school)
+        db.flush()
+
+    class_a = Class(id=1, name="A班", cohort_label="2026级", school_id=school.id)
+    class_b = Class(id=2, name="B班", cohort_label="2026级", school_id=school.id)
     db.add_all([class_a, class_b])
 
     now = datetime.now(UTC)
@@ -88,14 +99,14 @@ def _rows(*user_ids: int):
 
 def test_unscoped_uses_lowest_class_id(db):
     _seed(db)
-    names = ScoreboardService(db)._display_class_names(_rows(1, 2), ScoreboardScope())
+    names = ScoreboardService(db, _TENANT)._display_class_names(_rows(1, 2), ScoreboardScope())
 
     assert names == {1: "A班", 2: "B班"}
 
 
 def test_scoped_shows_the_scoped_class(db):
     class_a, class_b = _seed(db)
-    svc = ScoreboardService(db)
+    svc = ScoreboardService(db, _TENANT)
 
     assert svc._display_class_names(_rows(1, 2), ScoreboardScope(class_id=class_b.id)) == {1: "B班", 2: "B班"}
     assert svc._display_class_names(_rows(1, 2), ScoreboardScope(class_id=class_a.id)) == {1: "A班"}
@@ -103,7 +114,7 @@ def test_scoped_shows_the_scoped_class(db):
 
 def test_teacher_membership_is_not_a_student_class(db):
     _seed(db)
-    svc = ScoreboardService(db)
+    svc = ScoreboardService(db, _TENANT)
 
     assert svc._display_class_names(_rows(3), ScoreboardScope()) == {}
     assert svc._display_class_names(_rows(3), ScoreboardScope(class_id=1)) == {}
@@ -111,7 +122,7 @@ def test_teacher_membership_is_not_a_student_class(db):
 
 def test_multi_class_member_resolves_identically_across_scopes(db):
     _seed(db)
-    svc = ScoreboardService(db)
+    svc = ScoreboardService(db, _TENANT)
 
     unscoped = svc._display_class_names(_rows(1), ScoreboardScope())[1]
     scoped_a = svc._display_class_names(_rows(1), ScoreboardScope(class_id=1))[1]

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 from core.exceptions import AuthError, NotFoundError, ValidationError
 from core.pagination import paginate
 from core.statuses import ScoringStatus, TrainingStatus
+from core.tenant import TenantScope, require_school, scope_query, visible_class
 from core.unit_of_work import unit_of_work
 from models import (
     AUDIENCE_CLASS,
@@ -109,8 +110,9 @@ class AssignmentDetailView:
 
 
 class AssignmentService:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, scope: TenantScope):
         self.db = db
+        self.scope = scope
 
     def get_with_relations(self, id_: str) -> Assignment | None:
         return (
@@ -160,6 +162,9 @@ class AssignmentService:
             joinedload(Assignment.teacher),
         )
 
+        # 院校边界先于一切筛选：作业的院校由所在班级决定，教师再收窄到任教班
+        q = self._scoped(q)
+
         if teacher_id is not None:
             q = q.filter(Assignment.teacher_id == teacher_id)
 
@@ -175,12 +180,47 @@ class AssignmentService:
         q = q.order_by(Assignment.created_at.desc())
         return paginate(q, offset, limit)
 
+    def _scoped(self, q):
+        """把作业查询收窄到作用域：院校经所在班级的 ``school_id``，教师再收窄到任教班。"""
+        if self.scope.school_id is not None:
+            q = scope_query(q.join(Class, Class.id == Assignment.class_id), Class.school_id, self.scope)
+        if self.scope.class_ids is not None:
+            q = q.filter(Assignment.class_id.in_(self.scope.class_ids or {-1}))
+        return q
+
+    def _visible(self, assignment_id: str) -> Assignment:
+        """取一条作用域内的作业；跨院校/跨任教班一律 404（不暴露存在性）。"""
+        assignment = self.get_with_relations(assignment_id)
+        if assignment is None:
+            raise NotFoundError("练习发布不存在")
+        class_ = assignment.class_
+        # 班级被删只剩悬空行的作业（FK 是 RESTRICT，正常不会出现）也不对外可见
+        if class_ is None or not self.scope.allows_class(class_.id):
+            raise NotFoundError("练习发布不存在")
+        require_school(self.scope, class_.school_id, what="练习发布")
+        return assignment
+
     def get_class_students(self, class_id: int) -> list[User]:
-        """本班**学生**成员（``member_role='student'``）—— 学生名单/受众候选口径。"""
-        ids = student_member_ids(self.db, class_id)
+        """本班**学生**成员（``member_role='student'``）—— 学生名单/受众候选口径。
+
+        班级先过作用域：跨院校/跨任教班的班级一律 404，候选名单不得成为越权读名单的入口。
+        """
+        visible_class(self.db, self.scope, class_id)
+        ids = self._class_student_ids(class_id)
         if not ids:
             return []
         return self.db.query(User).filter(User.id.in_(ids)).order_by(User.id).all()
+
+    def _class_student_ids(self, class_id: int) -> list[int]:
+        """本班学生成员，并在院校作用域下剔除他校用户（历史跨校成员关系的兜底）。"""
+        ids = student_member_ids(self.db, class_id)
+        if not ids or self.scope.school_id is None:
+            return ids
+        same_school = {
+            row[0]
+            for row in self.db.query(User.id).filter(User.id.in_(ids), User.school_id == self.scope.school_id).all()
+        }
+        return [uid for uid in ids if uid in same_school]
 
     def get_records_for_assignment(self, assignment_id: str) -> list[TrainingRecord]:
         return (
@@ -208,16 +248,18 @@ class AssignmentService:
 
         - ``class``：取该班当前 student membership 快照；
         - ``selected``：必须显式给出 ``user_ids``，且每个都必须**是本班学生成员**。
+
+        班级本身由调用方先过 ``visible_class``；受众用户再与班级同院校，跨校用户不会被写进快照。
         """
         if audience_mode not in AUDIENCE_MODES:
             raise ValidationError(f"受众模式必须是 {'/'.join(AUDIENCE_MODES)}")
         if audience_mode == AUDIENCE_CLASS:
-            return student_member_ids(self.db, class_id)
+            return self._class_student_ids(class_id)
 
         wanted = list(dict.fromkeys(user_ids or []))
         if not wanted:
             raise ValidationError("指定受众时必须提供学生名单")
-        member_ids = set(student_member_ids(self.db, class_id))
+        member_ids = set(self._class_student_ids(class_id))
         invalid = [uid for uid in wanted if uid not in member_ids]
         if invalid:
             raise ValidationError(f"以下用户不是该班级的学生成员：{invalid}")
@@ -346,9 +388,8 @@ class AssignmentService:
         # 未发布病例不得被作业使用；发布时同时钉住版本（列 NOT NULL），
         # 作业期间病例编辑出新 revision 也不影响本作业的学员
         revision = require_current_revision(self.db, case)
-        cls = self.db.query(Class).filter(Class.id == class_id).first()
-        if not cls:
-            raise NotFoundError("班级不存在")
+        # 发布范围必须是作用域内的班级：跨院校/跨任教班一律 404
+        visible_class(self.db, self.scope, class_id)
 
         if end_time <= start_time:
             raise ValidationError("截止时间必须晚于开始时间")
@@ -393,6 +434,9 @@ class AssignmentService:
         offset: int,
         limit: int,
     ) -> tuple[list[AssignmentListView], int]:
+        if class_id is not None:
+            # 指定班级必须可见：越权不返回空列表冒充"没有数据"，直接 404
+            visible_class(self.db, self.scope, class_id)
         rows, total = self.list_with_counts(teacher_id, class_id, status, datetime.now(UTC), offset, limit)
 
         items = [
@@ -416,9 +460,7 @@ class AssignmentService:
         return items, total
 
     def get(self, assignment_id: str, teacher_id: int, skip_ownership: bool = False) -> AssignmentDetailView:
-        assignment = self.get_with_relations(assignment_id)
-        if not assignment:
-            raise NotFoundError("练习发布不存在")
+        assignment = self._visible(assignment_id)
         if not skip_ownership and assignment.teacher_id != teacher_id:
             raise AuthError("无权查看", status_code=403)
         return self._build_detail_view(assignment)
@@ -441,9 +483,7 @@ class AssignmentService:
         max_attempts: int | None | _Unset = UNSET,
         skip_ownership: bool = False,
     ) -> AssignmentDetailView:
-        assignment = self.get_with_relations(assignment_id)
-        if not assignment:
-            raise NotFoundError("练习发布不存在")
+        assignment = self._visible(assignment_id)
         if not skip_ownership and assignment.teacher_id != teacher_id:
             raise AuthError("无权修改", status_code=403)
 
@@ -461,9 +501,8 @@ class AssignmentService:
             assignment.case_id = case_id
             assignment.case_revision_id = revision.id
         if class_changed:
-            cls = self.db.query(Class).filter(Class.id == class_id).first()
-            if not cls:
-                raise NotFoundError("班级不存在")
+            # 改派目标班级同样必须在本作用域内
+            visible_class(self.db, self.scope, class_id)
             assignment.class_id = class_id
         if class_changed or audience_touched:
             # 受众重新固化：显式给了 audience 就按它解析；只换班则沿用原模式在新班上重新取快照
@@ -510,6 +549,8 @@ class AssignmentService:
         assignment = self.db.query(Assignment).filter(Assignment.id == assignment_id).with_for_update().first()
         if not assignment:
             raise NotFoundError("练习发布不存在")
+        # 作用域先于归属：跨院校/跨任教班一律 404（不告诉调用方"存在但你看不到"）
+        visible_class(self.db, self.scope, assignment.class_id)
         if not skip_ownership and assignment.teacher_id != teacher_id:
             raise AuthError("无权删除", status_code=403)
 

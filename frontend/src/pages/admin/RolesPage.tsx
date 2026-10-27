@@ -9,6 +9,7 @@ import { useToast } from "@/components/Toast";
 import { Checkbox } from "@mantine/core";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
+import ErrorState from "@/components/ui/error-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import { SearchInput } from "@/components/ui/search-input";
@@ -30,6 +31,8 @@ export default function RolesPage() {
 	const toast = useToast();
 	const [roles, setRoles] = useState<RoleItem[]>([]);
 	const [loading, setLoading] = useState(true);
+	/** 取列表失败时留着错误对象：只在 toast 里说一句，页面会继续显示「暂无角色」误导人。 */
+	const [loadError, setLoadError] = useState<unknown>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [editId, setEditId] = useState<number | null>(null);
 	const [editPerms, setEditPerms] = useState<string[]>([]);
@@ -50,8 +53,9 @@ export default function RolesPage() {
 		try {
 			const { data } = await getRoles(search);
 			setRoles(data || []);
-		} catch {
-			toast.error("加载角色列表失败");
+			setLoadError(null);
+		} catch (e: unknown) {
+			setLoadError(e);
 		} finally {
 			setLoading(false);
 		}
@@ -165,6 +169,13 @@ export default function RolesPage() {
 			<Stack gap="sm">
 				{loading && roles.length === 0 ? (
 					<LoadingSkeleton variant="table" />
+				) : loadError ? (
+					/* 失败不是「暂无角色」：否则管理员会去重建一个已存在的角色 */
+					<ErrorState
+						title="角色列表加载失败"
+						error={loadError}
+						onRetry={() => void loadRoles()}
+					/>
 				) : roles.length === 0 ? (
 					<EmptyState
 						icon={IconShield}

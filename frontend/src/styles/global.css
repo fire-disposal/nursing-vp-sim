@@ -11,6 +11,29 @@ html {
 	scroll-behavior: smooth;
 }
 
+/* 跳过导航：键盘用户第一跳直达主内容（未聚焦时视觉隐藏，不用 display:none 否则不可聚焦） */
+.skip-link {
+	position: fixed;
+	top: 8px;
+	left: 8px;
+	z-index: 1000;
+	padding: 8px 12px;
+	border-radius: var(--mantine-radius-sm);
+	background: var(--mantine-color-body);
+	color: var(--mantine-color-text);
+	box-shadow: var(--mantine-shadow-md);
+	transform: translateY(-200%);
+	transition: transform 150ms ease;
+}
+
+/* 用 :focus 而不是 :focus-visible：这个链接只可能被键盘/读屏聚焦，
+   而脚本或部分 AT 触发的聚焦不保证匹配 :focus-visible，会变成"看不见的可聚焦元素"。 */
+.skip-link:focus {
+	transform: translateY(0);
+	outline: 2px solid var(--mantine-color-brand-5);
+	outline-offset: 2px;
+}
+
 body {
 	min-height: 100vh;
 	line-height: 1.6;
@@ -23,6 +46,21 @@ body {
 /* 数据数字对齐（分数/时长/排名） */
 .tabular-nums {
 	font-variant-numeric: tabular-nums;
+}
+
+/* ── 壳内容容器（AppShell.Main 内）──
+   内边距的唯一来源，并把它暴露成 --shell-content-pad：
+   需要"刚好铺满内容区"的页面（如 QA 工作台）靠它算高度，
+   不要再写 `calc(100dvh - 6.5rem)` 这类魔法值（壳尺寸一变就错位）。 */
+.shell-content {
+	--shell-content-pad: var(--mantine-spacing-sm);
+	padding: var(--shell-content-pad);
+}
+
+@media (min-width: 48em) {
+	.shell-content {
+		--shell-content-pad: var(--mantine-spacing-lg);
+	}
 }
 
 /* 暗色模式：边框对齐迁移前观感（半透明白而非纯灰线） */
@@ -75,7 +113,9 @@ h1, h2, h3 {
 
 /* 列表行与病例卡 hover 抬升 */
 .hover-row:hover {
-	background: var(--mantine-color-gray-0);
+	/* 用 scheme 感知的 token（浅=gray-0 / 深=就近的 hover 底），别写死 gray-0：
+	   写死会在深色模式下把整行刷成近白底。 */
+	background: var(--mantine-color-default-hover);
 }
 .case-card:hover {
 	box-shadow: var(--mantine-shadow-sm);

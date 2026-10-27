@@ -15,9 +15,12 @@ import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 
 import EmptyState from "@/components/ui/empty-state";
+import ErrorState from "@/components/ui/error-state";
 import { SearchInput } from "@/components/ui/search-input";
 import Pagination from "@/components/ui/pagination";
 import { useClassesQuery } from "@/hooks/useClasses";
+import { useSchoolsQuery } from "@/hooks/useSchools";
+import useAuthStore from "@/stores/authStore";
 import { useListFilters } from "@/hooks/useListFilters";
 import type { UserListParams } from "@/api/query-params";
 import BatchImport from "./users/BatchImport";
@@ -75,7 +78,7 @@ interface UsersTabProps {
 export default function UsersTab({ currentUserId, onExportParamsChange }: UsersTabProps) {
 	// 筛选只有一个持有者：值 → 请求参数（含导出参数）由 useListFilters 构造一次
 	const list = useListFilters<UserListParams>(
-		{ search: "", role: "", class_id: undefined, cohort_label: undefined, include_inactive: false },
+		{ search: "", role: "", class_id: undefined, cohort_label: undefined, include_inactive: false, school_id: undefined },
 		{ limit: 50, searchKey: "search" },
 	);
 	// ClassFilter 是非受控组件：清除筛选时用 key 重挂载，避免"筛选已清空、下拉还显示旧选择"
@@ -128,8 +131,19 @@ export default function UsersTab({ currentUserId, onExportParamsChange }: UsersT
 	const userFormDirtyRef = useRef(false);
 	const { data: classes = [] } = useClassesQuery();
 
-	const { data: userData, isLoading } = useUserList(list.offset, list.params);
-	const { data: roles = [] } = useRolesQuery();
+	const {
+		data: userData,
+		isLoading,
+		isError: usersFailed,
+		refetch: refetchUsers,
+	} = useUserList(list.offset, list.params);
+	const { data: roles = [], isError: rolesFailed } = useRolesQuery();
+	// 院校维度只对平台角色有意义：院校管理员本来就只看本校，多一个下拉只是噪音。
+	// 用 `school_manage` 判，而不是 `school_id == null` —— 权限是服务端权威口径，
+	// `/auth/me` 的院校字段缺失时不会把院校管理员误判成平台角色。
+	const permissions = useAuthStore((s) => s.permissions);
+	const isPlatform = permissions.includes("school_manage");
+	const { data: schools = [] } = useSchoolsQuery({ enabled: isPlatform });
 
 	const registerMutation = useRegisterMutation();
 	const updateMutation = useUpdateUserMutation();
@@ -405,7 +419,10 @@ export default function UsersTab({ currentUserId, onExportParamsChange }: UsersT
 			<Paper p="md">
 				<FilterToolbar
 					compact
-					summary={`共 ${total} 人`}
+					// 未拿到数据时不要显示「共 0 人」——那是把「还不知道」伪装成业务事实
+					summary={
+						usersFailed ? "人数暂不可用" : userData ? `共 ${total} 人` : "—"
+					}
 					hasActiveFilters={list.hasActiveFilters}
 					onClear={handleClearFilters}
 					search={
@@ -417,6 +434,17 @@ export default function UsersTab({ currentUserId, onExportParamsChange }: UsersT
 					}
 					filters={
 						<>
+							{isPlatform && schools.length > 0 && (
+								<Select
+									value={list.values.school_id ? String(list.values.school_id) : null}
+									onChange={(v) => list.setFilter("school_id", v ? Number(v) : undefined)}
+									data={schools.map((s) => ({ value: String(s.id), label: s.name }))}
+									placeholder="全部院校"
+									aria-label="院校筛选"
+									size="sm"
+									clearable
+								/>
+							)}
 							<Select
 								value={list.values.role || null}
 								onChange={(v) => list.setFilter("role", v ?? "")}
@@ -448,6 +476,12 @@ export default function UsersTab({ currentUserId, onExportParamsChange }: UsersT
 					<Center py="xl">
 						<Loader size="sm" />
 					</Center>
+				) : usersFailed ? (
+					<ErrorState
+						title="用户列表加载失败"
+						description="请检查网络或稍后重试。这不代表没有用户——是这次请求失败了。"
+						onRetry={refetchUsers}
+					/>
 				) : users.length === 0 ? (
 					<EmptyState
 						icon={IconUsers}
@@ -461,6 +495,7 @@ export default function UsersTab({ currentUserId, onExportParamsChange }: UsersT
 								<UserCard
 									key={u.id}
 									user={u}
+									showSchool={isPlatform}
 									selected={selectedIds.has(u.id)}
 									onSelect={handleToggleSelect}
 									onEdit={openEditUser}
@@ -492,6 +527,7 @@ export default function UsersTab({ currentUserId, onExportParamsChange }: UsersT
 				open={showUserForm && editingUser === null}
 				user={null}
 				roles={roles}
+				rolesFailed={rolesFailed}
 				classes={classes}
 				onClose={closeUserForm}
 				onSaveRegister={handleSaveRegister}
@@ -507,6 +543,7 @@ export default function UsersTab({ currentUserId, onExportParamsChange }: UsersT
 				open={showUserForm && editingUser !== null}
 				user={editingUser}
 				roles={roles}
+				rolesFailed={rolesFailed}
 				classes={classes}
 				onClose={closeUserForm}
 				onSaveRegister={handleSaveRegister}

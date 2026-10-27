@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import { WIDTH } from "@/config/layout-scale";
+
 /**
  * 窄屏断点：与 `scenario.css` 移动端一节（`@media (max-width: 760px)`）**同一个数**。
  *
@@ -7,7 +9,7 @@ import { useEffect, useState } from "react";
  * 所以这个常量只给"必须在 JS 里换形态"的地方用（抽屉、页头尾部控件的形状），
  * 能靠 CSS 表达的形态一律留在 CSS 里（例如侧栏的常驻/浮层）。
  */
-export const NARROW_QUERY = "(max-width: 760px)";
+export const NARROW_QUERY = `(max-width: ${WIDTH.scenarioNarrow}px)`;
 
 /**
  * 是否窄屏。默认值来自视口，之后跟着查询串与 resize 走（旋转、缩放都算）。

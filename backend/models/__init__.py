@@ -59,6 +59,7 @@ from models.school import (
     MEMBER_ROLES,
     Class,
     ClassMembership,
+    School,
 )
 from models.training import (
     Message,
@@ -121,6 +122,7 @@ __all__ = [
     "RateLimitEntry",
     "Role",
     "RolePermission",
+    "School",
     "Score",
     "ScoreReview",
     "StAsset",

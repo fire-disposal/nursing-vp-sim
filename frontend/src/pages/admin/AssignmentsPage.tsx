@@ -24,6 +24,7 @@ import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 import { Switch } from "@mantine/core";
 import type { DataTableColumn } from "@/components/ui/data-table";
+import ErrorState from "@/components/ui/error-state";
 import { TextInput } from "@mantine/core";
 import PageHeader from "@/components/ui/page-header";
 import ResponsiveTable from "@/components/ui/responsive-table";
@@ -115,7 +116,13 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 		validate: schemaResolver(assignmentSchema),
 	});
 
-	const { data: listData, isLoading } = useQuery({
+	const {
+		data: listData,
+		isLoading,
+		isError,
+		error,
+		refetch,
+	} = useQuery({
 		queryKey: queryKeys.assignments.list({ class_id: classId, status: statusFilter }),
 		queryFn: () => {
 			const params: Record<string, unknown> = { limit: 100 };
@@ -419,7 +426,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 			)}
 			<FilterToolbar
 				compact
-				summary={`共 ${filteredAssignments.length} 条`}
+				summary={isError ? "共 — 条" : `共 ${filteredAssignments.length} 条`}
 				hasActiveFilters={Boolean(search || classId || statusFilter)}
 				onClear={() => {
 					setSearch("");
@@ -449,6 +456,14 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 				}
 			/>
 
+			{/* 请求失败 ≠ 没有作业：落到空态会让人以为作业被删光，进而重复创建 */}
+			{isError ? (
+				<ErrorState
+					title="作业列表加载失败"
+					error={error}
+					onRetry={() => refetch()}
+				/>
+			) : (
 			<ResponsiveTable<AssignmentListItem>
 				columns={columns}
 				rows={filteredAssignments}
@@ -488,6 +503,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 					</Box>
 				)}
 			/>
+			)}
 
 			<Modal
 				opened={modalOpen}

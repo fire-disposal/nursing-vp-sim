@@ -477,6 +477,7 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 			{children}
 			<ScoringOverlay
 				bus={busRef.current}
+				recordId={recordId}
 				getProgress={getProgress}
 				subscribeProgress={subscribeProgress}
 				onRetry={retryScoring}

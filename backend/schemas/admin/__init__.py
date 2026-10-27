@@ -16,17 +16,14 @@ from schemas.admin.classes import (
 from schemas.admin.llm import LLMCallLogItem, LLMStatsResponse
 from schemas.admin.roles import RoleCreateRequest, RoleResponse, RoleUpdateRequest
 from schemas.admin.stats import (
-    AdminStats,
     ClassStudentItem,
     ClassSummaryItemSchema,
     DurationStats,
-    RankingItem,
     TeacherSummaryItem,
     TrendStats,
 )
 
 __all__ = [
-    "AdminStats",
     "AuditLogItem",
     "BulkAssignClassRequest",
     "BulkAssignClassResult",
@@ -43,7 +40,6 @@ __all__ = [
     "DurationStats",
     "LLMCallLogItem",
     "LLMStatsResponse",
-    "RankingItem",
     "RoleCreateRequest",
     "RoleResponse",
     "RoleUpdateRequest",

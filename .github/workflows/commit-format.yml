@@ -138,6 +138,26 @@ jobs:
   # ── Backend quality (mirrors husky pre-commit: ruff + ty) ───────────────
   backend:
     runs-on: ubuntu-latest
+    # 这套测试会真连库建 schema（conftest 从 TEST_DB_URL 取，库名必须含 test）——
+    # 此前该 job 没配 Postgres，PR Gate 自建立起就没跑通过。
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nursing_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # 产品面向上海时区；CI 固定 TZ，避免日期断言随 runner 漂移
+      TZ: Asia/Shanghai
+      TEST_DB_URL: postgresql://postgres:postgres@localhost:5432/nursing_test
     defaults:
       run:
         working-directory: backend
@@ -229,6 +249,9 @@ jobs:
   # ── Frontend quality (biome + tsc + vitest 全量测试) ────────────────────
   frontend:
     runs-on: ubuntu-latest
+    env:
+      # 产品面向上海时区；固定 TZ 让日期/时间戳断言与本地一致
+      TZ: Asia/Shanghai
     defaults:
       run:
         working-directory: frontend
@@ -242,7 +265,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          # 单一来源：.nvmrc（此前写死 20，而仓库要求 24 → Promise.withResolvers 不存在，
+          # 三个用例在 CI 里必然红）
+          node-version-file: .nvmrc
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

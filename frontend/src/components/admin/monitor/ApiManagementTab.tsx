@@ -82,7 +82,7 @@ export default function ApiManagementTab() {
 		<>
 			<Box mb="lg">
 				<Group justify="space-between" mb="xs">
-					<Text size="sm" fw={600}>API 密钥</Text>
+					<Text size="sm" fw={600}>密钥列表</Text>
 					<Button
 						size="sm"
 						leftSection={<IconPlus size={14} />}

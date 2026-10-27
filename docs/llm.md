@@ -2,7 +2,7 @@
 
 > 更新：2026-09-27。本文描述机制，**不证明评分已校准或具备教学效度**。
 > 评分机制改进已在历史 W4 落地（锚点送达、原始精度、证据引用、空反馈、等第政策、可比性分组）；
-> 当前 [19](19-training-experience-next-generation-plan.md) 不扩建校准机制。**教师校准未完成**，能力等第在 [评分校准工作区](calibration/README.md) 的阈值签字通过前恒不启用。
+> 当前批次不扩建校准机制。**教师校准未完成**，能力等第在 [评分校准工作区](calibration/README.md) 的阈值签字通过前恒不启用。
 > 旧 DB 动态 prompt、管理端在线调分及过时参数表不再作为实现说明。
 
 ## 一、代码导航
@@ -26,11 +26,11 @@
 | 有效成绩与统计范围 | `backend/modules/training/scoring/grade_scope.py` |
 | 记录与复核 | `backend/models/training.py`、`backend/modules/training/router/score_review.py` |
 
-提示词当前是代码内容，经 `core/template.py` 渲染；本文不再保留“从可变 prompt_templates 表加载、管理员原地热改模板”的旧架构说明。19-E1 若因真实实验需求启动，只允许发布不可变上下文 revision 并由任务钉住。调用成本、错误与运行排查见 [运维指南](09-operations.md) 和 [LLM 排查](ops/llm-troubleshooting.md)。
+提示词当前是代码内容，经 `core/template.py` 渲染；本文不再保留“从可变 prompt_templates 表加载、管理员原地热改模板”的旧架构说明。19-E1 若因真实实验需求启动，只允许发布不可变上下文 revision 并由任务钉住。调用成本、错误与运行排查见 [运维指南](operations.md) 和 [LLM 排查](ops/llm-troubleshooting.md)。
 
 ## 二、评分机制
 
-1. 训练记录保存病例、患者 prompt 与 rubric 快照；含义与冻结边界见 [17](17-training-identity-and-state-contract.md)。患者 prompt 快照不等于评分 prompt 已被冻结；评分提示词的内容身份另存于 `scores.score_meta.scoring_prompt_id`。
+1. 训练记录保存病例、患者 prompt 与 rubric 快照；患者 prompt 快照不等于评分 prompt 已被冻结；评分提示词的内容身份另存于 `scores.score_meta.scoring_prompt_id`。
 2. 评分输入包含：**逐条行为锚点**（`build_scoring_criteria` 输出每个条目的 0/1/2 锚点，标题与真实量尺一致）、**本次任务边界**（病例蓝图：必须覆盖/情境相关/关键遗漏/可接受证据/典型错误/不适用条目/是否有干预观察机会）、对话原文、已记录的查体动作结果与已提交（冻结）的护理评估。四者缺一即视为证据不完整，由对应字段如实标注。
 3. 逐项结果经解析、量尺钳制、幻觉维度剔除与缺失维度注入；**总分 = Σ条目原始分**，维度自评分只作展示快照。
 4. 展示映射为 `round(raw_total / applicable_raw_max * 100)`：`applicable_raw_max` 是**本次适用的**原始满分 —— 病例声明不适用的条目（`blueprint.not_applicable_items`）不进分母，因此"无干预观察机会"这类不适用不会变成扣分。基础 rubric 19 项 × 2 = 38；启用护理记录维度追加 5 项（48）。

@@ -66,7 +66,7 @@ Role (1) ──→ (N) User
 
 Class (1) ──→ (N) ClassMembership ←── (N) User     # 表名 user_class；member_role = student | teacher，UNIQUE(user_id, class_id)
 
-Case (1) ──→ (N) CaseRevision                       # 已发布内容不可变（docs/15 §六）
+Case (1) ──→ (N) CaseRevision                       # 已发布内容不可变
 CaseRevision (1) ──→ (N) Assignment ──→ (N) TrainingRecord
 CaseRevision (1) ──→ (N) TrainingRecord             # 训练钉住当时版本
 Assignment (1) ──→ (N) AssignmentRecipient ←── (N) User   # 发布时固化的受众快照

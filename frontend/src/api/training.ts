@@ -31,24 +31,53 @@ export const retryScoring = (recordId: number | string, params?: { force?: boole
 		{ params },
 	);
 
-export interface GetRecordsParams {
-	limit?: number;
-	offset?: number;
+// 用 type 而非 interface：type 字面量对象可赋给 Record<string, unknown>（隐式索引签名），
+// interface 不行——否则调用点（query key / axios params）只能靠 `as` 绕类型。
+
+/** 记录筛选 —— `/records`（列表）与 `/records/summary`（集合统计）共用同一套参数。
+ *  后端也是同一份 `RecordFilters`，所以同一组筛选下两个端点的 `total` 必然相等。 */
+export type RecordFilterParams = {
 	status?: string;
 	date_from?: string;
 	date_to?: string;
 	student_name?: string;
+	/** 按病例名模糊搜索（只匹配当前可见的名称：进行中的盲盒/隐藏病例用占位文案） */
+	search?: string;
 	case_id?: number;
 	class_id?: number;
 	/** 只返回学生练习（默认 true）；false = 含教师试跑/演示记录 */
 	only_student_practice?: boolean;
 	user_id?: number;
-}
+	/** 复核状态：pending=已完成未复核 / reviewed=已复核 */
+	review_status?: string;
+};
+
+export type GetRecordsParams = RecordFilterParams & {
+	limit?: number;
+	offset?: number;
+	/** 排序字段：start_time / score_total / duration */
+	sort_by?: string;
+	/** 排序方向 */
+	order?: "asc" | "desc";
+};
 
 export const getRecords = (params: GetRecordsParams = {}) =>
 	api.get<Schemas["PaginatedResponse_TrainingRecordBrief_"]>(
 		"/training/records" satisfies ApiPath as string,
-		{ params: params as Record<string, unknown> },
+		{ params },
+	);
+
+/**
+ * 记录的**集合统计**（列表的聚合视图）：与 `getRecords` 同一套筛选参数，
+ * `total` 与列表的 `total` 同源同值，`students` 是去重人数。
+ *
+ * 用它给 KPI 供数，不要再引入"屏幕形状"的固定聚合端点 —— 那种端点追不上列表的筛选，
+ * 数字与下钻列表必然分叉。
+ */
+export const getRecordsSummary = (params: RecordFilterParams = {}) =>
+	api.get<Schemas["TrainingRecordSummary"]>(
+		"/training/records/summary" satisfies ApiPath as string,
+		{ params },
 	);
 
 export const deleteRecord = (id: number | string) =>

@@ -1,4 +1,3 @@
-import { APP_TIME_ZONE } from "@/utils/date";
 import { ActionIcon, Badge, Button, Group, Modal, Paper, Select, Stack, Text, TextInput, Textarea } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { schemaResolver, useForm } from "@mantine/form";
@@ -23,7 +22,7 @@ import {
 	type NotificationValues,
 	notificationSchema,
 } from "@/schemas/notification";
-import { fromDatetimeLocal, toDatetimeLocal } from "@/utils/date";
+import { formatDate, formatDateTime, fromDatetimeLocal, toDatetimeLocal } from "@/utils/date";
 import { FilterToolbar } from "@/components/ui/filter-toolbar";
 
 type SystemNotification = components["schemas"]["SystemNotificationResponse"];
@@ -40,10 +39,11 @@ const LEVEL_COLORS: Record<string, string> = {
 	success: "green",
 };
 
-function toLocalDateTime(s: string | null | undefined): string {
+function toDisplayDateTime(s: string | null | undefined): string {
 	if (!s) return "";
-	const iso = /[zZ]|[+-]\d{2}:?\d{2}$/.test(s) ? s : `${s}Z`;
-	return new Date(iso).toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE });
+	// 后端可能返回不带时区标记的 naive 串：先补 Z 再交给共享格式化，
+	// 否则 new Date() 会按浏览器本地时区解析，海外用户看到的时间会整体偏移
+	return formatDateTime(/[zZ]|[+-]\d{2}:?\d{2}$/.test(s) ? s : `${s}Z`);
 }
 
 const DEFAULT_VALUES: NotificationValues = {
@@ -197,11 +197,12 @@ export default function SystemNotificationsPage() {
 									<Text size="sm" c="dimmed" mt={4} lineClamp={2}>{n.content}</Text>
 									<Group gap={12} mt={8} wrap="wrap">
 										{n.published_at ? (
-											<Text size="xs" c="dimmed">📅 {toLocalDateTime(n.published_at)} 发布</Text>
+											<Text size="xs" c="dimmed">📅 {toDisplayDateTime(n.published_at)} 发布</Text>
 										) : (
 											<Text size="xs" c="dimmed">即时发布</Text>
 										)}
-										<Text size="xs" c="dimmed">创建于 {n.created_at.slice(0, 10)}</Text>
+										{/* 手拼 slice 会把 UTC 串的日期直接当成上海日期显示；与同卡的 published_at 同用 utils/date 才同一时区口径 */}
+										<Text size="xs" c="dimmed">创建于 {formatDate(n.created_at)}</Text>
 									</Group>
 								</div>
 								<Group gap={4} style={{ flexShrink: 0 }}>
@@ -213,6 +214,7 @@ export default function SystemNotificationsPage() {
 											setModalOpen(true);
 										}}
 										title="编辑"
+										aria-label="编辑通知"
 									>
 										<IconPencil size={16} />
 									</ActionIcon>
@@ -221,6 +223,7 @@ export default function SystemNotificationsPage() {
 										color="red"
 										onClick={() => setDeleteId(n.id)}
 										title="删除"
+										aria-label="删除通知"
 									>
 										<IconTrash size={16} />
 									</ActionIcon>

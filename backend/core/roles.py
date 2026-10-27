@@ -1,25 +1,9 @@
 from core.permissions import PERMISSION_KEYS
 
 SYSTEM_PERMISSIONS: dict[str, list[str]] = {
-    "super_admin": [
-        "user_manage",
-        "role_manage",
-        "grade_class_manage",
-        "case_manage",
-        "training_access",
-        "score_review",
-        "stats_view",
-        "qa_access",
-        "llm_monitor",
-        "api_manage",
-        "assignment_manage",
-        "feedback_review",
-        "export_data",
-        "questionnaire_manage",
-        "audit_view",
-        "audit_export",
-        "scenario_training",
-    ],
+    # 超管 = 全部权限，**派生**而不是枚举：新增 key 自动包含，
+    # 杜绝“新功能上线后超管反而 403”（AI 辅助开发最容易漏的一处）。
+    "super_admin": list(PERMISSION_KEYS),
     "admin": [
         "user_manage",
         "grade_class_manage",

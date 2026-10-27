@@ -16,6 +16,18 @@ from schemas.notification import *  # noqa: F403
 from schemas.ops import *  # noqa: F403
 from schemas.qa import *  # noqa: F403
 from schemas.questionnaire import *  # noqa: F403
+from schemas.school import (
+    DeleteSchoolResponse as DeleteSchoolResponse,
+)
+from schemas.school import (
+    SchoolCreate as SchoolCreate,
+)
+from schemas.school import (
+    SchoolResponse as SchoolResponse,
+)
+from schemas.school import (
+    SchoolUpdate as SchoolUpdate,
+)
 from schemas.scoreboard import *  # noqa: F403
 from schemas.scoring import *  # noqa: F403
 from schemas.training import *  # noqa: F403

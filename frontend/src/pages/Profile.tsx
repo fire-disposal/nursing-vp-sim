@@ -24,6 +24,7 @@ import {
 	Stack,
 	Text,
 	ThemeIcon,
+	useComputedColorScheme,
 	useMantineColorScheme,
 } from "@mantine/core";
 import { changePassword, updateMyProfile } from "@/api";
@@ -366,8 +367,10 @@ export default function Profile() {
 }
 
 function ThemeToggleButton() {
-	const { colorScheme, toggleColorScheme } = useMantineColorScheme();
-	const isDark = colorScheme === "dark";
+	// 用 computedColorScheme：scheme 为 "auto" 时也要按**实际生效**的配色显示图标与文案，
+	// 否则跟随系统的深色用户会看到"深色模式"按钮（点下去像没反应）。
+	const { setColorScheme } = useMantineColorScheme();
+	const isDark = useComputedColorScheme("light") === "dark";
 	return (
 		<Button
 			variant="subtle"
@@ -376,7 +379,7 @@ function ThemeToggleButton() {
 			justify="flex-start"
 			h="auto"
 			py="sm"
-			onClick={toggleColorScheme}
+			onClick={() => setColorScheme(isDark ? "light" : "dark")}
 			leftSection={
 				<ThemeIcon size={36} radius="md" variant="light" color="gray">
 					{isDark ? <IconSun size={18} /> : <IconMoon size={18} />}

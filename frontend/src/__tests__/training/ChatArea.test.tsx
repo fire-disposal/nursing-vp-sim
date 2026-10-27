@@ -72,16 +72,14 @@ describe("对话列布局与首帧开场", () => {
 		expect(column.style.paddingTop).toBe("");
 	});
 
-	it("首帧给出 manifest 驱动的任务卡；对话列不再重复门禁，输入框是显式控件", () => {
+	it("首帧给出 manifest 驱动的任务卡；输入框是显式控件", () => {
 		render(withTrainingData(<ChatArea onSend={vi.fn()} onCorrectLast={vi.fn()} />, session()));
 
 		// 任务卡：必交状态
 		expect(screen.getByText("必交")).toBeInTheDocument();
-		// 门禁：输入框上方一个带语义的 Alert（原因），文案恰好一处
-		const alert = screen.getByRole("alert");
-		expect(alert).toHaveTextContent("还不能交卷");
-		expect(alert).toHaveTextContent("请先提交护理记录，再结束训练");
-		expect(screen.getAllByText("请先提交护理记录，再结束训练")).toHaveLength(1);
+		// 门禁原因不再常驻输入框上方（2026-09-30：整场占用对话列最贵的位置），
+		// 只留在顶栏结束按钮的清单里——对话列不得出现 alert
+		expect(screen.queryByRole("alert")).toBeNull();
 		// 输入框是 Mantine Textarea（有边框、有焦点环、有可读标签），不是漂在页脚上的一行字
 		expect(screen.getByLabelText("对话输入")).toBeInTheDocument();
 	});

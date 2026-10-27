@@ -25,6 +25,9 @@ interface StatCardProps {
 /**
  * StatCard — 业务数字卡片。
  * 数字一眼可读：大号 tabular-nums，标签弱化；趋势用小徽章表达。
+ *
+ * 可点的卡片渲染成真正的 `<button>`：只挂 `onClick` 的 Paper 键盘够不到
+ * （2026-09-30 起看板所有 KPI 都可以下钻，不能只对鼠标用户可用）。
  */
 export default function StatCard({
 	icon: Icon,
@@ -37,7 +40,15 @@ export default function StatCard({
 	withBorder = true,
 }: StatCardProps) {
 	return (
-		<Paper withBorder={withBorder} p="md" className={className} style={{ display: "flex", alignItems: "center", gap: "0.875rem", cursor: onClick ? "pointer" : undefined, transition: "box-shadow 150ms ease, transform 150ms ease", ...(onClick ? { ":hover": { boxShadow: "var(--mantine-shadow-sm)", transform: "translateY(-1px)", }, } : {}), }} >
+		<Paper
+			withBorder={withBorder}
+			p="md"
+			className={className}
+			component={onClick ? "button" : "div"}
+			type={onClick ? "button" : undefined}
+			onClick={onClick}
+			style={{ display: "flex", alignItems: "center", gap: "0.875rem", textAlign: "left", width: "100%", cursor: onClick ? "pointer" : undefined, transition: "box-shadow 150ms ease, transform 150ms ease", ...(onClick ? { ":hover": { boxShadow: "var(--mantine-shadow-sm)", transform: "translateY(-1px)", }, } : {}), }}
+		>
 			{Icon && (
 				<ThemeIcon size={44} radius="md" variant="light" color={COLOR_MAP[color]}>
 					<Icon size={20} strokeWidth={1.8} />

@@ -1,17 +1,15 @@
 import { Autocomplete, Box, Button, Group, Modal, Paper, Select, Stack, Text, TextInput } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
-import { IconAlertTriangle, IconSchool } from "@tabler/icons-react";
+import { IconSchool } from "@tabler/icons-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useConfirm } from "@/components/ui/confirm";
-import EmptyState from "@/components/ui/empty-state";
 import type { DataTableColumn } from "@/components/ui/data-table";
-
+import ErrorState from "@/components/ui/error-state";
+import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import PageHeader from "@/components/ui/page-header";
 import ResponsiveTable from "@/components/ui/responsive-table";
 import { SearchInput } from "@/components/ui/search-input";
-
-import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import {
 	useClassesQuery,
 	useCohortLabels,
@@ -19,14 +17,22 @@ import {
 	useDeleteClass,
 	useUpdateClass,
 } from "@/hooks/useClasses";
+import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
+import { useSchoolsQuery } from "@/hooks/useSchools";
 import { type ClassFormValues, classFormSchema } from "@/schemas/class";
+import useAuthStore from "@/stores/authStore";
 import type { ClassItem } from "@/types/store";
 import { formatDate } from "@/utils/date";
-import { FilterToolbar } from "@/components/ui/filter-toolbar";
 
 export default function ClassesPage() {
 	const navigate = useNavigate();
 	const [cohortFilter, setCohortFilter] = useState("");
+	// 院校维度只对平台角色有意义（院校管理员的后端作用域已经锁定本校）。
+	// 判据用 `school_manage` 权限：服务端权威，且不依赖 `/auth/me` 是否带院校字段。
+	const permissions = useAuthStore((s) => s.permissions);
+	const isPlatform = permissions.includes("school_manage");
+	const { data: schools = [] } = useSchoolsQuery({ enabled: isPlatform });
+	const [schoolFilter, setSchoolFilter] = useState<number | null>(null);
 	const {
 		searchInput,
 		debouncedValue: search,
@@ -36,20 +42,30 @@ export default function ClassesPage() {
 	const [editId, setEditId] = useState<number | null>(null);
 	const { confirm } = useConfirm();
 
-	const form = useForm<ClassFormValues>({
-		initialValues: { name: "", cohortLabel: "" },
+	const form = useForm<ClassFormValues & { schoolId: string }>({
+		initialValues: { name: "", cohortLabel: "", schoolId: "" },
 		validate: schemaResolver(classFormSchema),
 	});
 
 	const { labels: cohortLabels } = useCohortLabels();
-	const { data: classes = [], isLoading, isError } = useClassesQuery(cohortFilter || null);
+	const {
+		data: classes = [],
+		isLoading,
+		isError,
+		error: classesError,
+		refetch: refetchClasses,
+	} = useClassesQuery(cohortFilter || null);
 	const createMut = useCreateClass();
 	const updateMut = useUpdateClass();
 	const deleteMut = useDeleteClass();
 
 	const openCreate = () => {
 		setEditId(null);
-		form.setValues({ name: "", cohortLabel: cohortFilter });
+		form.setValues({
+			name: "",
+			cohortLabel: cohortFilter,
+			schoolId: schoolFilter ? String(schoolFilter) : schools[0] ? String(schools[0].id) : "",
+		});
 		form.resetDirty();
 		setModalOpen(true);
 	};
@@ -59,7 +75,7 @@ export default function ClassesPage() {
 			const ok = await confirm({ title: "关闭班级编辑", message: "内容未保存，确定关闭？" });
 			if (!ok) return;
 		}
-		form.setValues({ name: "", cohortLabel: "" });
+		form.setValues({ name: "", cohortLabel: "", schoolId: "" });
 		form.resetDirty();
 		setEditId(null);
 		setModalOpen(false);
@@ -67,21 +83,31 @@ export default function ClassesPage() {
 
 	const openEdit = (item: ClassItem) => {
 		setEditId(item.id);
-		form.setValues({ name: item.name, cohortLabel: item.cohort_label });
+		form.setValues({
+			name: item.name,
+			cohortLabel: item.cohort_label,
+			schoolId: String(item.school_id),
+		});
 		form.resetDirty();
 		setModalOpen(true);
 	};
 
-	const onSubmit = async (values: ClassFormValues) => {
+	const onSubmit = async (values: ClassFormValues & { schoolId: string }) => {
 		const name = values.name.trim();
 		const cohortLabel = values.cohortLabel.trim();
+		// 院校管理员由后端强制本校，这里只是不传；平台角色必须选（否则后端拒绝）
+		const school_id = isPlatform && values.schoolId ? Number(values.schoolId) : undefined;
 		if (editId) {
 			await updateMut.mutateAsync({
 				id: editId,
-				body: { name, cohort_label: cohortLabel },
+				body: { name, cohort_label: cohortLabel, ...(school_id ? { school_id } : {}) },
 			});
 		} else {
-			await createMut.mutateAsync({ name, cohort_label: cohortLabel });
+			await createMut.mutateAsync({
+				name,
+				cohort_label: cohortLabel,
+				...(school_id ? { school_id } : {}),
+			});
 		}
 		form.resetDirty();
 		setModalOpen(false);
@@ -98,11 +124,29 @@ export default function ClassesPage() {
 		await deleteMut.mutateAsync(item.id);
 	};
 
-	const filtered = search
-		? classes.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
-		: classes;
+	const filtered = classes.filter(
+		(c) =>
+			(!search || c.name.toLowerCase().includes(search.toLowerCase())) &&
+			(schoolFilter == null || c.school_id === schoolFilter),
+	);
+
+	// 数字列统一右对齐 + 等宽数字：三列计数扫读时不再左右漂移
+	const num = (v: number) => (
+		<Text size="sm" ta="right" style={{ fontVariantNumeric: "tabular-nums" }}>
+			{v}
+		</Text>
+	);
 
 	const columns: DataTableColumn<ClassItem>[] = [
+		...(isPlatform
+			? [
+					{
+						key: "school_name" as const,
+						header: "院校",
+						render: (c: ClassItem) => <Text size="sm">{c.school_name}</Text>,
+					},
+				]
+			: []),
 		{
 			key: "cohort_label",
 			header: "届别",
@@ -118,9 +162,9 @@ export default function ClassesPage() {
 			header: "班级名称",
 			render: (c) => <Text size="sm" fw={500}>{c.name}</Text>,
 		},
-		{ key: "student_count", header: "学生数", render: (c) => c.student_count },
-		{ key: "teacher_count", header: "教师数", render: (c) => c.teacher_count },
-		{ key: "assignment_count", header: "作业数", render: (c) => c.assignment_count },
+		{ key: "student_count", header: "学生数", render: (c) => num(c.student_count) },
+		{ key: "teacher_count", header: "教师数", render: (c) => num(c.teacher_count) },
+		{ key: "assignment_count", header: "作业数", render: (c) => num(c.assignment_count) },
 		{
 			key: "created_at",
 			header: "创建时间",
@@ -156,13 +200,26 @@ export default function ClassesPage() {
 			<FilterToolbar
 				compact
 				summary={`共 ${filtered.length} 个班级`}
-				hasActiveFilters={Boolean(searchInput || cohortFilter)}
+				hasActiveFilters={Boolean(searchInput || cohortFilter || schoolFilter != null)}
 				onClear={() => {
 					handleSearchChange("");
 					setCohortFilter("");
+					setSchoolFilter(null);
 				}}
 				search={<SearchInput value={searchInput} onChange={handleSearchChange} placeholder="搜索班级名称..." />}
 				filters={
+					<>
+					{isPlatform && schools.length > 0 && (
+						<Select
+							value={schoolFilter ? String(schoolFilter) : null}
+							onChange={(v) => setSchoolFilter(v ? Number(v) : null)}
+							placeholder="全部院校"
+							aria-label="院校筛选"
+							clearable
+							w={180}
+							data={schools.map((s) => ({ value: String(s.id), label: s.name }))}
+						/>
+					)}
 					<Select
 						value={cohortFilter || null}
 						onChange={(v) => setCohortFilter(v ?? "")}
@@ -172,16 +229,13 @@ export default function ClassesPage() {
 						w={200}
 						data={cohortLabels.map((label) => ({ value: label, label }))}
 					/>
+					</>
 				}
 			/>
 
 			<Box mt="md">
 				{isError ? (
-					<EmptyState
-						icon={IconAlertTriangle}
-						title="班级列表加载失败"
-						description="请检查网络或稍后重试"
-					/>
+					<ErrorState title="班级列表加载失败" error={classesError} onRetry={refetchClasses} />
 				) : (
 					<ResponsiveTable<ClassItem>
 						columns={columns}
@@ -230,6 +284,15 @@ export default function ClassesPage() {
 			>
 					<form onSubmit={form.onSubmit(onSubmit)}>
 						<Stack gap="sm">
+							{isPlatform && (
+								<Select
+									label="所属院校" withAsterisk
+									placeholder={schools.length ? "选择院校" : "请先在院校管理里创建院校"}
+									data={schools.map((s) => ({ value: String(s.id), label: s.name }))}
+									disabled={Boolean(editId) && false}
+									{...form.getInputProps("schoolId")}
+								/>
+							)}
 							<Autocomplete
 								label="届别（年级标签）"
 								description="同一届别下班级名唯一；留空表示不标注届别"

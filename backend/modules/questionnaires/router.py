@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from core.deps import DbSession
 from core.security import get_current_user, require_permission
 from core.statuses import QuestionnaireTrigger
+from core.tenant import Scope
 from infra.exporter import ExportAudit, export_response
 from models import User
 from modules.questionnaires.response_service import QuestionnaireResponseService, build_response_export_columns
@@ -136,6 +137,7 @@ def assign_cases(
 def check_questionnaire(
     current_user: Annotated[User, Depends(get_current_user)],
     db: DbSession,
+    scope: Scope,
     case_id: Annotated[int | None, Query()] = None,
     record_id: Annotated[int | None, Query()] = None,
     trigger: Annotated[
@@ -143,7 +145,7 @@ def check_questionnaire(
         Query(description="触发时点: before_training / after_scoring"),
     ] = None,
 ):
-    return QuestionnaireResponseService(db).check(
+    return QuestionnaireResponseService(db, scope).check(
         user_id=current_user.id,
         case_id=case_id,
         record_id=record_id,
@@ -156,9 +158,10 @@ def submit_questionnaire(
     req: QuestionnaireSubmitRequest,
     current_user: Annotated[User, Depends(get_current_user)],
     db: DbSession,
+    scope: Scope,
 ):
     return QuestionnaireResponseItem.model_validate(
-        QuestionnaireResponseService(db).submit(
+        QuestionnaireResponseService(db, scope).submit(
             user_id=current_user.id,
             template_id=req.template_id,
             case_id=req.case_id,
@@ -173,10 +176,11 @@ def list_responses(
     template_id: int,
     current_user: _Manager,
     db: DbSession,
+    scope: Scope,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=200)] = 20,
 ):
-    items, total = QuestionnaireResponseService(db).list_responses(
+    items, total = QuestionnaireResponseService(db, scope).list_responses(
         template_id=template_id,
         offset=offset,
         limit=limit,
@@ -197,8 +201,9 @@ def response_stats(
     template_id: int,
     current_user: _Manager,
     db: DbSession,
+    scope: Scope,
 ):
-    return QuestionnaireResponseService(db).get_stats(template_id)
+    return QuestionnaireResponseService(db, scope).get_stats(template_id)
 
 
 @router.post("/questionnaires/responses/{template_id}/export")
@@ -206,9 +211,10 @@ def export_responses(
     template_id: int,
     current_user: Annotated[User, Depends(require_permission("export_data"))],
     db: DbSession,
+    scope: Scope,
     request: Request,
 ):
-    svc = QuestionnaireResponseService(db)
+    svc = QuestionnaireResponseService(db, scope)
     t, responses, questions, revisions = svc.export_data(template_id)
 
     columns = build_response_export_columns(responses, questions, revisions)

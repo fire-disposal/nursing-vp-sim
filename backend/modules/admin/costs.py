@@ -13,29 +13,49 @@ from sqlalchemy.orm import Session
 from core.deps import DbSession
 from core.security import require_permission
 from core.statuses import LLMCallStatus
-from infra.ops_queries import cn_day_start, cn_month_start, day_range, llm_window, local_date, local_ts, voice_window
+from core.tenant import Scope, TenantScope
+from infra.ops_queries import (
+    cn_day_start,
+    cn_month_start,
+    cost_by_school,
+    day_range,
+    llm_window,
+    local_date,
+    local_ts,
+    scope_by_school,
+    voice_window,
+)
 from models import ApiSecret, LLMCallLog, User, VoiceCallLog, VoiceConfig
 from schemas.voice import (
     CostBreakdown,
     CostDashboardResponse,
     CostSeriesPoint,
+    SchoolCostItem,
     VoiceUsageItem,
     VoiceUsageResponse,
 )
 
 
 class CostService:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, scope: TenantScope):
         self.db = db
+        # 成本归因链路：调用日志 user_id → users.school_id。scope 决定这个服务能看到哪些行，
+        # 每个聚合都必须经过 self.school_id，否则校级账号能读到外校账目。
+        self.scope = scope
+
+    @property
+    def school_id(self) -> int | None:
+        """``None`` = 平台视图（跨院校）；否则只看该院校。"""
+        return self.scope.school_id
 
     # ── 窗口统计全部走 infra.ops_queries 单一查询层 ──
 
     def _llm_stats(self, since: datetime) -> tuple:
-        w = llm_window(self.db, since)
+        w = llm_window(self.db, since, school_id=self.school_id)
         return w["total"], w["success"], w["error"], float(w["avg_latency_ms"]), float(w["cost"])
 
     def _voice_stats(self, since: datetime, direction: str | None = None) -> tuple:
-        windows = voice_window(self.db, since, direction=direction)
+        windows = voice_window(self.db, since, direction=direction, school_id=self.school_id)
         total = sum(w["total"] for w in windows.values())
         success = sum(w["success"] for w in windows.values())
         error_count = sum(w["error"] for w in windows.values())
@@ -44,7 +64,7 @@ class CostService:
         return total, success, error_count, (latency_ms / total if total else 0.0), cost
 
     def _voice_usage(self, direction: str, since: datetime) -> VoiceUsageItem:
-        w = voice_window(self.db, since, direction=direction).get(direction, {})
+        w = voice_window(self.db, since, direction=direction, school_id=self.school_id).get(direction, {})
         return VoiceUsageItem(
             calls_total=w.get("total", 0),
             calls_success=w.get("success", 0),
@@ -59,8 +79,10 @@ class CostService:
         now = datetime.now(UTC)
         today_start = cn_day_start(now)
         month_start = cn_month_start(now)
+        # 预算只有一个来源（VoiceConfig，平台级）。院校级预算还没有表，所以院校视图报 0
+        # 而不是把平台预算当成“本校预算”展示（待定项：谁来定院校预算）。
         vc = self.db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
-        monthly_budget = vc.monthly_budget if vc else 0.0
+        monthly_budget = (vc.monthly_budget if vc else 0.0) if self.scope.is_global else 0.0
         month_tts = self._voice_usage("tts", month_start)
         return VoiceUsageResponse(
             tts_today=self._voice_usage("tts", today_start),
@@ -84,23 +106,29 @@ class CostService:
         now = datetime.now(UTC)
         since = now - timedelta(days=days - 1)
         llm_rows = (
-            self.db.query(
-                local_date(LLMCallLog.created_at).label("date"),
-                func.coalesce(func.sum(LLMCallLog.estimated_cost), 0).label("llm_cost"),
+            scope_by_school(
+                self.db.query(
+                    local_date(LLMCallLog.created_at).label("date"),
+                    func.coalesce(func.sum(LLMCallLog.estimated_cost), 0).label("llm_cost"),
+                ).filter(LLMCallLog.created_at >= since, LLMCallLog.status == LLMCallStatus.SUCCESS),
+                LLMCallLog,
+                self.school_id,
             )
-            .filter(LLMCallLog.created_at >= since, LLMCallLog.status == LLMCallStatus.SUCCESS)
             .group_by("date")
             .all()
         )
         llm_map = {str(r[0]): float(r[1]) for r in llm_rows}
         tts_rows = (
-            self.db.query(
-                local_date(VoiceCallLog.created_at).label("date"),
-                func.coalesce(func.sum(VoiceCallLog.cost_estimated).filter(VoiceCallLog.direction == "tts"), 0).label(
-                    "tts_cost"
-                ),
+            scope_by_school(
+                self.db.query(
+                    local_date(VoiceCallLog.created_at).label("date"),
+                    func.coalesce(
+                        func.sum(VoiceCallLog.cost_estimated).filter(VoiceCallLog.direction == "tts"), 0
+                    ).label("tts_cost"),
+                ).filter(VoiceCallLog.created_at >= since),
+                VoiceCallLog,
+                self.school_id,
             )
-            .filter(VoiceCallLog.created_at >= since)
             .group_by("date")
             .all()
         )
@@ -124,16 +152,22 @@ class CostService:
         month_start = cn_month_start(now)
 
         vc = self.db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
-        voice_budget = vc.monthly_budget if vc else 0.0
+        # 预算口径：VoiceConfig / ApiSecret 都是平台级配置，没有 school_id。院校视图报 0，
+        # 而不是把平台预算当作“本校预算”（待定项：谁来定院校预算）。
+        voice_budget = (vc.monthly_budget if vc else 0.0) if self.scope.is_global else 0.0
 
-        llm_budget = round(
-            float(
-                self.db.query(func.coalesce(func.sum(ApiSecret.monthly_cost_limit), 0))
-                .filter(ApiSecret.status == "active")
-                .scalar()
-                or 0.0
-            ),
-            6,
+        llm_budget = (
+            round(
+                float(
+                    self.db.query(func.coalesce(func.sum(ApiSecret.monthly_cost_limit), 0))
+                    .filter(ApiSecret.status == "active")
+                    .scalar()
+                    or 0.0
+                ),
+                6,
+            )
+            if self.scope.is_global
+            else 0.0
         )
 
         llm_today = self._llm_stats(today_start)
@@ -156,6 +190,10 @@ class CostService:
             else 0.0
         )
 
+        # 这两个查询已经 join 了 User（成本要落到用户名上），所以院校过滤直接落在 User.school_id，
+        # 不需要再走 scope_by_school 的二次 join。
+        school_filter = [] if self.scope.is_global else [User.school_id == self.school_id]
+
         top_llm = (
             self.db.query(
                 User.display_name.label("user_name"),
@@ -166,6 +204,7 @@ class CostService:
             .join(LLMCallLog, LLMCallLog.user_id == User.id)
             .filter(
                 LLMCallLog.created_at >= month_start,
+                *school_filter,
             )
             .group_by(User.id, User.display_name)
             .all()
@@ -181,6 +220,7 @@ class CostService:
             .join(VoiceCallLog, VoiceCallLog.user_id == User.id)
             .filter(
                 VoiceCallLog.created_at >= month_start,
+                *school_filter,
             )
             .group_by(User.id, User.display_name)
             .all()
@@ -207,6 +247,11 @@ class CostService:
             reverse=True,
         )[:10]
 
+        # 院校拆分只对平台角色开放：校级账号本来就只有本校一行，返回它等于把“本校”当成
+        # 一次院校枚举，徒增前端分支。窗口与 top_users 一致（本月），归因不到院校的行进
+        # 名为“未归属”的桶（school_id=None），不会被丢掉。
+        by_school = cost_by_school(self.db, month_start) if self.scope.is_global else []
+
         return CostDashboardResponse(
             today=self._build_breakdown(
                 today_total,
@@ -230,10 +275,13 @@ class CostService:
             voice_monthly_budget=voice_budget,
             daily_series=self._daily_series(30),
             top_users=top_users,
+            by_school=[SchoolCostItem(**row) for row in by_school],
         )
 
     def get_user_breakdown(self, month_start: datetime | None = None, limit: int = 50) -> list[dict]:
         since = month_start or cn_month_start(datetime.now(UTC))
+        # 已 join User，院校过滤直接落在 User.school_id：top 清单不得跨校。
+        school_filter = [] if self.scope.is_global else [User.school_id == self.school_id]
         rows = (
             self.db.query(
                 User.id.label("user_id"),
@@ -245,7 +293,7 @@ class CostService:
                 func.sum(LLMCallLog.estimated_cost).label("cost"),
             )
             .join(LLMCallLog, LLMCallLog.user_id == User.id)
-            .filter(LLMCallLog.created_at >= since)
+            .filter(LLMCallLog.created_at >= since, *school_filter)
             .group_by(User.id, User.display_name, LLMCallLog.purpose)
             .order_by(func.sum(LLMCallLog.estimated_cost).desc())
             .all()
@@ -297,19 +345,22 @@ class CostService:
 
         if include_llm:
             for r in (
-                self.db.query(
-                    date_group.label("date"),
-                    func.coalesce(
-                        func.sum(
-                            case((LLMCallLog.status == LLMCallStatus.SUCCESS, LLMCallLog.estimated_cost), else_=0)
-                        ),
-                        0,
-                    ).label("cost"),
-                    func.count().label("calls"),
-                    func.sum(func.cast(LLMCallLog.status == LLMCallStatus.SUCCESS, type_=Integer)).label("success"),
-                    func.sum(func.cast(LLMCallLog.status != LLMCallStatus.SUCCESS, type_=Integer)).label("error"),
+                scope_by_school(
+                    self.db.query(
+                        date_group.label("date"),
+                        func.coalesce(
+                            func.sum(
+                                case((LLMCallLog.status == LLMCallStatus.SUCCESS, LLMCallLog.estimated_cost), else_=0)
+                            ),
+                            0,
+                        ).label("cost"),
+                        func.count().label("calls"),
+                        func.sum(func.cast(LLMCallLog.status == LLMCallStatus.SUCCESS, type_=Integer)).label("success"),
+                        func.sum(func.cast(LLMCallLog.status != LLMCallStatus.SUCCESS, type_=Integer)).label("error"),
+                    ).filter(LLMCallLog.created_at >= since, LLMCallLog.created_at < until),
+                    LLMCallLog,
+                    self.school_id,
                 )
-                .filter(LLMCallLog.created_at >= since, LLMCallLog.created_at < until)
                 .group_by("date")
                 .order_by("date")
                 .all()
@@ -333,17 +384,20 @@ class CostService:
             )
             for direction in [service] if service == "tts" else ["tts"]:
                 for r in (
-                    self.db.query(
-                        voice_date_group.label("date"),
-                        func.coalesce(func.sum(VoiceCallLog.cost_estimated), 0).label("cost"),
-                        func.count().label("calls"),
-                        func.sum(func.cast(VoiceCallLog.status == "success", type_=Integer)).label("success"),
-                        func.sum(func.cast(VoiceCallLog.status != "success", type_=Integer)).label("error"),
-                    )
-                    .filter(
-                        VoiceCallLog.direction == direction,
-                        VoiceCallLog.created_at >= since,
-                        VoiceCallLog.created_at < until,
+                    scope_by_school(
+                        self.db.query(
+                            voice_date_group.label("date"),
+                            func.coalesce(func.sum(VoiceCallLog.cost_estimated), 0).label("cost"),
+                            func.count().label("calls"),
+                            func.sum(func.cast(VoiceCallLog.status == "success", type_=Integer)).label("success"),
+                            func.sum(func.cast(VoiceCallLog.status != "success", type_=Integer)).label("error"),
+                        ).filter(
+                            VoiceCallLog.direction == direction,
+                            VoiceCallLog.created_at >= since,
+                            VoiceCallLog.created_at < until,
+                        ),
+                        VoiceCallLog,
+                        self.school_id,
                     )
                     .group_by("date")
                     .order_by("date")
@@ -370,24 +424,25 @@ _Manager = Annotated[User, Depends(require_permission("llm_monitor"))]
 
 
 @router.get("/usage", response_model=VoiceUsageResponse)
-def get_voice_usage(current_user: _Manager, db: DbSession):
-    return CostService(db).get_usage()
+def get_voice_usage(current_user: _Manager, db: DbSession, scope: Scope):
+    return CostService(db, scope).get_usage()
 
 
 @router.get("/dashboard", response_model=CostDashboardResponse)
-def get_cost_dashboard(current_user: _Manager, db: DbSession):
-    return CostService(db).get_dashboard()
+def get_cost_dashboard(current_user: _Manager, db: DbSession, scope: Scope):
+    return CostService(db, scope).get_dashboard()
 
 
 @router.get("/users")
-def get_user_cost_breakdown(current_user: _Manager, db: DbSession):
-    return {"items": CostService(db).get_user_breakdown()}
+def get_user_cost_breakdown(current_user: _Manager, db: DbSession, scope: Scope):
+    return {"items": CostService(db, scope).get_user_breakdown()}
 
 
 @router.get("/export")
 def export_costs(
     current_user: _Manager,
     db: DbSession,
+    scope: Scope,
     request: Request,
     start_date: str = Query(default=""),
     end_date: str = Query(default=""),
@@ -395,7 +450,7 @@ def export_costs(
     granularity: str = Query(default="daily"),
     export_format: str = Query(default="json", alias="format"),
 ):
-    svc = CostService(db)
+    svc = CostService(db, scope)
     rows = svc.export_data(start_date, end_date, service, granularity)
     # 自建响应（不经 infra.exporter）→ 直接写一条导出留痕
     from core.audit import ACTION_EXPORT_DOWNLOADED, TARGET_TYPE_EXPORT, record_detached

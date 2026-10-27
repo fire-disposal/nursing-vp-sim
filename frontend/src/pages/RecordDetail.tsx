@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Alert, Box, Button, Container, Grid, Stack, Text } from "@mantine/core";
 import { IconAlertTriangle, IconInfoCircle } from "@tabler/icons-react";
 import { type ReactNode, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { getRecordDetail } from "@/api";
 import { queryKeys } from "@/api/query-keys";
 import { type PracticeKind, startPractice } from "@/api/training";
@@ -11,12 +11,15 @@ import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
+import { WIDTH } from "@/config/layout-scale";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useScoringRetry } from "@/hooks/useScoringRetry";
 import { useQuestionnaire } from "@/hooks/useQuestionnaire";
 import type { SessionDetailFields } from "@/engine/training-record-types";
 import { getExistingTrainingRecordId } from "@/utils/error";
 import { downloadRecordDetail } from "@/utils/export-record";
 import { getScoreDenominator, toScoreData } from "@/utils/score";
+import { goTraining } from "@/utils/training-nav";
 import type { MessageData } from "./record-detail/MessagePlayback";
 import MessagePlayback from "./record-detail/MessagePlayback";
 import PracticeSection from "./record-detail/PracticeSection";
@@ -65,13 +68,20 @@ function QuestionnaireIssueAlert({
 export default function RecordDetail() {
 	const { id } = useParams<{ id: string }>();
 	const navigate = useNavigate();
+	const location = useLocation();
+	// 进入训练页记来源页（本页 URL），训练壳出口据此回跳；再练习/冲突续练都走同一条口
+	const trainingFrom = location.pathname + location.search;
 	const toast = useToast();
 	const { confirm } = useConfirm();
 	const { retrying, refreshing, refresh, retry } = useScoringRetry(id);
 	const [startingPractice, setStartingPractice] = useState<PracticeKind | null>(null);
-	const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
-		const isDesktop = typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches;
-		return { strengths: isDesktop, weaknesses: isDesktop, missed_content: isDesktop, suggestions: isDesktop };
+	// 展开态初值按断点决定：与 recordSplit 语义一致（桌面默认展开，窄屏默认折叠）
+	const isDesktopRecord = useMediaQuery(`(min-width: ${WIDTH.recordSplit}px)`);
+	const [expanded, setExpanded] = useState<Record<string, boolean>>({
+		strengths: isDesktopRecord,
+		weaknesses: isDesktopRecord,
+		missed_content: isDesktopRecord,
+		suggestions: isDesktopRecord,
 	});
 	// 证据 → 对话气泡联动（工作台核心）：只按服务端解析出的 message id 定位
 	const [highlightMsgId, setHighlightMsgId] = useState<number | null>(null);
@@ -91,7 +101,9 @@ export default function RecordDetail() {
 	useEffect(() => {
 		if (recordError) {
 			toast.apiError(recordError, "加载失败");
-			navigate(-1);
+			// 与本页固定 backTo="/history" 同一语义：记录不存在/无权时回记录列表，
+			// 用 replace 而非 -1，避免返回键落回已失效的详情页反复报错。
+			navigate("/history", { replace: true });
 		}
 	}, [recordError, navigate, toast]);
 
@@ -198,12 +210,12 @@ export default function RecordDetail() {
 		setStartingPractice(kind);
 		try {
 			const { data } = await startPractice(id, kind);
-			navigate(`/training/${data.record_id}`);
+			goTraining(navigate, data.record_id, trainingFrom);
 		} catch (err: unknown) {
 			// 已有进行中训练时服务端回 409 + record_id：直接带去继续，不制造第二个入口
 			const conflictId = getExistingTrainingRecordId(err);
 			if (conflictId != null) {
-				navigate(`/training/${conflictId}`);
+				goTraining(navigate, conflictId, trainingFrom);
 				return;
 			}
 			toast.apiError(err, "发起再练习失败");

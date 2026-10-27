@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query
 
 from core.deps import DbSession
 from core.security import require_permission
+from core.tenant import Scope
 from models import User
 from modules.scoreboard.service import ScoreboardScope, ScoreboardService
 from schemas.scoreboard import ScoreboardRankingResponse, StudentTrendResponse
@@ -22,8 +23,9 @@ _ScoreboardUser = Annotated[User, Depends(require_permission("assignment_manage"
 def scoreboard_ranking(
     current_user: _ScoreboardUser,
     db: DbSession,
+    tenant: Scope,
     case_id: Annotated[int | None, Query(description="病例范围，缺省=全部病例")] = None,
-    class_id: Annotated[int | None, Query(description="班级筛选")] = None,
+    class_id: Annotated[int | None, Query(description="班级筛选；只能指向作用域内的班级，否则 404")] = None,
     assignment_id: Annotated[str | None, Query(description="指定作业")] = None,
     assignment_status: Annotated[str | None, Query(description="作业状态限定：active|ended")] = None,
     include_free: Annotated[bool, Query(description="是否纳入自主训练（无作业关联）记录")] = False,
@@ -36,7 +38,7 @@ def scoreboard_ranking(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
 ):
-    return ScoreboardService(db).ranking(
+    return ScoreboardService(db, tenant).ranking(
         scope=ScoreboardScope(
             case_id=case_id,
             class_id=class_id,
@@ -58,13 +60,14 @@ def student_trend(
     user_id: int,
     current_user: _ScoreboardUser,
     db: DbSession,
+    tenant: Scope,
     case_id: Annotated[int | None, Query(description="病例范围，缺省=全部病例")] = None,
-    class_id: Annotated[int | None, Query(description="班级筛选")] = None,
+    class_id: Annotated[int | None, Query(description="班级筛选；只能指向作用域内的班级，否则 404")] = None,
     assignment_id: Annotated[str | None, Query(description="指定作业")] = None,
     assignment_status: Annotated[str | None, Query(description="作业状态限定：active|ended")] = None,
     include_free: Annotated[bool, Query(description="是否纳入自主训练（无作业关联）记录")] = False,
 ):
-    return ScoreboardService(db).student_trend(
+    return ScoreboardService(db, tenant).student_trend(
         user_id,
         scope=ScoreboardScope(
             case_id=case_id,

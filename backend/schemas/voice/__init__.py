@@ -13,6 +13,7 @@ from schemas.voice.cost import (
     CostDashboardResponse,
     CostExportRequest,
     CostSeriesPoint,
+    SchoolCostItem,
     VoiceUsageItem,
     VoiceUsageResponse,
 )
@@ -22,6 +23,7 @@ __all__ = [
     "CostDashboardResponse",
     "CostExportRequest",
     "CostSeriesPoint",
+    "SchoolCostItem",
     "TTSSynthesizeRequest",
     "VoiceConfigExportResponse",
     "VoiceConfigResponse",

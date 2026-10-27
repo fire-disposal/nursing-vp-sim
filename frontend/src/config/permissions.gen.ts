@@ -5,6 +5,7 @@ export const PERMISSION_KEYS = [
   "user_manage",
   "role_manage",
   "grade_class_manage",
+  "school_manage",
   "case_manage",
   "training_access",
   "score_review",
@@ -42,6 +43,10 @@ export const PERMISSION_DEFS: PermissionDef[] = [
     "label": "班级管理"
   },
   {
+    "key": "school_manage",
+    "label": "院校管理"
+  },
+  {
     "key": "case_manage",
     "label": "病例管理"
   },
@@ -63,7 +68,7 @@ export const PERMISSION_DEFS: PermissionDef[] = [
   },
   {
     "key": "llm_monitor",
-    "label": "LLM 监控"
+    "label": "LLM 调用与密钥管理"
   },
   {
     "key": "api_manage",

@@ -14,6 +14,7 @@ from .costs import router as _costs
 from .llm_monitor import router as _llm_monitor
 from .ops import router as _ops
 from .roles import router as _roles
+from .schools import router as _schools
 from .secrets import router as _secrets
 from .system_notifications import router as _system_notifications
 from .users import router as _users
@@ -28,6 +29,7 @@ for r in (
     _llm_monitor,
     _ops,
     _roles,
+    _schools,
     _secrets,
     _system_notifications,
     _users,

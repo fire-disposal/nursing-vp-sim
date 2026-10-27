@@ -37,7 +37,7 @@ describe("Login submit state", () => {
 		await user.click(screen.getByRole("button", { name: "登 录" }));
 
 		await waitFor(() =>
-			expect(screen.getByRole("button", { name: "登录中..." })).toBeDisabled(),
+			expect(screen.getByRole("button", { name: "登录中…" })).toBeDisabled(),
 		);
 		resolveLogin();
 	});

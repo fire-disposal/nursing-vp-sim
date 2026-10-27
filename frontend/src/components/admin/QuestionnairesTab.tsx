@@ -1,3 +1,5 @@
+import { Button, Stack } from "@mantine/core";
+import { IconArrowLeft } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { getCases } from "@/api/cases";
@@ -28,6 +30,8 @@ import {
 	useSaveTemplateMutation,
 } from "@/components/admin/questionnaires/useQuestionnaireMutations";
 import { useConfirm } from "@/components/ui/confirm";
+import ErrorState from "@/components/ui/error-state";
+import { getApiErrorDetail } from "@/utils/error";
 import { useListFilters } from "@/hooks/useListFilters";
 
 export default function QuestionnairesTab() {
@@ -61,7 +65,13 @@ export default function QuestionnairesTab() {
 	const deleteMutation = useDeleteTemplateMutation();
 	const assignMutation = useAssignTemplateMutation();
 
-	const { data: templatesData, isLoading } = useQuery({
+	const {
+		data: templatesData,
+		isLoading,
+		isError,
+		error,
+		refetch,
+	} = useQuery({
 		queryKey: queryKeys.questionnaires.templates(list.params),
 		queryFn: () => getQuestionnairesTemplates(list.params).then((r) => r.data),
 		placeholderData: (prev) => prev,
@@ -81,7 +91,12 @@ export default function QuestionnairesTab() {
 
 	const allCases: CaseBrief[] = casesData?.items ?? [];
 
-	const { data: templateDetail, isLoading: isLoadingDetail } = useQuery({
+	const {
+		data: templateDetail,
+		isLoading: isLoadingDetail,
+		isError: isDetailError,
+		error: detailError,
+	} = useQuery({
 		queryKey: queryKeys.questionnaires.detail(editingId),
 		queryFn: () =>
 			getQuestionnaireTemplate(editingId!).then((r) => r.data as TemplateDetail),
@@ -89,7 +104,13 @@ export default function QuestionnairesTab() {
 		staleTime: 5 * 60_000,
 	});
 
-	const { data: statsData, isLoading: isLoadingStats } = useQuery({
+	const {
+		data: statsData,
+		isLoading: isLoadingStats,
+		isError: isStatsError,
+		error: statsError,
+		refetch: refetchStats,
+	} = useQuery({
 		queryKey: queryKeys.questionnaires.stats(statsTemplate?.id ?? null),
 		queryFn: () =>
 			getQuestionnaireStats(statsTemplate!.id).then((r) => r.data),
@@ -98,6 +119,13 @@ export default function QuestionnairesTab() {
 	});
 
 	const stats: ResponseStats | null = statsData ?? null;
+
+	// 详情取不到时编辑器里是一张空表单：不吭声会让人以为模板本身就是空的，
+	// 所以把错误塞进编辑器自己的错误横幅（表单/详情页统一走 getApiErrorDetail）。
+	useEffect(() => {
+		if (!isDetailError) return;
+		setEditMsg(getApiErrorDetail(detailError, "问卷详情加载失败，请返回列表重试"));
+	}, [isDetailError, detailError]);
 
 	useEffect(() => {
 		if (editingId && templateDetail && showEditor) {
@@ -167,8 +195,8 @@ export default function QuestionnairesTab() {
 					closeEditor();
 				},
 				onError: (err: unknown) => {
-					const e = err as { response?: { data?: { detail?: string } } };
-					setEditMsg(e.response?.data?.detail || "保存失败");
+					// detail 可能是 pydantic 的数组：直接上屏会触发 React child 白屏
+					setEditMsg(getApiErrorDetail(err, "保存失败"));
 				},
 			},
 		);
@@ -236,6 +264,28 @@ export default function QuestionnairesTab() {
 	};
 
 	if (view === "stats" && statsTemplate) {
+		// 统计取数失败不能交给统计组件：stats 为 null 时它会渲染成「0 分配 / 0 完成」的假数据
+		if (isStatsError) {
+			return (
+				<Stack gap="md">
+					<Button
+						variant="subtle"
+						color="gray"
+						size="sm"
+						leftSection={<IconArrowLeft size={14} />}
+						onClick={backToList}
+						style={{ alignSelf: "flex-start" }}
+					>
+						返回列表
+					</Button>
+					<ErrorState
+						title="统计数据加载失败"
+						error={statsError}
+						onRetry={() => refetchStats()}
+					/>
+				</Stack>
+			);
+		}
 		return (
 			<QuestionnaireStats
 				template={statsTemplate}
@@ -248,6 +298,14 @@ export default function QuestionnairesTab() {
 
 	return (
 		<>
+			{/* 失败 ≠ 没有问卷模板：落到列表空态会让人以为模板被删光，进而建出重复模板 */}
+			{isError ? (
+				<ErrorState
+					title="问卷模板加载失败"
+					error={error}
+					onRetry={() => refetch()}
+				/>
+			) : (
 			<QuestionnaireList
 				templates={templates}
 				isLoading={isLoading}
@@ -277,6 +335,7 @@ export default function QuestionnairesTab() {
 				onAssign={openAssign}
 				onViewStats={openStats}
 			/>
+			)}
 
 			<QuestionnaireEditor
 				open={showEditor}

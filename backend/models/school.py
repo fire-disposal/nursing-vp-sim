@@ -1,4 +1,8 @@
-"""学校组织模型 —— 单用户多班级成员模型（no 主班级 / no users.class_id）。
+"""院校 / 班级组织模型 —— 多院校租户 + 单用户多班级成员模型（no 主班级 / no users.class_id）。
+
+租户边界：:class:`School` 是院校，:attr:`Class.school_id` 必填、``users.school_id`` 可空
+（空 = 平台角色，如 super_admin）。院校之间数据隔离由 ``core/tenant.py`` 的 ``TenantScope``
+在查询层强制，不靠调用方自觉。
 
 历史沿革：``grades``（年级）实体已退场，年级名称迁入 :attr:`Class.cohort_label`。
 本轮是 expand 步骤：``grades`` 表与 ``classes.grade_id`` 只保留为回滚源，新代码不再
@@ -50,12 +54,25 @@ legacy_grades_table = Table(
 )
 
 
+class School(Base):
+    """院校（租户）。名称全局唯一；院校之间互不可见对方数据。"""
+
+    __tablename__ = "schools"
+    __table_args__ = (UniqueConstraint("name", name="uq_schools_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(80))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
+
+    classes: Mapped[list[Class]] = relationship(back_populates="school")
+
+
 class Class(Base):
-    """班级。归属由 ``cohort_label``（届/年级标签）+ ``name`` 唯一确定。"""
+    """班级。归属由 ``school_id``（院校）+ ``cohort_label``（届/年级标签）+ ``name`` 唯一确定。"""
 
     __tablename__ = "classes"
     __table_args__ = (
-        UniqueConstraint("cohort_label", "name", name="uq_classes_cohort_label_name"),
+        UniqueConstraint("school_id", "cohort_label", "name", name="uq_classes_school_cohort_name"),
         # 遗留约束：随 grade_id 一起保留为回滚源（旧代码仍按 (grade_id, name) 判重）。
         UniqueConstraint("grade_id", "name", name="classes_grade_id_name_key"),
         Index("ix_classes_grade_id", "grade_id"),
@@ -63,11 +80,13 @@ class Class(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(60))
+    school_id: Mapped[int] = mapped_column(Integer, ForeignKey("schools.id", ondelete="RESTRICT"), index=True)
     cohort_label: Mapped[str] = mapped_column(String(40), default="", server_default=text("''"))
     # 遗留列（nullable）：本轮只保留不迁移，新代码不写入；downgrade 时用于还原旧结构。
     grade_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("grades.id", ondelete="CASCADE"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now_utc)
 
+    school: Mapped[School] = relationship(back_populates="classes")
     memberships: Mapped[list[ClassMembership]] = relationship(back_populates="class_", cascade="all, delete-orphan")
 
 

@@ -74,7 +74,7 @@ export default function ScenarioAdminPage() {
 		return (
 			<>
 				<PageHeader
-					title="病例管理"
+					title="情境病例包"
 					subtitle="病例、图片与情境数据"
 					icon={IconFolderOpen}
 				/>
@@ -140,8 +140,8 @@ export default function ScenarioAdminPage() {
 	return (
 		<Stack gap="md">
 			<PageHeader
-				title="病例管理"
-				subtitle="病例内容在各自的工作区里管；会话与统计可以跨病例看"
+				title="情境病例包"
+				subtitle="实验轨的情境资源（病例、图片与情境数据），与正式病例库分离；内容在各自工作区里管，会话与统计可跨病例看"
 				icon={IconFolderOpen}
 			/>
 

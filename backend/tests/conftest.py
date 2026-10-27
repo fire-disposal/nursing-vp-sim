@@ -41,6 +41,22 @@ def _schema_matches_models():
     Base.metadata.create_all(engine)
 
 
+def ensure_school(db, name: str = "测试院校"):
+    """取（或建）一所院校供用例复用。
+
+    ``classes.school_id`` 必填、成员关系必须「用户与班级同校」，所以凡是要建班/建成员
+    的用例都得先有院校。按名字取回同一条，避免每个文件各造一套院校逻辑。
+    """
+    from models import School
+
+    school = db.query(School).filter(School.name == name).first()
+    if school is None:
+        school = School(name=name)
+        db.add(school)
+        db.flush()
+    return school
+
+
 @pytest.fixture
 def pg_session():
     """PG 会话夹具（savepoint 隔离）——本仓**始终面向 PostgreSQL**，不做跨库降级。

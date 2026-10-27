@@ -27,7 +27,8 @@ from sqlalchemy.orm import Session, joinedload
 
 from core.exceptions import NotFoundError
 from core.statuses import ScoringStatus, TrainingStatus
-from models import Assignment, Class, ClassMembership, Score, TrainingRecord, User
+from core.tenant import TenantScope, visible_class
+from models import MEMBER_ROLE_STUDENT, Assignment, Class, ClassMembership, Score, TrainingRecord, User
 from modules.training.scoring.comparability import build_comparability, comparability_key, key_label
 from modules.training.scoring.grade_policy import (
     NUMERIC_BANDS,
@@ -62,6 +63,7 @@ _MEDIUM_MIN = NUMERIC_BANDS[1][1]
 _SORT_COLUMNS: dict[str, str] = {
     "avg_score": "avg_score",
     "best_score": "best_score",
+    "total_score": "total_score",
     "avg_duration": "avg_duration",
     "training_count": "training_count",
     # progress 需要 Python 侧全量计算，单独处理
@@ -112,8 +114,69 @@ def compute_progress(rows: Sequence[tuple[datetime, float]]) -> tuple[float | No
 
 
 class ScoreboardService:
-    def __init__(self, db: Session):
+    """排名/分层/趋势。院校隔离经 ``TenantScope`` 注入，见 ``_tenant_conditions``。
+
+    成绩是"校内可见数据"的另一种视图：同一个学生若能看到他的记录，就必然能在排名里
+    看到他的平均分；反过来，排名里出现别校学生就是把评分数据泄给别的院校。
+    """
+
+    def __init__(self, db: Session, tenant: TenantScope):
         self.db = db
+        self.tenant = tenant
+
+    # ── 作用域 ──
+
+    def _tenant_conditions(self) -> list:
+        """可排名的学生：本校；教师视角（``class_ids`` 非空）再收窄到自己任教的班。
+
+        学生归属取 ``users.school_id``（班级维度只在教师视角需要，且必须叠加在院校之上，
+        不能替代它 —— 否则教师会把别校同 id 班级的学生算进来）。
+        """
+        if self.tenant.is_global:
+            return []
+        students = self.db.query(User.id).filter(User.school_id == self.tenant.school_id)
+        if self.tenant.class_ids is not None:
+            students = students.filter(
+                User.id.in_(
+                    self.db.query(ClassMembership.user_id).filter(
+                        ClassMembership.class_id.in_(self.tenant.class_ids or {-1}),
+                        ClassMembership.member_role == MEMBER_ROLE_STUDENT,
+                    )
+                )
+            )
+        return [TrainingRecord.user_id.in_(students)]
+
+    def _narrow_classes(self, query):
+        """班级名展示也按作用域收窄：别校/非任教班的班名不得出现在排名里。"""
+        if self.tenant.school_id is not None:
+            query = query.filter(Class.school_id == self.tenant.school_id)
+        if self.tenant.class_ids is not None:
+            query = query.filter(Class.id.in_(self.tenant.class_ids or {-1}))
+        return query
+
+    def _require_visible_class(self, scope: ScoreboardScope) -> None:
+        """``class_id`` 只能指向作用域内的班级：跨校/非任教班一律 404（不是空列表）。"""
+        if scope.class_id is not None:
+            visible_class(self.db, self.tenant, scope.class_id)
+
+    def _require_visible_student(self, user_id: int) -> User:
+        """单学生详情只对作用域内学生开放；跨院校/非任教班一律 404。"""
+        user = self.db.get(User, user_id)
+        if user is None:
+            raise NotFoundError("学生不存在")
+        if self.tenant.school_id is not None and user.school_id != self.tenant.school_id:
+            raise NotFoundError("学生不存在")
+        if self.tenant.class_ids is not None and not (
+            self.db.query(ClassMembership.id)
+            .filter(
+                ClassMembership.user_id == user_id,
+                ClassMembership.class_id.in_(self.tenant.class_ids or {-1}),
+                ClassMembership.member_role == MEMBER_ROLE_STUDENT,
+            )
+            .first()
+        ):
+            raise NotFoundError("学生不存在")
+        return user
 
     # ── 查询构建 ──
 
@@ -122,6 +185,7 @@ class ScoreboardService:
             TrainingRecord.status == TrainingStatus.COMPLETED,
             TrainingRecord.scoring_status == ScoringStatus.COMPLETED,
             TrainingRecord.is_student_practice == True,
+            *self._tenant_conditions(),
         ]
         if scope.case_id is not None:
             conditions.append(TrainingRecord.case_id == scope.case_id)
@@ -138,19 +202,22 @@ class ScoreboardService:
                 TrainingRecord.user_id.in_(
                     self.db.query(ClassMembership.user_id).filter(
                         ClassMembership.class_id == scope.class_id,
-                        ClassMembership.member_role == "student",
+                        ClassMembership.member_role == MEMBER_ROLE_STUDENT,
                     )
                 )
             )
         return conditions
 
     def _stats_query(self, conditions: list):
-        """按学生分组的统计查询（平均分/最高分/平均用时/次数/病例数）。"""
+        """按学生分组的统计查询（平均分/最高分/总分/平均用时/次数/病例数）。"""
         return (
             self.db.query(
                 TrainingRecord.user_id.label("user_id"),
                 func.avg(grade_expr()).label("avg_score"),
                 func.max(grade_expr()).label("best_score"),
+                # 总分与平均分同一次聚合、同一 grade_expr() 口径（复核分优先、排除兜底分）；
+                # 拆成第二条查询会出现两条查询之间数据变动的窗口，也会重复一遍口径。
+                func.sum(grade_expr()).label("total_score"),
                 func.avg(func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time)).label(
                     "avg_duration"
                 ),
@@ -186,6 +253,7 @@ class ScoreboardService:
             tier = None
         now = now or datetime.now(UTC)
 
+        self._require_visible_class(scope)
         conditions = self._scope_conditions(scope, now)
         stats_q = self._stats_query(conditions)
         sub = stats_q.subquery()
@@ -276,9 +344,10 @@ class ScoreboardService:
             .join(Class, Class.id == ClassMembership.class_id)
             .filter(
                 ClassMembership.user_id.in_(user_ids),
-                ClassMembership.member_role == "student",
+                ClassMembership.member_role == MEMBER_ROLE_STUDENT,
             )
         )
+        query = self._narrow_classes(query)
         if scope.class_id is not None:
             query = query.filter(Class.id == scope.class_id)
         names: dict[int, str] = {}
@@ -313,6 +382,7 @@ class ScoreboardService:
                     class_name=class_names.get(r.user_id, ""),
                     avg_score=avg_score,
                     best_score=round(float(r.best_score), 1) if r.best_score is not None else None,
+                    total_score=round(float(r.total_score), 1) if r.total_score is not None else None,
                     avg_duration_seconds=round(float(r.avg_duration)) if r.avg_duration is not None else None,
                     training_count=int(r.training_count),
                     case_count=int(r.case_count),
@@ -412,9 +482,8 @@ class ScoreboardService:
         scope: ScoreboardScope,
         now: datetime | None = None,
     ) -> StudentTrendResponse:
-        user = self.db.query(User).filter(User.id == user_id).first()
-        if not user:
-            raise NotFoundError("学生不存在")
+        user = self._require_visible_student(user_id)
+        self._require_visible_class(scope)
         now = now or datetime.now(UTC)
         conditions = self._scope_conditions(scope, now) + [TrainingRecord.user_id == user_id]
 
@@ -433,9 +502,10 @@ class ScoreboardService:
             .join(ClassMembership, ClassMembership.class_id == Class.id)
             .filter(
                 ClassMembership.user_id == user_id,
-                ClassMembership.member_role == "student",
+                ClassMembership.member_role == MEMBER_ROLE_STUDENT,
             )
         )
+        class_name_query = self._narrow_classes(class_name_query)
         if scope.class_id is not None:
             class_name_query = class_name_query.filter(Class.id == scope.class_id)
         class_name = class_name_query.order_by(Class.id).first()

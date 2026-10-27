@@ -1,49 +1,21 @@
 import { IconArrowLeft, IconClipboardCheck, IconClock, IconEarOff, IconVolume2 } from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ActionIcon, Badge, Box, Button, Group, Modal, Stack, Text } from "@mantine/core";
 
 import { useIsMobile } from "@/hooks/useLayoutMode";
 import { useShortViewport } from "@/hooks/useShortViewport";
 import { useTrainingTimer } from "@/hooks/useTrainingTimer";
-import { subscribeWSConnection } from "@/hooks/useTrainingWS";
 import { pauseTraining } from "@/api/training";
 import { useToast } from "@/components/Toast";
 import { CompletionChecklist } from "@/components/training/workspace/CompletionStatus";
 import { ACTION_COMPLETE_SESSION, completionBlockers } from "@/engine/manifest";
 import { usePatientData, useRecordMeta, useSessionManifest } from "@/engine/TrainingDataContext";
+import { readTrainingOrigin, trainingOriginLabel } from "@/utils/training-nav";
 import { useTrainingStore } from "@/stores/trainingStore";
 
 /** 顶栏高度（px）：桌面 56，手机/矮视口 44。内容区退避与右侧面板起点都读这里，避免三处各写一个数。 */
 export const TRAINING_HEADER_HEIGHT = { wide: 56, short: 44 } as const;
-
-/** WS 实时连接状态点 — 绿=正常，黄（闪烁）=中断重连中。
- *
- * WS **只**承载服务端推送（评分进度 / 状态通知）。对话走 SSE、工具与提交流程走 HTTP，
- * 因此 WS 断开不等于「工具不可用」——旧文案把两者混为一谈，属状态归因错误。
- */
-function WSStatusDot() {
-	const [connected, setConnected] = useState(false);
-	useEffect(() => subscribeWSConnection(setConnected), []);
-	const label = connected
-		? "实时通知连接正常"
-		: "实时通知连接中断（评分进度与状态通知暂停）；对话与工具不受影响，正在自动重连…";
-	return (
-		<Box
-			component="span"
-			role="status"
-			aria-label={label}
-			title={label}
-			w={8}
-			h={8}
-			style={{
-				flexShrink: 0,
-				borderRadius: 999,
-				background: connected ? "var(--mantine-color-green-6)" : "var(--mantine-color-yellow-6)",
-			}}
-		/>
-	);
-}
 
 interface TrainingHeaderProps {
 	toggleTts: () => void;
@@ -69,6 +41,11 @@ export function TrainingHeader({
 	const isMobile = useIsMobile();
 	const headerHeight = isShort || isMobile ? TRAINING_HEADER_HEIGHT.short : TRAINING_HEADER_HEIGHT.wide;
 	const navigate = useNavigate();
+	// 出口落点由进入时写入的 `state.from` 决定（直链/刷新无来源 → 记录列表）；文案随之变化，
+	// 不再写死「返回训练选择」——15 类入口里多数并非训练选择页。
+	const location = useLocation();
+	const from = readTrainingOrigin(location.state);
+	const leaveLabel = trainingOriginLabel(from);
 	const [endConfirmOpen, setEndConfirmOpen] = useState(false);
 	const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
 	const endingRef = useRef(false);
@@ -166,13 +143,13 @@ export function TrainingHeader({
 				}
 			}
 			setLeaveDialogOpen(false);
-			navigate(-1);
+			navigate(from ?? "/history");
 		} catch {
 			/* toast 由 TrainingEngine 给出（含具体失败原因），失败时留在当前页 */
 		} finally {
 			setLeaving(false);
 		}
-	}, [leaving, navigate, onLeave, isAssessment, recordId, toast]);
+	}, [leaving, navigate, onLeave, isAssessment, recordId, toast, from]);
 
 	const headerStyle = {
 		zIndex: 10,
@@ -209,8 +186,8 @@ export function TrainingHeader({
 						variant="default"
 						size={isShort ? "md" : "lg"}
 						onClick={() => setLeaveDialogOpen(true)}
-						title="返回训练选择"
-						aria-label="返回训练选择"
+						title={leaveLabel}
+						aria-label={leaveLabel}
 					>
 						<IconArrowLeft size={isShort ? 14 : 16} />
 					</ActionIcon>
@@ -253,7 +230,6 @@ export function TrainingHeader({
 							...timerTone,
 						}}
 					>
-						<WSStatusDot />
 						<IconClock size={12} style={{ flexShrink: 0 }} />
 						<Text span fw={700} size="sm" style={{ color: "inherit" }}>
 							{expired ? "已到期" : formatTime(remaining)}

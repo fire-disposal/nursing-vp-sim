@@ -6,6 +6,7 @@ import { getAuditLogs, type AuditLogItem } from "@/api/admin/audit-logs";
 import type { AuditLogParams } from "@/api/query-params";
 import { queryKeys } from "@/api/query-keys";
 import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
+import ErrorState from "@/components/ui/error-state";
 import ExportButton from "@/components/ExportButton";
 import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import PageHeader from "@/components/ui/page-header";
@@ -68,7 +69,13 @@ export default function AuditLogsPage() {
 		{ limit: LIMIT, searchKey: "search" },
 	);
 
-	const { data, isLoading } = useQuery({
+	const {
+		data,
+		isLoading,
+		isError,
+		error,
+		refetch,
+	} = useQuery({
 		queryKey: queryKeys.admin.auditLogs.list(list.params),
 		queryFn: () => getAuditLogs(list.params).then((r) => r.data),
 		placeholderData: (prev) => prev,
@@ -203,7 +210,7 @@ export default function AuditLogsPage() {
 
 			<FilterToolbar
 				compact
-				summary={`共 ${total} 条`}
+				summary={isError ? "共 — 条" : `共 ${total} 条`}
 				hasActiveFilters={list.hasActiveFilters}
 				onClear={list.reset}
 				search={
@@ -248,20 +255,29 @@ export default function AuditLogsPage() {
 			/>
 
 			<Paper withBorder style={{ overflow: "hidden" }}>
-				<DataTable
-					columns={columns}
-					rows={items}
-					rowKey={(r) => r.id}
-					loading={isLoading}
-					stickyHeader
-					bare
-					total={total}
-					offset={list.offset}
-					limit={LIMIT}
-					onOffsetChange={list.setOffset}
-					emptyTitle="暂无审计记录"
-					emptyDescription="接入后发生的高风险操作会出现在这里"
-				/>
+				{/* 请求失败 ≠ 没有审计记录：落到空态会让人以为日志真的为空（进而怀疑开关没开） */}
+				{isError ? (
+					<ErrorState
+						title="审计日志加载失败"
+						error={error}
+						onRetry={() => refetch()}
+					/>
+				) : (
+					<DataTable
+						columns={columns}
+						rows={items}
+						rowKey={(r) => r.id}
+						loading={isLoading}
+						stickyHeader
+						bare
+						total={total}
+						offset={list.offset}
+						limit={LIMIT}
+						onOffsetChange={list.setOffset}
+						emptyTitle="暂无审计记录"
+						emptyDescription="接入后发生的高风险操作会出现在这里"
+					/>
+				)}
 			</Paper>
 
 		</>

@@ -16,6 +16,8 @@ interface UserCardProps {
 	onEdit: (user: UserBrief) => void;
 	onDelete: (user: UserBrief) => void;
 	onToggleActive: (user: UserBrief) => void;
+	/** 平台视角（跨院校）才需要院校名：院校管理员看到的都是本校，多一行是噪音。 */
+	showSchool?: boolean;
 }
 
 /**
@@ -32,6 +34,7 @@ export default function UserCard({
 	onEdit,
 	onDelete,
 	onToggleActive,
+	showSchool = false,
 }: UserCardProps) {
 	const inactive = user.is_active === false;
 	return (
@@ -86,9 +89,25 @@ export default function UserCard({
 								</Badge>
 							)}
 						</Group>
-						<Text size="xs" c="dimmed" truncate>
-							{user.username}
-						</Text>
+						<Group gap={6} wrap="nowrap">
+							<Text size="xs" c="dimmed" truncate>
+								{user.username}
+							</Text>
+							{showSchool && (
+								// school_id 为空是「平台账号」（超管/平台运营），不是脏数据；
+								// 有 id 却没名字才是真的异常，用 id 兜底而不是假装未归属。
+								<Badge
+									size="xs"
+									variant="outline"
+									color={user.school_id == null ? "brand" : "gray"}
+									style={{ flexShrink: 0, textTransform: "none" }}
+								>
+									{user.school_id == null
+										? "平台账号"
+										: (user.school_name ?? `院校#${user.school_id}`)}
+								</Badge>
+							)}
+						</Group>
 						{(user.memberships?.length ?? 0) > 0 ? (
 							<MembershipTags memberships={user.memberships} />
 						) : (

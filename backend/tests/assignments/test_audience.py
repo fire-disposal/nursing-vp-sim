@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from core.database import Base
 from core.database import engine as pg_engine
 from core.exceptions import NotFoundError, ValidationError
+from core.tenant import TenantScope
 from models import (
     Assignment,
     AssignmentRecipient,
@@ -27,6 +28,7 @@ from models import (
     ClassMembership,
     Notification,
     Role,
+    School,
     Score,
     TrainingRecord,
     User,
@@ -35,9 +37,11 @@ from models.school import legacy_grades_table
 from modules.admin.class_memberships import upsert_members
 from modules.assignments.router import StudentService
 from modules.assignments.service import AssignmentService
+from tests.conftest import ensure_school
 
 _TABLES = [
     legacy_grades_table,
+    School.__table__,
     Role.__table__,
     User.__table__,
     Class.__table__,
@@ -78,6 +82,8 @@ def _user(db: Session, username: str, role: str = "student") -> User:
         password_hash="x",
         role_id=role_obj.id,
         display_name=username,
+        # 受众候选与班级成员同校（单校不变量）
+        school_id=ensure_school(db).id,
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )
@@ -87,11 +93,17 @@ def _user(db: Session, username: str, role: str = "student") -> User:
     return user
 
 
+def _tenant(school: dict) -> TenantScope:
+    """教师视角：本校、不按任教班收窄（本文件只验受众口径，不验班级级收窄）。"""
+    return TenantScope(school_id=school["school"].id, class_ids=None, user_id=school["teacher"].id)
+
+
 @pytest.fixture
 def school(db):
     """一个班（2 名学生 + 1 名教师成员）、一个班外学生、一个教师账号、一个病例。"""
-    cls = Class(name="1班", cohort_label="2026级")
-    other = Class(name="2班", cohort_label="2027级")
+    school_row = ensure_school(db)
+    cls = Class(name="1班", cohort_label="2026级", school_id=school_row.id)
+    other = Class(name="2班", cohort_label="2027级", school_id=school_row.id)
     case = Case(
         name="病例A", case_data={}, status="published", created_at=datetime.now(UTC), updated_at=datetime.now(UTC)
     )
@@ -114,6 +126,7 @@ def school(db):
     upsert_members(db, cls.id, [teacher.id], member_role="teacher")
     db.commit()
     return {
+        "school": school_row,
         "class": cls,
         "other_class": other,
         "case": case,
@@ -142,7 +155,7 @@ def _create(service: AssignmentService, school, *, mode: str, user_ids=None, tit
 
 class TestRecipientResolution:
     def test_class_mode_snapshots_student_members_only(self, db, school):
-        view = _create(AssignmentService(db), school, mode="class")
+        view = _create(AssignmentService(db, _tenant(school)), school, mode="class")
 
         assert view.audience_mode == "class"
         assert view.recipient_ids == sorted([school["s1"].id, school["s2"].id])
@@ -153,7 +166,7 @@ class TestRecipientResolution:
         assert len(rows) == 2
 
     def test_selected_mode_requires_class_student_members(self, db, school):
-        service = AssignmentService(db)
+        service = AssignmentService(db, _tenant(school))
 
         with pytest.raises(ValidationError) as exc:
             _create(service, school, mode="selected", user_ids=[school["outsider"].id])
@@ -167,13 +180,18 @@ class TestRecipientResolution:
         assert view.student_count == 1
 
     def test_selected_mode_dedupes_ids(self, db, school):
-        view = _create(AssignmentService(db), school, mode="selected", user_ids=[school["s1"].id, school["s1"].id])
+        view = _create(
+            AssignmentService(db, _tenant(school)),
+            school,
+            mode="selected",
+            user_ids=[school["s1"].id, school["s1"].id],
+        )
 
         assert view.recipient_ids == [school["s1"].id]
 
     def test_unknown_class_rejected(self, db, school):
         with pytest.raises(NotFoundError):
-            AssignmentService(db).create(
+            AssignmentService(db, _tenant(school)).create(
                 case_id=school["case"].id,
                 class_id=9999,
                 title="x",
@@ -190,7 +208,7 @@ class TestRecipientResolution:
 
 class TestFrozenAudience:
     def test_membership_change_does_not_move_published_audience(self, db, school):
-        service = AssignmentService(db)
+        service = AssignmentService(db, _tenant(school))
         view = _create(service, school, mode="class")
 
         # 新同学之后才加入 / 原同学被移出，都不改动已发布作业的受众与分母
@@ -210,7 +228,7 @@ class TestFrozenAudience:
         assert after_remove.student_count == 2
 
     def test_audience_locked_once_records_exist(self, db, school):
-        service = AssignmentService(db)
+        service = AssignmentService(db, _tenant(school))
         view = _create(service, school, mode="class")
         db.add(
             TrainingRecord(
@@ -242,7 +260,7 @@ class TestFrozenAudience:
         assert "不能更换病例、班级或受众" in str(exc.value)
 
     def test_update_can_resnapshot_audience_before_records(self, db, school):
-        service = AssignmentService(db)
+        service = AssignmentService(db, _tenant(school))
         view = _create(service, school, mode="class")
 
         updated = service.update(
@@ -267,7 +285,7 @@ class TestFrozenAudience:
 
 class TestStudentVisibility:
     def test_student_sees_only_own_recipient_assignments(self, db, school):
-        service = AssignmentService(db)
+        service = AssignmentService(db, _tenant(school))
         class_view = _create(service, school, mode="class")
         selected_view = _create(service, school, mode="selected", user_ids=[school["s2"].id], title="只给 s2")
 
@@ -279,7 +297,7 @@ class TestStudentVisibility:
         assert selected_view.id in s2_items
 
     def test_removed_member_loses_visibility_but_stays_in_denominator(self, db, school):
-        service = AssignmentService(db)
+        service = AssignmentService(db, _tenant(school))
         view = _create(service, school, mode="class")
         db.query(ClassMembership).filter(ClassMembership.user_id == school["s1"].id).delete()
         db.commit()
@@ -288,7 +306,7 @@ class TestStudentVisibility:
         assert service.get(view.id, school["teacher"].id).student_count == 2
 
     def test_student_without_membership_sees_nothing(self, db, school):
-        service = AssignmentService(db)
+        service = AssignmentService(db, _tenant(school))
         _create(service, school, mode="class")
 
         assert StudentService(db).list_assignments(school["outsider"].id) == []

@@ -46,6 +46,22 @@ export interface CostDashboardResponse {
 	voice_monthly_budget: number;
 	daily_series: CostSeriesPoint[];
 	top_users: { user_name: string; total_cost: number; calls: number }[];
+	/**
+	 * 院校费用拆分（本月）。只有平台角色拿得到；院校管理员为空数组
+	 * （自己的合计已在 today/this_month 里）。`school_id: null` = 未归属开销。
+	 */
+	by_school: SchoolCostItem[];
+}
+
+export interface SchoolCostItem {
+	school_id: number | null;
+	school_name: string;
+	llm_cost: number;
+	llm_calls: number;
+	voice_cost: number;
+	voice_calls: number;
+	total_cost: number;
+	calls: number;
 }
 
 // ── Cost Export ──

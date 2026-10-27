@@ -61,6 +61,8 @@ export class ScoreManager {
 	private recordId: number | null;
 	private bus: MessageBus | null;
 	private _score: ScoreData | null = null;
+	/** 已定局并发出过 `score:ready`：WS completed 与轮询共用完成路径的幂等闸门 */
+	private _scoreReadyEmitted = false;
 	private _progress: ScoringProgress = { phase: null, percentage: 0, message: "", score_thought: "", feedback_thought: "", indeterminate: true };
 	private _polling = false;
 	/** 是否已收到后端给出的真实进度百分比 —— 未收到时进度为不定态（不编造数字） */
@@ -185,22 +187,7 @@ export class ScoreManager {
 					return;
 				}
 				if (data.scoring_status === "completed") {
-					this._progress = { phase: "completed", percentage: 100, message: "评分完成", indeterminate: false };
-					this.stopPolling();
-					try {
-						const detail = await api.get(`/training/records/${this.recordId}`);
-						const record = detail.data as { score?: ScoreData | null };
-						if (record.score?.detail_scores) {
-							this._score = record.score;
-						} else if (data.score?.total_score != null) {
-							this._score = { total_score: data.score.total_score };
-						}
-					} catch {
-						if (data.score?.total_score != null) {
-							this._score = { total_score: data.score.total_score };
-						}
-					}
-					this.notifyScoreReady();
+					await this._finalizeScoring(data.score);
 					return;
 				}
 				// Use backend real progress if available — 轮询与 WS 推送共用防回退
@@ -259,6 +246,34 @@ export class ScoreManager {
 		poll();
 	}
 
+	/**
+	 * 评分完成后的**唯一定局路径**：取详情 → 置 `_score` → 发 `score:ready`。
+	 *
+	 * WS `completed` 推送与 HTTP 轮询的 completed 分支共用它。旧实现只有轮询分支赋值
+	 * `_score`，而 WS 活跃时轮询被抑制 10s——WS 正常时学生反而在已结束页面上多等 ≥10s。
+	 * 幂等：已定局或已发过就不再请求、不重复发（两道并发的完成信号只落一次）。
+	 */
+	private async _finalizeScoring(fallbackScore?: { total_score?: number } | null): Promise<void> {
+		if (this._scoreReadyEmitted || this._score) return;
+		this._scoreReadyEmitted = true;
+		this._progress = { phase: "completed", percentage: 100, message: "评分完成", indeterminate: false };
+		this.stopPolling();
+		try {
+			const detail = await api.get(`/training/records/${this.recordId}`);
+			const record = detail.data as { score?: ScoreData | null };
+			if (record.score?.detail_scores) {
+				this._score = record.score;
+			} else if (fallbackScore?.total_score != null) {
+				this._score = { total_score: fallbackScore.total_score };
+			}
+		} catch {
+			if (fallbackScore?.total_score != null) {
+				this._score = { total_score: fallbackScore.total_score };
+			}
+		}
+		this.notifyScoreReady();
+	}
+
 	stopPolling(): void {
 		this._polling = false;
 		if (this._abortController) {
@@ -282,6 +297,7 @@ export class ScoreManager {
 		this._registeredHandler = null;
 		this.listeners = [];
 		this._score = null;
+		this._scoreReadyEmitted = false;
 		this._progress = { phase: null, percentage: 0, message: "", indeterminate: true };
 		this._hasRealProgress = false;
 		this._visibilityHandler = null;
@@ -291,6 +307,7 @@ export class ScoreManager {
 	reset(): void {
 		this.stopPolling();
 		this._score = null;
+		this._scoreReadyEmitted = false;
 		this._progress = { phase: null, percentage: 0, message: "", score_thought: "", feedback_thought: "", indeterminate: true };
 		this._hasRealProgress = false;
 		this._sseThought = "";
@@ -341,6 +358,7 @@ export class ScoreManager {
 		this.stopPolling();
 		this._polling = true;
 		this._score = null;
+		this._scoreReadyEmitted = false;
 		this._progress = { phase: "loading", percentage: 0, message: "正在重新触发评分...", indeterminate: true };
 		this._hasRealProgress = false;
 		this.notify();
@@ -393,5 +411,7 @@ export class ScoreManager {
 
 		this._progress = merged as ScoringProgress;
 		this.notify();
+		// WS 说完成就走同一终局路径（取详情/置分/发 ready），不再等被抑制 10s 的轮询。
+		if (merged.phase === "completed") void this._finalizeScoring();
 	}
 }

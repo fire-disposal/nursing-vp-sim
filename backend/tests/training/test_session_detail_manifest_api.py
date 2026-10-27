@@ -154,6 +154,8 @@ def _client(nursing: NursingRecord | None):
 class _FakeUser:
     id = 1
     display_name = "测试学生"
+    # 平台角色（无院校归属）：``resolve_scope`` 因此给出跨院校视角，与"本人看自己记录"一致
+    school_id = None
 
     def has_permission(self, _permission: str) -> bool:
         return False

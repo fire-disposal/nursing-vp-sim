@@ -113,12 +113,14 @@ export default function QuestionnaireList({
 			header: "操作",
 			render: (t) => (
 				<Group gap={8} wrap="nowrap">
+					{/* 图标按钮只有 glyph，无文字：aria-label 才是屏幕阅读器的可访问名（title 仅作鼠标提示） */}
 					<Button
 						size="sm"
 						variant="subtle"
 						color="gray"
 						onClick={() => onEdit(t)}
 						title="编辑"
+						aria-label="编辑"
 					>
 						<IconEdit size={14} />
 					</Button>
@@ -128,6 +130,7 @@ export default function QuestionnaireList({
 						color="gray"
 						onClick={() => onAssign(t)}
 						title="分配病例"
+						aria-label="分配病例"
 					>
 						<IconFileText size={14} />
 					</Button>
@@ -137,6 +140,7 @@ export default function QuestionnaireList({
 						color="gray"
 						onClick={() => onViewStats(t)}
 						title="查看数据"
+						aria-label="查看数据"
 					>
 						<IconChartBar size={14} />
 					</Button>
@@ -146,6 +150,7 @@ export default function QuestionnaireList({
 						color="red"
 						onClick={() => onDelete(t)}
 						title="删除"
+						aria-label="删除"
 					>
 						<IconTrash size={14} />
 					</Button>

@@ -36,6 +36,7 @@ const queryClient = new QueryClient({
 
 const Login = lazy(() => import("@/pages/Login"));
 const Showcase = lazy(() => import("@/showcase/ShowcasePage"));
+const DashboardHome = lazy(() => import("@/pages/DashboardHome"));
 
 function ForceLogoutListener() {
 	const navigate = useNavigate();
@@ -87,7 +88,10 @@ export default function App() {
 									<Route path="/share" element={<Showcase />} />
 									<Route element={<ProtectedRoute />}>
 										<Route element={<Layout />}>
-											<Route index element={<Navigate to="/training" replace />} />
+											{/* 首页落点由角色决定（DashboardHome：管理员→/admin、学生→/training）。
+											    曾经这里硬编码 `/training`，于是超管打开域名落到学生训练页，
+											    点头部 logo 却回到 /admin——同一个"首页"两种落点。 */}
+											<Route index element={<DashboardHome />} />
 											{APP_ROUTES.map((r) => (
 												<Route
 													key={r.path}

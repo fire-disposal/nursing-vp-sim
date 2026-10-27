@@ -30,7 +30,6 @@ vi.mock("@/api/classes", () => ({
 
 vi.mock("@/api/admin/users", () => ({
 	getUsers: mocks.getUsers,
-	getStats: vi.fn(),
 	updateUser: vi.fn(),
 	batchCreateUsers: vi.fn(),
 	deleteUser: vi.fn(),

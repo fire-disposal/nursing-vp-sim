@@ -8,6 +8,8 @@ const CLASSES: ClassItem[] = [
 	{
 		id: 1,
 		name: "护理1班",
+		school_id: 1,
+		school_name: "杭州师范大学",
 		cohort_label: "2024级",
 		student_count: 0,
 		teacher_count: 0,
@@ -17,6 +19,8 @@ const CLASSES: ClassItem[] = [
 	{
 		id: 2,
 		name: "护理1班",
+		school_id: 1,
+		school_name: "杭州师范大学",
 		cohort_label: "2025级",
 		student_count: 0,
 		teacher_count: 0,

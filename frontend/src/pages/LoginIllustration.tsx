@@ -2,10 +2,11 @@ import lottie from "lottie-web";
 import { Flex } from "@mantine/core";
 import { useEffect, useRef } from "react";
 import placeholderAnimation from "@/assets/lottie/animation.json";
+import { WIDTH } from "@/config/layout-scale";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 export default function LoginIllustration() {
-	const visible = useMediaQuery("(min-width: 1024px)");
+	const visible = useMediaQuery(`(min-width: ${WIDTH.loginIllustration}px)`);
 	const containerRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {

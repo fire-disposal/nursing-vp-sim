@@ -10,7 +10,11 @@
       (() => {
         try {
           const v = localStorage.getItem("mantine-color-scheme-value");
-          const resolved = v === "dark" ? "dark" : "light";
+          // "auto" 不等于亮色：否则选了跟随系统的深色用户在首帧会看到白闪
+          const resolved =
+            v === "dark" || (v === "auto" && matchMedia("(prefers-color-scheme: dark)").matches)
+              ? "dark"
+              : "light";
           document.documentElement.setAttribute("data-mantine-color-scheme", resolved);
           document.documentElement.style.colorScheme = resolved;
         } catch {

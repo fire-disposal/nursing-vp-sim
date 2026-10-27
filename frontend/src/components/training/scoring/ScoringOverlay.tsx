@@ -28,11 +28,14 @@ interface ScoringProgressView {
 
 export function ScoringOverlay({
 	bus,
+	recordId,
 	getProgress,
 	subscribeProgress,
 	onRetry,
 }: {
 	bus: MessageBus;
+	/** 提前退出的落点与自动跳转一致（训练记录详情）——两条出口必须同目的地。 */
+	recordId: string;
 	getProgress: () => ScoringProgressView;
 	subscribeProgress: (fn: () => void) => () => void;
 	onRetry?: () => Promise<void>;
@@ -222,15 +225,15 @@ export function ScoringOverlay({
 				{isActive && (
 					<Group justify="space-between" gap={12} mt="md" wrap="nowrap">
 						<Text size="sm" c="dimmed" lh={1.4}>
-							评分完成后自动跳转结果页，<br />也可提前返回训练选择
+							评分完成后自动跳转训练记录，<br />也可提前查看
 						</Text>
 						<Button
 							variant="outline"
 							size="xs"
-							onClick={() => { setClosing(true); setTimeout(() => { setVisible(false); navigate(-1); }, 200); }}
+							onClick={() => { setClosing(true); setTimeout(() => { setVisible(false); navigate(`/record/${recordId}`, { replace: true }); }, 200); }}
 							style={{ flexShrink: 0 }}
 						>
-							返回训练选择
+							查看训练记录
 						</Button>
 					</Group>
 				)}

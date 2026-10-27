@@ -41,6 +41,10 @@ class User(Base, TimestampMixin):
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     role_id: Mapped[int] = mapped_column(Integer, ForeignKey("roles.id", ondelete="RESTRICT"))
+    # 院校租户。NULL = 平台角色（跨院校可见，例如 super_admin）；院校管理员/教师/学生必须非空。
+    school_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("schools.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
     display_name: Mapped[str] = mapped_column(String(50))
     student_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
     email: Mapped[str | None] = mapped_column(String(120), nullable=True)
