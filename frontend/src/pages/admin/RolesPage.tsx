@@ -140,6 +140,7 @@ export default function RolesPage() {
 				actions={
 					<Group gap="xs">
 						<ExportButton endpoint="/admin/roles/export" filename="角色列表" params={list.exportParams} />
+						{/* 层级：本页唯一 filled = 新建角色；导出属工具栏动作，仍留在旁边但不抢主色 */}
 						<Button
 							onClick={() => {
 								form.reset();
@@ -199,7 +200,7 @@ export default function RolesPage() {
 										<>
 											<Button
 												size="sm"
-												variant="outline"
+												variant="default"
 												onClick={() => saveEdit(role.id)}
 											>
 												<IconDeviceFloppy size={14} /> 保存
@@ -219,7 +220,7 @@ export default function RolesPage() {
 											{!role.is_system ? (
 												<Button
 													size="sm"
-													variant="outline"
+													variant="default"
 													onClick={() => startEdit(role)}
 												>
 													编辑权限
@@ -313,7 +314,7 @@ export default function RolesPage() {
 							<Group justify="flex-end" mt="lg" gap="sm">
 								<Button
 									type="button"
-									variant="outline"
+									variant="default"
 									onClick={async () => {
 										if (form.isDirty()) {
 											const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });

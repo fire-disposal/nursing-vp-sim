@@ -102,7 +102,7 @@ export default function ClassDetailPage() {
 				title="班级不存在"
 				description="该班级可能已被删除，或链接有误"
 				action={
-					<Button variant="outline" onClick={() => navigate("/admin/classes")}>
+					<Button variant="default" onClick={() => navigate("/admin/classes")}>
 						返回班级管理
 					</Button>
 				}
@@ -122,7 +122,7 @@ export default function ClassDetailPage() {
 				title="班级不存在"
 				description="该班级可能已被删除，或链接有误"
 				action={
-					<Button variant="outline" onClick={() => navigate("/admin/classes")}>
+					<Button variant="default" onClick={() => navigate("/admin/classes")}>
 						返回班级管理
 					</Button>
 				}
@@ -222,6 +222,7 @@ export default function ClassDetailPage() {
 									<IconSchool size={16} />
 									<Text component="span" fw={600} inherit>花名册</Text>
 								</Group>
+								{/* 层级：本页唯一 filled = 添加成员（详情页要把人加进来才用得上，其余都是行内低层操作） */}
 								<Button
 									size="xs"
 									leftSection={<IconUserPlus size={14} />}
@@ -264,7 +265,7 @@ export default function ClassDetailPage() {
 									<Button
 										size="xs"
 										color="red"
-										variant="light"
+										variant="default"
 										onClick={handleRemoveSelected}
 										disabled={removeBulk.isPending}
 									>

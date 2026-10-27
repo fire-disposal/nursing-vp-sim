@@ -144,7 +144,8 @@ export default function Profile() {
 								</Text>
 							)}
 						</Box>
-						<Button variant="outline" size="sm" onClick={openEditDialog}>
+						{/* 层级：本页唯一 filled 主行动 = 编辑资料（其余都是可选的设置项，归 subtle 列表） */}
+						<Button size="sm" onClick={openEditDialog}>
 							<IconPencil size={14} />
 							编辑
 						</Button>
@@ -297,15 +298,15 @@ export default function Profile() {
 								<Box>
 									<Text component="label" size="sm" fw={500} mb={4}>性别</Text>
 									<Group gap="xs">
-										<Button type="button" variant={profileForm.values.gender === "男" ? "filled" : "outline"} size="sm"
+										<Button type="button" variant={profileForm.values.gender === "男" ? "light" : "default"} size="sm"
 											onClick={() => profileForm.setFieldValue("gender", "男")}>男</Button>
-										<Button type="button" variant={profileForm.values.gender === "女" ? "filled" : "outline"} size="sm"
+										<Button type="button" variant={profileForm.values.gender === "女" ? "light" : "default"} size="sm"
 											onClick={() => profileForm.setFieldValue("gender", "女")}>女</Button>
 									</Group>
 									{profileForm.errors.gender && <Text c="red" size="xs" mt={4}>{profileForm.errors.gender}</Text>}
 								</Box>
 								<Group justify="flex-end" gap="xs" pt="xs">
-									<Button type="button" variant="outline" onClick={() => setEditOpen(false)}>取消</Button>
+									<Button type="button" variant="default" onClick={() => setEditOpen(false)}>取消</Button>
 									<Button type="submit" loading={profileForm.submitting}>
 										保存
 									</Button>
@@ -322,7 +323,7 @@ export default function Profile() {
 								<TextInput type="password" label="当前密码" withAsterisk {...pwForm.getInputProps("oldPassword")} />
 								<TextInput type="password" label="新密码" withAsterisk {...pwForm.getInputProps("newPassword")} />
 								<Group justify="flex-end" gap="xs" pt="xs">
-									<Button type="button" variant="outline" onClick={() => setPwdOpen(false)}>取消</Button>
+									<Button type="button" variant="default" onClick={() => setPwdOpen(false)}>取消</Button>
 									<Button type="submit" loading={pwForm.submitting}>
 										确认修改
 									</Button>

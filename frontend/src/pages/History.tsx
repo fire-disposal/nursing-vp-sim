@@ -279,7 +279,7 @@ export default function History() {
 												{status === "in_progress" && (
 													<>
 														<Button
-															variant="outline"
+															variant="default"
 															size="xs"
 															style={{ flex: 1 }}
 															onClick={(e) => {
@@ -419,14 +419,14 @@ export default function History() {
 														{r.status === "in_progress" && (
 															<>
 																<Button
-																	variant="transparent"
+																	variant="subtle"
 																	size="xs"
 																	onClick={() => goTraining(navigate, r.id, trainingFrom)}
 																>
 																	继续训练
 																</Button>
 																<Button
-																	variant="transparent"
+																	variant="subtle"
 																	size="xs"
 																	onClick={() => handleAbandonRecord(r)}
 																>
@@ -436,7 +436,7 @@ export default function History() {
 														)}
 														{(r.status === "completed" || r.status === "abandoned") && (
 															<Button
-																variant="transparent"
+																variant="subtle"
 																size="xs"
 																onClick={() => navigate(`/record/${r.id}`)}
 															>

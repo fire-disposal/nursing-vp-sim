@@ -194,7 +194,10 @@ export default function ClassesPage() {
 			<PageHeader
 				title="班级管理"
 				subtitle="按届别组织班级，管理学生与教师归属"
-				actions={<Button onClick={openCreate}>新建班级</Button>}
+				actions={
+					/* 层级：本页唯一 filled = 新建班级（列表页的主行动是新增） */
+					<Button onClick={openCreate}>新建班级</Button>
+				}
 			/>
 
 			<FilterToolbar
@@ -261,9 +264,9 @@ export default function ClassesPage() {
 										{c.student_count} 名学生 · {c.teacher_count} 名教师 · {c.assignment_count} 个作业
 									</Text>
 									<Group gap={8}>
-										<Button variant="outline" size="sm" onClick={() => navigate(`/admin/classes/${c.id}`)}>详情</Button>
-										<Button variant="outline" size="sm" onClick={() => openEdit(c)}>编辑</Button>
-										<Button variant="light" size="sm" color="red" onClick={() => handleDelete(c)}>删除</Button>
+										<Button variant="default" size="sm" onClick={() => navigate(`/admin/classes/${c.id}`)}>详情</Button>
+										<Button variant="default" size="sm" onClick={() => openEdit(c)}>编辑</Button>
+										<Button variant="default" size="sm" color="red" onClick={() => handleDelete(c)}>删除</Button>
 									</Group>
 								</Stack>
 							</Paper>
@@ -308,7 +311,7 @@ export default function ClassesPage() {
 							<Group justify="flex-end" mt="lg" gap="sm">
 								<Button
 									type="button"
-									variant="outline"
+									variant="default"
 									onClick={() => {
 										void requestCloseModal();
 									}}

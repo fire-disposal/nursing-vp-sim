@@ -180,7 +180,10 @@ export default function SchoolsPage() {
 			<PageHeader
 				title="院校管理"
 				subtitle="院校是数据隔离边界：每所院校只能看到自己的班级与账号"
-				actions={<Button onClick={openCreate}>新建院校</Button>}
+				actions={
+					/* 层级：本页唯一 filled = 新建院校（列表页的主行动是新增） */
+					<Button onClick={openCreate}>新建院校</Button>
+				}
 			/>
 
 			<FilterToolbar
@@ -245,7 +248,7 @@ export default function SchoolsPage() {
 							{...form.getInputProps("name")}
 						/>
 						<Group justify="flex-end" gap={8}>
-							<Button type="button" variant="outline" onClick={closeModal}>
+							<Button type="button" variant="default" onClick={closeModal}>
 								取消
 							</Button>
 							<Button

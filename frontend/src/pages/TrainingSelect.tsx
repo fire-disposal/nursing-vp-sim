@@ -342,6 +342,25 @@ export default function TrainingSelect() {
 	const primaryInProgress = inProgressRecords[0];
 	const nextAssignment = pendingAssignments[0];
 
+	/** 主行动按「续训 > 作业 > 选病例」择一：同一时刻只有一个能往下走。 */
+	const heroPrimary = primaryInProgress
+		? {
+				label: "继续训练",
+				icon: <IconPlayerPlay size={16} />,
+				onClick: () => goTraining(navigate, primaryInProgress.id, trainingFrom),
+			}
+		: nextAssignment
+			? {
+					label: "开始作业",
+					icon: <IconPlayerPlay size={16} />,
+					onClick: () => handleStartAssignment(nextAssignment.id),
+				}
+			: {
+					label: "选择病例",
+					icon: <IconBook2 size={16} />,
+					onClick: () => setTab("self"),
+				};
+
 	if (conflict) return (
 		<Modal opened onClose={() => setConflict(null)} title="有进行中的训练" size={360} centered withinPortal>
 				<Text size="sm" c="dimmed" mb="md">你有一个未完成的训练「{conflict.caseName}」。</Text>
@@ -349,14 +368,14 @@ export default function TrainingSelect() {
 					<Button color="green" onClick={() => { setConflict(null); goTraining(navigate, conflict.recordId, trainingFrom); }}>
 						继续之前的训练
 					</Button>
-					<Button variant="light" color="red" onClick={async () => {
+					<Button variant="default" color="red" onClick={async () => {
 						await abandonRecord(String(conflict.recordId));
 						queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
 						setConflict(null);
 					}}>
 						放弃并开始新训练
 					</Button>
-					<Button variant="outline" onClick={() => setConflict(null)}>取消</Button>
+					<Button variant="default" onClick={() => setConflict(null)}>取消</Button>
 				</Stack>
 		</Modal>
 	);
@@ -477,21 +496,13 @@ export default function TrainingSelect() {
 						</Box>
 
 						<Group gap="sm" wrap="wrap" style={{ position: "relative" }}>
-							{primaryInProgress ? (
-								<Button size="lg" onClick={() => goTraining(navigate, primaryInProgress.id, trainingFrom)}>
-									<IconPlayerPlay size={16} />继续训练
-								</Button>
-							) : nextAssignment ? (
-								<Button size="lg" onClick={() => handleStartAssignment(nextAssignment.id)}>
-									<IconPlayerPlay size={16} />开始作业
-								</Button>
-							) : (
-								<Button size="lg" onClick={() => setTab("self")}>
-									<IconBook2 size={16} />选择病例
-								</Button>
-							)}
+							{/* 层级：全页唯一 filled 主行动 = 学生此刻该做的那件事（续训 > 作业 > 选病例）。
+							    三者互斥，用同一颗按钮表达，避免并列的主按钮互相抢注意力。 */}
+							<Button size="lg" onClick={heroPrimary.onClick}>
+								{heroPrimary.icon}{heroPrimary.label}
+							</Button>
 							{(primaryInProgress || nextAssignment) && (
-								<Button variant="outline" size="lg" onClick={() => setTab("self")}>
+								<Button variant="default" size="lg" onClick={() => setTab("self")}>
 									{primaryInProgress ? "选择其他病例" : "浏览病例"}
 								</Button>
 							)}
@@ -525,7 +536,7 @@ export default function TrainingSelect() {
 														{a.case_name}{a.end_time ? ` · ${new Date(a.end_time).toLocaleDateString("zh-CN", { timeZone: APP_TIME_ZONE, month: "numeric", day: "numeric" })} 截止` : ""}
 													</Text>
 												</Box>
-												<Button size="sm" onClick={() => handleStartAssignment(a.id)}>
+												<Button variant="subtle" size="sm" onClick={() => handleStartAssignment(a.id)}>
 													<IconPlayerPlay size={14} />开始
 												</Button>
 											</Group>
@@ -557,7 +568,7 @@ export default function TrainingSelect() {
 											<Text size="xs" c="var(--mantine-color-yellow-light-color)" mt={2} truncate>{primaryInProgress.case_name}</Text>
 										</Box>
 										<Group gap={6} wrap="nowrap">
-											<Button size="sm" variant="outline" onClick={() => goTraining(navigate, primaryInProgress.id, trainingFrom)}>继续</Button>
+											<Button size="sm" variant="default" onClick={() => goTraining(navigate, primaryInProgress.id, trainingFrom)}>继续</Button>
 											<Button size="sm" variant="subtle" color="red" onClick={async () => {
 												const ok = await confirm({ title: "放弃训练", message: `放弃「${primaryInProgress.case_name}」的未完成训练？`, confirmLabel: "放弃", danger: true });
 												if (!ok) return;
@@ -651,7 +662,7 @@ export default function TrainingSelect() {
 										概览有一项没取到（显示「—」），重试可刷新。
 									</Text>
 									<Button
-										variant="light"
+										variant="default"
 										size="xs"
 										style={{ flexShrink: 0 }}
 										onClick={() => {
@@ -716,7 +727,7 @@ export default function TrainingSelect() {
 				<Stack gap="md">
 					<Group gap="xs" wrap="wrap">
 						{[0, 1, 2, 3].map((d) => (
-							<Button key={d} type="button" variant={difficultyFilter === d ? "filled" : "subtle"} color={difficultyFilter === d ? undefined : "gray"} size="xs" onClick={() => { setDifficultyFilter(d); setOffset(0); }}
+							<Button key={d} type="button" variant={difficultyFilter === d ? "light" : "subtle"} color={difficultyFilter === d ? undefined : "gray"} size="xs" onClick={() => { setDifficultyFilter(d); setOffset(0); }}
 							>{d === 0 ? "全部难度" : DIFFICULTY_LABELS[d]}</Button>
 						))}
 						<Box style={{ flex: 1 }} />
@@ -737,6 +748,7 @@ export default function TrainingSelect() {
 							</Box>
 							<Button
 								size="sm"
+								variant="default"
 								style={{ flexShrink: 0 }}
 								onClick={() => blindBoxMutation.mutate()}
 								disabled={blindBoxMutation.isPending}
@@ -778,14 +790,14 @@ export default function TrainingSelect() {
 												<WorkflowBadge workflow={c.workflow} />
 												{inProgress ? (
 													<Group gap="xs" style={{ marginTop: "auto" }}>
-														<Button style={{ flex: 1 }} size="sm" onClick={() => goTraining(navigate, inProgress.id, trainingFrom)}><IconPlayerPlay size={14} />继续训练</Button>
-														<Button variant="outline" size="sm" onClick={() => handleRestart(c, inProgress)} disabled={startMutation.isPending}><IconRotate size={14} /></Button>
+														<Button style={{ flex: 1 }} variant="default" size="sm" onClick={() => goTraining(navigate, inProgress.id, trainingFrom)}><IconPlayerPlay size={14} />继续训练</Button>
+														<Button variant="subtle" size="sm" onClick={() => handleRestart(c, inProgress)} disabled={startMutation.isPending}><IconRotate size={14} /></Button>
 													</Group>
 												) : (
 													<Button
 														style={{ marginTop: "auto", width: "100%" }}
 														size="sm"
-														variant="filled"
+														variant="default"
 														onClick={() => startMutation.mutate({ caseId: c.id, timeLimit: c.time_limit_minutes ?? 20 })}
 														disabled={startMutation.isPending}
 														title={undefined}
@@ -862,13 +874,13 @@ export default function TrainingSelect() {
 									</Box>
 									<Box style={{ marginTop: "auto" }}>
 										{isExpired || isClosed ? (
-											<Button size="sm" variant="outline" disabled style={{ width: "100%" }}>{isClosed ? "已关闭" : "已过期"}</Button>
+											<Button size="sm" variant="default" disabled style={{ width: "100%" }}>{isClosed ? "已关闭" : "已过期"}</Button>
 										) : isInProgress && a.record_id ? (
-											<Button size="sm" style={{ width: "100%" }} onClick={() => a.record_id != null && goTraining(navigate, a.record_id, trainingFrom)}><IconPlayerPlay size={14} />继续训练</Button>
+											<Button size="sm" variant="default" style={{ width: "100%" }} onClick={() => a.record_id != null && goTraining(navigate, a.record_id, trainingFrom)}><IconPlayerPlay size={14} />继续训练</Button>
 										) : isCompleted ? (
-											<Button size="sm" variant="outline" style={{ width: "100%" }} onClick={handleReattempt}><IconRotate size={14} />重新训练</Button>
+											<Button size="sm" variant="default" style={{ width: "100%" }} onClick={handleReattempt}><IconRotate size={14} />重新训练</Button>
 										) : (
-											<Button size="sm" style={{ width: "100%" }} onClick={() => handleStartAssignment(a.id)}><IconPlayerPlay size={14} />开始作业</Button>
+											<Button size="sm" variant="default" style={{ width: "100%" }} onClick={() => handleStartAssignment(a.id)}><IconPlayerPlay size={14} />开始作业</Button>
 										)}
 									</Box>
 								</Paper>

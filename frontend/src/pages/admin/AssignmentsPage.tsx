@@ -418,6 +418,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 					title="作业管理"
 					subtitle="按班级布置练习，选择病例和功能配置"
 					actions={
+						/* 层级：本页唯一 filled = 创建作业（管理页的主行动就是新建一条布置） */
 						<Button onClick={openCreate} leftSection={<IconPlus size={16} />}>
 							创建作业
 						</Button>
@@ -493,10 +494,10 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 									{a.completed_count}/{a.student_count} 完成
 								</Text>
 								<SimpleGrid cols={2} spacing={4}>
-									<Button variant="outline" size="sm" onClick={() => navigate(`/admin/assignments/${a.id}`)}>详情</Button>
-									<Button variant="outline" size="sm" onClick={() => openEdit(a.id)}>编辑</Button>
-									<Button variant="outline" size="sm" onClick={() => handleToggleClose(a)}>{a.is_closed ? "开放" : "关闭"}</Button>
-									<Button variant="light" size="sm" color="red" onClick={() => handleDelete(a.id)}>删除</Button>
+									<Button variant="default" size="sm" onClick={() => navigate(`/admin/assignments/${a.id}`)}>详情</Button>
+									<Button variant="default" size="sm" onClick={() => openEdit(a.id)}>编辑</Button>
+									<Button variant="default" size="sm" onClick={() => handleToggleClose(a)}>{a.is_closed ? "开放" : "关闭"}</Button>
+									<Button variant="default" size="sm" color="red" onClick={() => handleDelete(a.id)}>删除</Button>
 								</SimpleGrid>
 							</Group>
 						</Stack>
@@ -686,7 +687,7 @@ export default function AssignmentsPage({ embedded = false }: { embedded?: boole
 							<Group justify="flex-end" mt="lg" gap="sm">
 								<Button
 									type="button"
-									variant="outline"
+									variant="default"
 									onClick={async () => {
 										if (form.isDirty()) {
 											const ok = await confirm({ title: "未保存的更改", message: "内容未保存，确定关闭？", danger: true });

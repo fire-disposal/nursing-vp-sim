@@ -42,7 +42,9 @@ export default function ExportButton({ endpoint, filename, params }: ExportButto
 
 	return (
 		<Group gap={2} wrap="nowrap">
-			<Button size="sm" onClick={() => doExport(format)} disabled={exporting}>
+			{/* 导出是工具栏动作，不是页面主行动：一屏唯一 filled 留给「新建 X」/「开始」。
+			    这里统一用 default，避免每个用到导出的页面各写一遍层级。 */}
+			<Button variant="default" size="sm" onClick={() => doExport(format)} disabled={exporting}>
 				{exporting ? <Loader size={14} style={{ marginRight: 4 }} /> : <IconDownload size={14} style={{ marginRight: 4 }} />}
 				{exporting ? "导出中..." : "导出"}
 			</Button>

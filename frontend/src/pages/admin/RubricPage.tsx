@@ -58,7 +58,7 @@ function ItemEditor({ item, onChange, onDelete }: { item: RubricItem; onChange: 
 						onDelete={() => onChange({ ...item, anchors: item.anchors.filter((_, i) => i !== ai) })} />
 				))}
 				<Button
-					variant="transparent"
+					variant="subtle"
 					size="xs"
 					onClick={() => {
 						const maxScore = item.anchors.length > 0 ? Math.max(...item.anchors.map((a) => a.score)) + 1 : 0;
@@ -104,7 +104,7 @@ function DimensionEditor({ dim, onChange, onDelete }: { dim: RubricDimension; on
 					))}
 				</Stack>
 				<Button
-					variant="transparent"
+					variant="subtle"
 					size="sm"
 					onClick={() => {
 						const newId = `item_${Date.now()}`;
@@ -183,15 +183,25 @@ export default function RubricPage() {
 				subtitle={editing ? "编辑模式 - 完成后导出 JSON 部署到服务器" : `${displayData.name} · v${displayData.version} · 满分 ${displayData.total_max} 分`}
 				icon={IconBook2}
 				actions={
+					/* 层级：本页唯一 filled 随模式切换 —— 只读态主行动是开始「编辑」，编辑态主行动是「导出 JSON」收尾；
+					   取消是退路，降为 default。 */
 					<Group gap={8}>
-						{editing ? (
-							<>
-								<Button variant="outline" size="sm" onClick={cancelEditing} leftSection={<IconX size={14} />}>取消</Button>
-								<Button size="sm" onClick={() => draft && downloadJson(draftToExport(draft), `rubric_${draft.version}.json`)} leftSection={<IconDownload size={14} />}>导出 JSON</Button>
-							</>
-						) : (
-							<Button variant="outline" size="sm" onClick={startEditing} leftSection={<IconEdit size={14} />}>编辑</Button>
+						{editing && (
+							<Button variant="default" size="sm" onClick={cancelEditing} leftSection={<IconX size={14} />}>取消</Button>
 						)}
+						<Button
+							size="sm"
+							onClick={() => {
+								if (!editing) {
+									startEditing();
+									return;
+								}
+								if (draft) downloadJson(draftToExport(draft), `rubric_${draft.version}.json`);
+							}}
+							leftSection={editing ? <IconDownload size={14} /> : <IconEdit size={14} />}
+						>
+							{editing ? "导出 JSON" : "编辑"}
+						</Button>
 					</Group>
 				}
 			/>
@@ -213,7 +223,7 @@ export default function RubricPage() {
 							onChange={(updated) => { if (!draft) return; const dims = [...draft.dimensions]; dims[di] = updated; setDraft({ ...draft, dimensions: dims }); }}
 							onDelete={() => { if (!draft) return; setDraft({ ...draft, dimensions: draft.dimensions.filter((_, i) => i !== di) }); }} />
 					))}
-					<Button variant="outline" onClick={() => {
+					<Button variant="default" onClick={() => {
 						if (!draft) return;
 						const newId = `dim_${Date.now()}`;
 						setDraft({ ...draft, dimensions: [...draft.dimensions, { id: newId, name: "", max: 10, items: [] }] });

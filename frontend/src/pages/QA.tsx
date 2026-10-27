@@ -292,7 +292,7 @@ export default function QA() {
 						>
 							<IconHistory size={17} />
 						</Button>
-						<Button variant="outline" size="sm" onClick={handleNewChat}>
+						<Button variant="default" size="sm" onClick={handleNewChat}>
 							<IconPlus size={15} />
 							新对话
 						</Button>
@@ -418,7 +418,7 @@ function QASidebar({
 				</Button>
 			</Group>
 			<Box px="md" pb="md">
-				<Button fullWidth justify="flex-start" onClick={handleNewChat}>
+				<Button variant="default" fullWidth justify="flex-start" onClick={handleNewChat}>
 					<IconPlus size={16} />
 					新对话
 				</Button>
@@ -467,7 +467,7 @@ function QASidebar({
 							title="加载失败"
 							description="无法获取对话记录"
 							action={
-								<Button variant="outline" size="sm" onClick={loadSessions}>
+								<Button variant="default" size="sm" onClick={loadSessions}>
 									重试
 								</Button>
 							}
@@ -668,6 +668,8 @@ function Composer({
 					autoCapitalize="off"
 					autoCorrect="off"
 				/>
+				{/* 层级：全页唯一 filled = 发送；工作台的主行动就是「把问题发出去」，
+				    新对话/历史只是导航，降为 default。 */}
 				<Button
 					w={44} h={44} p={0}
 					onClick={onSend}

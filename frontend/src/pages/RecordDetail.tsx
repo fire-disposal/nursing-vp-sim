@@ -279,12 +279,12 @@ export default function RecordDetail() {
 
 			{/* 复盘工作台：左对话回放（证据可定位）｜右评分明细/关键选择/再练习 */}
 			<Grid mt="md" align="stretch">
-				<Grid.Col span={{ base: 12, lg: 7 }}>
+				<Grid.Col span={{ base: 12, lg: 7 }} order={{ base: 2, lg: 1 }}>
 					<Box h="100%" style={{ maxHeight: "calc(100vh - 220px)" }}>
 						<MessagePlayback messages={messages} highlightId={highlightMsgId} />
 					</Box>
 				</Grid.Col>
-				<Grid.Col span={{ base: 12, lg: 5 }}>
+				<Grid.Col span={{ base: 12, lg: 5 }} order={{ base: 1, lg: 2 }}>
 					<Stack gap="md">
 						<ReviewFocusSection
 							focus={reviewFocus}
