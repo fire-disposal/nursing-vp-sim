@@ -1,8 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import {
 	Checkbox, Button, Center, Group, Loader, Modal, Paper, Select, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
-import { IconPlus, IconUsers } from "@tabler/icons-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { IconPlus, IconUpload, IconUsers } from "@tabler/icons-react";
+import { useCallback, useRef, useState } from "react";
 import { removeClassMembers } from "@/api";
 import { bulkAssignClass, updateUser } from "@/api/admin/users";
 import type { components } from "@/api/api-types.gen";
@@ -10,6 +10,8 @@ import { queryKeys } from "@/api/query-keys";
 import ClassFilter, { type ClassFilterParams } from "@/components/admin/ClassFilter";
 import { ActionBar } from "@mantine/core";
 import { FilterToolbar } from "@/components/ui/filter-toolbar";
+import PageHeader from "@/components/ui/page-header";
+import ExportButton from "@/components/ExportButton";
 import UserCard from "@/components/admin/users/UserCard";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
@@ -70,12 +72,10 @@ function classLabel(classId: string, classes: Schemas["ClassResponse"][]): strin
 }
 
 interface UsersTabProps {
-	/** 导出参数（与列表参数同源）→ 页头的导出按钮，避免"筛完再导仍是全量"。 */
-	onExportParamsChange?: (params: Record<string, unknown>) => void;
 	currentUserId?: number;
 }
 
-export default function UsersTab({ currentUserId, onExportParamsChange }: UsersTabProps) {
+export default function UsersTab({ currentUserId }: UsersTabProps) {
 	// 筛选只有一个持有者：值 → 请求参数（含导出参数）由 useListFilters 构造一次
 	const list = useListFilters<UserListParams>(
 		{ search: "", role: "", class_id: undefined, cohort_label: undefined, include_inactive: false, school_id: undefined },
@@ -107,11 +107,6 @@ export default function UsersTab({ currentUserId, onExportParamsChange }: UsersT
 		classId: "",
 	});
 	const [isBulkBusy, setIsBulkBusy] = useState(false);
-
-	// 导出参数与列表参数同源（useListFilters 构造），不再手工拼第二份
-	useEffect(() => {
-		onExportParamsChange?.(list.exportParams);
-	}, [list.exportParams, onExportParamsChange]);
 
 	/** 一键复位全部筛选（FilterToolbar 的"清除"入口，2026-09-26 统一到该范式）。 */
 	const handleClearFilters = useCallback(() => {
@@ -403,18 +398,25 @@ export default function UsersTab({ currentUserId, onExportParamsChange }: UsersT
 
 	return (
 		<>
-			<Group gap={12} wrap="wrap" mb="md">
-				<Button leftSection={<IconPlus size={16} />} onClick={openCreateUser}>
-					注册新用户
-				</Button>
-				<Button
-					variant="outline"
-					leftSection={<IconUsers size={16} />}
-					onClick={() => setShowBatchImport(true)}
-				>
-					批量导入
-				</Button>
-			</Group>
+			{/* 页头承担「本页唯一主行动」：注册新用户。导出/批量导入是次级动作，
+			    跟着主行动排在同一处，工具栏只留搜索与筛选 —— 此前主按钮在工具栏、
+			    页头只有导出，两级动作的位置在页面之间来回漂。 */}
+			<PageHeader
+				title="用户管理"
+				subtitle="搜索、注册、编辑和管理所有用户账号"
+				icon={IconUsers}
+				actions={
+					<Group gap={8}>
+						<ExportButton endpoint="/admin/export" filename="用户列表" params={list.exportParams} />
+						<Button variant="default" leftSection={<IconUpload size={16} />} onClick={() => setShowBatchImport(true)}>
+							批量导入
+						</Button>
+						<Button leftSection={<IconPlus size={16} />} onClick={openCreateUser}>
+							注册新用户
+						</Button>
+					</Group>
+				}
+			/>
 
 			<Paper p="md">
 				<FilterToolbar

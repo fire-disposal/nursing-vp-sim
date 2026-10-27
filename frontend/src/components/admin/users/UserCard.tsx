@@ -127,7 +127,7 @@ export default function UserCard({
 										to={`/admin/users/${user.id}`}
 										variant="subtle"
 										color="gray"
-										size="sm"
+										size="md"
 										aria-label={`查看 ${user.display_name} 的详情`}
 									>
 										<IconUserSearch size={15} />
@@ -137,7 +137,7 @@ export default function UserCard({
 									<ActionIcon
 										variant="subtle"
 										color="gray"
-										size="sm"
+										size="md"
 										onClick={() => onEdit(user)}
 										aria-label={`编辑 ${user.display_name}`}
 									>
@@ -148,7 +148,7 @@ export default function UserCard({
 									<ActionIcon
 										variant="subtle"
 										color={inactive ? "green" : "orange"}
-										size="sm"
+										size="md"
 										onClick={() => onToggleActive(user)}
 										aria-label={
 											inactive
@@ -163,7 +163,7 @@ export default function UserCard({
 									<ActionIcon
 										variant="subtle"
 										color="red"
-										size="sm"
+										size="md"
 										onClick={() => onDelete(user)}
 										aria-label={`删除 ${user.display_name}`}
 									>
