@@ -29,7 +29,6 @@ function attribution(items: unknown[], overrides: Record<string, unknown> = {}) 
 		data: {
 			by: "prompt",
 			window_days: 90,
-			truncated: false,
 			totals: { records: 3, identities: items.length },
 			items,
 			...overrides,
@@ -77,9 +76,9 @@ describe("VersionsPage", () => {
 		expect(screen.getByText(/2 个身份 · 3 条记录/)).toBeTruthy();
 	});
 
-	it("截断与空态都被如实呈现", async () => {
+	it("空窗口如实呈现空态（聚合在服务端完成，不存在截断）", async () => {
 		mocks.getVersionAttribution.mockResolvedValue(
-			attribution([], { truncated: true, totals: { records: 20000, identities: 0 } }),
+			attribution([], { totals: { records: 0, identities: 0 } }),
 		);
 
 		renderPage();

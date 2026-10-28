@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import and_, case, func, literal, or_, select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, defer, joinedload
 
 from core.database import get_db
 from core.datetime_utils import parse_iso_datetime
@@ -326,15 +326,23 @@ def get_records(
 ):
     base = _apply_record_filters(db, db.query(TrainingRecord), filters, current_user, scope)
 
-    # 查询裁剪：列表只需少量字段，避免整行 case_data/Score JSONB 灌入内存
+    # 查询裁剪：列表只需少量字段。关系列用 load_only，**记录自身**的 4 个宽 JSONB
+    # （病例/提示词/评分标准/运行态）在列表里零消费者，逐个 defer —— 它们不是"以后再读"，
+    # 而是详情端点的事；列表里仍要 practice_snapshot（盲盒/隐藏病例的占位名读它）。
     query = base.options(
         joinedload(TrainingRecord.case).load_only(Case.id, Case.name),
         joinedload(TrainingRecord.user).load_only(User.id, User.display_name, User.student_id, User.school_id),
-        joinedload(TrainingRecord.score).load_only(Score.id, Score.total_score, Score.reviewed_total),
+        # fallback 也必须在 load_only 里：score_source/score_degraded 都读它，
+        # 漏掉就是每行一次延迟查询（列表里 50 次 N+1）
+        joinedload(TrainingRecord.score).load_only(Score.id, Score.total_score, Score.reviewed_total, Score.fallback),
         joinedload(TrainingRecord.assignment)
         .load_only(Assignment.id, Assignment.title)
         .joinedload(Assignment.class_)
         .load_only(Class.id, Class.school_id),
+        defer(TrainingRecord.case_snapshot),
+        defer(TrainingRecord.prompt_snapshot),
+        defer(TrainingRecord.rubric_snapshot),
+        defer(TrainingRecord.runtime_state),
     )
 
     # 服务端排序（教师页按分数/时长排序需全局正确，不能只排当前页）

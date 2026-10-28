@@ -9,7 +9,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import and_, or_
 from sqlalchemy import func as sa_func
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.orm import Session, defer, joinedload, selectinload
 
 from core.audit import (
     ACTION_USER_ACTIVATED,
@@ -33,6 +33,8 @@ from infra.exporter import ColumnDef, ExportAudit, export_response
 from models import (
     MEMBER_ROLE_STUDENT,
     MEMBER_ROLE_TEACHER,
+    Assignment,
+    Case,
     Class,
     ClassMembership,
     Role,
@@ -869,12 +871,21 @@ class UserService:
         )
 
     def recent_records(self, user_id: int, limit: int) -> list[TrainingRecord]:
+        """学生详情里的最近记录：只取列表用到的列。
+
+        记录自身的 4 个宽 JSONB（病例快照/提示词/评分标准/运行态）与 Score 的 8 个
+        JSONB 在这里全无消费者，defer/load_only 掉，避免为学生详情拉整行宽表。
+        """
         return (
             self.db.query(TrainingRecord)
             .options(
-                joinedload(TrainingRecord.case),
-                joinedload(TrainingRecord.score),
-                joinedload(TrainingRecord.assignment),
+                joinedload(TrainingRecord.case).load_only(Case.id, Case.name),
+                joinedload(TrainingRecord.score).load_only(Score.id, Score.total_score, Score.reviewed_total),
+                joinedload(TrainingRecord.assignment).load_only(Assignment.id, Assignment.title),
+                defer(TrainingRecord.case_snapshot),
+                defer(TrainingRecord.prompt_snapshot),
+                defer(TrainingRecord.rubric_snapshot),
+                defer(TrainingRecord.runtime_state),
             )
             .filter(TrainingRecord.user_id == user_id)
             .order_by(TrainingRecord.start_time.desc())

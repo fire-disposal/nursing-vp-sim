@@ -78,7 +78,7 @@ export default function VersionsPage() {
 			<FilterToolbar
 				summary={
 					data
-						? `${data.totals.identities} 个身份 · ${data.totals.records} 条记录${data.truncated ? "（已截断）" : ""}`
+						? `${data.totals.identities} 个身份 · ${data.totals.records} 条记录`
 						: undefined
 				}
 				hasActiveFilters={windowDays !== DEFAULT_WINDOW}

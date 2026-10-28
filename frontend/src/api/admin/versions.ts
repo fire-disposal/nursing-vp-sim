@@ -16,7 +16,6 @@ export interface AttributionItem {
 export interface AttributionResponse {
 	by: AttributionDimension;
 	window_days: number;
-	truncated: boolean;
 	totals: { records: number; identities: number };
 	items: AttributionItem[];
 }

@@ -25,6 +25,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
+from sqlalchemy.orm import defer
 
 from core.config import SCENARIO_TRAINING_ENABLED
 from core.deps import CurrentUser, DbSession
@@ -266,10 +267,18 @@ def my_sessions(
     current_user: _StudentUser,
     limit: int = Query(default=30, ge=1, le=200),
 ) -> list[ScenarioSessionRow]:
-    """我的情境历史（学生侧）。"""
+    """我的情境历史（学生侧）。
+
+    列表行（``session_row``）只读包标题/版本/报告摘要，回放才需要 ``pack_content``：
+    这里显式 defer 整包快照，避免 200 行 × 整份病例内容进内存。
+    """
     rows = (
         db.execute(
-            select(StSession).where(StSession.user_id == current_user.id).order_by(StSession.id.desc()).limit(limit)
+            select(StSession)
+            .options(defer(StSession.pack_content))
+            .where(StSession.user_id == current_user.id)
+            .order_by(StSession.id.desc())
+            .limit(limit)
         )
         .scalars()
         .all()
@@ -992,7 +1001,7 @@ def admin_sessions(
     offset: int = Query(default=0, ge=0),
 ) -> ScenarioAdminSessionList:
     """管理侧：会话列表（可按包/状态过滤）。"""
-    query = select(StSession)
+    query = select(StSession).options(defer(StSession.pack_content))
     if pack_key:
         query = query.where(StSession.pack_key == pack_key)
     if status:
