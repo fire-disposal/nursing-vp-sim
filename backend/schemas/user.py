@@ -65,6 +65,9 @@ class UserProfileUpdateRequest(BaseModel):
 
 class UserUpdateRequest(BaseModel):
     model_config = _REQ_CFG
+    #: 登录用户名可改：导入名单/学工系统里用户名写错时，靠改名对齐而不是删号重建
+    #: （删号会连带删掉训练历史，改名只换登录键）。
+    username: str | None = Field(default=None, min_length=1, max_length=50)
     display_name: str | None = None
     student_id: str | None = None
     memberships: list[UserMembershipUpdate] | None = Field(
@@ -166,5 +169,39 @@ class BatchSkipItem(BaseModel):
 
 class BatchCreateResult(BaseModel):
     created: int
+    #: 已存在同学号学生、本次只补班级归属的行数（不新建账号，历史留在原账号上）
+    linked: int = 0
     skipped: int
     skipped_rows: list[BatchSkipItem]
+
+
+BatchAction = Literal["create", "link", "skip"]
+
+
+class BatchPreviewRow(BaseModel):
+    """预检的一行：文件里这一行会被怎么处理。
+
+    ``link`` 需要能追溯到具体账号，否则管理员没法判断「并入」是不是并对了人。
+    """
+
+    model_config = _RESP_CFG
+    index: int
+    username: str
+    display_name: str
+    student_id: str | None = None
+    action: BatchAction
+    reason: str | None = None
+    class_label: str | None = None
+    #: 该行引用的班级尚不存在（提交时会新建），预检阶段只预告、不落库
+    will_create_class: bool = False
+    #: ``link`` 时命中的既有账号（用户名 / 姓名），供管理员核对
+    existing_username: str | None = None
+    existing_display_name: str | None = None
+
+
+class BatchPreviewResult(BaseModel):
+    model_config = _RESP_CFG
+    create: int
+    link: int
+    skip: int
+    rows: list[BatchPreviewRow]

@@ -203,7 +203,7 @@ def test_mixed_batch_reports_every_skipped_row_with_its_index(db):
     assert (result.created, result.skipped) == (3, 3)
     assert [(r.index, r.username) for r in result.skipped_rows] == [(2, "dup-user"), (3, "mix-3"), (5, "mix-5")]
     assert [r.reason for r in result.skipped_rows] == [
-        "用户名已存在",
+        "用户名「dup-user」已存在（dup），与姓名「dup-user」不一致",
         "密码长度不能少于6位",
         "学校「没这所学校」不存在（名称需与「院校管理」里的一致）",
     ]
@@ -283,6 +283,7 @@ def test_batch_endpoint_serializes_skipped_rows(db):
     assert resp.status_code == 200, resp.text
     assert resp.json() == {
         "created": 1,
+        "linked": 0,
         "skipped": 1,
         "skipped_rows": [{"index": 2, "username": "api-dup", "reason": "密码长度不能少于6位"}],
     }

@@ -17,6 +17,8 @@ export const registerUserSchema = z.object({
 });
 
 export const editUserSchema = z.object({
+  // 用户名可改（导入名单写错时对齐名单，不重建账号）；改的是登录键，训练历史不动
+  username: z.string().min(1, "用户名不能为空").regex(/^[a-zA-Z0-9_]+$/, "用户名只能包含字母、数字和下划线"),
   display_name: z.string().min(1, "姓名不能为空"),
   student_id: z.string().optional(),
   role: z.string().min(1, "请选择角色"),

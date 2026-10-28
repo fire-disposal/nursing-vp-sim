@@ -3,6 +3,7 @@ import type { components } from "@/api/api-types.gen";
 export type Schemas = components["schemas"];
 export type UserBrief = Schemas["UserBrief"];
 export type BatchCreateResult = Schemas["BatchCreateResult"];
+export type BatchPreviewResult = Schemas["BatchPreviewResult"];
 
 /** 表单里的一行班级归属（提交时整体替换用户的 memberships）。 */
 export interface MembershipDraft {
@@ -35,6 +36,8 @@ export interface UserFormValues {
 }
 
 export interface EditUserFormValues {
+	/** 登录用户名（可改）：省略 = 不修改。 */
+	username?: string;
 	display_name: string;
 	student_id: string;
 	role: string;

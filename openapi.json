@@ -3205,6 +3205,75 @@
         }
       }
     },
+    "/api/admin/users/batch/preview": {
+      "post": {
+        "tags": [
+          "管理"
+        ],
+        "summary": "Preview Batch Users",
+        "description": "导入预检：逐行告知将「新建 / 并入既有账号 / 跳过（原因）」，不写任何数据。\n\n与提交共用 `_plan_batch`，因此预检说会并入的，提交时一定并入；不会出现\n「预检看着没问题、提交才发现同学号已存在」的两套判定。",
+        "operationId": "preview_batch_users_api_admin_users_batch_preview_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/BatchUserItem"
+                },
+                "title": "Users"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchPreviewResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/users/batch": {
       "post": {
         "tags": [
@@ -7736,7 +7805,7 @@
           "情境训练"
         ],
         "summary": "My Sessions",
-        "description": "我的情境历史（学生侧）。",
+        "description": "我的情境历史（学生侧）。\n\n列表行（``session_row``）只读包标题/版本/报告摘要，回放才需要 ``pack_content``：\n这里显式 defer 整包快照，避免 200 行 × 整份病例内容进内存。",
         "operationId": "my_sessions_api_scenario_sessions_get",
         "security": [
           {
@@ -12753,6 +12822,11 @@
             "type": "integer",
             "title": "Created"
           },
+          "linked": {
+            "type": "integer",
+            "title": "Linked",
+            "default": 0
+          },
           "skipped": {
             "type": "integer",
             "title": "Skipped"
@@ -12772,6 +12846,131 @@
           "skipped_rows"
         ],
         "title": "BatchCreateResult"
+      },
+      "BatchPreviewResult": {
+        "properties": {
+          "create": {
+            "type": "integer",
+            "title": "Create"
+          },
+          "link": {
+            "type": "integer",
+            "title": "Link"
+          },
+          "skip": {
+            "type": "integer",
+            "title": "Skip"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/BatchPreviewRow"
+            },
+            "type": "array",
+            "title": "Rows"
+          }
+        },
+        "type": "object",
+        "required": [
+          "create",
+          "link",
+          "skip",
+          "rows"
+        ],
+        "title": "BatchPreviewResult"
+      },
+      "BatchPreviewRow": {
+        "properties": {
+          "index": {
+            "type": "integer",
+            "title": "Index"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "student_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Id"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "create",
+              "link",
+              "skip"
+            ],
+            "title": "Action"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "class_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Label"
+          },
+          "will_create_class": {
+            "type": "boolean",
+            "title": "Will Create Class",
+            "default": false
+          },
+          "existing_username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Existing Username"
+          },
+          "existing_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Existing Display Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "index",
+          "username",
+          "display_name",
+          "action"
+        ],
+        "title": "BatchPreviewRow",
+        "description": "预检的一行：文件里这一行会被怎么处理。\n\n``link`` 需要能追溯到具体账号，否则管理员没法判断「并入」是不是并对了人。"
       },
       "BatchSkipItem": {
         "properties": {
@@ -22771,6 +22970,19 @@
       },
       "UserUpdateRequest": {
         "properties": {
+          "username": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          },
           "display_name": {
             "anyOf": [
               {

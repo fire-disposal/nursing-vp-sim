@@ -14,6 +14,10 @@ export const updateUser = (
 export const batchCreateUsers = (users: Schemas["BatchUserItem"][]) =>
 	api.post<Schemas["BatchCreateResult"]>("/admin/users/batch", users);
 
+/** 导入预检：只读，逐行返回「新建 / 并入既有账号 / 跳过（原因）」。 */
+export const previewBatchUsers = (users: Schemas["BatchUserItem"][]) =>
+	api.post<Schemas["BatchPreviewResult"]>("/admin/users/batch/preview", users);
+
 export const deleteUser = (id: number | string) =>
 	api.delete<Schemas["DeleteResponse"]>(`/admin/users/${id}`);
 

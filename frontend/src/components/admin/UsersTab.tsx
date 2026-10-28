@@ -4,7 +4,7 @@ import {
 import { IconPlus, IconUpload, IconUsers } from "@tabler/icons-react";
 import { useCallback, useRef, useState } from "react";
 import { removeClassMembers } from "@/api";
-import { bulkAssignClass, updateUser } from "@/api/admin/users";
+import { bulkAssignClass, previewBatchUsers, updateUser } from "@/api/admin/users";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import ClassFilter, { type ClassFilterParams } from "@/components/admin/ClassFilter";
@@ -327,6 +327,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 			memberships: toMembershipUpdates(form.memberships),
 		};
 		if (form.display_name) payload.display_name = form.display_name;
+		if (form.username) payload.username = form.username;
 		payload.student_id = form.student_id || null;
 		if (form.role) payload.role = form.role;
 		if (form.password) payload.password = form.password;
@@ -580,6 +581,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				roles={roles}
 				classes={classes}
 				onImport={handleBatchImport}
+				onPreview={(users) => previewBatchUsers(users).then((r) => r.data)}
 			/>
 
 			{resetPasswordDialog && (

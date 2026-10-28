@@ -15,7 +15,7 @@ import { Textarea } from "@mantine/core";
 import { Table } from "@mantine/core";
 import type { ClassItem } from "@/types/store";
 import { getApiErrorDetail } from "@/utils/error";
-import type { BatchCreateResult, BatchUser, RoleOption } from "./types";
+import type { BatchCreateResult, BatchPreviewResult, BatchUser, RoleOption } from "./types";
 
 const CSV_HEADERS = ["用户名", "密码", "姓名", "角色", "学号", "学校", "届别", "班级名称"];
 const BOM = "\uFEFF";
@@ -31,9 +31,10 @@ interface RowIssue {
   message: string;
 }
 
-/** 导入回执：成功/跳过/未提交三个数 + 每条被丢行的 CSV 行号与原因。 */
+/** 导入回执：新建/并入/跳过 + 每条被丢行的 CSV 行号与原因。 */
 interface ImportReceipt {
   created: number;
+  linked: number;
   skipped: number;
   submitted: number;
   notSubmitted: number;
@@ -75,22 +76,27 @@ interface BatchImportProps {
   roles: RoleOption[];
   /** 全部班级，用于把「届别 + 班级名」解析成确定的 class_id。 */
   classes: ClassItem[];
-  /** 提交一批学生；返回后端的逐行回执（成功数 / 跳过的行与原因）。 */
+  /** 提交一批学生；返回后端的逐行回执（新建/并入/跳过的行与原因）。 */
   onImport: (users: BatchUser[]) => Promise<BatchCreateResult>;
+  /** 预检：只读，返回每行将被「新建 / 并入既有账号 / 跳过（原因）」。 */
+  onPreview: (users: BatchUser[]) => Promise<BatchPreviewResult>;
 }
 
-export default function BatchImport({ open, onClose, roles, classes, onImport }: BatchImportProps) {
+export default function BatchImport({ open, onClose, roles, classes, onImport, onPreview }: BatchImportProps) {
   const [batchText, setBatchText] = useState("");
   const [previewRows, setPreviewRows] = useState<PreviewRow[]>([]);
+  const [plan, setPlan] = useState<BatchPreviewResult | null>(null);
   const [parseIssues, setParseIssues] = useState<RowIssue[]>([]);
   const [receipt, setReceipt] = useState<ImportReceipt | null>(null);
   const [importError, setImportError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function resetState() {
     setBatchText("");
     setPreviewRows([]);
+    setPlan(null);
     setParseIssues([]);
     setReceipt(null);
     setImportError("");
@@ -148,6 +154,7 @@ export default function BatchImport({ open, onClose, roles, classes, onImport }:
     setImportError("");
     setParseIssues([]);
     setPreviewRows([]);
+    setPlan(null); // 名单变了，旧预检结果作废（防止按旧判定提交）
 
     const firstIndex = lines.findIndex((l) => l.trim() !== "");
     if (firstIndex < 0) return;
@@ -242,9 +249,15 @@ export default function BatchImport({ open, onClose, roles, classes, onImport }:
   }
 
   function handleDownloadTemplate() {
-    const csvContent = BOM + CSV_HEADERS.join(",") + "\n" +
-      "student01,123456,张同学,student,S2024001,<院校名称>,2024级,护理1班\n" +
-      "student02,myp@ss,李同学,student,S2024002,<院校名称>,2024级,护理1班\n";
+    // 模板只放「能直接改」的示例：学号是身份键（同校同学号会被并入而不是再建账号），
+    // 学校写「院校管理」里的全名，届别与班级名一起才唯一确定一个班。UTF-8 BOM 让 Excel
+    // 双击打开不乱码。
+    const csvContent =
+      BOM +
+      CSV_HEADERS.join(",") +
+      "\n" +
+      "student01,123456,张三,student,2024211102011,杭州师范大学,2024级,护理241\n" +
+      "student02,123456,李四,student,2024211102012,杭州师范大学,2024级,护理241\n";
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -254,14 +267,35 @@ export default function BatchImport({ open, onClose, roles, classes, onImport }:
     URL.revokeObjectURL(url);
   }
 
+  async function handlePreview() {
+    if (previewRows.length === 0 || previewing) return;
+    setPreviewing(true);
+    setImportError("");
+    try {
+      setPlan(await onPreview(previewRows.map((r) => r.user)));
+    } catch (e: unknown) {
+      setPlan(null);
+      setImportError(getApiErrorDetail(e, "预检失败"));
+    } finally {
+      setPreviewing(false);
+    }
+  }
+
   async function handleImport() {
     if (previewRows.length === 0 || submitting) return;
+    // 防呆：没预检不许提交。预检与提交共用后端同一份判定，先看一遍才不会「导完才发现
+    // 同学号被跳过」。
+    if (!plan) {
+      setImportError("请先点「预检」确认每行会被新建、并入还是跳过");
+      return;
+    }
     setSubmitting(true);
     setImportError("");
     try {
       const result = await onImport(previewRows.map((r) => r.user));
       setReceipt({
         created: result.created,
+        linked: result.linked,
         skipped: result.skipped,
         submitted: previewRows.length,
         notSubmitted: parseIssues.length,
@@ -272,6 +306,7 @@ export default function BatchImport({ open, onClose, roles, classes, onImport }:
         })),
       });
       setPreviewRows([]);
+      setPlan(null);
       setParseIssues([]);
       setBatchText("");
     } catch (e: unknown) {
@@ -285,6 +320,36 @@ export default function BatchImport({ open, onClose, roles, classes, onImport }:
     if (!u.class_name) return "-";
     const label = u.cohort_label ? `${u.cohort_label} ${u.class_name}` : u.class_name;
     return u.class_id != null ? label : `${label}（将新建）`;
+  }
+
+  /** 预检结果单元格：并入必须能看出并入到谁，否则管理员无法判断对不对人。 */
+  function planCell(row: BatchPreviewResult["rows"][number] | undefined) {
+    if (!row) {
+      return (
+        <Text size="xs" c="dimmed">
+          待预检
+        </Text>
+      );
+    }
+    if (row.action === "create") {
+      return (
+        <Text size="xs" c="teal.7">
+          新建
+        </Text>
+      );
+    }
+    if (row.action === "link") {
+      return (
+        <Text size="xs" c="blue.7">
+          并入 {row.existing_username}（{row.existing_display_name}）
+        </Text>
+      );
+    }
+    return (
+      <Text size="xs" c="red.7">
+        {row.reason}
+      </Text>
+    );
   }
 
   const partiallySkipped = receipt !== null && receipt.skipped > 0;
@@ -301,11 +366,15 @@ export default function BatchImport({ open, onClose, roles, classes, onImport }:
         <Text size="xs" c="dimmed" mb="md">
           支持 CSV 文件上传或直接粘贴文本。表头行自动识别，无表头按位置匹配。
           仅限创建<strong>学生</strong>角色账号；班级不存在时自动创建。
+          <br />
+          <strong>学号是身份键</strong>：本校同一学号已有学生账号时，这一行会「并入」那个账号并补上班级归属，
+          不新建第二个账号（训练历史跟着人走）；学号相同但姓名不同会跳过，交给人工核对。
           「学校」列填「院校管理」里的院校名称：平台角色每行必须给出学校或已存在的班级之一；
           院校管理员可留空（自动落本校），填了就必须是本校。
           学校不存在、或学校与班级所属院校不一致时，该行报错丢弃。
           同名班级存在于多个届别/院校时，必须补充「届别」或用「学校」消歧。
-          导入后逐行列出未入库的行与原因。
+          <br />
+          提交前先点「预检」：逐行告知将新建、并入（到哪个账号）还是跳过，预检不写任何数据。
         </Text>
         {receipt ? (
           <Stack gap="sm" mb="md">
@@ -316,7 +385,8 @@ export default function BatchImport({ open, onClose, roles, classes, onImport }:
               icon={<IconCircleCheck size={16} />}
             >
               <Text size="sm">
-                成功 {receipt.created} 人 · 跳过 {receipt.skipped} 人 · 提交 {receipt.submitted} 行
+                新建 {receipt.created} 人 · 并入既有账号 {receipt.linked} 人 · 跳过 {receipt.skipped} 人 · 提交{" "}
+                {receipt.submitted} 行
                 {receipt.notSubmitted > 0
                   ? `（另有 ${receipt.notSubmitted} 行未通过本地校验，未提交）`
                   : ""}
@@ -409,29 +479,70 @@ export default function BatchImport({ open, onClose, roles, classes, onImport }:
             )}
             {previewRows.length > 0 && (
               <Box mb="md">
-                <Text fw={600} size="sm" mb="xs">预览（{previewRows.length} 名学生）</Text>
-                <TableScroll minWidth={880} maxHeight={200}>
+                <Group gap={8} mb="xs" justify="space-between">
+                  <Text fw={600} size="sm">
+                    预览（{previewRows.length} 名学生）
+                  </Text>
+                  {plan && (
+                    <Text size="xs" c="dimmed">
+                      将新建 {plan.create} 人 · 并入 {plan.link} 人 · 跳过 {plan.skip} 人
+                    </Text>
+                  )}
+                </Group>
+                <TableScroll minWidth={1000} maxHeight={240}>
                   <Table stickyHeader>
                     <Table.Thead>
                       <Table.Tr>
+                        <Table.Th>行</Table.Th>
                         {CSV_HEADERS.map((h) => (
                           <Table.Th key={h}>{h}</Table.Th>
                         ))}
+                        <Table.Th>预检结果</Table.Th>
                       </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
-                      {previewRows.map(({ line, user: u }) => (
-                        <Table.Tr key={line}>
-                          <Table.Td>{u.username}</Table.Td>
-                          <Table.Td>{"*".repeat(Math.min(u.password.length, 8))}</Table.Td>
-                          <Table.Td>{u.display_name}</Table.Td>
-                          <Table.Td><RoleBadge role={u.role} label={roles.find((r) => r.name === u.role)?.display_name || u.role} /></Table.Td>
-                          <Table.Td><Text size="sm" c="dimmed">{u.student_id || "-"}</Text></Table.Td>
-                          <Table.Td><Text size="sm" c="dimmed">{u.school_name || "-"}</Text></Table.Td>
-                          <Table.Td><Text size="sm" c="dimmed">{u.cohort_label || "-"}</Text></Table.Td>
-                          <Table.Td><Text size="sm" c="dimmed">{classCell(u)}</Text></Table.Td>
-                        </Table.Tr>
-                      ))}
+                      {previewRows.map(({ line, user: u }, i) => {
+                        const row = plan?.rows[i];
+                        return (
+                          <Table.Tr key={line}>
+                            <Table.Td>
+                              <Text size="sm" c="dimmed">
+                                {line}
+                              </Text>
+                            </Table.Td>
+                            <Table.Td>{u.username}</Table.Td>
+                            <Table.Td>{"*".repeat(Math.min(u.password.length, 8))}</Table.Td>
+                            <Table.Td>{u.display_name}</Table.Td>
+                            <Table.Td>
+                              <RoleBadge
+                                role={u.role}
+                                label={roles.find((r) => r.name === u.role)?.display_name || u.role}
+                              />
+                            </Table.Td>
+                            <Table.Td>
+                              <Text size="sm" c="dimmed">
+                                {u.student_id || "-"}
+                              </Text>
+                            </Table.Td>
+                            <Table.Td>
+                              <Text size="sm" c="dimmed">
+                                {u.school_name || "-"}
+                              </Text>
+                            </Table.Td>
+                            <Table.Td>
+                              <Text size="sm" c="dimmed">
+                                {u.cohort_label || "-"}
+                              </Text>
+                            </Table.Td>
+                            <Table.Td>
+                              <Text size="sm" c="dimmed">
+                                {classCell(u)}
+                              </Text>
+                            </Table.Td>
+                            <Table.Td>{planCell(row)}</Table.Td>
+                          </Table.Tr>
+                        );
+                      })}
                     </Table.Tbody>
                   </Table>
                 </TableScroll>
@@ -446,7 +557,20 @@ export default function BatchImport({ open, onClose, roles, classes, onImport }:
             <>
               <Button variant="outline" onClick={handleClose} disabled={submitting}>取消</Button>
               <Button
-                disabled={previewRows.length === 0 || submitting}
+                variant="light"
+                onClick={handlePreview}
+                loading={previewing}
+                disabled={previewRows.length === 0 || submitting || previewing}
+              >
+                预检
+              </Button>
+              <Button
+                disabled={
+                  previewRows.length === 0 ||
+                  submitting ||
+                  !plan ||
+                  plan.create + plan.link === 0
+                }
                 onClick={handleImport}
               >
                 {submitting ? "导入中..." : `导入 ${previewRows.length} 名学生`}

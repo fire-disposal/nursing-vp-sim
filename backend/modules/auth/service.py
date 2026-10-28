@@ -19,6 +19,7 @@ from core.audit import (
 )
 from core.config import LOGIN_LOCK_SECONDS, LOGIN_LOCKOUT_ENABLED, LOGIN_MAX_FAILED_ATTEMPTS
 from core.exceptions import AuthError, ConflictError, ValidationError
+from core.identity import STUDENT_ROLE_NAME, assert_student_identity_free, normalize_student_id
 from core.security import create_access_token, hash_password, load_role_permissions, verify_password
 from core.tenant import resolve_scope, visible_class, writable_school_id
 from core.unit_of_work import unit_of_work
@@ -256,13 +257,18 @@ class AuthService:
         else:
             school_id = writable_school_id(scope, req.school_id)
 
+        student_id = normalize_student_id(req.student_id)
+        if req.role == STUDENT_ROLE_NAME:
+            # 本校同学号只能有一个学生账号：重复注册要在建号之前挡住，并说明撞了谁
+            assert_student_identity_free(self.db, school_id=school_id, student_id=student_id)
+
         user = User(
             username=req.username,
             password_hash=hash_password(req.password),
             role_id=role_obj.id,
             school_id=school_id,
             display_name=req.display_name,
-            student_id=req.student_id,
+            student_id=student_id,
             gender=req.gender,
         )
         with unit_of_work(self.db, conflict_detail="用户名已存在"):

@@ -111,6 +111,7 @@ export default function UserForm({
 
   const editForm = useForm<EditUserValues>({
     initialValues: {
+      username: "",
       display_name: "",
       student_id: "",
       role: "",
@@ -135,6 +136,7 @@ export default function UserForm({
     if (!open) return;
     if (user) {
       editForm.setValues({
+        username: user.username,
         display_name: user.display_name,
         student_id: user.student_id || "",
         role: user.role,
@@ -230,8 +232,13 @@ export default function UserForm({
           <FormMessageBanner type="error" message={editUserMsg} />
           <form onSubmit={editForm.onSubmit(onEditSubmit)}>
             <Stack gap="md">
-              {/* 编辑态展示登录名（只读）：管理员核对账号时需要，此前编辑表单里看不到 */}
-              <TextInput label="用户名" value={user?.username ?? ""} readOnly variant="filled" />
+              {/* 用户名是登录键，可改：名单/学工系统里写错时对齐名单，不重建账号（历史不动） */}
+              <TextInput
+                label="用户名"
+                withAsterisk
+                description="登录用户名；改名不影响训练记录与班级归属"
+                {...editForm.getInputProps("username")}
+              />
               <TextInput label="姓名" withAsterisk {...editForm.getInputProps("display_name")} />
               <TextInput label="学号" {...editForm.getInputProps("student_id")} />
               <Select

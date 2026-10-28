@@ -566,6 +566,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/users/batch/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Batch Users
+         * @description 导入预检：逐行告知将「新建 / 并入既有账号 / 跳过（原因）」，不写任何数据。
+         *
+         *     与提交共用 `_plan_batch`，因此预检说会并入的，提交时一定并入；不会出现
+         *     「预检看着没问题、提交才发现同学号已存在」的两套判定。
+         */
+        post: operations["preview_batch_users_api_admin_users_batch_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users/batch": {
         parameters: {
             query?: never;
@@ -1685,6 +1708,9 @@ export interface paths {
         /**
          * My Sessions
          * @description 我的情境历史（学生侧）。
+         *
+         *     列表行（``session_row``）只读包标题/版本/报告摘要，回放才需要 ``pack_content``：
+         *     这里显式 defer 整包快照，避免 200 行 × 整份病例内容进内存。
          */
         get: operations["my_sessions_api_scenario_sessions_get"];
         put?: never;
@@ -3250,10 +3276,60 @@ export interface components {
         BatchCreateResult: {
             /** Created */
             created: number;
+            /**
+             * Linked
+             * @default 0
+             */
+            linked: number;
             /** Skipped */
             skipped: number;
             /** Skipped Rows */
             skipped_rows: components["schemas"]["BatchSkipItem"][];
+        };
+        /** BatchPreviewResult */
+        BatchPreviewResult: {
+            /** Create */
+            create: number;
+            /** Link */
+            link: number;
+            /** Skip */
+            skip: number;
+            /** Rows */
+            rows: components["schemas"]["BatchPreviewRow"][];
+        };
+        /**
+         * BatchPreviewRow
+         * @description 预检的一行：文件里这一行会被怎么处理。
+         *
+         *     ``link`` 需要能追溯到具体账号，否则管理员没法判断「并入」是不是并对了人。
+         */
+        BatchPreviewRow: {
+            /** Index */
+            index: number;
+            /** Username */
+            username: string;
+            /** Display Name */
+            display_name: string;
+            /** Student Id */
+            student_id?: string | null;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "create" | "link" | "skip";
+            /** Reason */
+            reason?: string | null;
+            /** Class Label */
+            class_label?: string | null;
+            /**
+             * Will Create Class
+             * @default false
+             */
+            will_create_class: boolean;
+            /** Existing Username */
+            existing_username?: string | null;
+            /** Existing Display Name */
+            existing_display_name?: string | null;
         };
         /**
          * BatchSkipItem
@@ -7512,6 +7588,8 @@ export interface components {
         };
         /** UserUpdateRequest */
         UserUpdateRequest: {
+            /** Username */
+            username?: string | null;
             /** Display Name */
             display_name?: string | null;
             /** Student Id */
@@ -9251,6 +9329,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeleteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_batch_users_api_admin_users_batch_preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchUserItem"][];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchPreviewResult"];
                 };
             };
             /** @description Validation Error */

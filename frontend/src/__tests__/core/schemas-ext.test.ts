@@ -230,12 +230,27 @@ describe("registerUserSchema", () => {
 
 describe("editUserSchema", () => {
 	it("accepts minimal edit", () => {
-		expect(editUserSchema.safeParse({ display_name: "小李", role: "student" }).success).toBe(true);
+		expect(
+			editUserSchema.safeParse({ username: "xiao_li", display_name: "小李", role: "student" }).success,
+		).toBe(true);
 	});
 
 	it("rejects empty name or role", () => {
-		expect(editUserSchema.safeParse({ display_name: "", role: "student" }).success).toBe(false);
-		expect(editUserSchema.safeParse({ display_name: "小李", role: "" }).success).toBe(false);
+		expect(
+			editUserSchema.safeParse({ username: "xiao_li", display_name: "", role: "student" }).success,
+		).toBe(false);
+		expect(editUserSchema.safeParse({ username: "xiao_li", display_name: "小李", role: "" }).success).toBe(
+			false,
+		);
+	});
+
+	it("requires a plain-ASCII username (it is the login key)", () => {
+		expect(editUserSchema.safeParse({ username: "", display_name: "小李", role: "student" }).success).toBe(
+			false,
+		);
+		expect(
+			editUserSchema.safeParse({ username: "张三", display_name: "小李", role: "student" }).success,
+		).toBe(false);
 	});
 });
 

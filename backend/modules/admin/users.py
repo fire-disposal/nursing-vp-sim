@@ -4,7 +4,7 @@ import logging
 from collections import Counter
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import and_, or_
@@ -25,6 +25,12 @@ from core.audit import (
 from core.config import BATCH_USER_LIMIT, MAX_EXPORT_ROWS
 from core.deps import DbSession
 from core.exceptions import AuthError, NotFoundError, ValidationError
+from core.identity import (
+    STUDENT_ROLE_NAME,
+    assert_student_identity_free,
+    find_student_conflict,
+    normalize_student_id,
+)
 from core.pagination import paginate
 from core.security import hash_password, load_role_permissions, require_permission
 from core.tenant import Scope, TenantScope, scope_query, visible_class, writable_school_id
@@ -47,6 +53,8 @@ from modules.admin.class_memberships import upsert_members
 from modules.training.scoring.grade_scope import grade_conditions, grade_expr
 from schemas import (
     BatchCreateResult,
+    BatchPreviewResult,
+    BatchPreviewRow,
     BatchSkipItem,
     BatchUserItem,
     BulkAssignClassRequest,
@@ -159,6 +167,27 @@ class UserFilters:
     class_id: Annotated[int | None, Query()] = None
     cohort_label: Annotated[str | None, Query(description="届/年级标签精确过滤")] = None
     include_inactive: Annotated[bool, Query(description="是否包含已停用账号（默认隐藏）")] = False
+
+
+@dataclass(slots=True)
+class PlannedImport:
+    """批量导入一行的判定结果（预检与提交共用；只有提交阶段才落库）。"""
+
+    index: int
+    username: str
+    display_name: str
+    student_id: str | None
+    password: str = ""
+    role_id: int | None = None
+    action: Literal["create", "link", "skip"] = "skip"
+    reason: str | None = None
+    school_id: int | None = None
+    class_id: int | None = None
+    class_name: str | None = None
+    cohort_label: str = ""
+    class_label: str | None = None
+    will_create_class: bool = False
+    existing: User | None = None
 
 
 class UserService:
@@ -294,10 +323,26 @@ class UserService:
         before_active = user.is_active
         audit_events: list[tuple[str, dict]] = []
         with unit_of_work(self.db):
+            if req.username is not None:
+                # 改名只换登录键：历史（训练/日志/问卷）都挂在 user_id 上，不随用户名走。
+                username = req.username.strip()
+                if not username:
+                    raise ValidationError("用户名不能为空")
+                if username != user.username:
+                    taken = self.db.query(User.id).filter(User.username == username, User.id != user.id).first()
+                    if taken is not None:
+                        raise ValidationError(f"用户名「{username}」已被占用")
+                    audit_events.append(
+                        (
+                            ACTION_USER_UPDATED,
+                            {"username": {"before": user.username, "after": username}},
+                        )
+                    )
+                    user.username = username
             if req.display_name is not None:
                 user.display_name = req.display_name
             if req.student_id is not None:
-                user.student_id = req.student_id or None
+                user.student_id = normalize_student_id(req.student_id)
             if req.role is not None:
                 if current_user.id == user_id:
                     raise ValidationError("不能修改自己的角色")
@@ -352,6 +397,15 @@ class UserService:
                 # 单用户多班级：请求携带 memberships = 全量替换该用户的成员关系集合
                 # （不再有「只改第一条」或 class_id=0 清除哨兵）。
                 self._replace_memberships(user, req.memberships)
+            # 身份不变量：本校同学号只能有一个学生账号（与导入共用一份判定）
+            role_now = self.db.get(Role, user.role_id) if user.role_id else None
+            if role_now is not None and role_now.name == STUDENT_ROLE_NAME and user.student_id:
+                assert_student_identity_free(
+                    self.db,
+                    school_id=user.school_id,
+                    student_id=user.student_id,
+                    exclude_user_id=user.id,
+                )
             # 同事务落审计：没提交的变更不留痕；每次变更按"方面"各一行
             for action, payload in audit_events:
                 record(
@@ -532,12 +586,17 @@ class UserService:
             daily=daily,
         )
 
-    def batch_create(self, users_data: list[dict], *, request: Request | None = None) -> BatchCreateResult:
+    # ---------------------------------------------------------------- 批量导入
+    # 两段式：`_plan_batch` 只读（预检与提交共用同一份判定），`batch_create` 才落库。
+    # 判重键是「院校 + 学号」：学生是跨轮次稳定的人，账号只是登录凭据。名单再发一次时，
+    # 同学号必须并入既有账号、只补班级归属，否则历史会被劈成两半
+    # （2026-10 线上：同一学号两个账号，20 / 14 条已完成训练留在旧号上）。
+
+    def _plan_batch(self, users_data: list[dict]) -> list[PlannedImport]:
         if len(users_data) > BATCH_USER_LIMIT:
             raise ValidationError(f"单次最多导入 {BATCH_USER_LIMIT} 个用户，当前 {len(users_data)} 个")
 
-        created = 0
-        skipped_rows: list[BatchSkipItem] = []
+        planned: list[PlannedImport] = []
         # (school_id, cohort_label, class_name) → class_id：同一个「届别 + 班级名」在不同院校
         # 是两门课，缓存键必须带院校，否则跨院校导入会互相串班
         resolved: dict[tuple[int | None, str, str], int] = {}
@@ -547,6 +606,8 @@ class UserService:
         own_school = self._target_school()
         # 学校名 → id（本批次内缓存）；未知名字即报错，不猜
         requested_schools: dict[str, int | None] = {}
+        # 同一次导入里重复的学号：从第二行起拒绝（并入谁都是猜）
+        seen_student_ids: dict[str, int] = {}
 
         def resolve_school(raw: object) -> tuple[int | None, str | None]:
             name = str(raw or "").strip()
@@ -561,95 +622,231 @@ class UserService:
                 return None, f"学校「{name}」不属于当前院校"
             return found, None
 
-        def skip(index: int, username: str, reason: str) -> None:
-            skipped_rows.append(BatchSkipItem(index=index, username=username or "?", reason=reason))
-
         for i, u in enumerate(users_data, 1):
             username = (u.get("username") or "").strip()
             password = u.get("password") or ""
             display_name = (u.get("display_name") or "").strip()
+            student_id = normalize_student_id(u.get("student_id"))
+            role_name = u.get("role", "")
+
+            row = PlannedImport(
+                index=i,
+                username=username or "?",
+                display_name=display_name,
+                student_id=student_id,
+                password=password,
+            )
+            planned.append(row)
+
+            def fail(reason: str, row: PlannedImport = row) -> None:
+                row.action = "skip"
+                row.reason = reason
 
             if not username or not password or not display_name:
-                skip(i, username, "用户名/密码/姓名不能为空")
+                fail("用户名/密码/姓名不能为空")
                 continue
             if len(password) < 6:
-                skip(i, username, "密码长度不能少于6位")
+                fail("密码长度不能少于6位")
                 continue
-            existing = self.db.query(User).filter(User.username == username).first()
-            if existing:
-                skip(i, username, "用户名已存在")
-                continue
-            role_name = u.get("role", "")
-            if role_name != "student":
-                skip(i, username, "批量导入仅支持学生角色")
+            if role_name != STUDENT_ROLE_NAME:
+                fail(f"批量导入仅支持学生角色（当前: {role_name or '空'}）")
                 continue
             role_obj = self.db.query(Role).filter(Role.name == role_name).first()
             if not role_obj:
-                skip(i, username, f"角色 {role_name} 不存在")
+                fail(f"角色 {role_name} 不存在")
                 continue
+            row.role_id = role_obj.id
 
             # 行内「学校」列：平台角色可以不填班级、直接指定院校；院校管理员填了就必须是本校
             row_school, school_error = resolve_school(u.get("school_name"))
             if school_error:
-                skip(i, username, school_error)
+                fail(school_error)
                 continue
 
-            class_id, class_school, class_error = self._resolve_import_class(
+            class_id, class_school, class_error, will_create = self._resolve_import_class(
                 u,
                 resolved,
                 class_schools,
                 own_school if own_school is not None else row_school,
+                create_classes=False,
             )
             if class_error:
-                skip(i, username, class_error)
+                fail(class_error)
                 continue
-
             # 院校归属：院校管理员 = 本校；平台角色 = 行内学校（与班级冲突则不猜）。
-            # 推导不到就跳过该行，否则会造出「无院校的学生账号」——既不属于任何院校，
-            # 谁管理都说不清（空院校在作用域里等于跨院校）。
+            # 推导不到就跳过该行，否则会造出「无院校的学生账号」。
             if row_school is not None and class_school is not None and row_school != class_school:
-                skip(i, username, "「学校」与班级所属院校不一致")
+                fail("「学校」与班级所属院校不一致")
                 continue
             school_id = own_school if own_school is not None else (row_school or class_school)
             if school_id is None:
-                skip(i, username, "请填写「学校」列，或指定一个已存在的班级（两者至少要有一个）")
+                fail("请填写「学校」列，或指定一个已存在的班级（两者至少要有一个）")
                 continue
 
-            user = User(
-                username=username,
-                password_hash=hash_password(password),
-                display_name=display_name,
-                role_id=role_obj.id,
-                school_id=school_id,
-                student_id=u.get("student_id") or None,
-            )
-            self.db.add(user)
-            self.db.flush()
-            if class_id:
-                self.db.add(ClassMembership(user_id=user.id, class_id=class_id, member_role=MEMBER_ROLE_STUDENT))
-            created += 1
-        # 汇总一行（不做逐行审计：批量导入是单个操作，行级明细在业务表里可查）。
-        # `skip_reasons` 按原因聚合：只有 created/skipped 时无法区分「个别的脏数据」和
-        # 「整批被同一条规则拒掉」，事后也没法从审计里定性（2026-10-28 生产事故即后者）。
-        record(
-            self.db,
-            action=ACTION_USER_BULK_IMPORTED,
-            target_type=TARGET_TYPE_USER,
-            request=request,
-            payload={
-                "created": created,
-                "skipped": len(skipped_rows),
-                "requested": len(users_data),
-                "skip_reasons": {reason: n for reason, n in Counter(r.reason for r in skipped_rows).most_common()},
-            },
+            row.school_id = school_id
+            row.class_id = class_id
+            row.class_name = (u.get("class_name") or "").strip() or None
+            row.cohort_label = (u.get("cohort_label") or "").strip()
+            row.will_create_class = will_create
+            if row.class_name:
+                row.class_label = f"{row.cohort_label} / {row.class_name}" if row.cohort_label else row.class_name
+
+            if student_id:
+                if student_id in seen_student_ids:
+                    fail(f"本批次内学号 {student_id} 重复（第一次在第 {seen_student_ids[student_id]} 行）")
+                    continue
+                seen_student_ids[student_id] = i
+
+            # 身份判定：先按学号认人，再按用户名认人，两者都不命中才新建。
+            conflict = find_student_conflict(self.db, school_id=school_id, student_id=student_id)
+            owner = self.db.query(User).filter(User.username == username).first()
+
+            if conflict is not None:
+                if conflict.display_name.strip() != display_name:
+                    fail(
+                        f"学号 {student_id} 已属于账号「{conflict.username}（{conflict.display_name}）」，"
+                        f"与姓名「{display_name}」不一致"
+                    )
+                    continue
+                if owner is not None and owner.id != conflict.id:
+                    fail(f"用户名「{username}」已被账号「{owner.username}（{owner.display_name}）」占用")
+                    continue
+                row.action = "link"
+                row.existing = conflict
+                continue
+
+            if owner is not None:
+                if owner.role is None or owner.role.name != STUDENT_ROLE_NAME:
+                    fail(f"用户名「{username}」已被非学生账号占用")
+                    continue
+                if owner.display_name.strip() != display_name:
+                    fail(f"用户名「{username}」已存在（{owner.display_name}），与姓名「{display_name}」不一致")
+                    continue
+                if owner.student_id and student_id and owner.student_id != student_id:
+                    fail(f"用户名「{username}」已绑定学号 {owner.student_id}（本行 {student_id}）")
+                    continue
+                if owner.school_id != school_id:
+                    fail(f"用户名「{username}」已存在，但属于其他院校")
+                    continue
+                row.action = "link"
+                row.existing = owner
+                continue
+
+            row.action = "create"
+
+        return planned
+
+    def preview_batch(self, users_data: list[dict]) -> BatchPreviewResult:
+        """预检：只读，不建账号、不建班级、不提交任何写操作。"""
+        plan = self._plan_batch(users_data)
+        return BatchPreviewResult(
+            create=sum(1 for p in plan if p.action == "create"),
+            link=sum(1 for p in plan if p.action == "link"),
+            skip=sum(1 for p in plan if p.action == "skip"),
+            rows=[
+                BatchPreviewRow(
+                    index=p.index,
+                    username=p.username,
+                    display_name=p.display_name,
+                    student_id=p.student_id,
+                    action=p.action,
+                    reason=p.reason,
+                    class_label=p.class_label,
+                    will_create_class=p.will_create_class,
+                    existing_username=p.existing.username if p.existing else None,
+                    existing_display_name=p.existing.display_name if p.existing else None,
+                )
+                for p in plan
+            ],
         )
+
+    def _ensure_import_class(self, row: PlannedImport) -> int | None:
+        """提交阶段才建班：预检不落库，跳过的行也不会留下空班。"""
+        if row.class_id is not None or not row.class_name or row.school_id is None:
+            return row.class_id
+        cls = (
+            self.db.query(Class)
+            .filter(
+                Class.school_id == row.school_id,
+                Class.cohort_label == row.cohort_label,
+                Class.name == row.class_name,
+            )
+            .first()
+        )
+        if cls is None:
+            cls = Class(name=row.class_name, cohort_label=row.cohort_label, school_id=row.school_id)
+            self.db.add(cls)
+            self.db.flush()
+        return cls.id
+
+    def batch_create(self, users_data: list[dict], *, request: Request | None = None) -> BatchCreateResult:
+        plan = self._plan_batch(users_data)
+        created = 0
+        linked = 0
         try:
+            for row in plan:
+                if row.action == "create":
+                    user = User(
+                        username=row.username,
+                        password_hash=hash_password(row.password),
+                        display_name=row.display_name,
+                        role_id=row.role_id,
+                        school_id=row.school_id,
+                        student_id=row.student_id,
+                    )
+                    self.db.add(user)
+                    self.db.flush()
+                    class_id = self._ensure_import_class(row)
+                    if class_id:
+                        self.db.add(
+                            ClassMembership(user_id=user.id, class_id=class_id, member_role=MEMBER_ROLE_STUDENT)
+                        )
+                    created += 1
+                elif row.action == "link" and row.existing is not None:
+                    user = row.existing
+                    # 旧账号漏填学号时补齐身份，之后同号名单都能命中它
+                    if row.student_id and not user.student_id:
+                        user.student_id = row.student_id
+                    class_id = self._ensure_import_class(row)
+                    if class_id:
+                        member = (
+                            self.db.query(ClassMembership.id)
+                            .filter(ClassMembership.user_id == user.id, ClassMembership.class_id == class_id)
+                            .first()
+                        )
+                        if member is None:
+                            self.db.add(
+                                ClassMembership(user_id=user.id, class_id=class_id, member_role=MEMBER_ROLE_STUDENT)
+                            )
+                    linked += 1
+
+            skipped_rows = [
+                BatchSkipItem(index=p.index, username=p.username, reason=p.reason or "")
+                for p in plan
+                if p.action == "skip"
+            ]
+            # 汇总一行（不做逐行审计：批量导入是单个操作，行级明细在业务表里可查）。
+            # `skip_reasons` 按原因聚合：只有 created/skipped 时无法区分「个别的脏数据」和
+            # 「整批被同一条规则拒掉」，事后也没法从审计里定性（2026-10-28 生产事故即后者）。
+            record(
+                self.db,
+                action=ACTION_USER_BULK_IMPORTED,
+                target_type=TARGET_TYPE_USER,
+                request=request,
+                payload={
+                    "created": created,
+                    "linked": linked,
+                    "skipped": len(skipped_rows),
+                    "requested": len(users_data),
+                    "skip_reasons": {reason: n for reason, n in Counter(r.reason for r in skipped_rows).most_common()},
+                },
+            )
             self.db.commit()
         except Exception:
             self.db.rollback()
             log.exception("batch create commit failed")
             raise
-        return BatchCreateResult(created=created, skipped=len(skipped_rows), skipped_rows=skipped_rows)
+        return BatchCreateResult(created=created, linked=linked, skipped=len(skipped_rows), skipped_rows=skipped_rows)
 
     def _resolve_import_class(
         self,
@@ -657,10 +854,15 @@ class UserService:
         resolved: dict[tuple[int | None, str, str], int],
         class_schools: dict[int, int],
         default_school: int | None,
-    ) -> tuple[int | None, int | None, str | None]:
+        *,
+        create_classes: bool = True,
+    ) -> tuple[int | None, int | None, str | None, bool]:
         """导入行的班级解析：``class_id`` > (学校, cohort, 班级名) 精确匹配 > 在该学校下新建。
 
-        返回 ``(class_id, 班级所属院校, 错误)``。``default_school`` 是行内「学校」列
+        返回 ``(class_id, 班级所属院校, 错误, 是否将新建)``。``create_classes=False``（预检）
+        时绝不建班：返回 ``class_id=None, will_create=True``，由提交阶段补建。
+
+        ``default_school`` 是行内「学校」列
         （院校管理员恒为本校）：有它时只在该校范围内匹配/新建；没有它（平台角色又没填学校）
         只能指向已存在的班级 —— 否则班级没有院校可落。
 
@@ -674,21 +876,21 @@ class UserService:
             if raw_id not in class_schools:
                 cls = self.db.get(Class, raw_id)
                 if cls is None:
-                    return None, None, f"班级ID {raw_id} 不存在"
+                    return None, None, f"班级ID {raw_id} 不存在", False
                 visible_class(self.db, self.scope, raw_id)  # 跨院校/跨班 → 404
                 if default_school is not None and cls.school_id != default_school:
-                    return None, None, f"班级ID {raw_id} 不属于当前院校"
+                    return None, None, f"班级ID {raw_id} 不属于当前院校", False
                 class_schools[raw_id] = cls.school_id
-            return raw_id, class_schools[raw_id], None
+            return raw_id, class_schools[raw_id], None, False
 
         name = (row.get("class_name") or "").strip()
         if not name:
-            return None, None, None
+            return None, None, None, False
         cohort_label = (row.get("cohort_label") or "").strip()
         key = (default_school, cohort_label, name)
         if key in resolved:
             class_id = resolved[key]
-            return class_id, class_schools[class_id], None
+            return class_id, class_schools[class_id], None, False
 
         q = self.db.query(Class).filter(Class.name == name)
         if default_school is not None:
@@ -699,22 +901,26 @@ class UserService:
         if len(matches) > 1:
             # 已限定学校时歧义只可能来自届别；没给学校时还可能跨院校
             if default_school is not None:
-                return None, None, f"班级名称「{name}」在多个 cohort 下存在，请补充 cohort_label 或 class_id"
-            return None, None, f"班级名称「{name}」在多个院校/届别下存在，请补充「学校」或「届别」列"
+                return None, None, f"班级名称「{name}」在多个 cohort 下存在，请补充 cohort_label 或 class_id", False
+            return None, None, f"班级名称「{name}」在多个院校/届别下存在，请补充「学校」或「届别」列", False
         if matches:
             resolved[key] = matches[0].id
             class_schools[matches[0].id] = matches[0].school_id
-            return matches[0].id, matches[0].school_id, None
+            return matches[0].id, matches[0].school_id, None, False
 
         if default_school is None:
-            return None, None, f"班级「{name}」不存在：请填写「学校」列，或指向已有班级"
+            return None, None, f"班级「{name}」不存在：请填写「学校」列，或指向已有班级", False
+
+        if not create_classes:
+            # 预检：预告会新建，不落库（否则被跳过的行会留下空班）
+            return None, default_school, None, True
 
         cls = Class(name=name, cohort_label=cohort_label, school_id=default_school)
         self.db.add(cls)
         self.db.flush()
         resolved[key] = cls.id
         class_schools[cls.id] = default_school
-        return cls.id, default_school, None
+        return cls.id, default_school, None, False
 
     def bulk_assign_class(
         self,
@@ -779,6 +985,14 @@ class UserService:
     def create(self, **kwargs) -> User:
         """创建账号：院校归属由 scope 定，调用方给的院校只能是本校/已声明的平台请求。"""
         kwargs["school_id"] = self._target_school(kwargs.get("school_id"))
+        kwargs["student_id"] = normalize_student_id(kwargs.get("student_id"))
+        role_obj = self.db.get(Role, kwargs.get("role_id")) if kwargs.get("role_id") else None
+        if role_obj is not None and role_obj.name == STUDENT_ROLE_NAME:
+            assert_student_identity_free(
+                self.db,
+                school_id=kwargs["school_id"],
+                student_id=kwargs["student_id"],
+            )
         user = User(**kwargs)
         self.db.add(user)
         self.db.flush()
@@ -1037,6 +1251,16 @@ def delete_user(user_id: int, current_user: _Manager, db: DbSession, scope: Scop
         extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
     )
     return {"message": "用户已删除"}
+
+
+@router.post("/users/batch/preview", response_model=BatchPreviewResult)
+def preview_batch_users(users: list[BatchUserItem], current_user: _Manager, db: DbSession, scope: Scope):
+    """导入预检：逐行告知将「新建 / 并入既有账号 / 跳过（原因）」，不写任何数据。
+
+    与提交共用 `_plan_batch`，因此预检说会并入的，提交时一定并入；不会出现
+    「预检看着没问题、提交才发现同学号已存在」的两套判定。
+    """
+    return UserService(db, scope).preview_batch([u.model_dump() for u in users])
 
 
 @router.post("/users/batch", response_model=BatchCreateResult)

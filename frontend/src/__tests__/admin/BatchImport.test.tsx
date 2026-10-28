@@ -1,8 +1,8 @@
-import { fireEvent, render, screen } from "@/__tests__/render";
+import { fireEvent, render, screen, waitFor } from "@/__tests__/render";
 import { describe, expect, it, vi } from "vitest";
 import BatchImport from "@/components/admin/users/BatchImport";
 import type { ClassItem } from "@/types/store";
-import type { BatchCreateResult, BatchUser } from "@/components/admin/users/types";
+import type { BatchCreateResult, BatchPreviewResult, BatchUser } from "@/components/admin/users/types";
 
 const ROLES = [{ name: "student", display_name: "学生" }];
 const CLASSES: ClassItem[] = [
@@ -41,11 +41,31 @@ const CLASSES: ClassItem[] = [
 	},
 ];
 
-const OK: BatchCreateResult = { created: 1, skipped: 0, skipped_rows: [] };
+const OK: BatchCreateResult = { created: 1, linked: 0, skipped: 0, skipped_rows: [] };
+
+/** 默认预检：全部新建（导入用例只关心提交阶段，预检判定另有后端测试覆盖）。 */
+function planAllCreate(users: BatchUser[]): BatchPreviewResult {
+	return {
+		create: users.length,
+		link: 0,
+		skip: 0,
+		rows: users.map((u, i) => ({
+			index: i + 1,
+			username: u.username,
+			display_name: u.display_name,
+			student_id: u.student_id,
+			action: "create",
+			will_create_class: u.class_id == null && !!u.class_name,
+		})),
+	};
+}
 
 function renderImport(
 	classes: ClassItem[] = CLASSES,
 	onImport: (users: BatchUser[]) => Promise<BatchCreateResult> = vi.fn(async () => OK),
+	onPreview: (users: BatchUser[]) => Promise<BatchPreviewResult> = vi.fn(
+		async (users: BatchUser[]) => planAllCreate(users),
+	),
 ) {
 	return render(
 		<BatchImport
@@ -54,8 +74,17 @@ function renderImport(
 			roles={ROLES}
 			classes={classes}
 			onImport={onImport}
+			onPreview={onPreview}
 		/>,
 	);
+}
+
+/** 防呆路径：先预检，等按钮解禁再提交（未预检时导入按钮是禁用的）。 */
+async function submitImport(count: number) {
+	fireEvent.click(screen.getByRole("button", { name: "预检" }));
+	const button = screen.getByRole("button", { name: `导入 ${count} 名学生` });
+	await waitFor(() => expect(button).toBeEnabled());
+	fireEvent.click(button);
 }
 
 function paste(rows: string[]) {
@@ -88,10 +117,10 @@ describe("BatchImport 班级消歧", () => {
 
 		expect(screen.getByText(/预览（1 名学生）/)).toBeInTheDocument();
 		expect(screen.getByText("2024级 护理1班")).toBeInTheDocument();
-		expect(screen.queryByText(/将新建/)).not.toBeInTheDocument();
+		expect(screen.queryByText("2024级 护理1班（将新建）")).not.toBeInTheDocument();
 	});
 
-	it("「学校」列会解析进预览并随导入提交", () => {
+	it("「学校」列会解析进预览并随导入提交", async () => {
 		const onImport = vi.fn(async () => OK);
 		renderImport(CLASSES, onImport);
 
@@ -103,7 +132,7 @@ describe("BatchImport 班级消歧", () => {
 		expect(screen.getByText(/预览（1 名学生）/)).toBeInTheDocument();
 		expect(screen.getByText("杭州师范大学")).toBeInTheDocument();
 
-		fireEvent.click(screen.getByRole("button", { name: /导入 1 名学生/ }));
+		await submitImport(1);
 		expect(onImport).toHaveBeenCalledWith([
 			expect.objectContaining({ school_name: "杭州师范大学", class_id: 1 }),
 		]);
@@ -134,7 +163,7 @@ describe("BatchImport 跨院校同名班级（2026-10-28 生产事故）", () =>
 		// 若按名字跨院校匹配，这里会绑上杭州职业技术大学的 6 号班，整批被后端拒掉。
 		expect(screen.getByText("2024级 护理241（将新建）")).toBeInTheDocument();
 
-		fireEvent.click(screen.getByRole("button", { name: /导入 1 名学生/ }));
+		await submitImport(1);
 		expect(onImport).toHaveBeenCalledWith([
 			expect.objectContaining({ class_id: null, school_name: "杭州师范大学", class_name: "护理241" }),
 		]);
@@ -177,7 +206,7 @@ describe("BatchImport 混合行的解析与提交", () => {
 		expect(screen.getByText(/第3行\(bad2\): 仅支持学生角色/)).toBeInTheDocument();
 		expect(screen.getByText(/第4行\(\?\): 用户名\/密码\/姓名不能为空/)).toBeInTheDocument();
 
-		fireEvent.click(screen.getByRole("button", { name: /导入 3 名学生/ }));
+		await submitImport(3);
 		expect(onImport).toHaveBeenCalledTimes(1);
 		expect(onImport.mock.calls[0][0].map((u) => u.username)).toEqual(["ok4", "ok5", "ok6"]);
 	});
@@ -220,6 +249,7 @@ describe("BatchImport 导入回执", () => {
 	it("部分跳过时逐行给出 CSV 行号与原因，不只报一个成功数", async () => {
 		const onImport = vi.fn(async (): Promise<BatchCreateResult> => ({
 			created: 2,
+			linked: 0,
 			skipped: 1,
 			skipped_rows: [{ index: 3, username: "s3", reason: "用户名已存在" }],
 		}));
@@ -231,10 +261,12 @@ describe("BatchImport 导入回执", () => {
 			"s2,123456,李四,student,S2,杭州师范大学,2024级,护理1班",
 			"s3,123456,王五,student,S3,杭州师范大学,2024级,护理1班",
 		]);
-		fireEvent.click(screen.getByRole("button", { name: /导入 3 名学生/ }));
+		await submitImport(3);
 
 		expect(await screen.findByText(/导入部分完成/)).toBeInTheDocument();
-		expect(screen.getByText(/成功 2 人 · 跳过 1 人 · 提交 3 行/)).toBeInTheDocument();
+		expect(
+			screen.getByText(/新建 2 人 · 并入既有账号 0 人 · 跳过 1 人 · 提交 3 行/),
+		).toBeInTheDocument();
 		// index=3 是提交顺序的第 3 行 → CSV 第 4 行（表头占第 1 行）
 		expect(screen.getByText(/第4行 s3: 用户名已存在/)).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "完成" })).toBeInTheDocument();
@@ -244,10 +276,12 @@ describe("BatchImport 导入回执", () => {
 		renderImport(CLASSES, vi.fn(async () => ({ ...OK, created: 1 })));
 
 		paste(["用户名,密码,姓名,角色,学号,学校,届别,班级名称", "s1,123456,张三,student,S1,杭州师范大学,2024级,护理1班"]);
-		fireEvent.click(screen.getByRole("button", { name: /导入 1 名学生/ }));
+		await submitImport(1);
 
 		expect(await screen.findByText(/导入完成/)).toBeInTheDocument();
-		expect(screen.getByText(/成功 1 人 · 跳过 0 人 · 提交 1 行/)).toBeInTheDocument();
+		expect(
+			screen.getByText(/新建 1 人 · 并入既有账号 0 人 · 跳过 0 人 · 提交 1 行/),
+		).toBeInTheDocument();
 		expect(screen.queryByText(/未入库 \d+ 行/)).not.toBeInTheDocument();
 	});
 
@@ -260,7 +294,7 @@ describe("BatchImport 导入回执", () => {
 		);
 
 		paste(["用户名,密码,姓名,角色,学号,学校,届别,班级名称", "s1,123456,张三,student,S1,杭州师范大学,2024级,护理1班"]);
-		fireEvent.click(screen.getByRole("button", { name: /导入 1 名学生/ }));
+		await submitImport(1);
 
 		expect(await screen.findByText(/单次最多导入 500 个用户/)).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: /导入 1 名学生/ })).toBeEnabled();
