@@ -102,6 +102,8 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 	const [detailMeta, setDetailMeta] = useState<{ status: string; revisionNo: number | null } | null>(null);
 	/** 保存被发布门禁拒绝时的字段级报告。 */
 	const [saveReport, setSaveReport] = useState<CaseValidationReport | null>(null);
+	/** 详情加载失败：编辑器里是默认骨架，任何保存都会覆盖真实病例。 */
+	const [loadFailed, setLoadFailed] = useState(false);
 	const toast = useToast();
 	const { confirm } = useConfirm();
 
@@ -124,6 +126,7 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 				})
 			: Promise.resolve(getDefaultCaseJson());
 		setDetailMeta(null);
+		setLoadFailed(false);
 		load
 			.then((cd) => {
 				dispatch({ type: "LOAD_CASE", json: cd });
@@ -131,7 +134,10 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 				const saved = localStorage.getItem(draft);
 				if (saved && saved !== JSON.stringify(cd)) setShowDraftRestore(true);
 			})
-			.catch(() => toast.error("加载病例数据失败"));
+			.catch(() => {
+				setLoadFailed(true);
+				toast.error("加载病例数据失败：当前内容不是该病例，已禁用保存，请关闭后重试");
+			});
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [open, editingCase, dispatch, toast.error]);
 
@@ -163,6 +169,10 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 
 	const handleSave = async (e: React.FormEvent) => {
 		e.preventDefault();
+		if (loadFailed) {
+			setCaseMsg("病例数据加载失败：当前编辑器是默认骨架，修复前不可保存");
+			return;
+		}
 		setCaseMsg("");
 		setSaveReport(null);
 		const data = state.json;
@@ -757,8 +767,14 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 							<Button
 								type="submit"
 								size="sm"
-								disabled={archived || createMutation.isPending || updateMutation.isPending}
-								title={archived ? "已归档病例内容冻结，不可保存" : undefined}
+								disabled={archived || loadFailed || createMutation.isPending || updateMutation.isPending}
+								title={
+									archived
+										? "已归档病例内容冻结，不可保存"
+										: loadFailed
+											? "病例数据加载失败，当前内容是默认骨架，重试成功前不可保存"
+											: undefined
+								}
 							>
 								{editingCase
 									? updateMutation.isPending

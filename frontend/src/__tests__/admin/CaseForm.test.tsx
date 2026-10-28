@@ -87,7 +87,10 @@ function renderModal(overrides?: { editingCase?: Partial<CaseManageItem> | null 
 afterEach(() => {
 	mocks.generateCase.mockReset();
 	mocks.getCaseDetail.mockReset();
+	mocks.createCase.mockReset();
+	mocks.updateCase.mockReset();
 	mocks.toast.success.mockClear();
+	mocks.toast.error.mockClear();
 	localStorage.clear();
 });
 
@@ -355,6 +358,20 @@ describe("CaseForm 生命周期", () => {
 
 		expect(await screen.findByText(/已归档，内容已冻结/)).toBeTruthy();
 		expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
+	});
+
+	it("详情加载失败：保存禁用且提交不落库（默认骨架不得覆盖真实病例）", async () => {
+		mocks.getCaseDetail.mockRejectedValue(new Error("network"));
+		renderModal({ editingCase: PUBLISHED_CASE });
+
+		await waitFor(() =>
+			expect(mocks.toast.error).toHaveBeenCalledWith(expect.stringContaining("加载病例数据失败")),
+		);
+		expect(screen.getByRole("button", { name: "保存为新版本" })).toBeDisabled();
+
+		// 显式提交（输入框回车）也必须被拦住：编辑器里此刻是默认骨架
+		await userEvent.type(screen.getByPlaceholderText("例：急性阑尾炎"), "{Enter}");
+		expect(mocks.updateCase).not.toHaveBeenCalled();
 	});
 });
 
