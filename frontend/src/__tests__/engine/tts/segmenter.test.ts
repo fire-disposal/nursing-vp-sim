@@ -21,6 +21,60 @@ describe("cleanTTSText", () => {
 	});
 });
 
+describe("parenthetical asides are not synthesized", () => {
+	it("drops a full-width aside inside a sentence", () => {
+		const seg = new SentenceSegmenter();
+		expect(seg.push("好的（叹气），我这就说。")).toEqual(["好的，我这就说。"]);
+	});
+
+	it("drops an aside that starts the sentence", () => {
+		const seg = new SentenceSegmenter();
+		expect(seg.push("（皱眉按着下腹）你们又来了。")).toEqual(["你们又来了。"]);
+	});
+
+	it("keeps the text before the aside and drops only the aside", () => {
+		const seg = new SentenceSegmenter();
+		expect(seg.push("我（沉默")).toEqual([]);
+		expect(seg.push("几秒）有点紧张。")).toEqual(["我有点紧张。"]);
+	});
+
+	it("does not break sentences on punctuation inside an aside", () => {
+		const seg = new SentenceSegmenter();
+		expect(seg.push("（沉默。几秒）说实话吧。")).toEqual(["说实话吧。"]);
+	});
+
+	it("handles half-width parentheses", () => {
+		const seg = new SentenceSegmenter();
+		expect(seg.push("(sigh)我很难受。")).toEqual(["我很难受。"]);
+	});
+
+	it("counts the sentence total without the aside", () => {
+		const seg = new SentenceSegmenter(6);
+		expect(seg.push("你好（叹气）啊。")).toEqual(["你好啊。"]);
+		expect(seg.exhausted).toBe(false);
+	});
+
+	it("treats an over-long unclosed bracket as speech", () => {
+		const seg = new SentenceSegmenter();
+		const out = seg.push(`（${"说".repeat(60)}。`);
+		expect(out.join("")).toContain("说");
+		expect(out.join("")).not.toContain("（");
+	});
+
+	it("drops a truncated trailing aside on flush", () => {
+		const seg = new SentenceSegmenter();
+		expect(seg.push("好的（叹气")).toEqual([]);
+		expect(seg.flush()).toEqual(["好的"]);
+	});
+
+	it("clears aside state on reset", () => {
+		const seg = new SentenceSegmenter();
+		seg.push("我（沉默");
+		seg.reset();
+		expect(seg.push("好的。")).toEqual(["好的。"]);
+	});
+});
+
 describe("SentenceSegmenter", () => {
 	it("extracts complete sentences on punctuation", () => {
 		const seg = new SentenceSegmenter();
