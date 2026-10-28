@@ -30,7 +30,6 @@ const TYPE_LABELS: Record<string, string> = {
 	scoring_failed: "评分失败",
 	feedback_replied: "反馈回复",
 	system: "系统通知",
-	reminder: "催交提醒",
 };
 
 export default function NotificationInboxPage() {
@@ -110,7 +109,7 @@ export default function NotificationInboxPage() {
 		});
 	};
 
-	const TYPES = ["", "assignment_new", "scoring_complete", "feedback_replied", "reminder", "system"];
+	const TYPES = ["", "assignment_new", "scoring_complete", "feedback_replied", "system"];
 
 	return (
 		<Container size="md" py="md">

@@ -14,7 +14,6 @@ class TrainingStatus(StrEnum):
     COMPLETED = "completed"
     DISCARDED = "discarded"
     ABANDONED = "abandoned"
-    FAILED = "failed"
 
 
 class ScoringStatus(StrEnum):

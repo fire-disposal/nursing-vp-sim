@@ -28,13 +28,26 @@ type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
 
 const LIMIT = 50;
 
-/** Narrow status used in both mobile cards and desktop table. */
-type RecordStatus = "completed" | "in_progress" | "abandoned";
-function recordStatus(r: TrainingRecordBrief): RecordStatus {
-	if (r.status === "completed" || r.status === "in_progress" || r.status === "abandoned")
-		return r.status;
-	return "in_progress"; // fallback
+/**
+ * 记录状态 → 展示词/配色/是否可续练（本页唯一词表）。
+ * 后端终态含 discarded（没有学生消息的弃置）；未知值原样显示、按只读处理，
+ * 绝不兜底成「进行中」——那会把用户送进已终结的会话（审计 E2）。
+ */
+const RECORD_STATUS_META: Record<string, { label: string; color: string; resumable: boolean }> = {
+	in_progress: { label: "进行中", color: "brand", resumable: true },
+	completed: { label: "已完成", color: "green", resumable: false },
+	abandoned: { label: "已放弃", color: "gray", resumable: false },
+	discarded: { label: "已作废", color: "gray", resumable: false },
+};
+
+function recordStatusMeta(status: string) {
+	return RECORD_STATUS_META[status] ?? { label: status, color: "gray", resumable: false };
 }
+
+const STATUS_FILTERS = [
+	{ value: "all", label: "全部状态" },
+	...Object.entries(RECORD_STATUS_META).map(([value, meta]) => ({ value, label: meta.label })),
+];
 
 const DIM = { color: "var(--mantine-color-dimmed)" } as const;
 
@@ -151,7 +164,7 @@ export default function History() {
 					<>
 						<Box w={120}>
 							<Select
-								data={[{ value: "all", label: "全部状态" }, { value: "in_progress", label: "进行中" }, { value: "completed", label: "已完成" }, { value: "abandoned", label: "已放弃" }]}
+								data={STATUS_FILTERS}
 								value={status || "all"}
 								onChange={(v) => setParam("status", v === "all" ? "" : v ?? "")}
 								size="sm"
@@ -207,19 +220,19 @@ export default function History() {
 							<Stack gap="xs">
 								{records.map((r) => {
 									const durMins = recordDurationMinutes(r);
-									const status = recordStatus(r);
+									const meta = recordStatusMeta(r.status);
 									return (
 										<Paper key={r.id} p="sm" bg="var(--mantine-color-default-hover)">
 											<UnstyledButton
 												// 进行中的记录点卡片直接回对话：手机上只有这里能一键续练，
 												// 落到只读复盘页会把「继续问诊」藏成二次跳转
 												onClick={() =>
-													status === "in_progress"
+													meta.resumable
 														? goTraining(navigate, r.id, trainingFrom)
 														: navigate(`/record/${r.id}`)
 												}
 												aria-label={
-													status === "in_progress"
+													meta.resumable
 														? `继续训练：${r.case_name}`
 														: `查看记录：${r.case_name}`
 												}
@@ -244,14 +257,14 @@ export default function History() {
 
 															{durMins != null ? ` · ${durMins} 分钟` : ""}
 														</Text>
-														{status === "in_progress" && (
+														{meta.resumable && (
 															<Text size="xs" fw={500} mt={4} style={{ color: "var(--mantine-color-brand-6)" }}>
 																点卡片继续问诊
 															</Text>
 														)}
 													</Box>
 													<Box style={{ flexShrink: 0 }}>
-														{status === "completed" ? (
+														{r.status === "completed" ? (
 															<Stack gap={2} align="flex-end">
 																<Text
 																	size="xs"
@@ -263,21 +276,21 @@ export default function History() {
 																</Text>
 																<ScoreSourceBadge record={r} />
 															</Stack>
-														) : status === "abandoned" ? (
-															<Text size="xs" c="dimmed">
-																已放弃
-															</Text>
-														) : (
+														) : meta.resumable ? (
 															// 进行中卡片要点得动：标记 + 副文案给出手势预期，避免被当成只读行
 															<Badge variant="light" color="brand" leftSection={<IconPlayerPlay size={10} />}>
 																进行中
 															</Badge>
+														) : (
+															<Text size="xs" c="dimmed">
+																{meta.label}
+															</Text>
 														)}
 													</Box>
 												</Group>
 											</UnstyledButton>
 											<Group gap="xs" mt="xs" pt="xs" wrap="nowrap" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
-												{status === "in_progress" && (
+												{meta.resumable && (
 													<>
 														<Button
 															variant="default"
@@ -302,7 +315,7 @@ export default function History() {
 														</Button>
 													</>
 												)}
-												{status === "abandoned" && (
+												{!meta.resumable && r.status !== "completed" && (
 													<Button
 														variant="subtle" color="gray"
 														size="xs"
@@ -360,6 +373,7 @@ export default function History() {
 									<Table.Tbody>
 										{records.map((r) => {
 											const durMins = recordDurationMinutes(r);
+											const meta = recordStatusMeta(r.status);
 											return (
 												<Table.Tr key={r.id} className="data-table-row">
 													<Table.Td style={{ fontWeight: 500 }}>{r.case_name}</Table.Td>
@@ -377,17 +391,13 @@ export default function History() {
 														{new Date(r.start_time).toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE })}
 													</Table.Td>
 													<Table.Td style={{ fontSize: 12, ...DIM }}>
-														{durMins != null ? `${durMins} 分钟` : "进行中"}
+														{durMins != null ? `${durMins} 分钟` : meta.resumable ? "进行中" : "—"}
 													</Table.Td>
 													<Table.Td>
 														<Badge
-															variant="light" color={r.status === "completed" ? "green" :
-																r.status === "abandoned" ? "gray" :
-																"brand"}
+															variant="light" color={meta.color}
 														>
-															{r.status === "completed" ? "已完成" :
-															 r.status === "abandoned" ? "已放弃" :
-															 "进行中"}
+															{meta.label}
 														</Badge>
 													</Table.Td>
 													<Table.Td>
@@ -418,7 +428,7 @@ export default function History() {
 													</Table.Td>
 													<Table.Td>
 														<Group gap="xs" wrap="nowrap">
-															{r.status === "in_progress" && (
+															{meta.resumable && (
 																<>
 																	<Button
 																		variant="subtle"
@@ -436,13 +446,13 @@ export default function History() {
 																	</Button>
 																</>
 															)}
-															{(r.status === "completed" || r.status === "abandoned") && (
+															{!meta.resumable && (
 																<Button
 																	variant="subtle"
 																	size="xs"
 																	onClick={() => navigate(`/record/${r.id}`)}
 																>
-																	{r.status === "abandoned" ? "查看" : "查看详情"}
+																	{r.status === "completed" ? "查看详情" : "查看"}
 																</Button>
 															)}
 															<Button

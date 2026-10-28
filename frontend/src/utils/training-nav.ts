@@ -70,7 +70,7 @@ export function openNotification(
 		navigate("/my-feedback");
 		return;
 	}
-	if (type.startsWith("assignment_") || type === "reminder") {
+	if (type.startsWith("assignment_")) {
 		if (record_id) goTraining(navigate, record_id, from);
 		else navigate("/training?tab=assignments");
 		return;

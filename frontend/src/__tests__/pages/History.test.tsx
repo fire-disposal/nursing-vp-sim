@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@/__tests__/render";
+import { render, screen, waitFor } from "@/__tests__/render";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import History from "@/pages/History";
@@ -64,6 +64,39 @@ beforeEach(() => {
 
 afterEach(() => {
 	vi.clearAllMocks();
+});
+
+describe("训练记录的状态词表", () => {
+	it("discarded/abandoned 不再渲染成「进行中」，只有进行中的记录可续练", async () => {
+		mocks.getRecords.mockResolvedValue({
+			data: {
+				items: [
+					record({ id: 1, case_name: "弃置病例", status: "discarded", score_total: null, scoring_status: null }),
+					record({ id: 2, case_name: "中止病例", status: "abandoned", score_total: null, scoring_status: null }),
+					record({ id: 3, case_name: "续练病例", status: "in_progress", score_total: null, scoring_status: null, end_time: null }),
+				],
+				total: 3,
+			},
+		});
+		renderPage();
+
+		// 唯一的续练入口属于 in_progress：discarded/abandoned 都走只读详情
+		await waitFor(() => expect(screen.getAllByText("继续训练")).toHaveLength(1));
+		expect(screen.getAllByText("点卡片继续问诊")).toHaveLength(1);
+		expect(screen.getAllByText("已作废").length).toBeGreaterThan(0);
+		expect(screen.getAllByText("已放弃").length).toBeGreaterThan(0);
+	});
+
+	it("未知状态原样显示并按只读处理", async () => {
+		mocks.getRecords.mockResolvedValue({
+			data: { items: [record({ id: 9, case_name: "新状态病例", status: "paused", score_total: null })], total: 1 },
+		});
+		renderPage();
+
+		await waitFor(() => expect(screen.getAllByText("paused").length).toBeGreaterThan(0));
+		expect(screen.queryByText("继续训练")).not.toBeInTheDocument();
+		expect(screen.getAllByText("查看").length).toBeGreaterThan(0);
+	});
 });
 
 describe("训练记录的成绩来源", () => {

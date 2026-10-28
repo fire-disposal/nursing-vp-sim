@@ -25,7 +25,7 @@ interface Props {
  * 三档，动作严格分开、不能合并：
  * - 评分未出终态（pending/processing/未触发）→ 黄色横幅 +「刷新状态」（只读 GET）；
  * - 评分失败（failed）→ 说明原因 +「重新评分」（POST retry-scoring）；
- * - **没走正常评分流程**（discarded/abandoned/failed 训练）→ 灰色说明，无按钮：
+ * - **没走正常评分流程**（discarded/abandoned 训练）→ 灰色说明，无按钮：
  *   这类记录没有可重试的评分，给「重新评分」只会制造必然失败的点击。
  *
  * 进度条为不定态：后端没有给出可靠进度时，前端不编造百分比。
@@ -38,10 +38,6 @@ const UNSCORED_NOTICE: Record<string, { title: string; description: string }> = 
 	abandoned: {
 		title: "本次训练未完成",
 		description: "会话长时间没有继续，已自动放弃，未生成评分。需要成绩请重新开始一次训练。",
-	},
-	failed: {
-		title: "本次训练未正常完成",
-		description: "未生成评分。如需确认原因，请联系教师查看这条记录。",
 	},
 };
 
