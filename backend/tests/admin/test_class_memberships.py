@@ -282,7 +282,7 @@ class TestImportClassResolution:
 
         assert result.created == 0
         assert result.skipped == 1
-        assert "多个 cohort" in result.errors[0]
+        assert "多个 cohort" in result.skipped_rows[0].reason
         assert db.query(ClassMembership).count() == 0
 
     def test_cohort_label_disambiguates(self, db):

@@ -82,19 +82,10 @@ export function useBatchCreateUsersMutation() {
 	return useMutation({
 		mutationFn: (users: Schemas["BatchUserItem"][]) =>
 			batchCreateUsers(users).then((r) => r.data),
-		onSuccess: (data) => {
+		// 回执（成功 / 跳过 / 逐行原因）由导入弹窗留在页面上核对；这里只负责刷新列表。
+		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.admin.users.all });
 			queryClient.invalidateQueries({ queryKey: queryKeys.classes.all });
-			if (data.created > 0) {
-				toast.success(`成功创建 ${data.created} 名用户`);
-			}
-			if (data.skipped > 0) {
-				const details = (data.errors || []).slice(0, 3).join("；");
-				toast.warning(`跳过 ${data.skipped} 名用户${details ? `：${details}` : ""}`);
-			}
-		},
-		onError: (err: unknown) => {
-			toast.apiError(err, "批量导入失败");
 		},
 	});
 }

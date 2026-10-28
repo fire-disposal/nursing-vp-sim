@@ -3252,8 +3252,23 @@ export interface components {
             created: number;
             /** Skipped */
             skipped: number;
-            /** Errors */
-            errors: string[];
+            /** Skipped Rows */
+            skipped_rows: components["schemas"]["BatchSkipItem"][];
+        };
+        /**
+         * BatchSkipItem
+         * @description 被跳过的导入行：行序 + 账号 + 原因。
+         *
+         *     ``index`` 是**提交批次内**的 1-based 行序（后端只见到前端过滤后的数组），
+         *     调用方负责映射回它自己的行号 —— 前端会映射回 CSV 行号。
+         */
+        BatchSkipItem: {
+            /** Index */
+            index: number;
+            /** Username */
+            username: string;
+            /** Reason */
+            reason: string;
         };
         /** BatchUserItem */
         BatchUserItem: {

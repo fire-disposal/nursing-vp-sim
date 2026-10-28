@@ -386,9 +386,8 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 		});
 	};
 
-	const handleBatchImport = (usersToImport: BatchUser[]) => {
-		batchImportMutation.mutate(usersToImport);
-	};
+	const handleBatchImport = (usersToImport: BatchUser[]) =>
+		batchImportMutation.mutateAsync(usersToImport);
 
 	const handleResetPassword = async (password: string) => {
 		if (!editingUser) return;
@@ -580,7 +579,6 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				onClose={() => setShowBatchImport(false)}
 				roles={roles}
 				classes={classes}
-				isImporting={batchImportMutation.isPending}
 				onImport={handleBatchImport}
 			/>
 

@@ -12757,39 +12757,60 @@
             "type": "integer",
             "title": "Skipped"
           },
-          "errors": {
+          "skipped_rows": {
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/BatchSkipItem"
             },
             "type": "array",
-            "title": "Errors"
+            "title": "Skipped Rows"
           }
         },
         "type": "object",
         "required": [
           "created",
           "skipped",
-          "errors"
+          "skipped_rows"
         ],
         "title": "BatchCreateResult"
+      },
+      "BatchSkipItem": {
+        "properties": {
+          "index": {
+            "type": "integer",
+            "title": "Index"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "index",
+          "username",
+          "reason"
+        ],
+        "title": "BatchSkipItem",
+        "description": "被跳过的导入行：行序 + 账号 + 原因。\n\n``index`` 是**提交批次内**的 1-based 行序（后端只见到前端过滤后的数组），\n调用方负责映射回它自己的行号 —— 前端会映射回 CSV 行号。"
       },
       "BatchUserItem": {
         "properties": {
           "username": {
             "type": "string",
             "maxLength": 50,
-            "minLength": 1,
             "title": "Username"
           },
           "password": {
             "type": "string",
-            "minLength": 6,
             "title": "Password"
           },
           "display_name": {
             "type": "string",
             "maxLength": 50,
-            "minLength": 1,
             "title": "Display Name"
           },
           "role": {

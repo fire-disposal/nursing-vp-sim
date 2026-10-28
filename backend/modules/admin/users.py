@@ -1,6 +1,7 @@
 """Admin user management — router + service."""
 
 import logging
+from collections import Counter
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
@@ -44,6 +45,7 @@ from modules.admin.class_memberships import upsert_members
 from modules.training.scoring.grade_scope import grade_conditions, grade_expr
 from schemas import (
     BatchCreateResult,
+    BatchSkipItem,
     BatchUserItem,
     BulkAssignClassRequest,
     BulkAssignClassResult,
@@ -533,8 +535,7 @@ class UserService:
             raise ValidationError(f"单次最多导入 {BATCH_USER_LIMIT} 个用户，当前 {len(users_data)} 个")
 
         created = 0
-        skipped = 0
-        errors: list[str] = []
+        skipped_rows: list[BatchSkipItem] = []
         # (school_id, cohort_label, class_name) → class_id：同一个「届别 + 班级名」在不同院校
         # 是两门课，缓存键必须带院校，否则跨院校导入会互相串班
         resolved: dict[tuple[int | None, str, str], int] = {}
@@ -558,40 +559,37 @@ class UserService:
                 return None, f"学校「{name}」不属于当前院校"
             return found, None
 
+        def skip(index: int, username: str, reason: str) -> None:
+            skipped_rows.append(BatchSkipItem(index=index, username=username or "?", reason=reason))
+
         for i, u in enumerate(users_data, 1):
             username = (u.get("username") or "").strip()
             password = u.get("password") or ""
             display_name = (u.get("display_name") or "").strip()
 
             if not username or not password or not display_name:
-                errors.append(f"第{i}行跳过: 用户名/密码/姓名不能为空")
-                skipped += 1
+                skip(i, username, "用户名/密码/姓名不能为空")
                 continue
             if len(password) < 6:
-                errors.append(f"第{i}行跳过 {username}: 密码长度不能少于6位")
-                skipped += 1
+                skip(i, username, "密码长度不能少于6位")
                 continue
             existing = self.db.query(User).filter(User.username == username).first()
             if existing:
-                errors.append(f"第{i}行跳过 {username}: 用户名已存在")
-                skipped += 1
+                skip(i, username, "用户名已存在")
                 continue
             role_name = u.get("role", "")
             if role_name != "student":
-                errors.append(f"第{i}行跳过 {username}: 批量导入仅支持学生角色")
-                skipped += 1
+                skip(i, username, "批量导入仅支持学生角色")
                 continue
             role_obj = self.db.query(Role).filter(Role.name == role_name).first()
             if not role_obj:
-                errors.append(f"第{i}行跳过 {username}: 角色 {role_name} 不存在")
-                skipped += 1
+                skip(i, username, f"角色 {role_name} 不存在")
                 continue
 
             # 行内「学校」列：平台角色可以不填班级、直接指定院校；院校管理员填了就必须是本校
             row_school, school_error = resolve_school(u.get("school_name"))
             if school_error:
-                errors.append(f"第{i}行跳过 {username}: {school_error}")
-                skipped += 1
+                skip(i, username, school_error)
                 continue
 
             class_id, class_school, class_error = self._resolve_import_class(
@@ -601,21 +599,18 @@ class UserService:
                 own_school if own_school is not None else row_school,
             )
             if class_error:
-                errors.append(f"第{i}行跳过 {username}: {class_error}")
-                skipped += 1
+                skip(i, username, class_error)
                 continue
 
             # 院校归属：院校管理员 = 本校；平台角色 = 行内学校（与班级冲突则不猜）。
             # 推导不到就跳过该行，否则会造出「无院校的学生账号」——既不属于任何院校，
             # 谁管理都说不清（空院校在作用域里等于跨院校）。
             if row_school is not None and class_school is not None and row_school != class_school:
-                errors.append(f"第{i}行跳过 {username}: 「学校」与班级所属院校不一致")
-                skipped += 1
+                skip(i, username, "「学校」与班级所属院校不一致")
                 continue
             school_id = own_school if own_school is not None else (row_school or class_school)
             if school_id is None:
-                errors.append(f"第{i}行跳过 {username}: 请填写「学校」列，或指定一个已存在的班级（两者至少要有一个）")
-                skipped += 1
+                skip(i, username, "请填写「学校」列，或指定一个已存在的班级（两者至少要有一个）")
                 continue
 
             user = User(
@@ -631,13 +626,20 @@ class UserService:
             if class_id:
                 self.db.add(ClassMembership(user_id=user.id, class_id=class_id, member_role=MEMBER_ROLE_STUDENT))
             created += 1
-        # 汇总一行（不做逐行审计：批量导入是单个操作，行级明细在业务表里可查）
+        # 汇总一行（不做逐行审计：批量导入是单个操作，行级明细在业务表里可查）。
+        # `skip_reasons` 按原因聚合：只有 created/skipped 时无法区分「个别的脏数据」和
+        # 「整批被同一条规则拒掉」，事后也没法从审计里定性（2026-10-28 生产事故即后者）。
         record(
             self.db,
             action=ACTION_USER_BULK_IMPORTED,
             target_type=TARGET_TYPE_USER,
             request=request,
-            payload={"created": created, "skipped": skipped, "requested": len(users_data)},
+            payload={
+                "created": created,
+                "skipped": len(skipped_rows),
+                "requested": len(users_data),
+                "skip_reasons": {reason: n for reason, n in Counter(r.reason for r in skipped_rows).most_common()},
+            },
         )
         try:
             self.db.commit()
@@ -645,7 +647,7 @@ class UserService:
             self.db.rollback()
             log.exception("batch create commit failed")
             raise
-        return BatchCreateResult(created=created, skipped=skipped, errors=errors)
+        return BatchCreateResult(created=created, skipped=len(skipped_rows), skipped_rows=skipped_rows)
 
     def _resolve_import_class(
         self,
@@ -660,8 +662,10 @@ class UserService:
         （院校管理员恒为本校）：有它时只在该校范围内匹配/新建；没有它（平台角色又没填学校）
         只能指向已存在的班级 —— 否则班级没有院校可落。
 
-        班级名在同校同届内重复、跨届/跨院校有多条同名而请求未消歧、或同名班级属于别的院校时
-        一律报错，绝不静默挑一个。
+        班级名在同校同届内重复、或（未限定学校时）跨院校/届别有多条同名而请求未消歧，
+        一律报错，绝不静默挑一个。班级名是**院校内**的概念：同名的班在另一所院校存在，
+        不影响在指定院校里新建同名班（2026-10-28 生产事故：护理241 只存在于别的院校，
+        导致本校 16 行被整批丢弃）。
         """
         raw_id = row.get("class_id")
         if raw_id:
@@ -699,17 +703,6 @@ class UserService:
             resolved[key] = matches[0].id
             class_schools[matches[0].id] = matches[0].school_id
             return matches[0].id, matches[0].school_id, None
-
-        # 同名班级属于别的院校：明确报错，不在这所学校里悄悄建一个同名班
-        if default_school is not None:
-            foreign = (
-                self.db.query(School.name)
-                .join(Class, Class.school_id == School.id)
-                .filter(Class.name == name, Class.school_id != default_school)
-                .first()
-            )
-            if foreign is not None:
-                return None, None, f"班级「{name}」属于其他院校（{foreign[0]}），请核对「学校」列"
 
         if default_school is None:
             return None, None, f"班级「{name}」不存在：请填写「学校」列，或指向已有班级"

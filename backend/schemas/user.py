@@ -128,9 +128,12 @@ class StudentDetail(BaseModel):
 
 class BatchUserItem(BaseModel):
     model_config = _REQ_CFG
-    username: str = Field(min_length=1, max_length=50)
-    password: str = Field(min_length=6)
-    display_name: str = Field(min_length=1, max_length=50)
+    #: 空值/弱密码不在这里拦：批量接口的处理单位是「行」，请求级校验会把一行的脏数据
+    #: 变成整批 422（45 行因为 1 个空字段全没导）。逐行判定在 `batch_create`，落进
+    #: `skipped_rows` 就能带行号回执；这里只留 type/DB 宽度这类结构约束。
+    username: str = Field(max_length=50)
+    password: str
+    display_name: str = Field(max_length=50)
     role: str = Field(default="student", min_length=1, max_length=20)
     student_id: str | None = None
     class_id: int | None = None
@@ -149,7 +152,19 @@ class RegisterResponse(BaseModel):
     student_id: str | None = None
 
 
+class BatchSkipItem(BaseModel):
+    """被跳过的导入行：行序 + 账号 + 原因。
+
+    ``index`` 是**提交批次内**的 1-based 行序（后端只见到前端过滤后的数组），
+    调用方负责映射回它自己的行号 —— 前端会映射回 CSV 行号。
+    """
+
+    index: int
+    username: str
+    reason: str
+
+
 class BatchCreateResult(BaseModel):
     created: int
     skipped: int
-    errors: list[str]
+    skipped_rows: list[BatchSkipItem]
