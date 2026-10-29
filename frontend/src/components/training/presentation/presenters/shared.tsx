@@ -1,5 +1,32 @@
 import type { CSSProperties } from "react";
-import type { PresentationContext } from "../types";
+import { getBasePatientAvatar, getRealisticPatientAvatar } from "@/utils/avatar";
+import type { AvatarArt, EmotionSnapshot, PatientIdentity, PresentationContext } from "../types";
+
+/** 选图结果的唯一表示：谁（src）、叫什么（alt）、什么画风（决定动效锚点）。 */
+export interface ResolvedPortrait {
+	src: string;
+	alt: string;
+	art: AvatarArt;
+}
+
+/**
+ * 选图规则**唯一实现**（realistic / live 共用，static 用同一个末级兜底）：
+ *   1. 当前情绪有专属立绘（`patient_info.portrait_states`）→ 用这一张；
+ *   2. 否则按患者姓名取论文专属写实 PNG；
+ *   3. 都没有 → 按年龄/性别取简洁画风（恒适用）。
+ * 情绪立绘是病例作者按写实风格提供的，归入 photo 画风。
+ */
+export function resolvePatientPortrait(
+	patient: PatientIdentity | null,
+	emotion: EmotionSnapshot,
+): ResolvedPortrait {
+	const alt = patient?.name ?? "患者";
+	const emotionSrc = patient?.portraitStates?.[emotion.emotion];
+	if (emotionSrc) return { src: emotionSrc, alt, art: "photo" };
+	const realistic = getRealisticPatientAvatar(patient?.name);
+	if (realistic) return { src: realistic, alt, art: "photo" };
+	return { src: getBasePatientAvatar(patient), alt, art: "flat" };
+}
 
 /** 头像/立绘共享的圆角 + 描边 + 底色。 */
 export function avatarShapeStyle(ctx: PresentationContext): CSSProperties {

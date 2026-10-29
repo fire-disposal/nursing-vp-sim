@@ -16,6 +16,8 @@ import type { PortraitStates } from "@/utils/avatar";
  * 已落地策略：
  *   - realistic    写实画风专属病例头像路由器（按患者姓名/情绪立绘）— 未命中让位
  *   - static       简洁画风 PNG 路由器（按年龄/性别）— 恒适用，链兜底
+ *   - live         单张立绘的 2D 动效（呼吸/说话点头）— 恒适用；M1 只在 `/presentation-lab`
+ *                  陈列，**尚未进生产链**（接线与包络来源见 docs/ops/voice-avatar-next.md）
  */
 
 /** 四维情绪数值 0-1（信任/焦虑/烦躁/合作）。 */
@@ -54,12 +56,41 @@ export interface PresentationContext {
 	/** 铺满容器宽（w-full + 正方形）而非固定 size；用于大脸自适应侧边组件宽度。 */
 	fill?: boolean;
 	className?: string;
+	/**
+	 * 运行时的「患者在说话」——来自训练总线 `tts:start`/`tts:end` 或陈列台播放器。
+	 * 缺省 false：动效退化为只有呼吸，没有点头。**不进 build**（build 仍是纯函数）。
+	 */
+	speaking?: boolean;
+	/** 音频包络 0..1（约 30Hz，见 `hooks/useAudioEnvelope`）。缺省 0：live 的点头收到基线。 */
+	envelope?: number;
+	/** 减弱动态：true → 所有策略渲染静态图。缺省由 PatientPresenter 读系统偏好。 */
+	reducedMotion?: boolean;
 }
 
 /** 表现负载 — 各策略产出的可渲染数据（判别联合，消费端可获得类型收窄）。 */
 export type PatientPresentation =
 	| { kind: "static"; src: string; alt: string }
-	| { kind: "realistic"; src: string; alt: string };
+	| { kind: "realistic"; src: string; alt: string }
+	| LiveAvatarPayload;
+
+/**
+ * 画风族：选图规则的判定结果。`photo` = 写实照片（按姓名或情绪立绘），`flat` = 简洁扁平原图。
+ * 目前只用于区分"能否进写实策略"；口部动效搁置后，live 不再按画风分锚点。
+ */
+export type AvatarArt = "photo" | "flat";
+
+/** live 负载 — 像素之外的表现参数（不含运行时状态；说话态/包络在 PresentationContext 里）。 */
+export interface LiveAvatarPayload {
+	kind: "live";
+	src: string;
+	alt: string;
+	/** 情绪配色（CSS 颜色值），用于底光与描边；来自 `getEmotionBorder` 的单一映射。 */
+	accent: string;
+	/** 静息呼吸周期（秒），按情绪调制：焦虑更促、回避更缓。 */
+	breathSeconds: number;
+	/** 说话点头幅度 0..1：防御/回避收敛，焦虑更明显。 */
+	nodScale: number;
+}
 
 export type PresentationKind = PatientPresentation["kind"];
 

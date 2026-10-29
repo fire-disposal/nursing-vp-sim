@@ -268,3 +268,27 @@ h1, h2, h3 {
 	transform-origin: bottom;
 	animation: patient-breath 3s ease-in-out infinite;
 }
+
+/* 立绘动效（M1 · /presentation-lab 陈列台验证）：全部是单张图的 2D 变换，不改素材。
+   呼吸 = 整图亚像素起伏；点头 = 说话时的轻微前后位移 + 旋转，幅度由 --nod-scale 按情绪调制。
+   包络驱动的口部开合走内联 mask/transform（见 presenters/liveAvatar.tsx），不在这里。
+   减弱动态由上方 @media (prefers-reduced-motion: reduce) 统一收口。 */
+@keyframes patient-live-breath {
+	0%, 100% { transform: translate3d(0, 0.4px, 0) scale(1); }
+	50% { transform: translate3d(0, -0.6px, 0) scale(1.004); }
+}
+.patient-live-breath {
+	transform-origin: 50% 88%;
+	animation: patient-live-breath 3.2s ease-in-out infinite;
+	will-change: transform;
+}
+@keyframes patient-live-nod {
+	0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+	30% { transform: translate3d(0, calc(var(--nod-scale, 0.7) * 4px), 0) rotate(calc(var(--nod-scale, 0.7) * -1deg)); }
+	65% { transform: translate3d(0, calc(var(--nod-scale, 0.7) * 1.2px), 0) rotate(calc(var(--nod-scale, 0.7) * 0.3deg)); }
+}
+.patient-live-nod {
+	transform-origin: 50% 100%;
+	animation: patient-live-nod 2.6s ease-in-out infinite;
+	will-change: transform;
+}

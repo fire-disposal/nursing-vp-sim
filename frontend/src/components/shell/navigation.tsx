@@ -74,6 +74,8 @@ const ScenarioConsole = lazy(() => import("@/scenario/ScenarioConsole"));
 // 情境训练 · 管理侧：入口 /scenario-admin（导航条目要 case_manage；权限在页面内按块判：
 // 内容 case_manage / 数据 stats_view）
 const ScenarioAdminPage = lazy(() => import("@/scenario/admin/ScenarioAdminPage"));
+// 表现层试验台（M1）：给教研侧看立绘动效，不进导航、不接训练会话；登录用户可直达 /presentation-lab
+const PresentationLab = lazy(() => import("@/pages/PresentationLab"));
 
 /**
  * 当前的「活动」——决定**外壳形态**（`AdaptiveShell` 按它选壳）。
@@ -203,6 +205,8 @@ export const APP_ROUTES: AppRoute[] = [
 	// Sub-pages under 我的 — not primary nav items.
 	{ path: "/my-feedback", element: <MyFeedbackPage />, activity: "manage" },
 	{ path: "/notifications", element: <NotificationInboxPage />, activity: "manage" },
+	// 表现层试验台（M1）：只陈列立绘与动效，不写业务数据、不进导航。任何登录用户可直达。
+	{ path: "/presentation-lab", element: <PresentationLab />, activity: "manage" },
 	// QA — AI 护理导师，学生端独立 Tab。
 	{ path: "/qa", element: <QA />, permission: "qa_access", activity: "manage", nav: { label: "问答", icon: IconRobot, section: "user", mobile: { order: 40, tier: "student" } } },
 	{

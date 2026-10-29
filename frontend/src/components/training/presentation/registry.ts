@@ -1,4 +1,5 @@
 import type { PatientPresenter, PresentationKind } from "./types";
+import { liveAvatarPresenter } from "./presenters/liveAvatar";
 import { realisticAvatarPresenter } from "./presenters/realisticAvatar";
 import { staticAvatarPresenter } from "./presenters/staticAvatar";
 
@@ -9,4 +10,5 @@ import { staticAvatarPresenter } from "./presenters/staticAvatar";
 export const PRESENTERS: Record<PresentationKind, PatientPresenter> = {
 	static: staticAvatarPresenter,
 	realistic: realisticAvatarPresenter,
+	live: liveAvatarPresenter,
 };
