@@ -24,7 +24,7 @@ import type {
  * mii — 全程序化绘制的患者形象（M3 实验）。不加载任何图片：身份 → 配色与比例，
  * 情绪 → 表情参数，时间 + 音频包络 → 眨眼/呼吸/口型。绘制见 `engine/mii.ts`。
  *
- * 仍未进生产链（`PRESENTATION_CHAIN` 还是 realistic → static），只在 `/presentation-lab` 陈列。
+ * 仍未进生产链（`PRESENTATION_CHAIN` 还是 realistic → static），只在 `/lab` 陈列。
  */
 
 /** 只依赖身份，保证刷新与重渲染后仍是同一个动作相位。 */

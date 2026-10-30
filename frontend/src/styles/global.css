@@ -269,7 +269,7 @@ h1, h2, h3 {
 	animation: patient-breath 3s ease-in-out infinite;
 }
 
-/* 立绘动效（M1 · /presentation-lab 陈列台验证）：全部是单张图的 2D 变换，不改素材。
+/* 立绘动效（M1 · /lab 陈列台验证）：全部是单张图的 2D 变换，不改素材。
    呼吸 = 整图亚像素起伏；点头 = 说话时的轻微前后位移 + 旋转，幅度由 --nod-scale 按情绪调制。
    包络驱动的口部开合走内联 mask/transform（见 presenters/liveAvatar.tsx），不在这里。
    减弱动态由上方 @media (prefers-reduced-motion: reduce) 统一收口。 */

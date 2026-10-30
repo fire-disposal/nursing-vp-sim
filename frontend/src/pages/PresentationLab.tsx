@@ -123,7 +123,7 @@ export default function PresentationLab() {
 		el.src = src;
 		el.currentTime = 0;
 		setTrack(key);
-		void el.play().catch((err) => console.warn("[presentation-lab] 播放失败", err));
+		void el.play().catch((err) => console.warn("[lab] 播放失败", err));
 	};
 
 	const stopTrack = () => {

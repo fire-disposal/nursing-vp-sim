@@ -37,6 +37,8 @@ const queryClient = new QueryClient({
 const Login = lazy(() => import("@/pages/Login"));
 const Showcase = lazy(() => import("@/showcase/ShowcasePage"));
 const DashboardHome = lazy(() => import("@/pages/DashboardHome"));
+// 表现层试验台：纯前端陈列（不读会话、不调后端），公开可直达，故挂在 ProtectedRoute 之外。
+const PresentationLab = lazy(() => import("@/pages/PresentationLab"));
 
 function ForceLogoutListener() {
 	const navigate = useNavigate();
@@ -86,6 +88,7 @@ export default function App() {
 								<Routes>
 									<Route path="/login" element={<Login />} />
 									<Route path="/share" element={<Showcase />} />
+									<Route path="/lab" element={<PresentationLab />} />
 									<Route element={<ProtectedRoute />}>
 										<Route element={<Layout />}>
 											{/* 首页落点由角色决定（DashboardHome：管理员→/admin、学生→/training）。

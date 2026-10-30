@@ -19,7 +19,7 @@ import type { MotionProfile } from "./engine/motion";
  *   - realistic    写实画风专属病例头像路由器（按患者姓名/情绪立绘）— 未命中让位
  *   - static       简洁画风 PNG 路由器（按年龄/性别）— 恒适用，链兜底
  *   - mii          全程序化绘制（M3）：不加载任何图片，靠图形画人并做眨眼/呼吸/口型
- *                  只在 `/presentation-lab` 陈列，尚未进生产链（见 docs/ops/voice-avatar-next.md）
+ *                  只在 `/lab` 陈列，尚未进生产链（见 docs/ops/voice-avatar-next.md）
  */
 
 /** 四维情绪数值 0-1（信任/焦虑/烦躁/合作）。 */
