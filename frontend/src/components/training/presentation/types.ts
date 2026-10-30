@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { Emotion4DLabel, EmotionState } from "@/stores/trainingStore";
 import type { PortraitStates } from "@/utils/avatar";
+import type { MotionProfile } from "./engine/motion";
 
 /**
  * 患者表现层 — 情绪数据 → 表现的分离抽象（技术栈分叉点）。
@@ -16,8 +17,9 @@ import type { PortraitStates } from "@/utils/avatar";
  * 已落地策略：
  *   - realistic    写实画风专属病例头像路由器（按患者姓名/情绪立绘）— 未命中让位
  *   - static       简洁画风 PNG 路由器（按年龄/性别）— 恒适用，链兜底
- *   - live         单张立绘的 2D 动效（呼吸/说话点头）— 恒适用；M1 只在 `/presentation-lab`
- *                  陈列，**尚未进生产链**（接线与包络来源见 docs/ops/voice-avatar-next.md）
+ *   - live         整图平移/旋转的轻动效（M1 基线）— 只在 `/presentation-lab` 陈列
+ *   - rig          自绘引擎：分层 + 位移场 + 眼皮/口型重绘（M2）— 同上，尚未进生产链
+ *                  两者都不在 `PRESENTATION_CHAIN` 里，见 docs/ops/voice-avatar-next.md
  */
 
 /** 四维情绪数值 0-1（信任/焦虑/烦躁/合作）。 */
@@ -71,7 +73,8 @@ export interface PresentationContext {
 export type PatientPresentation =
 	| { kind: "static"; src: string; alt: string }
 	| { kind: "realistic"; src: string; alt: string }
-	| LiveAvatarPayload;
+	| LiveAvatarPayload
+	| RigAvatarPayload;
 
 /**
  * 画风族：选图规则的判定结果。`photo` = 写实照片（按姓名或情绪立绘），`flat` = 简洁扁平原图。
@@ -90,6 +93,17 @@ export interface LiveAvatarPayload {
 	breathSeconds: number;
 	/** 说话点头幅度 0..1：防御/回避收敛，焦虑更明显。 */
 	nodScale: number;
+}
+
+/**
+ * rig 负载 — 自绘引擎（M2）。`profile` 是这一帧的动效参数（纯数据），render 只做插值，
+ * 与 `build` 的纯函数约束一致；几何（五官位置）不在负载里，按 src 查 `engine/rig.ts`。
+ */
+export interface RigAvatarPayload {
+	kind: "rig";
+	src: string;
+	alt: string;
+	profile: MotionProfile;
 }
 
 export type PresentationKind = PatientPresentation["kind"];

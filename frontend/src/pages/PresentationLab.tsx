@@ -15,6 +15,7 @@ import { IconMovie } from "@tabler/icons-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import PatientPresenter from "@/components/training/presentation/PatientPresenter";
 import { buildLiveAvatarPayload } from "@/components/training/presentation/presenters/liveAvatar";
+import { buildRigAvatarPayload } from "@/components/training/presentation/presenters/rigAvatar";
 import type { PatientIdentity } from "@/components/training/presentation/types";
 import PageHeader from "@/components/ui/page-header";
 import { useAudioEnvelope } from "@/hooks/useAudioEnvelope";
@@ -128,6 +129,13 @@ export default function PresentationLab() {
 	/** 12 张立绘同一份负载：静态面板与动效面板渲染的是同一条数据，差异只来自运行时的 ctx。 */
 	const payload = useMemo(() => {
 		const built = buildLiveAvatarPayload(preset.patient, snapshot);
+		if (!preset.directSrc) return built;
+		return { ...built, src: preset.directSrc, alt: preset.directAlt ?? built.alt };
+	}, [preset, snapshot]);
+
+	/** 自绘引擎的负载：几何按 src 查 rig，动效参数按情绪烘焙进来（同上，只有 ctx 是运行时）。 */
+	const rigPayload = useMemo(() => {
+		const built = buildRigAvatarPayload(preset.patient, snapshot);
 		if (!preset.directSrc) return built;
 		return { ...built, src: preset.directSrc, alt: preset.directAlt ?? built.alt };
 	}, [preset, snapshot]);
@@ -255,16 +263,28 @@ export default function PresentationLab() {
 					</Stack>
 				</Paper>
 
-				<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+				<SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
 					<Panel title="静态" hint="与动效面板同一张图，reducedMotion=true">
 						<PatientPresenter presentation={payload} fill reducedMotion />
 					</Panel>
 					<Panel
-						title="动效"
+						title="M1 整图动效"
 						hint={reducedMotion ? "减少动效已开 → 退化为静态" : speaking ? "呼吸 + 点头（幅度随包络）" : "仅呼吸"}
 					>
 						<PatientPresenter
 							presentation={payload}
+							fill
+							speaking={speaking}
+							envelope={envelope}
+							reducedMotion={reducedMotion}
+						/>
+					</Panel>
+					<Panel
+						title="M2 自绘引擎"
+						hint={reducedMotion ? "减少动效已开 → 退化为静态" : speaking ? "带状弯曲 + 眨眼 + 口型重绘" : "呼吸 + 眨眼"}
+					>
+						<PatientPresenter
+							presentation={rigPayload}
 							fill
 							speaking={speaking}
 							envelope={envelope}
