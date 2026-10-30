@@ -2,199 +2,157 @@ import { describe, expect, it } from "vitest";
 import { cleanup, render } from "@/__tests__/render";
 import PatientPresenter from "@/components/training/presentation/PatientPresenter";
 import { PRESENTATION_CHAIN } from "@/components/training/presentation/build";
-import { fieldAt } from "@/components/training/presentation/engine/draw";
-import {
-	approach,
-	blinkAt,
-	breathAt,
-	mouthTarget,
-	profileFor,
-	swayAt,
-} from "@/components/training/presentation/engine/motion";
-import { rigFor } from "@/components/training/presentation/engine/rig";
+import { ageGroupOf, characterSpec, expressionFor } from "@/components/training/presentation/engine/character";
+import { mouthShapeAt } from "@/components/training/presentation/engine/motion";
 import { PRESENTERS } from "@/components/training/presentation/registry";
-import type { EmotionSnapshot, RigAvatarPayload } from "@/components/training/presentation/types";
+import type { EmotionSnapshot, MiiAvatarPayload } from "@/components/training/presentation/types";
 
 /**
- * 自绘引擎（M2）：能测的是「动作数学」和「rig 与立绘的对应关系」，
- * canvas 像素在 jsdom 里测不了，所以渲染只断言退化路径（没 rig / 减弱动态 → 静态图）。
+ * 自绘角色（M3）：canvas 像素在 jsdom 里测不了，所以测两件真正决定观感的事——
+ * 身份 → 规格的映射（年龄/性别必须画出不同的人），以及五官与表情的几何关系。
  */
 
-const WANG = { name: "王建国", age: 68, gender: "male" };
-const NEUTRAL: EmotionSnapshot = {
+const SNAPSHOT: EmotionSnapshot = {
 	emotion: "neutral",
 	emotion4D: "neutral",
 	values: { trust: 50, anxiety: 30, irritation: 20, cooperation: 70 },
 };
 
-const IDLE = { sway: 0, nod: 0, breath: 0, blink: 0, jaw: 0, mouth: 0 };
+const IDS = [
+	{ age: 8, gender: "男" },
+	{ age: 8, gender: "女" },
+	{ age: 20, gender: "male" },
+	{ age: 20, gender: "female" },
+	{ age: 45, gender: "男" },
+	{ age: 45, gender: "女" },
+	{ age: 78, gender: "男" },
+	{ age: 78, gender: "女" },
+];
 
-describe("眨眼曲线", () => {
-	it("一个周期里只闭一次，且闭到底", () => {
-		const interval = 4;
-		const samples = Array.from({ length: 400 }, (_, i) => blinkAt(i * 0.01, interval));
-		// 4 秒内恰好一次「完全闭眼」的停留
-		const closed = samples.filter((v) => v > 0.99).length;
-		expect(closed).toBeGreaterThan(2);
-		// 大头时间眼睛是睁着的
-		expect(samples.filter((v) => v < 0.01).length).toBeGreaterThan(300);
+describe("年龄与性别的映射", () => {
+	it("年龄段按临床习惯分四档", () => {
+		expect(ageGroupOf(8)).toBe("child");
+		expect(ageGroupOf(20)).toBe("youth");
+		expect(ageGroupOf(45)).toBe("middle");
+		expect(ageGroupOf(78)).toBe("elder");
+		expect(ageGroupOf(null)).toBe("middle");
 	});
 
-	it("时间上连续：相邻采样不会跳变（不会闪）", () => {
-		let prev = blinkAt(0, 3.6);
-		for (let t = 0.008; t < 20; t += 0.008) {
-			const next = blinkAt(t, 3.6);
-			expect(Math.abs(next - prev)).toBeLessThan(0.12);
-			prev = next;
+	it("小孩头更大、眼睛更大", () => {
+		const child = characterSpec({ age: 8, gender: "男" });
+		const adult = characterSpec({ age: 45, gender: "男" });
+		expect(child.head.rx).toBeGreaterThan(adult.head.rx);
+		expect(child.eyes.rx).toBeGreaterThan(adult.eyes.rx);
+	});
+
+	it("老人有皱纹、灰头发；中年没有", () => {
+		const elder = characterSpec({ age: 78, gender: "女" });
+		expect(elder.wrinkles).toBeGreaterThan(0.5);
+		const middle = characterSpec({ age: 45, gender: "女" });
+		expect(middle.wrinkles).toBeLessThan(0.3);
+		expect(elder.hair).not.toBe(middle.hair);
+	});
+
+	it("女性是长发/波波头 + 睫毛，男性是短发", () => {
+		expect(characterSpec({ age: 20, gender: "女" }).hairStyle).toBe("long");
+		expect(characterSpec({ age: 8, gender: "female" }).hairStyle).toBe("bob");
+		expect(characterSpec({ age: 20, gender: "男" }).hairStyle).toBe("short");
+		expect(characterSpec({ age: 20, gender: "女" }).lashes).toBe(true);
+		expect(characterSpec({ age: 20, gender: "男" }).lashes).toBe(false);
+	});
+
+	it("未知性别按男性画，不会崩", () => {
+		const spec = characterSpec({ age: 30, gender: null });
+		expect(spec.hairStyle).toBe("short");
+	});
+});
+
+describe("五官几何", () => {
+	it("每张脸都满足：眉在眼上、眼在嘴上、嘴在鼻下、耳在脸外", () => {
+		for (const id of IDS) {
+			const s = characterSpec(id);
+			const label = `${id.age}${id.gender}`;
+			expect(s.brows.y, label).toBeLessThan(s.eyes.y);
+			expect(s.eyes.y, label).toBeLessThan(s.nose.y);
+			expect(s.nose.y, label).toBeLessThan(s.mouth.y);
+			expect(s.mouth.y, label).toBeLessThan(s.head.cy + s.head.ry);
+			// 耳朵要在头的外侧，否则会被头椭圆盖住、变成看不见
+			expect(s.ears.dx, label).toBeGreaterThan(s.head.rx);
 		}
 	});
 
-	it("同一时刻永远同值（可按时间复现、截图可对齐）", () => {
-		expect(blinkAt(7.13, 3.2, 5)).toBe(blinkAt(7.13, 3.2, 5));
+	it("两眼关于中线对称", () => {
+		const s = characterSpec({ age: 45, gender: "女" });
+		expect(0.5 - s.eyes.dx).toBeCloseTo(1 - (0.5 + s.eyes.dx), 10);
+		expect(0.5 - s.brows.dx).toBeCloseTo(1 - (0.5 + s.brows.dx), 10);
 	});
 });
 
-describe("动作节奏", () => {
-	it("呼吸按周期走完整一圈", () => {
-		expect(breathAt(0, 3)).toBeCloseTo(0, 6);
-		expect(breathAt(0.75, 3)).toBeCloseTo(1, 6);
-		expect(breathAt(1.5, 3)).toBeCloseTo(0, 6);
-		expect(breathAt(2.25, 3)).toBeCloseTo(-1, 6);
+describe("情绪 → 表情", () => {
+	it("焦虑：眉眼上挑、眼更大；防御：眉头压、嘴角下", () => {
+		const anxious = expressionFor("anxious");
+		const defensive = expressionFor("defensive");
+		expect(anxious.browAngle).toBeLessThan(0);
+		expect(anxious.eyeOpen).toBeGreaterThan(1);
+		expect(defensive.browAngle).toBeGreaterThan(0);
+		expect(defensive.smile).toBeLessThan(0);
 	});
 
-	it("摆动有界，且不是单一正弦（不同时刻不重复）", () => {
-		const values = Array.from({ length: 40 }, (_, i) => swayAt(i * 0.4));
-		expect(values.every((v) => v >= -1 && v <= 1)).toBe(true);
-		expect(new Set(values.map((v) => v.toFixed(4))).size).toBeGreaterThan(35);
+	it("回避收敛眼型、嘴角最下垂；放松/开放是笑的", () => {
+		expect(expressionFor("withdrawn").eyeOpen).toBeLessThan(1);
+		expect(expressionFor("withdrawn").smile).toBeLessThan(expressionFor("defensive").smile);
+		expect(expressionFor("relaxed").smile).toBeGreaterThan(0.3);
+		expect(expressionFor("open").smile).toBeGreaterThan(0.3);
 	});
 
-	it("包络平滑是「起得快、收得慢」", () => {
-		const up = approach(0, 1, 0.05, 0.05, 0.13);
-		const down = approach(1, 0, 0.05, 0.05, 0.13);
-		expect(up).toBeGreaterThan(1 - down);
-		expect(up).toBeLessThan(1);
-	});
-
-	it("不说话时口型几乎闭合，说话时跟包络走且不越界", () => {
-		expect(mouthTarget(false, 1)).toBeLessThan(0.1);
-		expect(mouthTarget(true, 0)).toBeGreaterThan(0.2);
-		expect(mouthTarget(true, 1)).toBeGreaterThan(mouthTarget(true, 0.2));
-		expect(mouthTarget(true, 5)).toBeLessThanOrEqual(1);
-	});
-
-	it("焦虑比回避呼吸更促、摆得更大", () => {
-		expect(profileFor("anxious").breathSeconds).toBeLessThan(profileFor("withdrawn").breathSeconds);
-		expect(profileFor("anxious").swayDeg).toBeGreaterThan(profileFor("withdrawn").swayDeg);
+	it("未知情绪退化为中性", () => {
+		// @ts-expect-error 故意传入枚举外的值
+		expect(expressionFor("bored")).toEqual(expressionFor("neutral"));
 	});
 });
 
-describe("位移场", () => {
-	const rig = rigFor("/assets/patient_elder_male-ABCdef12.png");
-	if (!rig) throw new Error("rig 缺失");
-
-	it("唇线处位移恒为 0——张嘴不会在嘴上切出一道缝", () => {
-		const s = { ...IDLE, jaw: 1, mouth: 1 };
-		const p = profileFor("neutral");
-		for (const x of [0.3, 0.4, 0.5, 0.6, 0.7]) {
-			expect(Math.abs(fieldAt(x, rig.mouth.y, s, p, rig).dy)).toBeLessThan(0.0005);
-		}
+describe("口型", () => {
+	it("不说话时几乎闭合，说话时跟着包络张开", () => {
+		expect(mouthShapeAt(1, 0.9, false).open).toBeLessThan(0.1);
+		expect(mouthShapeAt(1, 0.9, true).open).toBeGreaterThan(mouthShapeAt(1, 0.2, true).open);
 	});
 
-	it("嘴以下被拉下去，下巴附近位移最大", () => {
-		const s = { ...IDLE, jaw: 1 };
-		const p = profileFor("neutral");
-		const below = fieldAt(0.5, rig.mouth.y + 0.08, s, p, rig).dy;
-		expect(below).toBeGreaterThan(0);
-		expect(fieldAt(0.5, rig.mouth.y + 0.005, s, p, rig).dy).toBeLessThan(below);
-	});
-
-	it("头的横移止于下巴：身体不跟着左右晃（条纹衣服不会错位）", () => {
-		const s = { ...IDLE, sway: 1 };
-		const p = profileFor("neutral");
-		const head = fieldAt(0.5, rig.mouth.y - 0.2, s, p, rig).dx;
-		const body = fieldAt(0.5, rig.mouth.y + 0.2, s, p, rig).dx;
-		expect(Math.abs(head)).toBeGreaterThan(0);
-		expect(Math.abs(body)).toBeLessThan(Math.abs(head) * 0.05);
-	});
-
-	it("画布上下边缘没有位移（否则会露出背景板）", () => {
-		const s = { ...IDLE, sway: 1, breath: 1, jaw: 1 };
-		const p = profileFor("anxious");
-		expect(Math.abs(fieldAt(0.5, 0, s, p, rig).dy)).toBeLessThan(1e-9);
-		expect(Math.abs(fieldAt(0.5, 1, s, p, rig).dy)).toBeLessThan(1e-9);
+	it("口宽按音节抖动，但始终在有界范围内", () => {
+		const wide = Array.from({ length: 40 }, (_, i) => mouthShapeAt(i * 0.11, 0.6, true).wide);
+		expect(Math.min(...wide)).toBeGreaterThanOrEqual(0.9);
+		expect(Math.max(...wide)).toBeLessThanOrEqual(1.1);
+		expect(new Set(wide.map((v) => v.toFixed(3))).size).toBeGreaterThan(1);
 	});
 });
 
-describe("rig 与立绘的对应", () => {
-	it("打包后的带 hash 文件名也能找回 rig", () => {
-		expect(rigFor("/assets/patient_child_female-B4gB8zRN.png")).not.toBeNull();
-		expect(rigFor("https://cdn.example.com/x/patient_youth_male-CqnHFEjY.png")).not.toBeNull();
-	});
-
-	it("写实照片不做 rig（决定：照片保持静态图）", () => {
-		expect(rigFor("/assets/case-chest-pain-elder-male-C9DsYvdC.png")).toBeNull();
-	});
-
-	it("病例自传的情绪立绘没有 rig —— 不猜几何，交回静态图", () => {
-		expect(rigFor("https://cdn.example.com/wang-anxious.png")).toBeNull();
-	});
-
-	it("每张固有立绘的五官都在画面内，且眼睛在嘴上面", () => {
-		for (const name of [
-			"patient_child_male",
-			"patient_child_female",
-			"patient_youth_male",
-			"patient_youth_female",
-			"patient_middle_male",
-			"patient_middle_female",
-			"patient_elder_male",
-			"patient_elder_female",
-			"nurse_male",
-			"nurse_female",
-		]) {
-			const rig = rigFor(`/assets/${name}-AAAABBBB.png`);
-			expect(rig, name).not.toBeNull();
-			if (!rig) continue;
-			expect(rig.eyeL.y, name).toBeLessThan(rig.mouth.y);
-			expect(rig.eyeR.y, name).toBeLessThan(rig.mouth.y);
-			expect(rig.eyeL.x, name).toBeLessThan(rig.eyeR.x);
-			expect(rig.mouth.x, name).toBeGreaterThan(0.3);
-			expect(rig.mouth.x, name).toBeLessThan(0.7);
-		}
-	});
-});
-
-describe("rig 呈现器的接线", () => {
-	it("已注册但不在生产策略链里（仍是 realistic → static）", () => {
-		expect(PRESENTERS.rig.kind).toBe("rig");
+describe("呈现器接线", () => {
+	it("已注册但不在生产策略链里", () => {
+		expect(PRESENTERS.mii.kind).toBe("mii");
 		expect(PRESENTATION_CHAIN).toEqual(["realistic", "static"]);
 	});
 
-	it("build 是纯函数：同一输入同一负载", () => {
-		const a = PRESENTERS.rig.build(WANG, NEUTRAL) as RigAvatarPayload;
-		const b = PRESENTERS.rig.build(WANG, NEUTRAL) as RigAvatarPayload;
+	it("build 是纯函数：同一身份同一情绪 → 同一份负载", () => {
+		const a = PRESENTERS.mii.build({ name: null, age: 68, gender: "男" }, SNAPSHOT) as MiiAvatarPayload;
+		const b = PRESENTERS.mii.build({ name: null, age: 68, gender: "男" }, SNAPSHOT) as MiiAvatarPayload;
 		expect(a).toEqual(b);
-		expect(a.src).toContain("case-chest-pain-elder-male");
+		expect(a.spec.wrinkles).toBeGreaterThan(0.5);
 	});
 
-	it("减弱动态 → 静态图，不启动逐帧绘制", () => {
-		const payload = PRESENTERS.rig.build(WANG, NEUTRAL);
+	it("渲染成 canvas 外壳，不加载任何图片", () => {
+		const payload = PRESENTERS.mii.build({ name: null, age: 20, gender: "女" }, SNAPSHOT);
 		if (!payload) throw new Error("负载缺失");
-		const { container } = render(<PatientPresenter presentation={payload} fill reducedMotion />);
-		expect(container.querySelector("[data-rig-avatar]")).toBeNull();
-		expect(container.querySelectorAll("img")).toHaveLength(1);
+		const { container } = render(<PatientPresenter presentation={payload} fill />);
+		expect(container.querySelector("[data-mii-avatar]")).not.toBeNull();
+		expect(container.querySelectorAll("img")).toHaveLength(0);
 		cleanup();
 	});
 
-	it("没有 rig 的图片退化为静态图，不抛错", () => {
-		const payload: RigAvatarPayload = {
-			kind: "rig",
-			src: "https://cdn.example.com/custom-portrait.png",
-			alt: "患者",
-			profile: profileFor("neutral"),
-		};
-		const { container } = render(<PatientPresenter presentation={payload} fill />);
-		expect(container.querySelectorAll("img")).toHaveLength(1);
+	it("减弱动态 → 静止帧，同样是一块 canvas", () => {
+		const payload = PRESENTERS.mii.build({ name: null, age: 78, gender: "男" }, SNAPSHOT);
+		if (!payload) throw new Error("负载缺失");
+		const { container } = render(<PatientPresenter presentation={payload} fill reducedMotion />);
+		expect(container.querySelectorAll("canvas")).toHaveLength(1);
+		expect(container.querySelectorAll("img")).toHaveLength(0);
 		cleanup();
 	});
 });

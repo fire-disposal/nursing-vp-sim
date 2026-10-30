@@ -14,8 +14,7 @@ import {
 import { IconMovie } from "@tabler/icons-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import PatientPresenter from "@/components/training/presentation/PatientPresenter";
-import { buildLiveAvatarPayload } from "@/components/training/presentation/presenters/liveAvatar";
-import { buildRigAvatarPayload } from "@/components/training/presentation/presenters/rigAvatar";
+import { buildMiiAvatarPayload } from "@/components/training/presentation/presenters/miiAvatar";
 import type { PatientIdentity } from "@/components/training/presentation/types";
 import PageHeader from "@/components/ui/page-header";
 import { useAudioEnvelope } from "@/hooks/useAudioEnvelope";
@@ -25,49 +24,37 @@ import {
 	type Emotion4DLabel,
 	type EmotionState,
 } from "@/stores/trainingStore";
-import { getNurseAvatar } from "@/utils/avatar";
 
 /**
- * 表现层试验台（M1）— 给教研侧看「单张立绘 + 2D 动效」够不够支撑在场感。
+ * 表现层试验台（M3）— 全程序化绘制的患者形象：不加载任何图片，脸是代码画出来的。
  *
- * 这里**不接训练会话、不写业务数据、不调 LLM**：只有素材、情绪枚举与现成的测试音频。
- * 动效策略实现见 `components/training/presentation/presenters/liveAvatar.tsx`；
- * 生产策略链仍为 realistic → static，本页要等 M3 才接线。
+ * 这里**不接训练会话、不写业务数据、不调 LLM**：只有身份、情绪枚举与现成的测试音频。
+ * 绘制实现见 `components/training/presentation/engine/mii.ts`；生产策略链仍为
+ * realistic → static，本页要等接线后才对外。
  */
 
 interface LabPreset {
 	key: string;
 	label: string;
 	patient: PatientIdentity;
-	/** 素材库里不参与患者路由的立绘（护士），直接指定图与替代文本。 */
-	directSrc?: string;
-	directAlt?: string;
 }
 
-const PATIENT = (age: number, gender: "male" | "female"): PatientIdentity => ({
-	name: null,
-	age,
-	gender,
-});
-
 const PRESETS: LabPreset[] = [
-	{ key: "wang", label: "王建国 · 68 男（写实病例）", patient: { name: "王建国", age: 68, gender: "male" } },
-	{ key: "zhang", label: "张美华 · 55 女（写实病例）", patient: { name: "张美华", age: 55, gender: "female" } },
-	{ key: "child-m", label: "儿童 · 8 男", patient: PATIENT(8, "male") },
-	{ key: "child-f", label: "儿童 · 8 女", patient: PATIENT(8, "female") },
-	{ key: "youth-m", label: "青年 · 20 男", patient: PATIENT(20, "male") },
-	{ key: "youth-f", label: "青年 · 20 女", patient: PATIENT(20, "female") },
-	{ key: "middle-m", label: "中年 · 40 男", patient: PATIENT(40, "male") },
-	{ key: "middle-f", label: "中年 · 40 女", patient: PATIENT(40, "female") },
-	{ key: "elder-m", label: "老年 · 70 男", patient: PATIENT(70, "male") },
-	{ key: "elder-f", label: "老年 · 70 女", patient: PATIENT(70, "female") },
-	{ key: "nurse-f", label: "护士 · 女（素材库）", patient: PATIENT(30, "female"), directSrc: getNurseAvatar("female"), directAlt: "护士" },
-	{ key: "nurse-m", label: "护士 · 男（素材库）", patient: PATIENT(30, "male"), directSrc: getNurseAvatar("male"), directAlt: "护士" },
+	{ key: "wang", label: "王建国 · 68 男", patient: { name: "王建国", age: 68, gender: "male" } },
+	{ key: "zhang", label: "张美华 · 55 女", patient: { name: "张美华", age: 55, gender: "female" } },
+	{ key: "child-m", label: "儿童 · 8 男", patient: { name: null, age: 8, gender: "male" } },
+	{ key: "child-f", label: "儿童 · 8 女", patient: { name: null, age: 8, gender: "female" } },
+	{ key: "youth-m", label: "青年 · 20 男", patient: { name: null, age: 20, gender: "male" } },
+	{ key: "youth-f", label: "青年 · 20 女", patient: { name: null, age: 20, gender: "female" } },
+	{ key: "middle-m", label: "中年 · 45 男", patient: { name: null, age: 45, gender: "male" } },
+	{ key: "middle-f", label: "中年 · 45 女", patient: { name: null, age: 45, gender: "female" } },
+	{ key: "elder-m", label: "老年 · 78 男", patient: { name: null, age: 78, gender: "male" } },
+	{ key: "elder-f", label: "老年 · 78 女", patient: { name: null, age: 78, gender: "female" } },
 ];
 
 const EMOTIONS: EmotionState[] = ["withdrawn", "defensive", "anxious", "neutral", "relaxed", "open"];
 
-/** 6 态 → 4D 标签：本页只驱动情绪配色与节奏，四维数值不参与 live 的 build。 */
+/** 6 态 → 4D 标签：本页只驱动表情参数，四维数值不参与绘制。 */
 const EMOTION_4D_BY_EMOTION: Record<EmotionState, Emotion4DLabel> = {
 	withdrawn: "withdrawn",
 	defensive: "defensive",
@@ -126,19 +113,7 @@ export default function PresentationLab() {
 		[emotion],
 	);
 
-	/** 12 张立绘同一份负载：静态面板与动效面板渲染的是同一条数据，差异只来自运行时的 ctx。 */
-	const payload = useMemo(() => {
-		const built = buildLiveAvatarPayload(preset.patient, snapshot);
-		if (!preset.directSrc) return built;
-		return { ...built, src: preset.directSrc, alt: preset.directAlt ?? built.alt };
-	}, [preset, snapshot]);
-
-	/** 自绘引擎的负载：几何按 src 查 rig，动效参数按情绪烘焙进来（同上，只有 ctx 是运行时）。 */
-	const rigPayload = useMemo(() => {
-		const built = buildRigAvatarPayload(preset.patient, snapshot);
-		if (!preset.directSrc) return built;
-		return { ...built, src: preset.directSrc, alt: preset.directAlt ?? built.alt };
-	}, [preset, snapshot]);
+	const payload = useMemo(() => buildMiiAvatarPayload(preset.patient, snapshot), [preset, snapshot]);
 
 	useEffect(() => () => audioEl?.pause(), [audioEl]);
 
@@ -162,7 +137,7 @@ export default function PresentationLab() {
 		<Container size="lg" py="xl">
 			<PageHeader
 				title="患者表现试验台"
-				subtitle="表现层试验台：只看动效效果，不参与评分与训练，不写任何业务数据。"
+				subtitle="全程序化绘制：不加载任何立绘，脸与口型都是代码画出来的。不参与评分与训练，不写业务数据。"
 				icon={IconMovie}
 			/>
 
@@ -171,7 +146,7 @@ export default function PresentationLab() {
 					<Stack gap="md">
 						<Box>
 							<Text size="sm" fw={600} mb={6}>
-								立绘（12 张：2 写实病例 + 8 年龄性别 + 2 护士素材）
+								身份（10 种：年龄 × 性别，含两位论文病例）
 							</Text>
 							<Group gap={6}>
 								{PRESETS.map((p) => (
@@ -189,7 +164,7 @@ export default function PresentationLab() {
 
 						<Box>
 							<Text size="sm" fw={600} mb={6}>
-								情绪（6 态）
+								情绪（6 态，只改表情）
 							</Text>
 							<Group gap={6}>
 								{EMOTIONS.map((e) => (
@@ -210,7 +185,7 @@ export default function PresentationLab() {
 
 						<Box>
 							<Text size="sm" fw={600} mb={6}>
-								测试音频（本页播放，不经训练链路）
+								测试音频（本页播放，口型跟着它的包络走，不经训练链路）
 							</Text>
 							<Group gap={6} align="center">
 								{TRACKS.map((t) => (
@@ -250,12 +225,12 @@ export default function PresentationLab() {
 
 						<Group gap="lg">
 							<Switch
-								label="减少动效（与系统偏好等效，强制静态）"
+								label="减少动效（系统偏好等效，强制静止帧）"
 								checked={reducedMotion}
 								onChange={(e) => setReducedMotion(e.currentTarget.checked)}
 							/>
 							<Switch
-								label="手动模拟说话（不播音频也能看点头）"
+								label="手动模拟说话（不播音频也能看口型）"
 								checked={manualSpeaking}
 								onChange={(e) => setManualSpeaking(e.currentTarget.checked)}
 							/>
@@ -263,13 +238,19 @@ export default function PresentationLab() {
 					</Stack>
 				</Paper>
 
-				<SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
-					<Panel title="静态" hint="与动效面板同一张图，reducedMotion=true">
+				<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+					<Panel title="静止帧" hint="同一份绘制，时间固定">
 						<PatientPresenter presentation={payload} fill reducedMotion />
 					</Panel>
 					<Panel
-						title="M1 整图动效"
-						hint={reducedMotion ? "减少动效已开 → 退化为静态" : speaking ? "呼吸 + 点头（幅度随包络）" : "仅呼吸"}
+						title="动效"
+						hint={
+							reducedMotion
+								? "减少动效已开 → 静止帧"
+								: speaking
+									? "眨眼 + 呼吸 + 包络口型"
+									: "眨眼 + 呼吸"
+						}
 					>
 						<PatientPresenter
 							presentation={payload}
@@ -279,23 +260,7 @@ export default function PresentationLab() {
 							reducedMotion={reducedMotion}
 						/>
 					</Panel>
-					<Panel
-						title="M2 自绘引擎"
-						hint={reducedMotion ? "减少动效已开 → 退化为静态" : speaking ? "带状弯曲 + 眨眼 + 口型重绘" : "呼吸 + 眨眼"}
-					>
-						<PatientPresenter
-							presentation={rigPayload}
-							fill
-							speaking={speaking}
-							envelope={envelope}
-							reducedMotion={reducedMotion}
-						/>
-					</Panel>
 				</SimpleGrid>
-
-				<Text size="xs" c="dimmed" ff="monospace">
-					{payload.src}
-				</Text>
 			</Stack>
 		</Container>
 	);

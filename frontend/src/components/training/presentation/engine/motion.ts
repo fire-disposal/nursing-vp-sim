@@ -99,6 +99,16 @@ export function approach(
 	return current + (target - current) * (1 - Math.exp(-dt / tau));
 }
 
+/**
+ * 口型：张口跟包络走，宽窄按约 7 次/秒的音节节奏抖一点——没有音素也要让嘴不是一块机械开合。
+ * 返回 { open, wide }，分别喂给绘制的口高与口宽。
+ */
+export function mouthShapeAt(t: number, envelope: number, speaking: boolean): { open: number; wide: number } {
+	const open = mouthTarget(speaking, envelope);
+	const syllable = Math.floor(t * 7);
+	return { open, wide: 0.9 + 0.2 * hash01(syllable, 3) };
+}
+
 /** 口型目标 0..1：说话时跟包络走，不说话时留下极小的静息口缝。 */
 export function mouthTarget(speaking: boolean | undefined, envelope: number): number {
 	const env = Math.min(1, Math.max(0, envelope));

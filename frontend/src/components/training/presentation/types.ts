@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { Emotion4DLabel, EmotionState } from "@/stores/trainingStore";
 import type { PortraitStates } from "@/utils/avatar";
+import type { CharacterSpec, Expression } from "./engine/character";
 import type { MotionProfile } from "./engine/motion";
 
 /**
@@ -17,9 +18,8 @@ import type { MotionProfile } from "./engine/motion";
  * 已落地策略：
  *   - realistic    写实画风专属病例头像路由器（按患者姓名/情绪立绘）— 未命中让位
  *   - static       简洁画风 PNG 路由器（按年龄/性别）— 恒适用，链兜底
- *   - live         整图平移/旋转的轻动效（M1 基线）— 只在 `/presentation-lab` 陈列
- *   - rig          自绘引擎：分层 + 位移场 + 眼皮/口型重绘（M2）— 同上，尚未进生产链
- *                  两者都不在 `PRESENTATION_CHAIN` 里，见 docs/ops/voice-avatar-next.md
+ *   - mii          全程序化绘制（M3）：不加载任何图片，靠图形画人并做眨眼/呼吸/口型
+ *                  只在 `/presentation-lab` 陈列，尚未进生产链（见 docs/ops/voice-avatar-next.md）
  */
 
 /** 四维情绪数值 0-1（信任/焦虑/烦躁/合作）。 */
@@ -73,8 +73,7 @@ export interface PresentationContext {
 export type PatientPresentation =
 	| { kind: "static"; src: string; alt: string }
 	| { kind: "realistic"; src: string; alt: string }
-	| LiveAvatarPayload
-	| RigAvatarPayload;
+	| MiiAvatarPayload;
 
 /**
  * 画风族：选图规则的判定结果。`photo` = 写实照片（按姓名或情绪立绘），`flat` = 简洁扁平原图。
@@ -82,27 +81,14 @@ export type PatientPresentation =
  */
 export type AvatarArt = "photo" | "flat";
 
-/** live 负载 — 像素之外的表现参数（不含运行时状态；说话态/包络在 PresentationContext 里）。 */
-export interface LiveAvatarPayload {
-	kind: "live";
-	src: string;
-	alt: string;
-	/** 情绪配色（CSS 颜色值），用于底光与描边；来自 `getEmotionBorder` 的单一映射。 */
-	accent: string;
-	/** 静息呼吸周期（秒），按情绪调制：焦虑更促、回避更缓。 */
-	breathSeconds: number;
-	/** 说话点头幅度 0..1：防御/回避收敛，焦虑更明显。 */
-	nodScale: number;
-}
-
 /**
- * rig 负载 — 自绘引擎（M2）。`profile` 是这一帧的动效参数（纯数据），render 只做插值，
- * 与 `build` 的纯函数约束一致；几何（五官位置）不在负载里，按 src 查 `engine/rig.ts`。
+ * mii 负载 — 程序化绘制的患者形象（M3）。`spec` 是长相（身份），`expression` 是表情（情绪），
+ * `profile` 是动效节奏；三者都是纯数据，render 只按时间把它们画出来。
  */
-export interface RigAvatarPayload {
-	kind: "rig";
-	src: string;
-	alt: string;
+export interface MiiAvatarPayload {
+	kind: "mii";
+	spec: CharacterSpec;
+	expression: Expression;
 	profile: MotionProfile;
 }
 
