@@ -100,13 +100,35 @@ export function approach(
 }
 
 /**
- * 口型：张口跟包络走，宽窄按约 7 次/秒的音节节奏抖一点——没有音素也要让嘴不是一块机械开合。
- * 返回 { open, wide }，分别喂给绘制的口高与口宽。
+ * 口型帧 —— 不插值，到点直接切。
+ *
+ * 动森/Mii 那种「说话」是一组离散嘴型按音节硬切，不是连续缩放：连续缩放看起来像鱼鳃，
+ * 而且每一帧的嘴形都是半开不张的糊状。这里定义四个形态，按约 7 次/秒的音节钟切换，
+ * 由包络决定切到多大的嘴，音节边界用确定性随机决定偶尔闭一下（辅音/换气的缝）。
  */
-export function mouthShapeAt(t: number, envelope: number, speaking: boolean): { open: number; wide: number } {
-	const open = mouthTarget(speaking, envelope);
-	const syllable = Math.floor(t * 7);
-	return { open, wide: 0.9 + 0.2 * hash01(syllable, 3) };
+export type MouthShape = "closed" | "small" | "mid" | "wide";
+
+/**
+ * 某一时刻该画哪张嘴。width 是口宽倍率（同一形态下也有胖瘦差，避免每帧一模一样）。
+ * 无包络或没在说话 → closed。
+ */
+export function mouthFrameAt(
+	t: number,
+	envelope: number,
+	speaking: boolean,
+): { shape: MouthShape; width: number } {
+	const env = Math.min(1, Math.max(0, envelope));
+	if (speaking !== true || env < 0.07) return { shape: "closed", width: 1 };
+
+	const tick = Math.floor(t * 7);
+	const width = 0.92 + 0.16 * hash01(tick, 5);
+	// 约 1/7 的音节是闭口（辅音、换气）
+	if (hash01(tick, 11) < 0.14) return { shape: "closed", width };
+	// 音量定基准档，再按音节上下抖一档——不然音量平稳时嘴会在同一张脸上钉住
+	const base = env < 0.3 ? 0 : env < 0.6 ? 1 : 2;
+	const shift = hash01(tick, 23) < 0.35 ? (hash01(tick, 29) < 0.5 ? -1 : 1) : 0;
+	const level = Math.min(2, Math.max(0, base + shift));
+	return { shape: (["small", "mid", "wide"] as const)[level], width };
 }
 
 /** 口型目标 0..1：说话时跟包络走，不说话时留下极小的静息口缝。 */

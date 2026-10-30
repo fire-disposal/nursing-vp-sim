@@ -14,14 +14,15 @@
  */
 
 import type { CharacterSpec, Expression } from "./character";
+import type { MouthShape } from "./motion";
 
 export interface MiiFrame {
 	/** 闭眼程度 0..1 */
 	blink: number;
-	/** 张口 0..1 */
-	mouth: number;
-	/** 口型宽窄 0.85..1.15（按音节变化，避免每帧同一张嘴） */
-	mouthWide: number;
+	/** 当前该画哪张嘴（离散帧，硬切） */
+	mouthShape: MouthShape;
+	/** 口宽倍率 0.92..1.08 */
+	mouthWidth: number;
 	/** 呼吸 -1..1 */
 	breath: number;
 	/** 头部摆动 -1..1 */
@@ -32,7 +33,6 @@ export interface MiiFrame {
 	emphasize: number;
 }
 
-const HAIR_LINE = "rgba(0, 0, 0, 0.12)";
 const MOUTH_LINE = "#8d5a52";
 const MOUTH_OPEN = "#7f423c";
 
@@ -192,32 +192,31 @@ function drawBrows(ctx: CanvasRenderingContext2D, spec: CharacterSpec, expr: Exp
 
 function drawEyes(ctx: CanvasRenderingContext2D, spec: CharacterSpec, expr: Expression, frame: MiiFrame) {
 	const { y, dx, rx, ry } = spec.eyes;
-	const open = Math.max(0.04, expr.eyeOpen * (1 - frame.blink));
+	const open = Math.max(0.05, expr.eyeOpen * (1 - frame.blink));
 	for (const sign of [-1, 1]) {
 		const ex = 0.5 + sign * dx;
-		// 眼白：一整块，不带描边
+		// 整块深色眼珠 + 一颗高光，不画白眼仁——白眼仁会读成「玻璃眼球」，也是恐怖谷的常见来源
 		ctx.beginPath();
 		ctx.ellipse(ex, y, rx, ry * open, 0, 0, Math.PI * 2);
-		ctx.fillStyle = "#ffffff";
+		ctx.fillStyle = "#2e2622";
 		ctx.fill();
 
 		ctx.save();
 		ctx.beginPath();
 		ctx.ellipse(ex, y, rx, ry * open, 0, 0, Math.PI * 2);
 		ctx.clip();
-		// 瞳孔：偏大的椭圆，视线随头微动
 		const look = frame.sway * 0.006;
 		ctx.beginPath();
-		ctx.ellipse(ex + look, y + ry * open * 0.06, rx * 0.82, ry * open * 1.02, 0, 0, Math.PI * 2);
-		ctx.fillStyle = "#30251f";
+		ctx.ellipse(ex + look - rx * 0.3, y - ry * open * 0.34, rx * 0.22, rx * 0.17, -0.4, 0, Math.PI * 2);
+		ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
 		ctx.fill();
 		ctx.beginPath();
-		ctx.arc(ex + look - rx * 0.24, y - ry * open * 0.32, rx * 0.22, 0, Math.PI * 2);
-		ctx.fillStyle = "rgba(255,255,255,0.92)";
+		ctx.ellipse(ex + look + rx * 0.34, y + ry * open * 0.36, rx * 0.09, rx * 0.075, 0, 0, Math.PI * 2);
+		ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
 		ctx.fill();
 		ctx.restore();
 
-		// 闭眼：压成一条弧线，不做折线
+		// 闭眼：压成一条弧线
 		if (frame.blink > 0.55) {
 			ctx.beginPath();
 			ctx.moveTo(ex - rx, y);
@@ -254,17 +253,21 @@ function drawCheeks(ctx: CanvasRenderingContext2D, spec: CharacterSpec, expr: Ex
 	}
 }
 
-/** 嘴：只有两种形态——一条微笑弧，或一个跟着开口度变高变圆的嘴。 */
+/**
+ * 嘴：四个手绘嘴型硬切（closed / small / mid / wide）。
+ *
+ * 形态共用一条「上沿几乎平、下沿是圆弧」的轮廓，只有宽高不同——这样切帧时嘴的位置不跳，
+ * 观感是「嘴在动」而不是「换了张嘴」。闭口时退化成一条随情绪的弧。
+ */
 function drawMouth(ctx: CanvasRenderingContext2D, spec: CharacterSpec, expr: Expression, frame: MiiFrame) {
-	const cy = spec.mouth.y;
-	const open = frame.mouth;
-	const half = (spec.mouth.w * expr.mouthWidth * frame.mouthWide * (0.86 + open * 0.3)) / 2;
-	const cornerY = cy - expr.smile * 0.016;
+	const cy = spec.mouth.y + 0.006;
+	const half = (spec.mouth.w * expr.mouthWidth * frame.mouthWidth) / 2;
 
-	if (open < 0.1) {
+	if (frame.mouthShape === "closed") {
+		const cornerY = cy - expr.smile * 0.016;
 		ctx.beginPath();
 		ctx.moveTo(0.5 - half, cornerY);
-		ctx.quadraticCurveTo(0.5, cy + 0.014 + expr.smile * 0.004, 0.5 + half, cornerY);
+		ctx.quadraticCurveTo(0.5, cy + 0.012 + expr.smile * 0.006, 0.5 + half, cornerY);
 		ctx.strokeStyle = MOUTH_LINE;
 		ctx.lineWidth = 0.012;
 		ctx.lineCap = "round";
@@ -272,11 +275,16 @@ function drawMouth(ctx: CanvasRenderingContext2D, spec: CharacterSpec, expr: Exp
 		return;
 	}
 
-	const h = 0.014 + open * 0.078;
+	// 说话时的嘴一定是「宽 > 高」，高一点的圆口会读成惊讶
+	const scale = frame.mouthShape === "small" ? { w: 0.6, h: 0.014 } : frame.mouthShape === "mid" ? { w: 0.85, h: 0.024 } : { w: 1.05, h: 0.035 };
+	const w = half * scale.w;
+	const h = scale.h;
 	ctx.beginPath();
-	ctx.moveTo(0.5 - half, cornerY);
-	ctx.quadraticCurveTo(0.5, cornerY + h * 1.1, 0.5 + half, cornerY);
-	ctx.quadraticCurveTo(0.5, cornerY - h * 0.2, 0.5 - half, cornerY);
+	ctx.moveTo(0.5 - w, cy);
+	// 上沿：略向上拱一点，避免一条死平线
+	ctx.quadraticCurveTo(0.5, cy - h * 0.16, 0.5 + w, cy);
+	// 下沿：圆弧
+	ctx.quadraticCurveTo(0.5, cy + h * 1.1, 0.5 - w, cy);
 	ctx.closePath();
 	ctx.fillStyle = MOUTH_OPEN;
 	ctx.fill();

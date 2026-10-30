@@ -5,7 +5,7 @@ import {
 	approach,
 	blinkAt,
 	breathAt,
-	mouthShapeAt,
+	mouthFrameAt,
 	nodAt,
 	profileFor,
 	swayAt,
@@ -58,8 +58,6 @@ function MiiCanvas({ payload, ctx }: { payload: MiiAvatarPayload; ctx: Presentat
 		let raf = 0;
 		let stopped = false;
 		let env = 0;
-		let mouth = 0.04;
-		let wide = 1;
 		let last = performance.now();
 		const start = last;
 
@@ -88,13 +86,12 @@ function MiiCanvas({ payload, ctx }: { payload: MiiAvatarPayload; ctx: Presentat
 			const c = latest.current;
 			const t = (now - start) / 1000;
 			env = approach(env, c.speaking ? Math.min(1, Math.max(0, c.envelope ?? 0)) : 0, dt, 0.05, 0.13);
-			const shape = mouthShapeAt(t, env, c.speaking === true);
-			mouth = approach(mouth, shape.open, dt, 0.045, 0.09);
-			wide = approach(wide, shape.wide, dt, 0.05, 0.05);
+			// 口型是离散帧：按音节钟直接切，不做插值（插值会得到「半张嘴」的糊状）
+			const mouth = mouthFrameAt(t, env, c.speaking === true);
 			const frame: MiiFrame = {
 				blink: blinkAt(t, profile.current.blinkSeconds),
-				mouth,
-				mouthWide: wide,
+				mouthShape: mouth.shape,
+				mouthWidth: mouth.width,
 				breath: breathAt(t, profile.current.breathSeconds),
 				sway: swayAt(t),
 				nod: nodAt(t, env, 0.8),
@@ -156,8 +153,8 @@ function MiiStill({ payload, ctx }: { payload: MiiAvatarPayload; ctx: Presentati
 		canvas.height = size;
 		drawMii(ctx2d, payload.spec, payload.expression, {
 			blink: 0,
-			mouth: 0.04,
-			mouthWide: 1,
+			mouthShape: "closed",
+			mouthWidth: 1,
 			breath: 0,
 			sway: 0,
 			nod: 0,

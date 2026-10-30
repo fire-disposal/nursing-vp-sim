@@ -3,7 +3,7 @@ import { cleanup, render } from "@/__tests__/render";
 import PatientPresenter from "@/components/training/presentation/PatientPresenter";
 import { PRESENTATION_CHAIN } from "@/components/training/presentation/build";
 import { ageGroupOf, characterSpec, expressionFor } from "@/components/training/presentation/engine/character";
-import { mouthShapeAt } from "@/components/training/presentation/engine/motion";
+import { mouthFrameAt } from "@/components/training/presentation/engine/motion";
 import { PRESENTERS } from "@/components/training/presentation/registry";
 import type { EmotionSnapshot, MiiAvatarPayload } from "@/components/training/presentation/types";
 
@@ -111,17 +111,36 @@ describe("情绪 → 表情", () => {
 	});
 });
 
-describe("口型", () => {
-	it("不说话时几乎闭合，说话时跟着包络张开", () => {
-		expect(mouthShapeAt(1, 0.9, false).open).toBeLessThan(0.1);
-		expect(mouthShapeAt(1, 0.9, true).open).toBeGreaterThan(mouthShapeAt(1, 0.2, true).open);
+describe("口型帧", () => {
+	it("不说话 / 没包络 → 永远是闭口", () => {
+		expect(mouthFrameAt(1.3, 0.9, false).shape).toBe("closed");
+		expect(mouthFrameAt(1.3, 0.02, true).shape).toBe("closed");
 	});
 
-	it("口宽按音节抖动，但始终在有界范围内", () => {
-		const wide = Array.from({ length: 40 }, (_, i) => mouthShapeAt(i * 0.11, 0.6, true).wide);
-		expect(Math.min(...wide)).toBeGreaterThanOrEqual(0.9);
-		expect(Math.max(...wide)).toBeLessThanOrEqual(1.1);
-		expect(new Set(wide.map((v) => v.toFixed(3))).size).toBeGreaterThan(1);
+	it("音量越大，切到的嘴型越大", () => {
+		const quiet = Array.from({ length: 60 }, (_, i) => mouthFrameAt(i * 0.14, 0.2, true).shape);
+		const loud = Array.from({ length: 60 }, (_, i) => mouthFrameAt(i * 0.14, 0.95, true).shape);
+		expect(quiet).not.toContain("wide");
+		expect(loud.filter((s) => s === "wide").length).toBeGreaterThan(25);
+	});
+
+	it("按音节钟切换：一秒内会换好几次，且不是每帧都变", () => {
+		const shapes = Array.from({ length: 30 }, (_, i) => mouthFrameAt(2 + i / 30, 0.7, true).shape);
+		const switches = shapes.filter((s, i) => i > 0 && s !== shapes[i - 1]).length;
+		// 每秒约 7 个音节，切换次数应明显多于 1、又远少于每帧都变
+		expect(switches).toBeGreaterThanOrEqual(3);
+		expect(switches).toBeLessThan(30);
+	});
+
+	it("同一时刻永远是同一张嘴（可复现、截图可对齐）", () => {
+		expect(mouthFrameAt(7.13, 0.5, true)).toEqual(mouthFrameAt(7.13, 0.5, true));
+	});
+
+	it("口宽有变化但始终有界", () => {
+		const widths = Array.from({ length: 40 }, (_, i) => mouthFrameAt(i * 0.14, 0.6, true).width);
+		expect(Math.min(...widths)).toBeGreaterThanOrEqual(0.9);
+		expect(Math.max(...widths)).toBeLessThanOrEqual(1.1);
+		expect(new Set(widths.map((w) => w.toFixed(3))).size).toBeGreaterThan(1);
 	});
 });
 
