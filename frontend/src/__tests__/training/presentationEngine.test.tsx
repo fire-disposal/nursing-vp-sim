@@ -3,7 +3,7 @@ import { cleanup, render } from "@/__tests__/render";
 import PatientPresenter from "@/components/training/presentation/PatientPresenter";
 import { PRESENTATION_CHAIN } from "@/components/training/presentation/build";
 import { ageGroupOf, characterSpec, expressionFor } from "@/components/training/presentation/engine/character";
-import { mouthFrameAt } from "@/components/training/presentation/engine/motion";
+import { gazeXAt, gazeYAt, mouthFrameAt, swayAt } from "@/components/training/presentation/engine/motion";
 import { PRESENTERS } from "@/components/training/presentation/registry";
 import type { EmotionSnapshot, MiiAvatarPayload } from "@/components/training/presentation/types";
 
@@ -53,12 +53,16 @@ describe("年龄与性别的映射", () => {
 		expect(elder.hair).not.toBe(middle.hair);
 	});
 
-	it("女性是长发/波波头 + 睫毛，男性是短发", () => {
+	it("女性是长发/波波头，男性是短发", () => {
 		expect(characterSpec({ age: 20, gender: "女" }).hairStyle).toBe("long");
 		expect(characterSpec({ age: 8, gender: "female" }).hairStyle).toBe("bob");
 		expect(characterSpec({ age: 20, gender: "男" }).hairStyle).toBe("short");
-		expect(characterSpec({ age: 20, gender: "女" }).lashes).toBe(true);
-		expect(characterSpec({ age: 20, gender: "男" }).lashes).toBe(false);
+	});
+
+	it("眼睛默认用整块深色眼珠 + 小高光，避免常态眼线带来的困倦感", () => {
+		for (const id of IDS) {
+			expect(characterSpec(id).eyeStyle, `${id.age}${id.gender}`).toBe("glint");
+		}
 	});
 
 	it("未知性别按男性画，不会崩", () => {
@@ -141,6 +145,28 @@ describe("口型帧", () => {
 		expect(Math.min(...widths)).toBeGreaterThanOrEqual(0.9);
 		expect(Math.max(...widths)).toBeLessThanOrEqual(1.1);
 		expect(new Set(widths.map((w) => w.toFixed(3))).size).toBeGreaterThan(1);
+	});
+});
+
+describe("微动作", () => {
+	it("偏头在窗口边界连续，有停顿且幅度有界", () => {
+		for (const k of [1, 2, 3]) {
+			expect(swayAt(k * 6.4 - 0.0001, 7)).toBeCloseTo(swayAt(k * 6.4 + 0.0001, 7), 8);
+		}
+		const samples = Array.from({ length: 200 }, (_, i) => swayAt(i * 0.1, 7));
+		expect(Math.max(...samples.map(Math.abs))).toBeLessThanOrEqual(0.8);
+		expect(samples.filter((v, i) => i > 0 && Math.abs(v - samples[i - 1]) < 0.000001).length).toBeGreaterThan(30);
+	});
+
+	it("眼神停留后移向下一点，窗口边界连续且不同 seed 不同步", () => {
+		for (const k of [1, 2, 3]) {
+			expect(gazeXAt(k * 3.1 - 0.0001, 11)).toBeCloseTo(gazeXAt(k * 3.1 + 0.0001, 11), 5);
+			expect(gazeYAt(k * 3.1 - 0.0001, 11)).toBeCloseTo(gazeYAt(k * 3.1 + 0.0001, 11), 5);
+		}
+		const a = Array.from({ length: 80 }, (_, i) => gazeXAt(i * 0.1, 11));
+		const b = Array.from({ length: 80 }, (_, i) => gazeXAt(i * 0.1, 97));
+		expect(a).not.toEqual(b);
+		expect(Math.max(...a.map(Math.abs))).toBeLessThanOrEqual(0.75);
 	});
 });
 

@@ -39,12 +39,17 @@ export function hash01(n: number, seed = 0): number {
 	return x - Math.floor(x);
 }
 
-/** 眨眼波形：闭合 70 ms、全闭 55 ms、睁开 120 ms。 */
+function smooth01(value: number): number {
+	const p = Math.min(1, Math.max(0, value));
+	return p * p * (3 - 2 * p);
+}
+
+/** 眨眼波形：闭合 70 ms、全闭 55 ms、睁开 120 ms；两端有速度过渡。 */
 function blinkShape(p: number): number {
 	if (p <= 0) return 0;
-	if (p < 0.07) return p / 0.07;
+	if (p < 0.07) return smooth01(p / 0.07);
 	if (p < 0.125) return 1;
-	if (p < 0.245) return 1 - (p - 0.125) / 0.12;
+	if (p < 0.245) return 1 - smooth01((p - 0.125) / 0.12);
 	return 0;
 }
 
@@ -73,17 +78,48 @@ export function breathAt(t: number, seconds: number): number {
 	return Math.sin((t / seconds) * Math.PI * 2);
 }
 
-/** 头部摆动 -1..1：两个不可通约的正弦叠加，看起来不像节拍器。 */
-export function swayAt(t: number, seed = 0): number {
-	const a = Math.sin(t * 0.37 + seed * 1.7);
-	const b = Math.sin(t * 0.23 + seed * 4.1 + 1.3);
-	// 权重和为 1，所以结果天然落在 -1..1（除以 0.9 会越界 11%，被测试抓到过）
-	return a * 0.62 + b * 0.38;
+/** 一次偏头的目标；接近一半的窗口保持原位，动作之间有明显停顿。 */
+function swayTarget(k: number, seed: number): number {
+	if (hash01(k * 5 + 1, seed) < 0.46) return 0;
+	return (hash01(k * 5 + 2, seed) * 2 - 1) * 0.8;
 }
 
-/** 说话点头 -1..1：只在有包络时明显（句间静默收回到 0）。 */
+/** 头部摆动 -1..1：停 1.8s → 缓动 1.6s → 停到下一窗口，边界连续。 */
+export function swayAt(t: number, seed = 0): number {
+	const period = 6.4;
+	const k = Math.floor(t / period);
+	const local = t - k * period;
+	const from = swayTarget(k - 1, seed);
+	const to = swayTarget(k, seed);
+	return from + (to - from) * smooth01((local - 1.8) / 1.6);
+}
+
+/** 眼神在一个注视点停留，窗口开头用 180ms 移到下一点。 */
+function gazeAxisAt(t: number, seed: number, salt: number): number {
+	const period = 3.1;
+	const k = Math.floor(t / period);
+	const local = t - k * period;
+	const target = (i: number) => {
+		if (hash01(i * 7 + salt, seed) < 0.34) return 0;
+		return (hash01(i * 7 + salt + 1, seed) * 2 - 1) * 0.75;
+	};
+	const from = target(k - 1);
+	const to = target(k);
+	return from + (to - from) * smooth01(local / 0.18);
+}
+
+export function gazeXAt(t: number, seed = 0): number {
+	return gazeAxisAt(t, seed + 17, 3);
+}
+
+export function gazeYAt(t: number, seed = 0): number {
+	return gazeAxisAt(t, seed + 29, 11) * 0.45;
+}
+
+/** 说话点头 -1..1：较弱包络只动口，较清晰的语句重音才带轻微点头。 */
 export function nodAt(t: number, envelope: number, gain: number): number {
-	return Math.sin(t * 4.1) * envelope * gain;
+	const energy = Math.max(0, (envelope - 0.2) / 0.8);
+	return (Math.sin(t * 2.6) * 0.65 + Math.sin(t * 1.3 + 0.8) * 0.35) * energy * gain;
 }
 
 /** 指数趋近（attack/release 不对称）：包络与口型的滞后都用它，避免抖动。 */

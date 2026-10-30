@@ -5,6 +5,8 @@ import {
 	approach,
 	blinkAt,
 	breathAt,
+	gazeXAt,
+	gazeYAt,
 	mouthFrameAt,
 	nodAt,
 	profileFor,
@@ -25,6 +27,14 @@ import type {
  * 仍未进生产链（`PRESENTATION_CHAIN` 还是 realistic → static），只在 `/presentation-lab` 陈列。
  */
 
+/** 只依赖身份，保证刷新与重渲染后仍是同一个动作相位。 */
+function identitySeed(patient: PatientIdentity | null): number {
+	const key = `${patient?.name ?? ""}|${patient?.age ?? ""}|${patient?.gender ?? ""}`;
+	let hash = 23;
+	for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+	return hash % 10007;
+}
+
 /** 纯函数：身份 + 情绪 → 可渲染负载（表情与动效参数在 build 里定死）。 */
 export function buildMiiAvatarPayload(
 	patient: PatientIdentity | null,
@@ -35,20 +45,23 @@ export function buildMiiAvatarPayload(
 		spec: characterSpec({ age: patient?.age ?? null, gender: patient?.gender ?? null }),
 		expression: expressionFor(emotion.emotion),
 		profile: profileFor(emotion.emotion),
+		seed: identitySeed(patient),
 	};
 }
-
 function MiiCanvas({ payload, ctx }: { payload: MiiAvatarPayload; ctx: PresentationContext }) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const latest = useRef(ctx);
 	latest.current = ctx;
-	// 表情与动效参数是纯数据、跟着 payload 走；effect 只按绘制规格重建
-	const expr = useRef(payload.expression);
-	expr.current = payload.expression;
+	// 表情目标随 payload 更新，绘制时使用一份可插值的当前表情。
+	const expressionTarget = useRef(payload.expression);
+	expressionTarget.current = payload.expression;
+	const expression = useRef({ ...payload.expression });
 	const spec = useRef(payload.spec);
 	spec.current = payload.spec;
 	const profile = useRef(payload.profile);
 	profile.current = payload.profile;
+	const seed = useRef(payload.seed);
+	seed.current = payload.seed;
 
 	useEffect(() => {
 		const canvas = canvasRef.current;
@@ -86,18 +99,29 @@ function MiiCanvas({ payload, ctx }: { payload: MiiAvatarPayload; ctx: Presentat
 			const c = latest.current;
 			const t = (now - start) / 1000;
 			env = approach(env, c.speaking ? Math.min(1, Math.max(0, c.envelope ?? 0)) : 0, dt, 0.05, 0.13);
-			// 口型是离散帧：按音节钟直接切，不做插值（插值会得到「半张嘴」的糊状）
 			const mouth = mouthFrameAt(t, env, c.speaking === true);
+			const motion = profile.current;
+			const current = expression.current;
+			const target = expressionTarget.current;
+			current.browAngle = approach(current.browAngle, target.browAngle, dt, 0.09, 0.14);
+			current.browRaise = approach(current.browRaise, target.browRaise, dt, 0.09, 0.14);
+			current.eyeOpen = approach(current.eyeOpen, target.eyeOpen, dt, 0.09, 0.14);
+			current.smile = approach(current.smile, target.smile, dt, 0.09, 0.14);
+			current.blush = approach(current.blush, target.blush, dt, 0.09, 0.14);
+			current.mouthWidth = approach(current.mouthWidth, target.mouthWidth, dt, 0.09, 0.14);
 			const frame: MiiFrame = {
-				blink: blinkAt(t, profile.current.blinkSeconds),
+				blink: blinkAt(t, motion.blinkSeconds, seed.current),
 				mouthShape: mouth.shape,
 				mouthWidth: mouth.width,
-				breath: breathAt(t, profile.current.breathSeconds),
-				sway: swayAt(t),
+				mouthHeight: motion.jawOpen / 0.019,
+				breath: breathAt(t, motion.breathSeconds) * (motion.breathAmp / 0.009),
+				sway: swayAt(t, seed.current) * (motion.swayDeg / 1.8),
+				gazeX: gazeXAt(t, seed.current),
+				gazeY: gazeYAt(t, seed.current),
 				nod: nodAt(t, env, 0.8),
 				emphasize: env * 0.6,
 			};
-			drawMii(ctx2d, spec.current, expr.current, frame);
+			drawMii(ctx2d, spec.current, current, frame);
 		};
 		raf = requestAnimationFrame(draw);
 
@@ -155,8 +179,11 @@ function MiiStill({ payload, ctx }: { payload: MiiAvatarPayload; ctx: Presentati
 			blink: 0,
 			mouthShape: "closed",
 			mouthWidth: 1,
+			mouthHeight: 1,
 			breath: 0,
 			sway: 0,
+			gazeX: 0,
+			gazeY: 0,
 			nod: 0,
 			emphasize: 0,
 		});

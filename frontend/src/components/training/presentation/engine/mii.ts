@@ -23,10 +23,15 @@ export interface MiiFrame {
 	mouthShape: MouthShape;
 	/** 口宽倍率 0.92..1.08 */
 	mouthWidth: number;
+	/** 口高倍率，由情绪动效参数决定。 */
+	mouthHeight: number;
 	/** 呼吸 -1..1 */
 	breath: number;
 	/** 头部摆动 -1..1 */
 	sway: number;
+	/** 独立注视偏移 -1..1，不随头部同步摆动。 */
+	gazeX: number;
+	gazeY: number;
 	/** 说话点头 -1..1 */
 	nod: number;
 	/** 说话时额外出力抬眉 0..1 */
@@ -39,23 +44,18 @@ const MOUTH_OPEN = "#7f423c";
 /** 身体：脖子 → 衣服。脖子先画，衣服盖住它的下沿。 */
 function drawNeckAndBody(ctx: CanvasRenderingContext2D, spec: CharacterSpec, frame: MiiFrame) {
 	const { cy, ry } = spec.head;
-	const neckTop = cy + ry * 0.92;
+	const neckTop = cy + ry * 0.9;
 	const shoulder = spec.body.top - frame.breath * 0.002;
 	const half = spec.body.w / 2;
 
-	// 脖子：短、窄，下沿被领口盖住
+	// 脖子略向下收窄，下沿被领口盖住，避免矩形接头。
 	ctx.beginPath();
 	ctx.moveTo(0.5 - spec.neck.w / 2, neckTop);
 	ctx.lineTo(0.5 + spec.neck.w / 2, neckTop);
-	ctx.lineTo(0.5 + spec.neck.w / 2, shoulder + 0.05);
-	ctx.lineTo(0.5 - spec.neck.w / 2, shoulder + 0.05);
+	ctx.lineTo(0.5 + spec.neck.w * 0.44, shoulder + 0.05);
+	ctx.lineTo(0.5 - spec.neck.w * 0.44, shoulder + 0.05);
 	ctx.closePath();
 	ctx.fillStyle = spec.skin;
-	ctx.fill();
-	// 下巴投影：脖子和脸之间的那道暗，比整条脖子刷深色自然
-	ctx.beginPath();
-	ctx.ellipse(0.5, neckTop + 0.006, spec.neck.w * 0.62, 0.022, 0, 0, Math.PI);
-	ctx.fillStyle = "rgba(214, 164, 126, 0.5)";
 	ctx.fill();
 
 	// 身体：圆肩梯形
@@ -78,6 +78,15 @@ function drawNeckAndBody(ctx: CanvasRenderingContext2D, spec: CharacterSpec, fra
 	ctx.stroke();
 }
 
+/** 下巴投影跟头走，避免头部微动时阴影在脖子上滑动。 */
+function drawChinShadow(ctx: CanvasRenderingContext2D, spec: CharacterSpec) {
+	const neckTop = spec.head.cy + spec.head.ry * 0.9;
+	ctx.beginPath();
+	ctx.ellipse(0.5, neckTop + 0.006, spec.neck.w * 0.62, 0.022, 0, 0, Math.PI);
+	ctx.fillStyle = "rgba(214, 164, 126, 0.5)";
+	ctx.fill();
+}
+
 /**
  * 头发（头后面的一层）：一圈比头略大的「发型体积」，头会盖住中间，只露出上缘与两侧。
  * 长发/波波头再额外在耳侧垂两束。全部画在头之前，所以不会挡住脸。
@@ -87,7 +96,7 @@ function drawHairBack(ctx: CanvasRenderingContext2D, spec: CharacterSpec) {
 	const long = spec.hairStyle === "long" || spec.hairStyle === "bob";
 
 	if (long) {
-		// 长发/波波头：整片轮廓，从头顶一直到肩，头会盖掉中间只留下两鬓
+		// 后层只负责头后的体积；肩前发束在 drawHairFront 中画到衣服之上。
 		const bottom = spec.hairStyle === "long" ? cy + ry * 1.85 : cy + ry * 1.15;
 		ctx.beginPath();
 		ctx.moveTo(0.5 - rx * 1.02, cy - ry * 0.15);
@@ -101,12 +110,13 @@ function drawHairBack(ctx: CanvasRenderingContext2D, spec: CharacterSpec) {
 		return;
 	}
 
-	// 短发：上部半椭圆（顶上高出一截，两侧略宽）
-	const volume = spec.wrinkles > 0.5 && spec.hairStyle === "short" ? 0.99 : 1.05;
+	// 短发的头顶不是标准半椭圆：发缝侧略高，另一侧收低。
+	const volume = spec.wrinkles > 0.5 ? 0.99 : 1.05;
+	const partX = 0.5 + spec.hairPart * rx;
 	ctx.beginPath();
-	ctx.ellipse(0.5, cy - ry * 0.12, rx * volume, ry * 1.02, 0, Math.PI, Math.PI * 2);
-	ctx.lineTo(0.5 + rx * volume, cy + ry * 0.05);
-	ctx.lineTo(0.5 - rx * volume, cy + ry * 0.05);
+	ctx.moveTo(0.5 - rx * volume, cy + ry * 0.05);
+	ctx.bezierCurveTo(0.5 - rx * 1.08, cy - ry * 0.55, 0.5 - rx * 0.55, cy - ry * 1.04, partX, cy - ry * 1.06);
+	ctx.bezierCurveTo(0.5 + rx * 0.65, cy - ry * 1.02, 0.5 + rx * 1.08, cy - ry * 0.52, 0.5 + rx * volume, cy + ry * 0.05);
 	ctx.closePath();
 	ctx.fillStyle = spec.hair;
 	ctx.fill();
@@ -115,17 +125,46 @@ function drawHairBack(ctx: CanvasRenderingContext2D, spec: CharacterSpec) {
 function drawEars(ctx: CanvasRenderingContext2D, spec: CharacterSpec) {
 	const { y, dx, rx, ry } = spec.ears;
 	for (const sign of [-1, 1]) {
+		const cx = 0.5 + sign * dx;
+		// 上端接颞侧、下端收成耳垂；内侧半部随后由脸盖住。
 		ctx.beginPath();
-		ctx.ellipse(0.5 + sign * dx, y, rx, ry, 0, 0, Math.PI * 2);
+		ctx.moveTo(cx - sign * rx * 0.55, y - ry * 0.78);
+		ctx.bezierCurveTo(cx + sign * rx * 0.45, y - ry * 1.08, cx + sign * rx, y - ry * 0.58, cx + sign * rx * 0.9, y);
+		ctx.bezierCurveTo(cx + sign * rx * 0.82, y + ry * 0.58, cx + sign * rx * 0.34, y + ry, cx - sign * rx * 0.12, y + ry * 0.82);
+		ctx.bezierCurveTo(cx - sign * rx * 0.58, y + ry * 0.6, cx - sign * rx * 0.62, y - ry * 0.28, cx - sign * rx * 0.55, y - ry * 0.78);
+		ctx.closePath();
 		ctx.fillStyle = spec.skin;
 		ctx.fill();
+
+		ctx.beginPath();
+		ctx.moveTo(cx + sign * rx * 0.28, y - ry * 0.42);
+		ctx.quadraticCurveTo(cx + sign * rx * 0.65, y - ry * 0.08, cx + sign * rx * 0.2, y + ry * 0.36);
+		ctx.strokeStyle = spec.skinShade;
+		ctx.globalAlpha = 0.62;
+		ctx.lineWidth = 0.006;
+		ctx.lineCap = "round";
+		ctx.stroke();
+		ctx.globalAlpha = 1;
 	}
 }
 
-function drawHeadShape(ctx: CanvasRenderingContext2D, spec: CharacterSpec) {
-	const { cy, rx, ry } = spec.head;
+/** 头部唯一轮廓：脸部填充与前发裁剪共用，避免发际线沿另一套几何漂移。 */
+function traceHead(ctx: CanvasRenderingContext2D, spec: CharacterSpec) {
+	const { cy, rx, ry, cheek, jaw, chin } = spec.head;
+	const cx = 0.5;
 	ctx.beginPath();
-	ctx.ellipse(0.5, cy, rx, ry, 0, 0, Math.PI * 2);
+	ctx.moveTo(cx, cy - ry);
+	ctx.bezierCurveTo(cx + rx * 0.58, cy - ry * 1.02, cx + rx * 0.96, cy - ry * 0.62, cx + rx, cy - ry * 0.18);
+	ctx.bezierCurveTo(cx + rx * 1.02, cy + ry * 0.22, cx + rx * cheek, cy + ry * 0.52, cx + rx * jaw, cy + ry * 0.76);
+	ctx.bezierCurveTo(cx + rx * jaw * 0.72, cy + ry * 0.94, cx + rx * 0.28, cy + ry * chin, cx, cy + ry * chin);
+	ctx.bezierCurveTo(cx - rx * 0.28, cy + ry * chin, cx - rx * jaw * 0.72, cy + ry * 0.94, cx - rx * jaw, cy + ry * 0.76);
+	ctx.bezierCurveTo(cx - rx * cheek, cy + ry * 0.52, cx - rx * 1.02, cy + ry * 0.22, cx - rx, cy - ry * 0.18);
+	ctx.bezierCurveTo(cx - rx * 0.96, cy - ry * 0.62, cx - rx * 0.58, cy - ry * 1.02, cx, cy - ry);
+	ctx.closePath();
+}
+
+function drawHeadShape(ctx: CanvasRenderingContext2D, spec: CharacterSpec) {
+	traceHead(ctx, spec);
 	ctx.fillStyle = spec.skin;
 	ctx.fill();
 }
@@ -138,18 +177,18 @@ function drawHairFront(ctx: CanvasRenderingContext2D, spec: CharacterSpec) {
 	const { cy, rx, ry } = spec.head;
 	const longish = spec.hairStyle === "long" || spec.hairStyle === "bob";
 	const thinning = spec.wrinkles > 0.5 && spec.hairStyle === "short";
-	const hairline = cy - ry * (thinning ? 0.72 : longish ? 0.52 : 0.58);
+	const hairline = cy - ry * (thinning ? 0.72 : longish ? 0.5 : 0.54);
+	const partX = 0.5 + spec.hairPart * rx;
 	ctx.save();
-	ctx.beginPath();
-	ctx.ellipse(0.5, cy, rx, ry, 0, 0, Math.PI * 2);
+	traceHead(ctx, spec);
 	ctx.clip();
 	ctx.beginPath();
 	ctx.moveTo(0.5 - rx, 0);
 	ctx.lineTo(0.5 + rx, 0);
-	ctx.lineTo(0.5 + rx, hairline + ry * 0.14);
-	// 发际线：从右鬓角经头顶中线回到左鬓角，一条平滑的浅弧
-	ctx.bezierCurveTo(0.5 + rx * 0.55, hairline - ry * 0.02, 0.5 + rx * 0.15, hairline - ry * 0.08, 0.5, hairline - ry * 0.06);
-	ctx.bezierCurveTo(0.5 - rx * 0.15, hairline - ry * 0.08, 0.5 - rx * 0.55, hairline - ry * 0.02, 0.5 - rx, hairline + ry * 0.14);
+	ctx.lineTo(0.5 + rx, hairline + ry * 0.18);
+	// 偏分的大片刘海：两侧高度不同，但不画单根发丝。
+	ctx.bezierCurveTo(0.5 + rx * 0.58, hairline + ry * 0.02, 0.5 + rx * 0.28, hairline - ry * 0.08, partX, hairline - ry * 0.12);
+	ctx.bezierCurveTo(0.5 - rx * 0.18, hairline - ry * 0.02, 0.5 - rx * 0.58, hairline + ry * 0.1, 0.5 - rx, hairline + ry * 0.22);
 	ctx.closePath();
 	ctx.fillStyle = spec.hair;
 	ctx.fill();
@@ -157,14 +196,15 @@ function drawHairFront(ctx: CanvasRenderingContext2D, spec: CharacterSpec) {
 
 	if (!longish) return;
 
-	// 脸侧发帘：从鬓角起，贴着耳朵外缘垂下，末端收尖
-	const tip = spec.hairStyle === "long" ? cy + ry * 1.42 : cy + ry * 0.92;
+	// 肩前发束最后落在衣服上；左右长度略不同，末端收尖。
 	for (const sign of [-1, 1]) {
+		const length = spec.hairStyle === "long" ? 1.62 + (sign > 0 ? 0.04 : -0.02) : 0.96;
+		const tip = cy + ry * length;
 		ctx.beginPath();
-		ctx.moveTo(0.5 + sign * rx * 0.8, hairline - ry * 0.04);
-		ctx.bezierCurveTo(0.5 + sign * rx * 1.1, cy - ry * 0.2, 0.5 + sign * rx * 1.1, tip - ry * 0.35, 0.5 + sign * rx * 0.92, tip);
-		ctx.quadraticCurveTo(0.5 + sign * rx * 0.84, tip + ry * 0.04, 0.5 + sign * rx * 0.8, tip - ry * 0.12);
-		ctx.bezierCurveTo(0.5 + sign * rx * 0.92, cy + ry * 0.2, 0.5 + sign * rx * 0.92, cy - ry * 0.2, 0.5 + sign * rx * 0.62, hairline - ry * 0.02);
+		ctx.moveTo(0.5 + sign * rx * 0.78, hairline - ry * 0.04);
+		ctx.bezierCurveTo(0.5 + sign * rx * 1.08, cy - ry * 0.2, 0.5 + sign * rx * 1.08, tip - ry * 0.35, 0.5 + sign * rx * 0.88, tip);
+		ctx.quadraticCurveTo(0.5 + sign * rx * 0.8, tip + ry * 0.04, 0.5 + sign * rx * 0.76, tip - ry * 0.14);
+		ctx.bezierCurveTo(0.5 + sign * rx * 0.9, cy + ry * 0.22, 0.5 + sign * rx * 0.9, cy - ry * 0.2, 0.5 + sign * rx * 0.6, hairline - ry * 0.02);
 		ctx.closePath();
 		ctx.fillStyle = spec.hair;
 		ctx.fill();
@@ -190,43 +230,130 @@ function drawBrows(ctx: CanvasRenderingContext2D, spec: CharacterSpec, expr: Exp
 	}
 }
 
-function drawEyes(ctx: CanvasRenderingContext2D, spec: CharacterSpec, expr: Expression, frame: MiiFrame) {
-	const { y, dx, rx, ry } = spec.eyes;
-	const open = Math.max(0.05, expr.eyeOpen * (1 - frame.blink));
-	for (const sign of [-1, 1]) {
-		const ex = 0.5 + sign * dx;
-		// 整块深色眼珠 + 一颗高光，不画白眼仁——白眼仁会读成「玻璃眼球」，也是恐怖谷的常见来源
-		ctx.beginPath();
-		ctx.ellipse(ex, y, rx, ry * open, 0, 0, Math.PI * 2);
+/**
+ * 眼睛共用同一套轮廓：眼白/眼珠的填充、裁剪和眼皮遮罩不再各算一套。
+ * dot/glint 是圆润深色眼；lash/crescent 是带眼白的杏仁眼。
+ */
+function traceEye(
+	ctx: CanvasRenderingContext2D,
+	style: CharacterSpec["eyeStyle"],
+	ex: number,
+	y: number,
+	rx: number,
+	h: number,
+) {
+	ctx.beginPath();
+	if (style === "dot" || style === "glint") {
+		ctx.ellipse(ex, y, rx * 0.94, h, 0, 0, Math.PI * 2);
+		return;
+	}
+	// 控制点放在 2h，曲线实际顶点才在 -h；下缘实际为 +0.75h。
+	ctx.moveTo(ex - rx, y);
+	ctx.quadraticCurveTo(ex, y - h * 2, ex + rx, y);
+	ctx.quadraticCurveTo(ex, y + h * 1.5, ex - rx, y);
+	ctx.closePath();
+}
+
+function drawEyeStyle(
+	ctx: CanvasRenderingContext2D,
+	style: CharacterSpec["eyeStyle"],
+	ex: number,
+	y: number,
+	rx: number,
+	h: number,
+	lookX: number,
+	lookY: number,
+) {
+	if (style === "dot" || style === "glint") {
+		// 无眼白时让整个深色眼形微移，而不是只移动高光。
+		const darkX = ex + lookX;
+		const darkY = y + lookY;
+		traceEye(ctx, style, darkX, darkY, rx, h);
 		ctx.fillStyle = "#2e2622";
 		ctx.fill();
+		if (style === "glint") {
+			ctx.save();
+			traceEye(ctx, style, darkX, darkY, rx, h);
+			ctx.clip();
+			ctx.beginPath();
+			ctx.ellipse(darkX - rx * 0.26, darkY - h * 0.34, rx * 0.22, rx * 0.17, -0.4, 0, Math.PI * 2);
+			ctx.fillStyle = "rgba(255,255,255,0.95)";
+			ctx.fill();
+			ctx.restore();
+		}
+		return;
+	}
 
+	traceEye(ctx, style, ex, y, rx, h);
+	ctx.fillStyle = "#fffdf9";
+	ctx.fill();
+	ctx.save();
+	traceEye(ctx, style, ex, y, rx, h);
+	ctx.clip();
+	ctx.beginPath();
+	ctx.ellipse(ex + lookX, y + lookY - h * 0.08, rx * 0.8, h * 0.9, 0, 0, Math.PI * 2);
+	ctx.fillStyle = "#2e2622";
+	ctx.fill();
+	if (style === "crescent") {
+		ctx.beginPath();
+		ctx.ellipse(ex + lookX, y + lookY + h * 0.62, rx * 0.5, h * 0.34, 0, 0, Math.PI);
+		ctx.fillStyle = "rgba(255,255,255,0.5)";
+		ctx.fill();
+	} else {
+		ctx.beginPath();
+		ctx.ellipse(ex + lookX - rx * 0.22, y + lookY - h * 0.34, rx * 0.21, rx * 0.16, -0.4, 0, Math.PI * 2);
+		ctx.fillStyle = "rgba(255,255,255,0.92)";
+		ctx.fill();
+	}
+	ctx.restore();
+}
+
+/** 上眼睑从真实上缘压下；常态眼线贴着杏仁眼上缘，不再悬在眼睛上方。 */
+function drawLids(ctx: CanvasRenderingContext2D, spec: CharacterSpec, expr: Expression, frame: MiiFrame) {
+	const { y, dx, rx, ry } = spec.eyes;
+	const h = ry * expr.eyeOpen;
+	const blink = Math.min(1, Math.max(0, frame.blink));
+	for (const sign of [-1, 1]) {
+		const ex = 0.5 + sign * dx;
+		const top = y - h;
+		const lidY = top + h * 1.28 * blink;
 		ctx.save();
-		ctx.beginPath();
-		ctx.ellipse(ex, y, rx, ry * open, 0, 0, Math.PI * 2);
+		traceEye(ctx, spec.eyeStyle, ex, y, rx, h);
 		ctx.clip();
-		const look = frame.sway * 0.006;
-		ctx.beginPath();
-		ctx.ellipse(ex + look - rx * 0.3, y - ry * open * 0.34, rx * 0.22, rx * 0.17, -0.4, 0, Math.PI * 2);
-		ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
-		ctx.fill();
-		ctx.beginPath();
-		ctx.ellipse(ex + look + rx * 0.34, y + ry * open * 0.36, rx * 0.09, rx * 0.075, 0, 0, Math.PI * 2);
-		ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
-		ctx.fill();
+		if (lidY > top) {
+			ctx.fillStyle = spec.skin;
+			ctx.fillRect(ex - rx * 1.2, top - h * 0.05, rx * 2.4, lidY - top + h * 0.05);
+		}
 		ctx.restore();
 
-		// 闭眼：压成一条弧线
-		if (frame.blink > 0.55) {
-			ctx.beginPath();
-			ctx.moveTo(ex - rx, y);
-			ctx.quadraticCurveTo(ex, y + ry * 0.5, ex + rx, y);
-			ctx.strokeStyle = "#3a2b26";
-			ctx.lineWidth = 0.009;
-			ctx.lineCap = "round";
-			ctx.stroke();
+		if ((spec.eyeStyle === "dot" || spec.eyeStyle === "glint") && blink < 0.02) continue;
+		const closedness = Math.min(1, Math.max(0, blink * 1.6));
+		const cornerY = y + (lidY - y) * blink;
+		ctx.beginPath();
+		ctx.moveTo(ex - rx, cornerY);
+		if (closedness < 0.02 && spec.eyeStyle !== "dot" && spec.eyeStyle !== "glint") {
+			ctx.quadraticCurveTo(ex, y - h * 2, ex + rx, cornerY);
+		} else {
+			ctx.quadraticCurveTo(ex, lidY + h * 0.55 * closedness, ex + rx, cornerY);
+		}
+		ctx.strokeStyle = blink > 0.5 ? "rgba(58,43,38,0.9)" : "rgba(58,43,38,0.62)";
+		ctx.lineWidth = 0.007;
+		ctx.lineCap = "round";
+		ctx.stroke();
+	}
+}
+
+function drawEyes(ctx: CanvasRenderingContext2D, spec: CharacterSpec, expr: Expression, frame: MiiFrame) {
+	const { y, dx, rx } = spec.eyes;
+	const h = spec.eyes.ry * expr.eyeOpen;
+	const lookX = frame.gazeX * 0.004;
+	const lookY = frame.gazeY * 0.002;
+	if (frame.blink < 0.985) {
+		for (const sign of [-1, 1]) {
+			drawEyeStyle(ctx, spec.eyeStyle, 0.5 + sign * dx, y, rx, h, lookX, lookY);
 		}
 	}
+	drawLids(ctx, spec, expr, frame);
 }
 
 function drawNose(ctx: CanvasRenderingContext2D, spec: CharacterSpec) {
@@ -278,7 +405,7 @@ function drawMouth(ctx: CanvasRenderingContext2D, spec: CharacterSpec, expr: Exp
 	// 说话时的嘴一定是「宽 > 高」，高一点的圆口会读成惊讶
 	const scale = frame.mouthShape === "small" ? { w: 0.6, h: 0.014 } : frame.mouthShape === "mid" ? { w: 0.85, h: 0.024 } : { w: 1.05, h: 0.035 };
 	const w = half * scale.w;
-	const h = scale.h;
+	const h = scale.h * frame.mouthHeight;
 	ctx.beginPath();
 	ctx.moveTo(0.5 - w, cy);
 	// 上沿：略向上拱一点，避免一条死平线
@@ -335,12 +462,13 @@ export function drawMii(
 	drawHairBack(ctx, spec);
 	drawNeckAndBody(ctx, spec, frame);
 
-	// 头部整体（头发 + 五官）绕脖子轻转，呼吸起伏与说话点头也加在这里
+	// 点头以绕颈俯仰为主、微小位移为辅；呼吸保留较慢的整体起伏。
 	const pivot = { x: 0.5, y: spec.head.cy + spec.head.ry * 0.9 };
 	ctx.save();
-	ctx.translate(pivot.x, pivot.y + frame.breath * 0.004 + frame.nod * 0.005);
-	ctx.rotate(frame.sway * 0.03);
+	ctx.translate(pivot.x, pivot.y + frame.breath * 0.0035 + frame.nod * 0.0012);
+	ctx.rotate(frame.sway * 0.03 + frame.nod * 0.018);
 	ctx.translate(-pivot.x, -pivot.y);
+	drawChinShadow(ctx, spec);
 	drawEars(ctx, spec);
 	drawHeadShape(ctx, spec);
 	drawWrinkles(ctx, spec);

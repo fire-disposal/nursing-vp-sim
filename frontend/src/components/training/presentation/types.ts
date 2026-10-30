@@ -90,6 +90,8 @@ export interface MiiAvatarPayload {
 	spec: CharacterSpec;
 	expression: Expression;
 	profile: MotionProfile;
+	/** 同一患者的微动作相位固定，不同患者不同步。 */
+	seed: number;
 }
 
 export type PresentationKind = PatientPresentation["kind"];
