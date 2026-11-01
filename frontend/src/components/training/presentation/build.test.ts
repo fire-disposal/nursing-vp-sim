@@ -4,7 +4,8 @@ import type { EmotionSnapshot, PatientIdentity } from "./types";
 
 const WANG: PatientIdentity = { name: "王建国", age: 68, gender: "male" };
 const ZHANG: PatientIdentity = { name: "张美华", age: 55, gender: "female" };
-const UNKNOWN: PatientIdentity = { name: "李明", age: 27, gender: "male" };
+/** 没有照片、也没有情绪立绘的病例。 */
+const NO_PHOTO: PatientIdentity = { name: "李明", age: 27, gender: "male" };
 
 const NEUTRAL: EmotionSnapshot = {
 	emotion: "neutral",
@@ -18,9 +19,9 @@ const ANXIOUS: EmotionSnapshot = {
 	values: { trust: 30, anxiety: 85, irritation: 40, cooperation: 40 },
 };
 
-describe("buildPatientPresentation — 默认策略链 [realistic, static]", () => {
-	it("生产链顺序为 realistic → static", () => {
-		expect(PRESENTATION_CHAIN).toEqual(["realistic", "static"]);
+describe("buildPatientPresentation — 生产策略链 [realistic, mii]", () => {
+	it("链顺序为 realistic → mii", () => {
+		expect(PRESENTATION_CHAIN).toEqual(["realistic", "mii"]);
 	});
 
 	it("王建国 → 写实胸痛头像", () => {
@@ -31,24 +32,28 @@ describe("buildPatientPresentation — 默认策略链 [realistic, static]", () 
 
 	it("张美华 → 写实发热头像", () => {
 		const p = buildPatientPresentation(ZHANG, NEUTRAL);
+		expect(p.kind).toBe("realistic");
 		if (p.kind === "realistic") expect(p.src).toContain("case-fever-middle-female");
 	});
 
-	it("未绑定病例 → 简洁画风兜底", () => {
-		const p = buildPatientPresentation(UNKNOWN, NEUTRAL);
-		expect(p.kind).toBe("static");
-		if (p.kind === "static") expect(p.src).not.toContain("realistic");
+	it("无照片病例 → 程序化绘制（不加载任何图片）", () => {
+		const p = buildPatientPresentation(NO_PHOTO, NEUTRAL);
+		expect(p.kind).toBe("mii");
+		if (p.kind === "mii") {
+			expect(p.spec.hairStyle).toBe("short");
+			expect(p.seed).toBeGreaterThanOrEqual(0);
+		}
 	});
 
-	it("null 患者不崩溃且落到 static", () => {
-		expect(buildPatientPresentation(null, NEUTRAL).kind).toBe("static");
+	it("null 患者不崩溃且落到程序化绘制", () => {
+		expect(buildPatientPresentation(null, NEUTRAL).kind).toBe("mii");
 	});
-});
 
-describe("buildPatientPresentation — 指定策略链", () => {
-	it("非法链（无 static）防御性兜底到简洁画风", () => {
-		const p = buildPatientPresentation(UNKNOWN, NEUTRAL, ["realistic"]);
-		expect(p.kind).toBe("static");
+	it("身份真的进长相：儿童头比中年人大", () => {
+		const child = buildPatientPresentation({ name: null, age: 8, gender: "male" }, NEUTRAL);
+		const adult = buildPatientPresentation({ name: null, age: 45, gender: "male" }, NEUTRAL);
+		if (child.kind !== "mii" || adult.kind !== "mii") throw new Error("应走程序化绘制");
+		expect(child.spec.head.rx).toBeGreaterThan(adult.spec.head.rx);
 	});
 });
 
@@ -78,13 +83,13 @@ describe("buildPatientPresentation — 情绪立绘（patient_info.portrait_stat
 	});
 
 	it("未绑定姓名的病例，靠情绪立绘也能进写实层", () => {
-		const p = buildPatientPresentation({ ...UNKNOWN, portraitStates: { anxious: ANXIOUS_URL } }, ANXIOUS);
+		const p = buildPatientPresentation({ ...NO_PHOTO, portraitStates: { anxious: ANXIOUS_URL } }, ANXIOUS);
 		expect(p.kind).toBe("realistic");
 		if (p.kind === "realistic") expect(p.src).toBe(ANXIOUS_URL);
 	});
 
-	it("该情绪无图且姓名未绑定 → 让位给简洁画风", () => {
-		const p = buildPatientPresentation({ ...UNKNOWN, portraitStates: { anxious: ANXIOUS_URL } }, NEUTRAL);
-		expect(p.kind).toBe("static");
+	it("该情绪无图且姓名未绑定 → 让位给程序化绘制", () => {
+		const p = buildPatientPresentation({ ...NO_PHOTO, portraitStates: { anxious: ANXIOUS_URL } }, NEUTRAL);
+		expect(p.kind).toBe("mii");
 	});
 });

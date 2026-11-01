@@ -10,7 +10,6 @@ import { ChatArea } from "@/components/training/ChatArea";
 import PatientStage from "@/components/training/PatientStage";
 import { ScoreCard, ScoringOverlay } from "@/components/training/scoring";
 import { TRAINING_HEADER_HEIGHT, TrainingHeader } from "@/components/training/TrainingHeader";
-import { getPatientAvatar } from "@/utils/avatar";
 import { useShortViewport } from "@/hooks/useShortViewport";
 import { useIsMobile } from "@/hooks/useLayoutMode";
 import {
@@ -136,13 +135,6 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 	useEffect(() => {
 		ttsRef.current.setRecordId(recordNum);
 	}, [recordNum]);
-
-	// 暂时停用动态病人头像：论文截图使用稳定的 PNG 真人风格头像。
-	useEffect(() => {
-		if (patient) {
-			getTrainingState().setPortraitUrl(getPatientAvatar(patient));
-		}
-	}, [patient]);
 
 	const flushNursingRecord = useCallback(async () => {
 		const store = getTrainingState();

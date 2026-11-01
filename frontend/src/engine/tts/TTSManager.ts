@@ -34,6 +34,7 @@ export class TTSManager {
 	private replyFinished = false;
 	private replyAutoPlay = false;
 	private lastProvider = "volcengine-tts";
+	private publishedAnalyser: AnalyserNode | null = null;
 
 	constructor(config?: TTSManagerConfig) {
 		this.autoPlay = config?.autoPlay ?? false;
@@ -54,7 +55,7 @@ export class TTSManager {
 			this.stop();
 			return;
 		}
-		void this.player.prime().catch(() => undefined);
+		void this.prepare();
 	}
 
 	setRecordId(id: number): void {
@@ -78,7 +79,7 @@ export class TTSManager {
 		const unsubBeforeSend = bus.on("chat:beforeSend", () => {
 			this.stop();
 			this.replyAutoPlay = this.autoPlay;
-			if (this.replyAutoPlay) void this.player.prime().catch(() => undefined);
+			if (this.replyAutoPlay) void this.prepare();
 		});
 
 		const unsubEmotion = bus.on(
@@ -98,6 +99,7 @@ export class TTSManager {
 		this.unsubs = [];
 		this.stop();
 		this.player.dispose();
+		this.publishedAnalyser = null;
 		this.bus = null;
 	}
 
@@ -206,6 +208,27 @@ export class TTSManager {
 	private markStarted(sentence: string): void {
 		if (!this.replyAutoPlay || this.started) return;
 		this.started = true;
+		this.publishAnalyser();
 		this.bus?.emit("tts:start", sentence);
+	}
+
+	/**
+	 * 预创建播放图（浏览器要求由用户手势触发）并把包络分析节点公布给表现层。
+	 * 分析节点随 AudioContext 一起创建，因此只在拿到音频图之后才发事件。
+	 */
+	private async prepare(): Promise<void> {
+		try {
+			await this.player.prime();
+		} catch {
+			return;
+		}
+		this.publishAnalyser();
+	}
+
+	private publishAnalyser(): void {
+		const analyser = this.player.audioAnalyser;
+		if (!analyser || analyser === this.publishedAnalyser) return;
+		this.publishedAnalyser = analyser;
+		this.bus?.emit("tts:analyser", analyser);
 	}
 }

@@ -59,6 +59,16 @@ describe("PatientStage（患者上下文）", () => {
 		const { container } = renderStage(null);
 		expect(container.querySelector("[data-patient-stage]")).not.toBeNull();
 	});
+
+	it("无照片病例用程序化绘制，不加载任何 PNG", () => {
+		const { container } = renderStage(makeRecord({ patient_name: "李明", patient_age: 27, patient_gender: "男" }));
+		const head = container.querySelector("[data-patient-stage-head]") as HTMLElement;
+
+		expect(head.querySelector("[data-mii-avatar]")).not.toBeNull();
+		expect(head.querySelector("img")).toBeNull();
+		// 方构图：程序化绘制不套用照片的 4:5 裁切
+		expect(head.style.aspectRatio).toBe("1 / 1");
+	});
 });
 
 describe("在场感：说话态与呼吸节奏", () => {
@@ -85,6 +95,29 @@ describe("在场感：说话态与呼吸节奏", () => {
 			for (const fn of handlers["tts:end"] ?? []) fn();
 		});
 		await waitFor(() => expect(container.querySelector(".patient-speaking-ring")).toBeNull());
+	});
+
+	it("说话态传到绘制层（口型接口，tts:start/end 驱动）", async () => {
+		const handlers: Record<string, Array<() => void>> = {};
+		const bus = {
+			on: (event: string, fn: () => void) => {
+				handlers[event] = handlers[event] ?? [];
+				handlers[event].push(fn);
+				return () => {};
+			},
+			off: vi.fn(),
+			emit: vi.fn(),
+		};
+		useTrainingStore.setState({ bus: bus as never, recordId: "1" });
+		const { container } = renderStage(makeRecord({ patient_name: "李明", patient_age: 27 }));
+
+		expect(container.querySelector("[data-mii-avatar]")?.getAttribute("data-speaking")).toBe("false");
+		await act(async () => {
+			for (const fn of handlers["tts:start"] ?? []) fn();
+		});
+		await waitFor(() =>
+			expect(container.querySelector("[data-mii-avatar]")?.getAttribute("data-speaking")).toBe("true"),
+		);
 	});
 
 	it("呼吸只给节奏与定性说法，不给次数（次数要靠床旁检查得到）", () => {

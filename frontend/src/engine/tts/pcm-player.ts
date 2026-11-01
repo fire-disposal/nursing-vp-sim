@@ -15,6 +15,9 @@ function concat(a: Uint8Array, b: Uint8Array): Uint8Array {
 
 export class PcmStreamPlayer {
 	private ctx: AudioContext | null = null;
+	/** 播放总线：全部分块先过这一个增益节点，再经 analyser 出声。 */
+	private master: GainNode | null = null;
+	private analyser: AnalyserNode | null = null;
 	private endTime = 0;
 	private sources = new Set<AudioBufferSourceNode>();
 
@@ -22,11 +25,22 @@ export class PcmStreamPlayer {
 	async prime(): Promise<AudioContext> {
 		if (!this.ctx) {
 			this.ctx = new AudioContext({ sampleRate: SAMPLE_RATE });
+			this.master = this.ctx.createGain();
+			this.analyser = this.ctx.createAnalyser();
+			this.analyser.fftSize = 1024;
+			this.analyser.smoothingTimeConstant = 0.2;
+			this.master.connect(this.analyser);
+			this.analyser.connect(this.ctx.destination);
 		}
 		if (this.ctx.state !== "running") {
 			await this.ctx.resume();
 		}
 		return this.ctx;
+	}
+
+	/** 包络分析节点：prime() 之后才存在（AudioContext 在首次出声时才创建）。 */
+	get audioAnalyser(): AnalyserNode | null {
+		return this.analyser;
 	}
 
 	get playing(): boolean {
@@ -82,7 +96,7 @@ export class PcmStreamPlayer {
 				audio.copyToChannel(f32, 0);
 				const src = ctx.createBufferSource();
 				src.buffer = audio;
-				src.connect(ctx.destination);
+				src.connect(this.master ?? ctx.destination);
 				const at = Math.max(ctx.currentTime + 0.05, this.endTime);
 				src.start(at);
 				this.endTime = at + audio.duration;
@@ -118,6 +132,8 @@ export class PcmStreamPlayer {
 		this.stop();
 		const ctx = this.ctx;
 		this.ctx = null;
+		this.master = null;
+		this.analyser = null;
 		if (ctx && ctx.state !== "closed") {
 			void ctx.close().catch(() => {
 				/* already closing */

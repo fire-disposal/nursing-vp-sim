@@ -111,7 +111,6 @@ export interface TrainingStore {
 	irritation: number;
 	cooperation: number;
 	emotion4D: Emotion4DLabel;
-	portraitUrl: string | null;
 	nursingRecordDraft: NursingRecordSheet | null;
 	nursingRecordDirty: boolean;
 	/** 提交时间戳（ISO）；非 null = 内容已冻结、进入评分证据、编辑器只读 */
@@ -150,7 +149,6 @@ export interface TrainingStore {
 	setEmotion: (e: EmotionState) => void;
 	setTrustComfort: (trust: number, comfort: number) => void;
 	setEmotion4D: (trust: number, anxiety: number, irritation: number, cooperation: number, label: Emotion4DLabel) => void;
-	setPortraitUrl: (url: string | null) => void;
 	hydrateNursingRecord: (sheet: NursingRecordSheet, meta?: { submitted_at?: string | null }) => void;
 	updateNursingRecordField: (key: string, value: string) => void;
 	markNursingRecordSaved: (savedSheet: NursingRecordSheet) => void;
@@ -175,7 +173,6 @@ const initialTrainingState = {
 	irritation: 50,
 	cooperation: 50,
 	emotion4D: "neutral" as Emotion4DLabel,
-	portraitUrl: null as string | null,
 	nursingRecordDraft: null as NursingRecordSheet | null,
 	nursingRecordDirty: false,
 	nursingRecordSubmittedAt: null as string | null,
@@ -385,7 +382,6 @@ export const useTrainingStore = create<TrainingStore>()((set, get) => ({
 			emotion4D: label,
 		});
 	},
-	setPortraitUrl(url) { set({ portraitUrl: url }); },
 	hydrateNursingRecord(sheet, meta) {
 		set((s) => {
 			const next: Partial<TrainingStore> = {};

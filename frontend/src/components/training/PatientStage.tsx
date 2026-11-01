@@ -2,11 +2,12 @@ import { Badge, Box, Group, Modal, Paper, Stack, Text, UnstyledButton } from "@m
 import { IconPhoto } from "@tabler/icons-react";
 import { useEffect, useMemo, useState } from "react";
 import { usePatientData, useRecordFeatures, useTrainingData } from "@/engine/TrainingDataContext";
+import { useAudioEnvelope } from "@/hooks/useAudioEnvelope";
 import { useIsMobile } from "@/hooks/useLayoutMode";
+import { usePatientPresentation } from "@/hooks/usePatientPresentation";
 import { useTrainingStore } from "@/stores/trainingStore";
 import { EmotionIndicator } from "./EmotionIndicator";
 import { InquiryProgressChip } from "./InquiryProgressChip";
-import { buildPatientPresentation } from "./presentation/build";
 import PatientPresenter from "./presentation/PatientPresenter";
 
 /** 桌面上下文列宽度：够读，不抢对话区 */
@@ -36,6 +37,7 @@ const ACCENT_BY_EMOTION: Record<string, string> = {
  *   不展开、不折叠、不挤压对话列；
  * - 手机（< 768px）：一条患者条（头像 + 姓名 + 主诉 + 情绪），纵向空间全留给对话；
  * - **大图按需**：点头像/患者条打开浮层看患者形象——观察训练需要的表情与体态在那里，不在常驻区；
+ * - 形象来自表现层：有病例照片用照片（4:5 裁切），无照片病例用程序化绘制（方构图，随情绪与说话动）；
  * - **此处不汇总体征**（2026-09-27 裁定：老问诊侧不再用监护仪）：学生查到的体征在记录区
  *   （`ExamResultCard`）逐项展示，患者的生命体征要"查"出来，不在常驻区预支答案。
  */
@@ -47,21 +49,21 @@ export default function PatientStage() {
 	const recordId = Number(useTrainingStore((s) => s.recordId));
 	const bus = useTrainingStore((s) => s.bus);
 	const emotion = useTrainingStore((s) => s.emotion);
-	const emotion4D = useTrainingStore((s) => s.emotion4D);
-	const trust = useTrainingStore((s) => s.trust);
-	const anxiety = useTrainingStore((s) => s.anxiety);
-	const irritation = useTrainingStore((s) => s.irritation);
-	const cooperation = useTrainingStore((s) => s.cooperation);
 	const [portraitOpen, setPortraitOpen] = useState(false);
-	// 说话态：TTSManager 已在总线上发 tts:start/end（EmotionIndicator 也在用）→ 零新增管线
+	// 说话态 + 口型：TTSManager 在总线上发 tts:start/end（EmotionIndicator 也在用）；
+	// tts:analyser 是播放链的包络分析节点（首次出声时发布），没有它时口型保持闭口。
 	const [speaking, setSpeaking] = useState(false);
+	const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
+	const envelope = useAudioEnvelope(analyser);
 	useEffect(() => {
 		if (!bus) return;
 		const offStart = bus.on("tts:start", () => setSpeaking(true));
 		const offEnd = bus.on("tts:end", () => setSpeaking(false));
+		const offAnalyser = bus.on("tts:analyser", (node: AnalyserNode) => setAnalyser(node));
 		return () => {
 			offStart();
 			offEnd();
+			offAnalyser();
 		};
 	}, [bus]);
 
@@ -76,14 +78,9 @@ export default function PatientStage() {
 	}, [record]);
 	const breathSeconds = breathing ? (BREATH_SECONDS[breathing] ?? BREATH_SECONDS.normal) : null;
 
-	const values = useMemo(
-		() => ({ trust, anxiety, irritation, cooperation }),
-		[trust, anxiety, irritation, cooperation],
-	);
-	const presentation = useMemo(
-		() => buildPatientPresentation(patient, { emotion, emotion4D, values }),
-		[patient, emotion, emotion4D, values],
-	);
+	const presentation = usePatientPresentation(patient);
+	/** 程序化绘制是方构图；照片是竖构图的立绘，保持 4:5 裁切（评审 B4）。 */
+	const portraitAspect = presentation.kind === "mii" ? "1 / 1" : "4 / 5";
 
 	const accent = ACCENT_BY_EMOTION[emotion] ?? "brand.5";
 	const name = patient?.name ?? "患者";
@@ -100,7 +97,7 @@ export default function PatientStage() {
 		<Modal opened={portraitOpen} onClose={() => setPortraitOpen(false)} title={name} size={380} centered withinPortal>
 			<Stack align="center" gap="sm">
 				<Box w="100%">
-					<PatientPresenter presentation={presentation} fill />
+					<PatientPresenter presentation={presentation} fill speaking={speaking} envelope={envelope} />
 				</Box>
 				{identity && (
 					<Text size="sm" c="dimmed">
@@ -203,9 +200,9 @@ export default function PatientStage() {
 							onClick={() => setPortraitOpen(true)}
 							aria-label={`查看患者${name}的大图`}
 							w="100%"
-							style={{ display: "block", aspectRatio: "4 / 5", overflow: "hidden", borderRadius: "var(--mantine-radius-sm)" }}
+							style={{ display: "block", aspectRatio: portraitAspect, overflow: "hidden", borderRadius: "var(--mantine-radius-sm)" }}
 						>
-							<PatientPresenter presentation={presentation} fill />
+							<PatientPresenter presentation={presentation} fill speaking={speaking} envelope={envelope} />
 						</UnstyledButton>
 						{/* 说话态：光环 + 声波条（tts:start/end 驱动），不遮挡点击 */}
 						{speaking && (

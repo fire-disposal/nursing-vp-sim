@@ -12,14 +12,13 @@ import type { MotionProfile } from "./engine/motion";
  *   - 策略（presenters/）：每个策略一个模块，同一范式 { kind, build, render }；
  *     build 是纯函数（快照+身份 → 负载或 null），render 只做展示。
  *   - 路由（build.ts）：策略链顺序即优先级，null = 不适用 → 交给下一策略；
- *     链必须终止于恒适用策略（static），保证永不落空。
+ *     链必须终止于恒适用策略（mii），保证永不落空。
  *   - 分发（PatientPresenter / registry）：按 kind 查注册表渲染，新增策略零业务改动。
  *
  * 已落地策略：
  *   - realistic    写实画风专属病例头像路由器（按患者姓名/情绪立绘）— 未命中让位
- *   - static       简洁画风 PNG 路由器（按年龄/性别）— 恒适用，链兜底
- *   - mii          全程序化绘制（M3）：不加载任何图片，靠图形画人并做眨眼/呼吸/口型
- *                  只在 `/lab` 陈列，尚未进生产链（见 docs/ops/voice-avatar-next.md）
+ *   - mii          全程序化绘制：不加载任何图片，靠图形画人并做眨眼/呼吸/口型
+ *                  无照片病例的生产渲染（`/lab` 仍是它的陈列台）
  */
 
 /** 四维情绪数值 0-1（信任/焦虑/烦躁/合作）。 */
@@ -71,15 +70,8 @@ export interface PresentationContext {
 
 /** 表现负载 — 各策略产出的可渲染数据（判别联合，消费端可获得类型收窄）。 */
 export type PatientPresentation =
-	| { kind: "static"; src: string; alt: string }
 	| { kind: "realistic"; src: string; alt: string }
 	| MiiAvatarPayload;
-
-/**
- * 画风族：选图规则的判定结果。`photo` = 写实照片（按姓名或情绪立绘），`flat` = 简洁扁平原图。
- * 目前只用于区分"能否进写实策略"；口部动效搁置后，live 不再按画风分锚点。
- */
-export type AvatarArt = "photo" | "flat";
 
 /**
  * mii 负载 — 程序化绘制的患者形象（M3）。`spec` 是长相（身份），`expression` 是表情（情绪），

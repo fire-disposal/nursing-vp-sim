@@ -171,9 +171,9 @@ describe("微动作", () => {
 });
 
 describe("呈现器接线", () => {
-	it("已注册但不在生产策略链里", () => {
+	it("mii 是生产策略链的终点（无照片病例）", () => {
 		expect(PRESENTERS.mii.kind).toBe("mii");
-		expect(PRESENTATION_CHAIN).toEqual(["realistic", "static"]);
+		expect(PRESENTATION_CHAIN).toEqual(["realistic", "mii"]);
 	});
 
 	it("build 是纯函数：同一身份同一情绪 → 同一份负载", () => {

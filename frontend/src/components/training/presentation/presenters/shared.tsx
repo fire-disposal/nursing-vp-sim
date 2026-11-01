@@ -1,31 +1,29 @@
 import type { CSSProperties } from "react";
-import { getBasePatientAvatar, getRealisticPatientAvatar } from "@/utils/avatar";
-import type { AvatarArt, EmotionSnapshot, PatientIdentity, PresentationContext } from "../types";
+import { getRealisticPatientAvatar } from "@/utils/avatar";
+import type { EmotionSnapshot, PatientIdentity, PresentationContext } from "../types";
 
-/** 选图结果的唯一表示：谁（src）、叫什么（alt）、什么画风（决定动效锚点）。 */
+/** 选图结果：谁（src）、叫什么（alt）。 */
 export interface ResolvedPortrait {
 	src: string;
 	alt: string;
-	art: AvatarArt;
 }
 
 /**
- * 选图规则**唯一实现**（realistic / live 共用，static 用同一个末级兜底）：
+ * 病例照片的**唯一**取法（realistic 策略用）：
  *   1. 当前情绪有专属立绘（`patient_info.portrait_states`）→ 用这一张；
  *   2. 否则按患者姓名取论文专属写实 PNG；
- *   3. 都没有 → 按年龄/性别取简洁画风（恒适用）。
- * 情绪立绘是病例作者按写实风格提供的，归入 photo 画风。
+ *   3. 都没有 → null（无照片病例交给链上下一个策略，即程序化绘制）。
+ * 情绪立绘是病例作者按写实风格提供的，与论文 PNG 同属"照片"。
  */
 export function resolvePatientPortrait(
 	patient: PatientIdentity | null,
 	emotion: EmotionSnapshot,
-): ResolvedPortrait {
+): ResolvedPortrait | null {
 	const alt = patient?.name ?? "患者";
 	const emotionSrc = patient?.portraitStates?.[emotion.emotion];
-	if (emotionSrc) return { src: emotionSrc, alt, art: "photo" };
+	if (emotionSrc) return { src: emotionSrc, alt };
 	const realistic = getRealisticPatientAvatar(patient?.name);
-	if (realistic) return { src: realistic, alt, art: "photo" };
-	return { src: getBasePatientAvatar(patient), alt, art: "flat" };
+	return realistic ? { src: realistic, alt } : null;
 }
 
 /** 头像/立绘共享的圆角 + 描边 + 底色。 */
@@ -40,7 +38,7 @@ export function avatarShapeStyle(ctx: PresentationContext): CSSProperties {
 }
 
 /**
- * 图片类负载的共享渲染 — static / realistic 共用。
+ * 图片类负载的共享渲染 — realistic 用。
  */
 export function renderAvatarImage(
 	p: { src: string; alt: string },

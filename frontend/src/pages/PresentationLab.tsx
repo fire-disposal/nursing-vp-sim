@@ -29,8 +29,8 @@ import {
  * 表现层试验台（M3）— 全程序化绘制的患者形象：不加载任何图片，脸是代码画出来的。
  *
  * 这里**不接训练会话、不写业务数据、不调 LLM**：只有身份、情绪枚举与现成的测试音频。
- * 绘制实现见 `components/training/presentation/engine/mii.ts`；生产策略链仍为
- * realistic → static，本页要等接线后才对外。
+ * 绘制实现见 `components/training/presentation/engine/mii.ts`；生产链（realistic → mii）
+ * 已经用它渲染无照片病例，本页保留为陈列与调参台。
  */
 
 interface LabPreset {

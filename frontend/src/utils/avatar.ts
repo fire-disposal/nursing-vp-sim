@@ -1,32 +1,17 @@
 import type { EmotionState } from "@/stores/trainingStore";
 import nurseFemale from "../assets/avatars/simple/nurse_female.png";
 import nurseMale from "../assets/avatars/simple/nurse_male.png";
-import childFemale from "../assets/avatars/simple/patient_child_female.png";
-import childMale from "../assets/avatars/simple/patient_child_male.png";
-import elderFemale from "../assets/avatars/simple/patient_elder_female.png";
-import elderMale from "../assets/avatars/simple/patient_elder_male.png";
-import middleFemale from "../assets/avatars/simple/patient_middle_female.png";
-import middleMale from "../assets/avatars/simple/patient_middle_male.png";
-import youthFemale from "../assets/avatars/simple/patient_youth_female.png";
-import youthMale from "../assets/avatars/simple/patient_youth_male.png";
 
-const avatars: Record<string, string> = {
-	patient_child_male: childMale,
-	patient_child_female: childFemale,
-	patient_youth_male: youthMale,
-	patient_youth_female: youthFemale,
-	patient_middle_male: middleMale,
-	patient_middle_female: middleFemale,
-	patient_elder_male: elderMale,
-	patient_elder_female: elderFemale,
+/** 员工（护士）头像：平台账号没有病例照片，只有这两张固定图。 */
+const staffAvatars: Record<string, string> = {
 	nurse_male: nurseMale,
 	nurse_female: nurseFemale,
 };
 
 /**
- * 论文展示病例专属写实头像：按患者姓名精确绑定（欢迎页/聊天区/结果页三处都能命中）。
+ * 论文展示病例专属写实头像：按患者姓名精确绑定（患者区/聊天气泡两处都能命中）。
  * 图片放在 realistic/ 目录，用 import.meta.glob 动态加载：
- *   - 图片尚未放入时 glob 为空，自动回退到按年龄/性别默认头像，构建不受影响；
+ *   - 图片尚未放入时 glob 为空，自动回退到程序化绘制，构建不受影响；
  *   - PNG 一旦放入即被自动加载，无需改动代码。
  *   - 资源命名遵循病例头像的当前产品约定；生成或替换头像不改变训练逻辑。
  */
@@ -40,62 +25,13 @@ const realisticAvatarsByName: Record<string, string> = {
 	"张美华": "case-fever-middle-female.png",
 };
 
-export interface PatientInfo {
-	name?: string | null;
-	gender?: string | null;
-	age?: number | null;
-}
-
 /**
  * 情绪立绘映射（病例 ``patient_info.portrait_states``）：情绪键 → 立绘 URL。
  * 同一患者可以有任意多张（0~6）按情绪切换的立绘；键的闭集由后端发布门禁把关。
  */
 export type PortraitStates = Partial<Record<EmotionState, string>>;
 
-function isFemale(gender: string | null | undefined): boolean {
-	return gender === "女" || gender === "female";
-}
-
-function isMale(gender: string | null | undefined): boolean {
-	return gender === "男" || gender === "male";
-}
-
-export function displayGender(gender?: string | null): string {
-	if (isMale(gender)) return "男";
-	if (isFemale(gender)) return "女";
-	return "未知";
-}
-
-export function getAgeGroup(age: number | null | undefined): string {
-	if (age == null || age <= 0) return "middle";
-	if (age <= 12) return "child";
-	if (age <= 25) return "youth";
-	if (age < 60) return "middle";
-	return "elder";
-}
-
-export function getPatientKey(patientInfo?: PatientInfo | null): string {
-	if (!patientInfo) return "patient_middle_male";
-	const group = getAgeGroup(patientInfo.age);
-	const sex = isFemale(patientInfo.gender) ? "female" : "male";
-	return `patient_${group}_${sex}`;
-}
-
-
-export function safeAvatarUrl(
-	url: string | null | undefined,
-	fallback = avatars.patient_middle_male,
-): string {
-	if (!url || /^\s*file:/i.test(url)) return fallback;
-	return url;
-}
-/** 简洁画风路由器：按年龄/性别取默认头像（恒适用，作为策略链兜底）。 */
-export function getBasePatientAvatar(patientInfo?: PatientInfo | null): string {
-	const key = getPatientKey(patientInfo);
-	return avatars[key] || avatars.patient_middle_male;
-}
-
-/** 写实画风路由器：按患者姓名取论文专属写实头像；未绑定或文件缺失返回 null（让位给简洁路由）。 */
+/** 写实画风路由器：按患者姓名取论文专属写实头像；未绑定或文件缺失返回 null（交给程序化绘制）。 */
 export function getRealisticPatientAvatar(name?: string | null): string | null {
 	if (!name) return null;
 	const filename = realisticAvatarsByName[name];
@@ -104,13 +40,10 @@ export function getRealisticPatientAvatar(name?: string | null): string | null {
 	return mod ? mod.default : null;
 }
 
-export function getPatientAvatar(patientInfo?: PatientInfo | null): string {
-	return getRealisticPatientAvatar(patientInfo?.name) ?? getBasePatientAvatar(patientInfo);
-}
-
 export function getNurseAvatar(gender?: string | null): string {
-	const sex = isMale(gender) ? "male" : "female";
-	return avatars[`nurse_${sex}`] || avatars.nurse_female;
+	// 病例/账号里的性别有中文与英文两种写法，这里统一收成文件名后缀。
+	const sex = gender === "男" || gender === "male" ? "male" : "female";
+	return staffAvatars[`nurse_${sex}`] || staffAvatars.nurse_female;
 }
 
 export function getUserAvatar(gender?: string | null): string {

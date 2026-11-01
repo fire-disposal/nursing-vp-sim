@@ -1,14 +1,12 @@
 import type { PatientPresenter, PresentationKind } from "./types";
 import { miiAvatarPresenter } from "./presenters/miiAvatar";
 import { realisticAvatarPresenter } from "./presenters/realisticAvatar";
-import { staticAvatarPresenter } from "./presenters/staticAvatar";
 
 /**
  * 呈现器注册表 — 单一分发点。
  * 新增策略：在 presenters/ 下按同一范式写模块，在此注册一行即可。
  */
 export const PRESENTERS: Record<PresentationKind, PatientPresenter> = {
-	static: staticAvatarPresenter,
 	realistic: realisticAvatarPresenter,
 	mii: miiAvatarPresenter,
 };

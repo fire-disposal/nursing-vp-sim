@@ -35,6 +35,24 @@ describe("ChatDisplay persisted exam results", () => {
 	});
 });
 
+describe("患者头像", () => {
+	it("无照片病例的聊天气泡头像用程序化绘制，不加载 PNG", () => {
+		const { container } = render(
+			withTrainingData(
+				<ChatDisplay
+					messages={[{ id: "1", role: "patient", content: "我这两天喘不上气" }]}
+					patient={{ ...PATIENT, name: "李明", age: 27 }}
+					bus={createMessageBus()}
+				/>,
+				makeRecord({ patient_name: "李明", patient_age: 27 }),
+			),
+		);
+
+		expect(container.querySelector("[data-mii-avatar]")).not.toBeNull();
+		expect(container.querySelector('[data-role="patient"] img')).toBeNull();
+	});
+});
+
 describe("修正入口", () => {
 	it("乐观修正后的额度立即生效，无需等待 record refetch", () => {
 		useTrainingStore.setState({

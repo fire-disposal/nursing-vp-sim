@@ -3,15 +3,17 @@ import { memo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { ChatMessage } from "@/engine/types";
+import PatientPresenter from "@/components/training/presentation/PatientPresenter";
+import type { PatientPresentation } from "@/components/training/presentation/types";
 import { ActionIcon, Avatar, Badge, Box, Button, Group, Loader, Stack, Text, Typography } from "@mantine/core";
 import { Textarea } from "@mantine/core";
 
 interface ChatBubbleProps {
 	message: ChatMessage;
-	patientAvatar: string;
+	/** 患者表现负载（与患者区同一份）：照片病例是立绘，无照片病例是程序化绘制。 */
+	patientPresentation: PatientPresentation;
 	nurseAvatar: string;
 	emotionBorder: string;
-	portraitUrl: string | null;
 	initiative?: boolean;
 	showAvatar?: boolean;
 	canCorrect?: boolean;
@@ -32,7 +34,7 @@ function areBubblePropsEqual(
 		oldProps.message.role === newProps.message.role &&
 		oldProps.message.streamError === newProps.message.streamError &&
 		oldProps.emotionBorder === newProps.emotionBorder &&
-		oldProps.portraitUrl === newProps.portraitUrl &&
+		oldProps.patientPresentation === newProps.patientPresentation &&
 		oldProps.initiative === newProps.initiative &&
 		oldProps.showAvatar === newProps.showAvatar &&
 		oldProps.canCorrect === newProps.canCorrect &&
@@ -43,10 +45,9 @@ function areBubblePropsEqual(
 
 export const ChatBubble = memo(function ChatBubble({
 	message,
-	patientAvatar,
+	patientPresentation,
 	nurseAvatar,
 	emotionBorder,
-	portraitUrl,
 	initiative,
 	showAvatar,
 	canCorrect,
@@ -54,7 +55,6 @@ export const ChatBubble = memo(function ChatBubble({
 	onCorrect,
 	onRetry,
 }: ChatBubbleProps) {
-	const displayAvatar = portraitUrl || patientAvatar;
 	const [editing, setEditing] = useState(false);
 	const [draft, setDraft] = useState(message.content);
 	const trimmedDraft = draft.trim();
@@ -90,7 +90,13 @@ export const ChatBubble = memo(function ChatBubble({
 		return (
 			<Group align="flex-start" gap={8} justify="flex-start" wrap="nowrap" data-role="patient">
 				{showAvatar !== false ? (
-					<Avatar src={displayAvatar} alt="患者" radius="xl" size={32} style={{ flexShrink: 0 }} />
+					// 小尺寸只取静止帧：动效留给患者区，避免每条气泡各起一条逐帧绘制。
+					<PatientPresenter
+						presentation={patientPresentation}
+						size={32}
+						rounded="full"
+						reducedMotion
+					/>
 				) : (
 					<Box w={32} h={32} style={{ flexShrink: 0 }} />
 				)}

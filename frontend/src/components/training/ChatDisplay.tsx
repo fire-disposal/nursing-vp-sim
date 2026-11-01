@@ -10,7 +10,8 @@ import {
 import { useExamResults, useRecordMeta } from "@/engine/TrainingDataContext";
 import type { ChatMessage, MessageBus, PatientData } from "@/engine/types";
 import useAuthStore from "@/stores/authStore";
-import { getNurseAvatar, getPatientAvatar, safeAvatarUrl } from "@/utils/avatar";
+import { getNurseAvatar } from "@/utils/avatar";
+import { usePatientPresentation } from "@/hooks/usePatientPresentation";
 
 interface ChatDisplayProps {
   messages: ChatMessage[];
@@ -36,7 +37,6 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
   const [_isNearBottom, setIsNearBottom] = useState(true);
   const isNearBottomRef = useRef(true);
   const prevCountRef = useRef(0);
-  const portraitUrl = useTrainingStore((s) => s.portraitUrl);
   const emotion4D = useTrainingStore((s) => s.emotion4D);
   const emotionBorder = useMemo(() => getEmotionBorder(emotion4D), [emotion4D]);
   const sending = useTrainingStore((s) => s.sending);
@@ -154,11 +154,7 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 		};
 	}, [bus]);
 
-	const fallbackPatientAvatar = getPatientAvatar({
-		name: patient.name,
-		gender: patient.gender,
-	});
-	const patientAvatar = safeAvatarUrl(portraitUrl, fallbackPatientAvatar);
+	const patientPresentation = usePatientPresentation(patient);
 	const nurseGender = useAuthStore((s) => s.user?.gender);
 	const nurseAvatar = getNurseAvatar(nurseGender);
 
@@ -209,10 +205,9 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 									<ChatBubble
 										key={msg.id ?? mi}
 										message={msg}
-										patientAvatar={patientAvatar}
+										patientPresentation={patientPresentation}
 										nurseAvatar={nurseAvatar}
 										emotionBorder={emotionBorder}
-										portraitUrl={portraitUrl}
 										initiative={
 											msg.role === "patient" &&
 											initiativeMsgs?.has(msg.content)
