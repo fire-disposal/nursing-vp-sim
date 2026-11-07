@@ -255,11 +255,11 @@ def test_non_platform_account_without_school_fails_closed(pg_session):
     assert scope.class_ids == frozenset()
 
 
-def test_teacher_scope_ignores_classes_of_other_schools(world):
-    """教师视角的班级边界必须落在他所属院校；历史跨校成员关系不得扩大范围。
+def test_teacher_scope_is_school_wide_not_class_scoped(world):
+    """教师是校级视角：班级只是校内业务分组，不能再收窄授权边界。
 
-    对应边界：账号 A 校、却有一条 B 校班级的教师成员关系（正常写入会拒绝，
-    这里直接造脏数据）。切到教师视角后只能是 A 校班级，不出现 B 校 class_id。
+    账号 A 校、却有一条 B 校班级的教师成员关系（正常写入会拒绝，这里直接造脏数据）：
+    教师视角仍是 A 校全校（class_ids=None），B 校班级不会成为教师视野的一部分。
     """
     db = world["db"]
     teacher = _user(db, "teacher-a", "teacher", world["school_a"].id)
@@ -267,4 +267,4 @@ def test_teacher_scope_ignores_classes_of_other_schools(world):
     _join(db, teacher, world["class_b"], "teacher")
     scope = resolve_scope(db, teacher)
     assert scope.school_id == world["school_a"].id
-    assert scope.class_ids == frozenset({world["class_a"].id})
+    assert scope.class_ids is None

@@ -11,9 +11,12 @@ type Schemas = components["schemas"];
  * "周/月"，和列表的 `date_from` 是两套语义）。窗口用上海自然日零点，
  * 例如 `${shanghaiDateKey(new Date(), -6)}T00:00:00+08:00`。
  */
-export const getTrends = (dateFrom?: string) =>
+export const getTrends = (dateFrom?: string, classId?: number | null) =>
 	api.get<Schemas["TrendStats"]>("/stats/trends" as ApiPath, {
-		params: dateFrom ? { date_from: dateFrom } : undefined,
+		params: {
+			...(dateFrom ? { date_from: dateFrom } : {}),
+			...(classId ? { class_id: classId } : {}),
+		},
 	});
 
 export const getTeacherSummary = (params: Record<string, unknown> = {}) =>

@@ -59,8 +59,8 @@ export const queryKeys = {
 	stats: {
 		all: ["stats"] as const,
 		/** 趋势窗口就是 `date_from`（undefined = 不限）；后端不再有"周期"概念。 */
-		trends: (dateFrom?: string) =>
-			[...queryKeys.stats.all, "trends", dateFrom ?? null] as const,
+		trends: (dateFrom?: string, classId?: number | null) =>
+			[...queryKeys.stats.all, "trends", dateFrom ?? null, classId ?? null] as const,
 		teacherSummary: (params: Record<string, unknown>) =>
 			[...queryKeys.stats.all, "teacherSummary", params] as const,
 	},

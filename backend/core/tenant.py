@@ -4,8 +4,9 @@
 
 1. 谁跨院校（``school_id is None`` = 平台角色，例如 super_admin）；
 2. 谁看全校（当前**视角**的 scope 为 ``tenant``，例如 admin/ops）；
-3. 谁只看自己任教班（视角 scope 为 ``class``，例如 teacher）；``self`` 视角
-   只给空班级集合，端点自身按 ``user_id`` 收窄到"我"。
+3. 谁只看自己（``self``，例如 student）：只给空班级集合，端点自身按 ``user_id``
+   收窄到"我"。教师是**校级**视角（``tenant``），班级只是校内业务分组/筛选，不再是
+   授权边界。
 
 数据作用域来自**视角声明**（``core/personas.py`` 的 ``PersonaDef.scope``），不是
 从"有没有 ``user_manage``"反推。迁移前没有 ``user_personas`` 行的账号（legacy）
@@ -30,7 +31,7 @@ from fastapi import Depends, Header
 from core.deps import CurrentUser, DbSession
 from core.exceptions import NotFoundError
 from core.personas import is_super_admin, persona_scope
-from models import MEMBER_ROLE_TEACHER, Class, ClassMembership, School
+from models import Class, School
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Query, Session
@@ -43,7 +44,7 @@ class TenantScope:
     """解析后的可见范围。``school_id=None`` 表示跨院校（平台角色）。"""
 
     school_id: int | None
-    #: ``None`` = 不按班级收窄；否则只允许这些班级（教师视角）。
+    #: ``None`` = 不按班级收窄；否则只允许这些班级（无视角账号的失败关闭空集）。
     class_ids: frozenset[int] | None
     user_id: int
 
@@ -58,26 +59,6 @@ class TenantScope:
 def platform_scope(user_id: int = 0) -> TenantScope:
     """跨院校作用域 —— 测试与后台任务用的显式“平台视角”，不要在生产端点里图省事用它。"""
     return TenantScope(school_id=None, class_ids=None, user_id=user_id)
-
-
-def taught_class_ids(db: Session, user_id: int, school_id: int | None = None) -> frozenset[int]:
-    """本人以 teacher 身份加入的班级（``class`` 视角的边界）。
-
-    ``school_id`` 给定时只取该校班级：账号只有**一个**院校归属，历史脏数据里
-    跨校的教师成员关系不能扩大教师视角（否则会与院校边界组合出空结果/越界判断）。
-    """
-    q = (
-        db.query(ClassMembership.class_id)
-        .join(Class, Class.id == ClassMembership.class_id)
-        .filter(
-            ClassMembership.user_id == user_id,
-            ClassMembership.member_role == MEMBER_ROLE_TEACHER,
-        )
-    )
-    if school_id is not None:
-        q = q.filter(Class.school_id == school_id)
-    rows = q.all()
-    return frozenset(r[0] for r in rows if r[0] is not None)
 
 
 def resolve_scope(db: Session, user: User) -> TenantScope:
@@ -103,10 +84,6 @@ def resolve_scope(db: Session, user: User) -> TenantScope:
         return TenantScope(school_id=None, class_ids=None, user_id=user.id)
     if scope == "tenant":
         return TenantScope(school_id=user.school_id, class_ids=None, user_id=user.id)
-    if scope == "class":
-        return TenantScope(
-            school_id=user.school_id, class_ids=taught_class_ids(db, user.id, user.school_id), user_id=user.id
-        )
     # self：院校边界仍生效，但看不到任何他人班级；端点用 user_id 收窄到"我"
     return TenantScope(school_id=user.school_id, class_ids=frozenset(), user_id=user.id)
 

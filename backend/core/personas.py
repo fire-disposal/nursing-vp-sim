@@ -26,9 +26,11 @@ SUPER_ADMIN_ROLE = "super_admin"
 
 #: 视角的数据作用域（`core/tenant.py::resolve_scope` 据此生成 `TenantScope`）：
 #: - ``tenant``：本校全部（无班级收窄）；
-#: - ``class``：本校 + 本人任教的班级；
 #: - ``self``：本校 + 空班级集合（端点自身再按 ``user_id`` 收窄到"我"）。
-PersonaScope = Literal["platform", "tenant", "class", "self"]
+#:
+#: 班级是**校内业务分组**，不作为语境/授权轴；教师视角按校级（``tenant``）收窄，
+#: 班级只影响页面筛选，不再决定数据边界。
+PersonaScope = Literal["platform", "tenant", "self"]
 
 #: 系统内置角色名 → 默认视角（自定义角色的默认视角 = legacy role_permissions）
 DEFAULT_PERSONA_BY_ROLE: dict[str, str] = {
@@ -65,7 +67,7 @@ PERSONAS: dict[str, PersonaDef] = {
     "teacher": PersonaDef(
         key="teacher",
         label="教师视角",
-        scope="class",
+        scope="tenant",
         permissions=(
             "grade_class_manage",
             "case_manage",

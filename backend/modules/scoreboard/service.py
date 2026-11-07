@@ -127,7 +127,7 @@ class ScoreboardService:
     # ── 作用域 ──
 
     def _tenant_conditions(self) -> list:
-        """可排名的学生：本校；教师视角（``class_ids`` 非空）再收窄到自己任教的班。
+        """可排名的学生：本校；若作用域显式按班收窄（``class_ids`` 非空）则再收窄。
 
         学生归属取 ``users.school_id``（班级维度只在教师视角需要，且必须叠加在院校之上，
         不能替代它 —— 否则教师会把别校同 id 班级的学生算进来）。

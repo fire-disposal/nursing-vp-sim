@@ -1,6 +1,4 @@
-import { APP_TIME_ZONE, shanghaiDateKey, shanghaiHour } from "@/utils/date";
-import { Group, Paper, Progress, SegmentedControl, SimpleGrid, Stack, Text, Title } from "@mantine/core";
-import { useQuery } from "@tanstack/react-query";
+import { Group, Paper, Progress, SegmentedControl, Select, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import {
   IconChartBar,
   IconClipboardList,
@@ -8,6 +6,7 @@ import {
   IconTrendingUp,
   IconUsers,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getRecords, getRecordsSummary } from "@/api";
@@ -15,8 +14,10 @@ import { getAssignments } from "@/api/assignments";
 import { queryKeys } from "@/api/query-keys";
 import { getTeacherSummary } from "@/api/stats";
 import StatCard from "@/components/ui/stat-card";
+import { useClassesQuery, useClassLabel } from "@/hooks/useClasses";
 import useAuthStore from "@/stores/authStore";
-import { ActivityTimeline, type ActivityEvent } from "./ActivityTimeline";
+import { APP_TIME_ZONE, shanghaiDateKey, shanghaiHour } from "@/utils/date";
+import { type ActivityEvent, ActivityTimeline } from "./ActivityTimeline";
 import { AssignmentOverview } from "./AssignmentOverview";
 import { TrainingTrend } from "./TrainingTrend";
 
@@ -46,6 +47,11 @@ export function TeachingDashboard() {
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
   const [period, setPeriod] = useState<string>("month");
+  // 教师改为校级视角后，班级不再自动收窄数据；看板必须显式提供班级筛选。
+  // 这里只做班级级筛选（届别仍可在记录/成绩页用 ClassFilter 细分），避免看板出现无效筛选。
+  const [classId, setClassId] = useState<number | null>(null);
+  const { data: classes = [] } = useClassesQuery(null);
+  const classLabel = useClassLabel();
 
   // 上海自然日的当前窗口与"今天"：日期运算交给 shanghaiDateKey（在上海日历上做），
   // 这里只拼 `+08:00` —— 不手写时区偏移算术。
@@ -63,22 +69,28 @@ export function TeachingDashboard() {
   }, [period]);
 
   const todayFrom = `${shanghaiDateKey()}T00:00:00+08:00`;
-  const todayHref = `/admin/records?date_from=${encodeURIComponent(todayFrom)}`;
+  const classParams = useMemo(() => (classId ? { class_id: classId } : {}), [classId]);
+  const withClass = (path: string) => {
+    if (!classId) return path;
+    const separator = path.includes("?") ? "&" : "?";
+    return `${path}${separator}class_id=${classId}`;
+  };
+  const todayHref = withClass(`/admin/records?date_from=${encodeURIComponent(todayFrom)}`);
   const scopedParams = useMemo(
-    () => (scope.dateFrom ? { date_from: scope.dateFrom } : {}),
-    [scope.dateFrom],
+    () => ({ ...(scope.dateFrom ? { date_from: scope.dateFrom } : {}), ...classParams }),
+    [scope.dateFrom, classParams],
   );
 
   // 今日两个 KPI 共用同一次统计：一次请求、一个作用域，不可能互相矛盾。
   const { data: todaySummary } = useQuery({
-    queryKey: queryKeys.training.recordsSummary({ date_from: todayFrom }),
-    queryFn: () => getRecordsSummary({ date_from: todayFrom }).then((r) => r.data),
+    queryKey: queryKeys.training.recordsSummary({ date_from: todayFrom, ...classParams }),
+    queryFn: () => getRecordsSummary({ date_from: todayFrom, ...classParams }).then((r) => r.data),
     staleTime: 30_000,
   });
 
   const { data: pendingSummary } = useQuery({
-    queryKey: queryKeys.training.recordsSummary(PENDING_REVIEW_PARAMS),
-    queryFn: () => getRecordsSummary(PENDING_REVIEW_PARAMS).then((r) => r.data),
+    queryKey: queryKeys.training.recordsSummary({ ...PENDING_REVIEW_PARAMS, ...classParams }),
+    queryFn: () => getRecordsSummary({ ...PENDING_REVIEW_PARAMS, ...classParams }).then((r) => r.data),
     staleTime: 30_000,
   });
 
@@ -91,8 +103,8 @@ export function TeachingDashboard() {
 
   // 与 AssignmentOverview 共用同一次查询，作业完成率因此和下方列表同源。
   const { data: assignmentsData } = useQuery({
-    queryKey: queryKeys.assignments.admin(),
-    queryFn: () => getAssignments(ACTIVE_ASSIGNMENT_PARAMS).then((r) => r.data),
+    queryKey: queryKeys.assignments.list({ ...ACTIVE_ASSIGNMENT_PARAMS, class_id: classId ?? undefined }),
+    queryFn: () => getAssignments({ ...ACTIVE_ASSIGNMENT_PARAMS, ...(classId ? { class_id: classId } : {}) }).then((r) => r.data),
     staleTime: 60_000,
   });
 
@@ -100,15 +112,15 @@ export function TeachingDashboard() {
   // 且只要 stats_view（= 本页门禁）。**不能用 `/admin/users?role=student`** —— 那个端点
   // 要求 user_manage，教师没有该权限，会把人数静默显示成 0。
   const { data: studentCountData } = useQuery({
-    queryKey: queryKeys.stats.teacherSummary({ offset: 0, limit: 1 }),
-    queryFn: () => getTeacherSummary({ offset: 0, limit: 1 }).then((r) => r.data),
+    queryKey: queryKeys.stats.teacherSummary({ offset: 0, limit: 1, class_id: classId ?? undefined }),
+    queryFn: () => getTeacherSummary({ offset: 0, limit: 1, ...(classId ? { class_id: classId } : {}) }).then((r) => r.data),
     staleTime: 5 * 60_000,
   });
 
   // limit=10 只服务页面底部的"最近训练动态"时间线，KPI 不从这份样本里派生。
   const { data: recordsData } = useQuery({
-    queryKey: queryKeys.training.records({ limit: 10 }),
-    queryFn: () => getRecords({ limit: 10 }).then((r) => r.data),
+    queryKey: queryKeys.training.records({ limit: 10, ...classParams }),
+    queryFn: () => getRecords({ limit: 10, ...classParams }).then((r) => r.data),
     staleTime: 30_000,
   });
 
@@ -158,12 +170,25 @@ export function TeachingDashboard() {
         </div>
         {/* 周期同时决定「平均得分/平均训练时长」两个 KPI 的作用域与下方趋势图的窗口，
             所以放在头部而不是只贴在图上：改了它，上面的数字跟着变。 */}
-        <SegmentedControl
-          aria-label="统计周期"
-          data={PERIODS.map((p) => ({ value: p.value, label: p.label }))}
-          value={period}
-          onChange={setPeriod}
-        />
+        <Group gap="sm" wrap="wrap" align="center">
+          <Select
+            aria-label="班级筛选"
+            placeholder="全部班级"
+            clearable
+            searchable
+            value={classId != null ? String(classId) : null}
+            onChange={(value) => setClassId(value ? Number(value) : null)}
+            data={classes.map((cls) => ({ value: String(cls.id), label: classLabel(cls, { withCohort: Boolean(cls.cohort_label) }) }))}
+            size="sm"
+            w={180}
+          />
+          <SegmentedControl
+            aria-label="统计周期"
+            data={PERIODS.map((p) => ({ value: p.value, label: p.label }))}
+            value={period}
+            onChange={setPeriod}
+          />
+        </Group>
       </Group>
 
       <SimpleGrid cols={{ base: 2, md: 4 }} spacing="sm">
@@ -195,7 +220,7 @@ export function TeachingDashboard() {
           value={pendingTotal}
           label="待批阅训练"
           color={pendingTotal > 5 ? "red" : "green"}
-          onClick={pendingTotal > 0 ? () => navigate("/admin/records?review_status=pending") : undefined}
+          onClick={pendingTotal > 0 ? () => navigate(withClass("/admin/records?review_status=pending")) : undefined}
         />
       </SimpleGrid>
 
@@ -203,7 +228,7 @@ export function TeachingDashboard() {
         <Paper
           withBorder
           p="md"
-          onClick={activeAssignments.length > 0 ? () => navigate("/admin/assignments?status=active") : undefined}
+          onClick={activeAssignments.length > 0 ? () => navigate(withClass("/admin/assignments?status=active")) : undefined}
           style={{ cursor: activeAssignments.length > 0 ? "pointer" : undefined }}
         >
           <Stack gap={4} justify="center" style={{ height: "100%" }}>
@@ -242,7 +267,7 @@ export function TeachingDashboard() {
         </Paper>
       </SimpleGrid>
 
-      <TrainingTrend dateFrom={scope.dateFrom} />
+      <TrainingTrend dateFrom={scope.dateFrom} classId={classId} />
 
       <AssignmentOverview assignments={activeAssignments} />
 

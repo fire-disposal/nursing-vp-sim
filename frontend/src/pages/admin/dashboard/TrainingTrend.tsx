@@ -1,17 +1,17 @@
 import { Group, Table } from "@mantine/core";
-import { useQuery } from "@tanstack/react-query";
 import { IconChartBar, IconClipboardList } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Bar, ComposedChart, Legend, ResponsiveContainer, Tooltip } from "recharts";
 import type { components } from "@/api/api-types.gen";
-import TableScroll from "@/components/ui/table-scroll";
 import { queryKeys } from "@/api/query-keys";
 import { getTeacherSummary, getTrends } from "@/api/stats";
+import { TrainingTrendChart, TrendAxes } from "@/components/admin/TrainingTrendChart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
-import { TrainingTrendChart, TrendAxes } from "@/components/admin/TrainingTrendChart";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
+import TableScroll from "@/components/ui/table-scroll";
 import { useBarColors } from "@/hooks/useChartTheme";
 
 type TeacherSummaryItem = components["schemas"]["TeacherSummaryItem"];
@@ -41,19 +41,19 @@ const SUMMARY_LIMIT = 50;
  * 周期选择器在看板头部（它同时决定 KPI 作用域），这里因此是受控的、不再持有周期状态。
  * 排名表没有搬过来 —— `/admin/scoreboard` 是它的超集。
  */
-export function TrainingTrend({ dateFrom }: { dateFrom?: string }) {
+export function TrainingTrend({ dateFrom, classId }: { dateFrom?: string; classId?: number | null }) {
 	const [summaryOffset, setSummaryOffset] = useState(0);
 
 	const { data: trends } = useQuery({
-		queryKey: queryKeys.stats.trends(dateFrom),
-		queryFn: () => getTrends(dateFrom).then((r) => r.data),
+		queryKey: queryKeys.stats.trends(dateFrom, classId),
+		queryFn: () => getTrends(dateFrom, classId).then((r) => r.data),
 		staleTime: 2 * 60_000,
 	});
 
 	const { data: summaryData } = useQuery({
-		queryKey: queryKeys.stats.teacherSummary({ offset: summaryOffset }),
+		queryKey: queryKeys.stats.teacherSummary({ offset: summaryOffset, class_id: classId ?? undefined }),
 		queryFn: () =>
-			getTeacherSummary({ offset: summaryOffset, limit: SUMMARY_LIMIT }).then(
+			getTeacherSummary({ offset: summaryOffset, limit: SUMMARY_LIMIT, ...(classId ? { class_id: classId } : {}) }).then(
 				(r) => r.data,
 			),
 		staleTime: 2 * 60_000,
