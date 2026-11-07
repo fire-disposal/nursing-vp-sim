@@ -131,7 +131,9 @@ async def generate_case(
 def get_case(
     case_id: int,
     db: DbSession,
-    current_user: CurrentUser,
+    # 详情返回**完整 case_data**（hidden_info / deep_background / example_dialogues）：
+    # 只给管理端编辑用。学生侧拿病例走 `/cases` 列表（已按 published+is_open 过滤）。
+    _current_user: _CaseManager,
 ):
     return CaseService(db).get(case_id)
 
