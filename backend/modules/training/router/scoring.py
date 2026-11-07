@@ -12,6 +12,7 @@ from core.audit import (
     TARGET_TYPE_TRAINING_RECORD,
     record,
 )
+from core.budget import assert_within_budget
 from core.config import SCORING_RETRY_GRACE_SECONDS
 from core.database import db_session, get_db
 from core.datetime_utils import ensure_utc
@@ -187,7 +188,7 @@ async def end_training(
                 NO_STUDENT_MESSAGES_REASON,
                 extra={
                     "user_id": current_user.id,
-                    "user_role": current_user.role.name if current_user.role else "",
+                    "user_role": current_user.active_persona or "",
                     "action": "training_discard",
                 },
             )
@@ -217,7 +218,7 @@ async def end_training(
             f"训练结束: record_id={record_id} case_id={record.case_id} messages={message_count}",
             extra={
                 "user_id": current_user.id,
-                "user_role": current_user.role.name if current_user.role else "",
+                "user_role": current_user.active_persona or "",
                 "action": "training_end",
             },
         )
@@ -245,6 +246,7 @@ async def retry_scoring(
             raise HTTPException(status_code=403, detail="无权操作此记录")
         if training_record.status != TrainingStatus.COMPLETED:
             raise HTTPException(status_code=400, detail="训练尚未结束")
+        assert_within_budget(db, current_user, "llm")
 
         if student_message_count(db, record_id) == 0:
             mark_discarded(db, training_record)

@@ -29,9 +29,6 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 # ── action 常量：与 core/permissions.py 同思路，集中一处便于审查与查询 ──────────────
-ACTION_ROLE_CREATED = "role.created"
-ACTION_ROLE_UPDATED = "role.updated"
-ACTION_ROLE_DELETED = "role.deleted"
 ACTION_USER_CREATED = "user.created"
 ACTION_USER_UPDATED = "user.updated"
 ACTION_USER_DEACTIVATED = "user.deactivated"
@@ -40,6 +37,7 @@ ACTION_USER_DELETED = "user.deleted"
 ACTION_USER_PASSWORD_RESET = "user.password_reset"
 ACTION_USER_BULK_IMPORTED = "user.bulk_imported"
 ACTION_USER_BULK_ASSIGNED = "user.bulk_assigned"
+ACTION_USER_PERSONAS_UPDATED = "user.personas_updated"
 ACTION_SECRET_CREATED = "secret.created"
 ACTION_SECRET_UPDATED = "secret.updated"
 ACTION_SECRET_DELETED = "secret.deleted"
@@ -75,7 +73,6 @@ ACTION_AUTH_LOGIN_BLOCKED = "auth.login_blocked"
 ACTION_SCENARIO_RATE_LIMITED = "scenario.rate_limited"
 
 TARGET_TYPE_USER = "user"
-TARGET_TYPE_ROLE = "role"
 TARGET_TYPE_SECRET = "secret"
 TARGET_TYPE_EXPORT = "export"
 TARGET_TYPE_FEEDBACK = "feedback"
@@ -87,15 +84,25 @@ TARGET_TYPE_NOTIFICATION = "notification"
 TARGET_TYPE_QUESTIONNAIRE_TEMPLATE = "questionnaire_template"
 
 
-def _actor_fields(actor: User | None) -> dict[str, Any]:
-    """操作者快照：ID 会在删用户后被 SET NULL，因此同时存可读身份。"""
+def _actor_fields(actor: User | None, persona: str | None = None) -> dict[str, Any]:
+    """操作者快照：ID 会在删用户后被 SET NULL，因此同时存可读身份。
+
+    `persona` 是操作时**生效的视角**（`X-View-Persona` 解析结果，见
+    `core.security.get_current_user` 写入的 `request.state.view_persona`）；
+    同一账号可持多个视角，只存角色名无法还原当时的权限上下文。
+    """
     if actor is None:
-        return {"actor_id": None, "actor_username": None, "actor_display_name": None, "actor_role": None}
+        return {
+            "actor_id": None,
+            "actor_username": None,
+            "actor_display_name": None,
+            "actor_persona": persona,
+        }
     return {
         "actor_id": actor.id,
         "actor_username": actor.username,
         "actor_display_name": actor.display_name,
-        "actor_role": actor.role.name if actor.role else None,
+        "actor_persona": persona,
     }
 
 
@@ -126,11 +133,15 @@ def _request_fields(request: Request | None) -> dict[str, Any]:
 
 
 def _actor_from_request(request: Request | None, actor: User | None) -> dict[str, Any]:
-    """`request.state.audit_actor` 由 `require_permission` 的 checker 写入
-    （那是全仓唯一必然拿到 `User` 的 choke point）——显式传入的 actor 优先。"""
+    """`request.state.audit_actor` / `request.state.view_persona` 由
+    `core.security.get_current_user` 写入（每个鉴权请求必经），`require_permission`
+    再兜一次 —— 显式传入的 actor 优先，但视角始终取请求状态。"""
     if actor is None and request is not None:
         actor = getattr(request.state, "audit_actor", None)
-    return _actor_fields(actor)
+    persona: str | None = None
+    if request is not None:
+        persona = getattr(request.state, "view_persona", None)
+    return _actor_fields(actor, persona)
 
 
 def record(
@@ -225,9 +236,6 @@ __all__ = [
     "ACTION_QUESTIONNAIRE_TEMPLATE_CREATED",
     "ACTION_QUESTIONNAIRE_TEMPLATE_DELETED",
     "ACTION_QUESTIONNAIRE_TEMPLATE_UPDATED",
-    "ACTION_ROLE_CREATED",
-    "ACTION_ROLE_DELETED",
-    "ACTION_ROLE_UPDATED",
     "ACTION_SCHOOL_CREATED",
     "ACTION_SCHOOL_DELETED",
     "ACTION_SCHOOL_UPDATED",
@@ -243,6 +251,7 @@ __all__ = [
     "ACTION_USER_DEACTIVATED",
     "ACTION_USER_DELETED",
     "ACTION_USER_PASSWORD_RESET",
+    "ACTION_USER_PERSONAS_UPDATED",
     "ACTION_USER_UPDATED",
     "AUDIT_OUTCOME_DENIED",
     "AUDIT_OUTCOME_FAILURE",
@@ -253,7 +262,6 @@ __all__ = [
     "TARGET_TYPE_FEEDBACK",
     "TARGET_TYPE_NOTIFICATION",
     "TARGET_TYPE_QUESTIONNAIRE_TEMPLATE",
-    "TARGET_TYPE_ROLE",
     "TARGET_TYPE_SCHOOL",
     "TARGET_TYPE_SECRET",
     "TARGET_TYPE_TRAINING_RECORD",

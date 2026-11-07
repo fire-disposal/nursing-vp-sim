@@ -20,9 +20,9 @@ from core.database import Base, SessionLocal
 from core.database import engine as pg_engine
 from core.security import clear_permission_cache, require_permission
 from infra.exporter import ExportAudit, export_response
-from models import AuditLog, Role, User
+from models import AuditLog, User
 
-_TABLES = [Role.__table__, User.__table__, AuditLog.__table__]
+_TABLES = [User.__table__, AuditLog.__table__]
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -30,18 +30,12 @@ def _schema():
     Base.metadata.create_all(pg_engine, tables=_TABLES)
 
 
-def _mk_actor(perms_role: str = "student") -> int:
+def _mk_actor(persona: str = "student") -> int:
     """建一个真实提交的 actor（独立 session 的 FK 需要它可见）。"""
     with SessionLocal() as db:
-        role = db.query(Role).filter(Role.name == perms_role).first() or Role(
-            name=perms_role, display_name=perms_role, is_system=True
-        )
-        db.add(role)
-        db.flush()
         user = User(
             username=f"a4-{uuid.uuid4().hex[:8]}",
             password_hash="x",
-            role_id=role.id,
             display_name="A4 操作者",
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
@@ -59,7 +53,7 @@ def _stub_request(actor_id: int, rid: str):
                 id=actor_id,
                 username="a4-actor",
                 display_name="A4 操作者",
-                role=SimpleNamespace(name="student"),
+                active_persona="student",
             ),
         ),
         headers={"user-agent": "pytest"},
@@ -82,7 +76,7 @@ def _cleanup(actor_ids: list[int]) -> None:
 
 def test_denied_permission_is_audited_even_though_request_fails():
     """403 必须留下 access.denied（含要求的权限键与 actor）。"""
-    actor_id = _mk_actor("student")  # student 没有 role_manage
+    actor_id = _mk_actor("student")  # student 视角没有 role_manage
     clear_permission_cache()
     try:
         checker = require_permission("role_manage")
@@ -91,7 +85,7 @@ def test_denied_permission_is_audited_even_though_request_fails():
             id=actor_id,
             username="a4-actor",
             display_name="A4 操作者",
-            role=SimpleNamespace(name="student"),
+            active_persona="student",
             has_permission=lambda _p: False,
         )
 
@@ -118,7 +112,7 @@ def test_export_is_audited_with_rows_and_filters():
             [1, 2, 3],
             [],
             "测试导出",
-            audit=ExportAudit(request=request, target_label="测试导出", filters={"action": "role.updated"}),
+            audit=ExportAudit(request=request, target_label="测试导出", filters={"action": "user.personas_updated"}),
         )
         assert response.status_code == 200
 
@@ -126,7 +120,7 @@ def test_export_is_audited_with_rows_and_filters():
         assert len(rows) == 1
         assert rows[0].payload["rows"] == 3
         assert rows[0].payload["format"] == "csv"
-        assert rows[0].payload["filters"] == {"action": "role.updated"}
+        assert rows[0].payload["filters"] == {"action": "user.personas_updated"}
     finally:
         _cleanup([actor_id])
 

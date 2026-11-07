@@ -15,7 +15,7 @@ class RegisterRequest(BaseModel):
     model_config = _REQ_CFG
     username: str = Field(min_length=1, max_length=50)
     password: str = Field(min_length=6)
-    role: str = Field(default="student", min_length=1, max_length=20)
+    personas: list[str] = Field(default_factory=lambda: ["student"])
     display_name: str = Field(min_length=1, max_length=50)
     student_id: str | None = None
     class_id: int | None = None
@@ -29,10 +29,14 @@ class TokenResponse(BaseModel):
     model_config = _RESP_CFG
     access_token: str
     token_type: str = "bearer"
-    role: str
     display_name: str
     user_id: int
     permissions: list[str] = []
+    #: 该账号被授予的视角（超管 = 全部）；前端据此渲染视角切换器
+    personas: list[str] = []
+    #: 登录后默认生效的视角（平台账号 = platform；其余由授予集合决定）
+    active_persona: str | None = None
+    is_platform: bool = False
     gender: str | None = None
     avatar: str | None = None
 

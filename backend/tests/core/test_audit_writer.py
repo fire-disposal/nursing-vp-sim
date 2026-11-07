@@ -22,16 +22,16 @@ import sqlalchemy as sa
 
 from core.audit import (
     ACTION_ACCESS_DENIED,
-    ACTION_ROLE_UPDATED,
-    TARGET_TYPE_ROLE,
+    ACTION_USER_PERSONAS_UPDATED,
+    TARGET_TYPE_USER,
     record,
     record_detached,
 )
 from core.database import Base
 from core.database import engine as pg_engine
-from models import AuditLog, Role, User
+from models import AuditLog, User
 
-_TABLES = [Role.__table__, User.__table__, AuditLog.__table__]
+_TABLES = [User.__table__, AuditLog.__table__]
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -45,15 +45,9 @@ def db(pg_session):
 
 
 def _actor(session) -> User:
-    role = session.query(Role).filter(Role.name == "admin").first()
-    if role is None:
-        role = Role(name="admin", display_name="管理员", is_system=True)
-        session.add(role)
-        session.flush()
     user = User(
         username="a1-smoke-actor",
         password_hash="x",
-        role_id=role.id,
         display_name="冒烟操作者",
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
@@ -68,7 +62,7 @@ def _request(rid: str = "req-1"):
         state=SimpleNamespace(request_id=rid, audit_actor=None),
         headers={"user-agent": "pytest"},
         method="PUT",
-        url=SimpleNamespace(path="/api/admin/roles/1"),
+        url=SimpleNamespace(path="/api/admin/users/1"),
     )
 
 
@@ -76,8 +70,8 @@ def test_record_commits_with_business_transaction(db):
     actor = _actor(db)
     record(
         db,
-        action=ACTION_ROLE_UPDATED,
-        target_type=TARGET_TYPE_ROLE,
+        action=ACTION_USER_PERSONAS_UPDATED,
+        target_type=TARGET_TYPE_USER,
         target_id=3,
         actor=actor,
         request=_request(),
@@ -89,16 +83,16 @@ def test_record_commits_with_business_transaction(db):
     assert row.outcome == "success"
     assert row.actor_username == actor.username
     assert row.actor_display_name == "冒烟操作者"
-    assert row.actor_role == "admin"  # 身份快照：删用户后仍可读
+    # 角色退场后身份快照只剩可读的账号名（ID 会被 SET NULL），actor_role 无来源
     assert row.target_id == "3"
     assert row.payload == {"before": ["a"], "after": ["a", "b"]}
     assert row.request_id == "req-1"
-    assert row.request_path == "/api/admin/roles/1"
+    assert row.request_path == "/api/admin/users/1"
 
 
 def test_record_rolls_back_with_business(db):
     actor = _actor(db)
-    record(db, action=ACTION_ROLE_UPDATED, target_type=TARGET_TYPE_ROLE, actor=actor)
+    record(db, action=ACTION_USER_PERSONAS_UPDATED, target_type=TARGET_TYPE_USER, actor=actor)
     db.rollback()
 
     assert db.query(AuditLog).filter(AuditLog.actor_id == actor.id).count() == 0
@@ -114,15 +108,9 @@ def test_record_detached_survives_business_rollback():
 
     marker = uuid.uuid4().hex[:8]
     with SessionLocal() as setup:
-        role = setup.query(Role).filter(Role.name == "admin").first() or Role(
-            name="admin", display_name="管理员", is_system=True
-        )
-        setup.add(role)
-        setup.flush()
         actor = User(
             username=f"a1-detached-{marker}",
             password_hash="x",
-            role_id=role.id,
             display_name="独立会话操作者",
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
@@ -133,17 +121,17 @@ def test_record_detached_survives_business_rollback():
 
     try:
         with SessionLocal() as biz:
-            # actor 必须绑定在打开的会话上（_actor_fields 会读 actor.role 做角色快照）
+            # actor 必须绑定在打开的会话上（_actor_fields 会读 actor 做身份快照）
             actor = biz.get(User, actor_id)
-            record(biz, action=ACTION_ROLE_UPDATED, target_type=TARGET_TYPE_ROLE, actor=actor)
+            record(biz, action=ACTION_USER_PERSONAS_UPDATED, target_type=TARGET_TYPE_USER, actor=actor)
             biz.rollback()
 
             record_detached(
                 _request("req-2"),
                 action=ACTION_ACCESS_DENIED,
-                target_type=TARGET_TYPE_ROLE,
+                target_type="permission",
                 actor=actor,
-                payload={"required_permission": "role_manage"},
+                payload={"required_permission": "user_manage"},
             )
 
         with SessionLocal() as check:
@@ -169,7 +157,9 @@ def test_outcome_whitelist_is_enforced_by_db(db):
 def test_actor_id_becomes_null_but_snapshot_survives(db):
     """FK ON DELETE SET NULL：删用户不得连带删掉它的审计。"""
     actor = _actor(db)
-    record(db, action=ACTION_ROLE_UPDATED, target_type=TARGET_TYPE_ROLE, actor=actor, target_label="a1-smoke-fk")
+    record(
+        db, action=ACTION_USER_PERSONAS_UPDATED, target_type=TARGET_TYPE_USER, actor=actor, target_label="a1-smoke-fk"
+    )
     db.commit()
     actor_id, username = actor.id, actor.username
 

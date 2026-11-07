@@ -11,14 +11,13 @@ import pytest
 from fastapi import HTTPException
 
 from core.config import ALGORITHM, JWT_SECRET_KEY
+from core.personas import persona_permissions
 from core.security import (
-    _permission_cache,
     _set_user_permissions,
     clear_permission_cache,
     create_access_token,
     decode_token_allow_expired,
     get_current_user,
-    load_role_permissions,
     require_permission,
 )
 
@@ -47,23 +46,79 @@ class _UserQuery:
     def options(self, *_args):
         return self
 
-    def filter(self, _criteria):
+    def filter(self, *_criteria):
+        return self
+
+    def distinct(self):
         return self
 
     def first(self):
         return self._user
 
     def all(self):
-        # load_role_permissions may run inside get_current_user via _set_user_permissions
+        # load_user_personas may run inside get_current_user via _set_user_permissions
         return []
+
+    def __iter__(self):
+        return iter(())
+
+
+class _PersonaQuery:
+    """视角授予查询：默认"无任何 persona 行"（可登录、无权限）。"""
+
+    def __init__(self, personas: list[str] | None = None):
+        self._personas = personas or []
+        self.queries = 0
+
+    def filter(self, *_criteria):
+        return self
+
+    def all(self):
+        self.queries += 1
+        return [(p,) for p in self._personas]
+
+
+class _NameQuery:
+    def filter(self, *_args):
+        return self
+
+    def distinct(self):
+        return self
+
+    def first(self):
+        return ("测试学校", None, None, False)
+
+    def all(self):
+        return [(1, "测试学校", None, False)]
+
+
+class _SchoolQuery:
+    def __init__(self, school_id: int = 1):
+        self._school_id = school_id
+
+    def filter(self, _criteria):
+        return self
+
+    def distinct(self):
+        return self
+
+    def all(self):
+        return [(self._school_id,)]
 
 
 class _PermDb:
-    def __init__(self, permissions: list[str]):
-        self.query_obj = _PermQuery(permissions)
+    def __init__(self, personas: list[str] | None = None):
+        self.persona_query = _PersonaQuery(personas)
 
-    def query(self, _model):
-        return self.query_obj
+    def query(self, model, *args):
+        text = f"{model} {args}"
+        if "School.id" in text or "School.name" in text:
+            return _NameQuery()
+        if "UserSchoolPersona.school_id" in text:
+            return _SchoolQuery()
+        if "UserSchoolPersona.persona" in text or "persona" in text:
+            return self.persona_query
+        raise AssertionError(f"unexpected query: {model}")
 
 
 class _UserDb:
@@ -79,12 +134,16 @@ def _user(**kw):
         id=1,
         is_active=True,
         token_version=0,
-        role_id=2,
+        is_platform=False,
+        school_id=1,
         _permissions_cache=None,
     )
     defaults.update(kw)
     u = SimpleNamespace(**defaults)
     u.set_permissions_cache = lambda perms: setattr(u, "_permissions_cache", perms)
+    u.set_active_persona = lambda persona: setattr(u, "_active_persona", persona)
+    u.set_active_school = lambda school_id: setattr(u, "_active_school_id", school_id)
+    u.set_access_context = lambda context: setattr(u, "_access_context", context)
     u.has_permission = lambda perm: perm in (u._permissions_cache or set())
     return u
 
@@ -96,64 +155,51 @@ def _clear_perm_cache():
     clear_permission_cache()
 
 
-class TestLoadRolePermissions:
+class TestLoadUserPersonas:
     def test_loads_and_caches(self):
-        db = _PermDb(["user_manage", "case_manage"])
-        perms = load_role_permissions(db, 7)
-        assert perms == frozenset({"user_manage", "case_manage"})
-        assert db.query_obj.queries == 1
+        db = _PermDb(["teacher", "admin"])
+        from core.security import load_user_personas
+
+        granted = load_user_personas(db, _user(id=7, is_platform=False))
+        assert granted == frozenset({"teacher", "admin"})
+        assert db.persona_query.queries == 1
 
     def test_second_call_served_from_cache(self):
-        db = _PermDb(["stats_view"])
-        load_role_permissions(db, 3)
-        load_role_permissions(db, 3)
-        assert db.query_obj.queries == 1
+        from core.security import load_user_personas
 
-    def test_different_role_ids_not_shared(self):
-        db = _PermDb(["stats_view"])
-        load_role_permissions(db, 1)
-        load_role_permissions(db, 2)
-        assert db.query_obj.queries == 2
+        db = _PermDb(["student"])
+        user = _user(id=3, is_platform=False)
+        load_user_personas(db, user)
+        load_user_personas(db, user)
+        assert db.persona_query.queries == 1
+
+    def test_clear_single_user_forces_reload(self):
+        from core.security import load_user_personas
+
+        db = _PermDb(["student"])
+        user = _user(id=5, is_platform=False)
+        load_user_personas(db, user)
+        clear_permission_cache(5)
+        load_user_personas(db, user)
+        assert db.persona_query.queries == 2
 
     def test_empty_result_is_empty_frozenset(self):
+        from core.security import load_user_personas
+
         db = _PermDb([])
-        assert load_role_permissions(db, 9) == frozenset()
-
-
-class TestClearPermissionCache:
-    def test_clears_single_role(self):
-        db = _PermDb(["user_manage"])
-        load_role_permissions(db, 5)
-        clear_permission_cache(5)
-        load_role_permissions(db, 5)
-        assert db.query_obj.queries == 2
-
-    def test_clear_single_role_keeps_others(self):
-        db = _PermDb(["user_manage"])
-        load_role_permissions(db, 5)
-        load_role_permissions(db, 6)
-        clear_permission_cache(5)
-        load_role_permissions(db, 5)
-        assert db.query_obj.queries == 3
-
-    def test_clear_all(self):
-        db = _PermDb(["user_manage"])
-        load_role_permissions(db, 5)
-        load_role_permissions(db, 6)
-        clear_permission_cache()
-        assert _permission_cache == {}
+        assert load_user_personas(db, _user(id=9, is_platform=False)) == frozenset()
 
 
 class TestSetUserPermissions:
-    def test_set_cache_from_db(self):
-        db = _PermDb(["qa_access"])
-        user = _user(role_id=1)
+    def test_set_cache_from_granted_persona(self):
+        db = _PermDb(["teacher"])
+        user = _user(id=1, is_platform=False)
         _set_user_permissions(user, db)
-        assert user._permissions_cache == {"qa_access"}
+        assert user._permissions_cache == set(persona_permissions("teacher"))
 
     def test_skips_when_already_cached(self):
-        db = _PermDb(["qa_access"])
-        user = _user(role_id=1, _permissions_cache={"other"})
+        db = _PermDb(["student"])
+        user = _user(id=1, is_platform=False, _permissions_cache={"other"})
         _set_user_permissions(user, db)
         assert user._permissions_cache == {"other"}
 
@@ -164,7 +210,7 @@ class TestGetCurrentUser:
 
     def test_valid_token_returns_user(self):
         token = create_access_token({"user_id": 42})
-        db = _UserDb(_user(id=42, token_version=0, role_id=1))
+        db = _UserDb(_user(id=42, token_version=0, is_platform=True))
         user = get_current_user(self._credentials(token), db)
         assert user.id == 42
 
@@ -260,40 +306,23 @@ class TestRequirePermission:
         assert exc.value.status_code == 403
 
 
-class TestPermissionCacheTtl:
-    def test_cache_expires_after_ttl(self):
-        from core import security
-
-        db = _PermDb(["user_manage"])
-        original_ttl = security._PERM_CACHE_TTL
-        security._PERM_CACHE_TTL = 0
-        try:
-            # TTL 0 → cached expiry in the past → refetch
-            load_role_permissions(db, 7)
-            load_role_permissions(db, 7)
-            assert db.query_obj.queries == 2
-        finally:
-            security._PERM_CACHE_TTL = original_ttl
-
-
 class TestPermissionCacheWindow:
     def test_ttl_is_short_enough_for_cross_worker_changes(self):
         """RB-3：缓存是**进程内** dict，而生产跑 `--workers 2` —— 改权限只在写入方失效，
         另一个 worker 只能等 TTL。TTL 回到分钟级 = "降权后另一个 worker 仍按旧权限放行"，
         所以这里把上限钉住（数值可调小，不得调大回分钟级）。"""
-        from core.security import _PERM_CACHE_TTL
+        from core.access import _PERM_CACHE_TTL
 
         assert _PERM_CACHE_TTL <= 5, f"权限缓存 TTL 过大：{_PERM_CACHE_TTL}s（跨 worker 陈旧窗口）"
 
 
 class TestAuthMeExposesPermissions:
-    def test_get_me_fills_permissions_from_role(self):
+    def test_get_me_fills_permissions_from_persona(self):
         """RB-4：`/auth/me` 必须带 permissions，否则前端降权/升权后最长 24h 仍按旧权限渲染。"""
         from modules.auth.service import AuthService
 
         user = _user(
             username="u1",
-            role=SimpleNamespace(name="admin", display_name="管理员"),
             display_name="用户一",
             student_id=None,
             gender=None,
@@ -301,17 +330,16 @@ class TestAuthMeExposesPermissions:
             memberships=[],
             created_at=datetime.now(UTC),
         )
-        brief = AuthService(_PermDb(["user_manage", "stats_view"])).get_me(user)
+        brief = AuthService(_PermDb(["teacher"])).get_me(user)
 
-        assert brief.permissions == ["stats_view", "user_manage"]
+        assert brief.permissions == sorted(persona_permissions("teacher"))
+        assert brief.personas == ["teacher"]
 
-    def test_get_me_without_role_keeps_empty_permissions(self):
+    def test_get_me_without_grants_keeps_empty_permissions(self):
         from modules.auth.service import AuthService
 
         user = _user(
-            role_id=None,
             username="u2",
-            role=None,
             display_name="用户二",
             student_id=None,
             gender=None,

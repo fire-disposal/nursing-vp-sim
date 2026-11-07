@@ -145,9 +145,7 @@ def create_case(
     """新建病例（draft）：内容先落工作副本，发布（POST /{id}/publish）才产生版本。"""
     svc = CaseService(db)
     try:
-        view = svc.create(
-            req.case_data, current_user.id, current_user.role.name if current_user.role else "", is_open=req.is_open
-        )
+        view = svc.create(req.case_data, current_user.id, current_user.active_persona or "", is_open=req.is_open)
     except PydanticValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors(include_url=False))
     return CaseManageItem.model_validate(view)
@@ -162,7 +160,7 @@ def update_case(
 ):
     svc = CaseService(db)
     try:
-        view = svc.update(case_id, req.case_data, current_user.id, current_user.role.name if current_user.role else "")
+        view = svc.update(case_id, req.case_data, current_user.id, current_user.active_persona or "")
     except PydanticValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors(include_url=False))
     return CaseManageItem.model_validate(view)
@@ -196,9 +194,7 @@ def get_case_validation(case_id: int, db: DbSession, current_user: _CaseManager)
 def publish_case(case_id: int, db: DbSession, current_user: _CaseManager, request: Request):
     """发布病例：门禁通过才落版本（error → 422 + 报告）。"""
     svc = CaseService(db)
-    view, report = svc.publish(
-        case_id, current_user.id, current_user.role.name if current_user.role else "", request=request
-    )
+    view, report = svc.publish(case_id, current_user.id, current_user.active_persona or "", request=request)
     return CasePublishResponse(
         case=CaseManageItem.model_validate(view), report=build_validation_report(svc.get(case_id), report)
     )
@@ -207,9 +203,7 @@ def publish_case(case_id: int, db: DbSession, current_user: _CaseManager, reques
 @router.post("/{case_id}/archive", response_model=CaseManageItem)
 def archive_case(case_id: int, db: DbSession, current_user: _CaseManager, request: Request):
     """归档病例：只阻止新使用，历史 revision 与既有训练复盘不受影响。"""
-    view = CaseService(db).archive(
-        case_id, current_user.id, current_user.role.name if current_user.role else "", request=request
-    )
+    view = CaseService(db).archive(case_id, current_user.id, current_user.active_persona or "", request=request)
     return CaseManageItem.model_validate(view)
 
 
@@ -238,9 +232,7 @@ def delete_case(
     request: Request,
     current_user: _CaseManager,
 ):
-    CaseService(db).delete(
-        case_id, current_user.id, current_user.role.name if current_user.role else "", request=request
-    )
+    CaseService(db).delete(case_id, current_user.id, current_user.active_persona or "", request=request)
     return {"message": "病例已删除"}
 
 

@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from core.budget import assert_within_budget
 from core.deps import DbSession
 from core.exceptions import NotFoundError
 from core.rate_limits import check_tts_limit
@@ -53,6 +54,7 @@ async def synthesize_stream(
 ) -> StreamingResponse:
     """Sentence-granularity streaming synthesis — PCM chunks as they arrive."""
     await check_tts_limit(current_user.id, request)
+    assert_within_budget(db, current_user, "tts")
 
     record_id = _require_record_id(req.record_id)
     pool: TTSConnectionProvider | None = getattr(request.app.state, "tts_pool", None)

@@ -12,10 +12,10 @@ from datetime import UTC, datetime
 import pytest
 
 from core.exceptions import NotFoundError, ValidationError
-from core.roles import SYSTEM_PERMISSIONS
+from core.personas import persona_permissions
 from core.security import clear_permission_cache
 from core.tenant import apply_school_scope, platform_scope, resolve_scope, school_name_map
-from models import Case, Class, ClassMembership, Role, RolePermission, School, TrainingRecord, User
+from models import Case, Class, ClassMembership, School, TrainingRecord, User, UserSchoolPersona
 from modules.admin.class_memberships import upsert_members
 from modules.admin.classes import ClassService
 from modules.admin.exports import RecordService
@@ -26,27 +26,6 @@ from modules.scoreboard.service import ScoreboardScope, ScoreboardService
 NOW = datetime.now(UTC)
 
 
-def _role(db, name: str) -> Role:
-    """建角色并授予代码里的系统权限（测试库跳过 seed，权限行需自建）。
-
-    权限缓存是**进程级**（`core.security._permission_cache`，按 role_id 缓存）：
-    savepoint 回滚不会清它，而各测试文件会复用同一批 role_id —— 不显式清缓存就会
-    读到别的用例留下的权限集合，表现成"作用域莫名变窄"。这里建完角色立刻清。
-    """
-    role = db.query(Role).filter(Role.name == name).first()
-    if role is None:
-        role = Role(name=name, display_name=name, is_system=True)
-        db.add(role)
-        db.flush()
-    # 幂等补齐：别的用例可能已提交过同名角色但没授全权限（savepoint 之外的提交不受回滚约束）
-    existing = {rp.permission for rp in db.query(RolePermission).filter(RolePermission.role_id == role.id).all()}
-    for perm in set(SYSTEM_PERMISSIONS.get(name, [])) - existing:
-        db.add(RolePermission(role_id=role.id, permission=perm))
-    db.flush()
-    clear_permission_cache(role.id)
-    return role
-
-
 def _school(db, name: str) -> School:
     school = School(name=name, created_at=NOW)
     db.add(school)
@@ -54,22 +33,29 @@ def _school(db, name: str) -> School:
     return school
 
 
-def _user(db, username: str, role: str, school_id: int | None) -> User:
+def _user(db, username: str, persona: str, school_id: int | None) -> User:
+    """建账号并授予 ``persona``（``"platform"`` = 平台账号，不再落授予行）。
+
+    模拟 ``get_current_user``：装载生效视角与对应权限（作用域由视角声明决定）。
+    """
+    is_platform = persona == "platform"
     user = User(
         username=username,
         password_hash="x",
-        role_id=_role(db, role).id,
         school_id=school_id,
         display_name=username,
+        is_platform=is_platform,
         created_at=NOW,
         updated_at=NOW,
     )
     db.add(user)
     db.flush()
-    # 模拟 get_current_user 的权限装载：作用域解析依赖 has_permission("user_manage")
-    from core.security import load_role_permissions
-
-    user.set_permissions_cache(set(load_role_permissions(db, user.role_id)))
+    if not is_platform and school_id is not None:
+        db.add(UserSchoolPersona(user_id=user.id, school_id=school_id, persona=persona))
+        db.flush()
+    user.set_active_persona(persona)
+    user.set_permissions_cache(set(persona_permissions(persona)))
+    clear_permission_cache()
     return user
 
 
@@ -94,7 +80,7 @@ def world(pg_session):
     school_b = _school(db, "乙学院")
     admin_a = _user(db, "admin-a", "admin", school_a.id)
     admin_b = _user(db, "admin-b", "admin", school_b.id)
-    platform_user = _user(db, "platform-root", "super_admin", None)
+    platform_user = _user(db, "platform-root", "platform", None)
     class_a = _class(db, "甲班", school_a.id)
     class_b = _class(db, "乙班", school_b.id)
     stu_a = _user(db, "stu-a", "student", school_a.id)
@@ -121,7 +107,7 @@ def world(pg_session):
 def test_scope_resolution_shapes(world):
     assert world["scope_a"].school_id == world["school_a"].id
     assert world["scope_a"].class_ids is None, "有 user_manage 的院校管理员应看全校"
-    assert world["scope_platform"].is_global, "super_admin 的 school_id 为空 → 平台视角"
+    assert world["scope_platform"].is_global, "平台账号（school_id 为空）→ 平台作用域"
 
 
 def test_class_list_only_own_school(world):
@@ -175,8 +161,8 @@ def test_membership_cross_school_rejected(world):
     )
 
 
-def test_platform_role_cannot_join_class(world):
-    """平台角色（school_id 为空）不属于任何院校，不能被塞进班级。"""
+def test_platform_account_cannot_join_class(world):
+    """平台账号（school_id 为空）不属于任何院校，不能被塞进班级。"""
     db = world["db"]
     with pytest.raises(ValidationError):
         upsert_members(db, world["class_a"].id, [world["platform_user"].id], member_role="student")
@@ -257,3 +243,28 @@ def test_school_scope_header_invalid_values_fall_back_to_global(world):
 def test_school_name_map_is_batched_lookup(world):
     names = school_name_map(world["db"], [world["school_a"].id, world["school_b"].id, None, 999_999])
     assert names == {world["school_a"].id: "甲大学", world["school_b"].id: "乙学院"}
+
+
+def test_non_platform_account_without_school_fails_closed(pg_session):
+    """非平台账号丢了院校归属时不能退化成跨院校：脏数据也不能拿到全局视野。"""
+    db = pg_session
+    orphan = _user(db, "orphan-admin", "admin", None)
+    scope = resolve_scope(db, orphan)
+    assert not scope.is_global
+    assert scope.school_id == 0
+    assert scope.class_ids == frozenset()
+
+
+def test_teacher_scope_is_school_wide_not_class_scoped(world):
+    """教师是校级视角：班级只是校内业务分组，不能再收窄授权边界。
+
+    账号 A 校、却有一条 B 校班级的教师成员关系（正常写入会拒绝，这里直接造脏数据）：
+    教师视角仍是 A 校全校（class_ids=None），B 校班级不会成为教师视野的一部分。
+    """
+    db = world["db"]
+    teacher = _user(db, "teacher-a", "teacher", world["school_a"].id)
+    _join(db, teacher, world["class_a"], "teacher")
+    _join(db, teacher, world["class_b"], "teacher")
+    scope = resolve_scope(db, teacher)
+    assert scope.school_id == world["school_a"].id
+    assert scope.class_ids is None

@@ -1,4 +1,5 @@
 import { APP_TIME_ZONE } from "@/utils/date";
+import { personaLabel } from "@/utils/personas";
 import { Badge, Box, Code, Paper, Select, Text, Tooltip } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
@@ -105,7 +106,7 @@ export default function AuditLogsPage() {
 							<Text size="sm">{r.actor_display_name || r.actor_username}</Text>
 							<Text size="xs" c="dimmed">
 								{r.actor_username}
-								{r.actor_role ? ` · ${r.actor_role}` : ""}
+								{r.actor_persona ? ` · 视角：${personaLabel(r.actor_persona)}` : ""}
 								{r.actor_id === null ? "（账号已删除）" : ""}
 							</Text>
 						</Box>

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 from core.database import get_db
 from core.datetime_utils import ensure_utc
 from core.exceptions import AuthError, NotFoundError
-from core.security import get_current_user, load_role_permissions, require_permission
+from core.security import get_current_user, require_permission
 from core.statuses import (
     AssignmentLifecycle,
     TrainingMode,
@@ -153,6 +153,7 @@ def _start_record(
         assignment_id=assignment_id,
         is_overdue=is_overdue,
         app_state=request.app.state,
+        actor_permissions=set(getattr(user, "_permissions_cache", None) or ()),
     )
 
 
@@ -328,6 +329,7 @@ def _create_record(
     assignment_id: str | None = None,
     is_overdue: bool = False,
     app_state=None,
+    actor_permissions: set[str] | None = None,
 ):
     """创建训练记录并**冻结**本次训练的 workflow（``workflow_id``）。
 
@@ -371,11 +373,11 @@ def _create_record(
         time_limit=time_limit,
     )
 
-    user = db.query(User).filter(User.id == user_id).first()
-    if user:
-        # 「这条是不是学生练习」：教师/管理员开始的不算（规则见 modules/training/participation.py）。
-        # 未取到用户时保留列默认值 true —— 记录必属于某个用户（FK），取不到即异常路径。
-        record.is_student_practice = is_student_practice(permissions=load_role_permissions(db, user.role_id))
+    # 「这条是不是学生练习」：教师/管理员开始的不算（规则见 modules/training/participation.py）。
+    # 权限取**调用者当前视角**（由 `_start_record` 传入）；内部直接调用时回落到角色默认视角。
+    if actor_permissions is None:
+        actor_permissions = set()
+    record.is_student_practice = is_student_practice(permissions=actor_permissions)
 
     db.add(record)
     db.flush()
@@ -462,7 +464,7 @@ def start_training(
         f"训练开始: record_id={record.id} case_id={case.id} case_name={case.name}",
         extra={
             "user_id": current_user.id,
-            "user_role": current_user.role.name if current_user.role else "",
+            "user_role": current_user.active_persona or "",
             "action": "training_start",
         },
     )
@@ -718,13 +720,14 @@ def start_practice_training(
         workflow=workflow_for_case_revision(target.revision),
         revision_id=target.revision.id,
         app_state=request.app.state,
+        actor_permissions=set(getattr(current_user, "_permissions_cache", None) or ()),
     )
 
     log.info(
         f"再练习开始: record_id={record.id} kind={req.kind} source_record_id={source.id} target_case_id={target.case.id}",
         extra={
             "user_id": current_user.id,
-            "user_role": current_user.role.name if current_user.role else "",
+            "user_role": current_user.active_persona or "",
             "action": "training_start_practice",
         },
     )
@@ -848,7 +851,7 @@ def delete_record(
 
     log.info(
         f"训练记录删除: record_id={record_id} case_id={record.case_id} owner_id={record.user_id}",
-        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
+        extra={"user_id": current_user.id, "user_role": current_user.active_persona or ""},
     )
     return {"message": "训练记录已删除"}
 

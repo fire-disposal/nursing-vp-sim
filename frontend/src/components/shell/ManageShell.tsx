@@ -1,25 +1,25 @@
-import { ActionIcon, AppShell, Badge, Box, Burger, Button, Group, Text, Tooltip, UnstyledButton } from "@mantine/core";
+import { ActionIcon, AppShell, Box, Burger, Button, Group, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { IconLogout, IconMessageCirclePlus, IconStethoscope, IconX } from "@tabler/icons-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, matchPath, useLocation } from "react-router-dom";
-import { SHELL } from "@/config/layout-scale";
-import { APP_VERSION } from "@/version";
 import { useFeedback } from "@/components/FeedbackProvider";
 import { NetworkBanner } from "@/components/NetworkBanner";
 import NotificationBell from "@/components/NotificationBell";
 import { ModeToggle } from "@/components/ui/mode-toggle";
+import { SHELL } from "@/config/layout-scale";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useShortViewport } from "@/hooks/useShortViewport";
-import { useActiveSchoolBrand } from "@/hooks/useActiveSchoolBrand";
-import { useUiPrefsStore } from "@/stores/uiPrefsStore";
 import useAuthStore from "@/stores/authStore";
+import { usePersonaStore } from "@/stores/personaStore";
+import { useUiPrefsStore } from "@/stores/uiPrefsStore";
 import { isAdminPermissions } from "@/utils/permissions";
-import SidebarNav from "./SidebarNav";
+import { APP_VERSION } from "@/version";
 import { BottomTabBar } from "./BottomTabBar";
-import { SchoolLogo, SchoolScopeSwitcher } from "./SchoolScopeSwitcher";
-import ShellTransition from "./ShellTransition";
 import type { NavItem } from "./navigation";
+import ShellContextSwitchers from "./ShellContextSwitchers";
+import ShellTransition from "./ShellTransition";
+import SidebarNav from "./SidebarNav";
 
 /**
  * ManageShell — 统一 Mantine AppShell 布局
@@ -31,7 +31,6 @@ import type { NavItem } from "./navigation";
 export default function ManageShell({
 	userLinks,
 	adminLinks,
-	groupUserLinks = false,
 	onLogout,
 	onAbout,
 	children,
@@ -39,21 +38,24 @@ export default function ManageShell({
 	userLinks: NavItem[];
 	adminLinks: NavItem[];
 	/** 教师/管理端把学生向条目收进独立分组（学生端不受影响） */
-	groupUserLinks?: boolean;
 	onLogout: () => void;
 	onAbout: () => void;
 	children: ReactNode;
 }) {
 	const permissions = useAuthStore((s) => s.permissions);
 	const authUser = useAuthStore((s) => s.user);
-	// 当前院校：院校管理员/教师/学生看到自己的学校；平台角色（school_id 为空）用切换器选
-	// 「当前院校」（默认全部院校）。名称/主题色/院徽同源：`useActiveSchoolBrand`。
-	const { school: activeSchool } = useActiveSchoolBrand();
-	const schoolLabel = authUser
-		? (authUser.school_name ?? (authUser.school_id == null ? "平台" : `院校 #${authUser.school_id}`))
-		: null;
 	const canManageSchools = permissions.includes("school_manage");
 	const isAdmin = isAdminPermissions(permissions);
+	/**
+	 * 移动端轨由**当前视角**派生：student → 学生轨，其余 → 教工轨。
+	 * 不能再用 `isAdminPermissions`：学生被授予 admin 视角后，在 admin 视角下看学生的底部
+	 * Tab 更符合"我在用哪个身份"，而权限推断只会把他永远钉在教工轨。
+	 * 没有视角（旧后端 / 未落定）才回落到旧口径。
+	 */
+	const persona = usePersonaStore((s) => s.active);
+	const mobileTier: "student" | "staff" = persona ? (persona === "student" ? "student" : "staff") : isAdmin ? "staff" : "student";
+	/** 教工轨要给「更多」（管理端条目放不进底栏）；学生轨不给。 */
+	const staffTier = mobileTier === "staff";
 	const isOnline = useNetworkStatus();
 	const { openFeedback } = useFeedback();
 	const { pathname } = useLocation();
@@ -106,7 +108,7 @@ export default function ManageShell({
 	// 路由表 → 页面标题（浏览器标签页/历史记录别再全是「虚拟患者训练系统」）
 	allNavItems.current = allLinks;
 	// 底部 Tab 由路由表派生：本轨有 Tab 才渲染底栏（学生 5 项、教师 3 项 + 更多）
-	const hasTabs = allLinks.some((l) => l.mobile?.tier === (isAdmin ? "staff" : "student"));
+	const hasTabs = allLinks.some((l) => l.mobile?.tier === mobileTier);
 	// 「管理后台建议用桌面端」只对**管理页**有意义，而且必须留在内容流里——
 	// 它曾挂在壳之外，在 100dvh 的沉浸训练页上把内容顶出视口 27px。
 	const showMobileHint = isAdmin && !mobileHintDismissed && pathname.startsWith("/admin");
@@ -137,7 +139,7 @@ export default function ManageShell({
 			</a>
 			<AppShell.Header>
 				<Group h="100%" px="md" gap="sm" wrap="nowrap">
-					{isAdmin && (
+					{staffTier && (
 						<Burger opened={mobileOpened} onClick={toggleMobile} hiddenFrom="sm" size="sm" aria-label="切换菜单" />
 					)}
 					<Burger
@@ -173,24 +175,6 @@ export default function ManageShell({
 						<Text fw={700} size="sm" visibleFrom="xs">
 							虚拟患者系统
 						</Text>
-						{canManageSchools ? (
-							<Box visibleFrom="sm" style={{ flexShrink: 0 }}>
-								<SchoolScopeSwitcher width={180} />
-							</Box>
-						) : (
-							schoolLabel && (
-								<Badge
-									variant="light"
-									color="gray"
-									size="sm"
-									visibleFrom="sm"
-									leftSection={activeSchool ? <SchoolLogo school={activeSchool} size={14} /> : undefined}
-									style={{ flexShrink: 0, textTransform: "none" }}
-								>
-									{schoolLabel}
-								</Badge>
-							)
-						)}
 						<UnstyledButton
 							onClick={onAbout}
 							title="关于系统"
@@ -217,6 +201,10 @@ export default function ManageShell({
 						</UnstyledButton>
 					</Group>
 
+					<Box visibleFrom="md" ml={4}>
+						<ShellContextSwitchers variant="header" />
+					</Box>
+
 					<Group gap={4} ml="auto" wrap="nowrap">
 						<ModeToggle />
 						<NotificationBell />
@@ -239,18 +227,13 @@ export default function ManageShell({
 			</AppShell.Header>
 
 			<AppShell.Navbar p="sm">
-				{canManageSchools && (
-					<Box hiddenFrom="sm" mb="sm">
-						<Text size="xs" c="dimmed" mb={4}>
-							当前院校
-						</Text>
-						<SchoolScopeSwitcher width="100%" />
-					</Box>
-				)}
+				{/* 小屏顶栏放不下语境控件：抽屉里保留同一套入口（桌面见顶栏内联胶囊）。 */}
+				<Box hiddenFrom="md">
+					<ShellContextSwitchers />
+				</Box>
 				<SidebarNav
 					userLinks={userLinks}
 					adminLinks={adminLinks}
-					groupUserLinks={groupUserLinks}
 					onNavigate={() => mobileOpened && toggleMobile()}
 				/>
 			</AppShell.Navbar>
@@ -294,7 +277,8 @@ export default function ManageShell({
 				<AppShell.Footer>
 					<BottomTabBar
 						links={allLinks}
-						onOpenNav={isAdmin ? toggleMobile : undefined}
+						onOpenNav={staffTier ? toggleMobile : undefined}
+						tier={mobileTier}
 					/>
 				</AppShell.Footer>
 			)}

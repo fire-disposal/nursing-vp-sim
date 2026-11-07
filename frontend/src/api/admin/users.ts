@@ -1,3 +1,4 @@
+import type { BatchUser, RegisterPayload, UpdatePayload } from "@/components/admin/users/types";
 import type { components } from "../api-types.gen";
 import { api } from "../client";
 
@@ -6,16 +7,14 @@ type Schemas = components["schemas"];
 export const getUsers = (params: Record<string, unknown> = {}) =>
 	api.get<Schemas["PaginatedResponse_UserBrief_"]>("/admin/users", { params });
 
-export const updateUser = (
-	id: number | string,
-	data: Schemas["UserUpdateRequest"],
-) => api.put<Schemas["UserBrief"]>(`/admin/users/${id}`, data);
+export const updateUser = (id: number | string, data: UpdatePayload) =>
+	api.put<Schemas["UserBrief"]>(`/admin/users/${id}`, data);
 
-export const batchCreateUsers = (users: Schemas["BatchUserItem"][]) =>
+export const batchCreateUsers = (users: BatchUser[]) =>
 	api.post<Schemas["BatchCreateResult"]>("/admin/users/batch", users);
 
 /** 导入预检：只读，逐行返回「新建 / 并入既有账号 / 跳过（原因）」。 */
-export const previewBatchUsers = (users: Schemas["BatchUserItem"][]) =>
+export const previewBatchUsers = (users: BatchUser[]) =>
 	api.post<Schemas["BatchPreviewResult"]>("/admin/users/batch/preview", users);
 
 export const deleteUser = (id: number | string) =>
@@ -35,3 +34,5 @@ export const bulkAssignClass = (
 
 export const getStudentDetail = (userId: number | string) =>
 	api.get<Schemas["StudentDetail"]>(`/admin/users/${userId}`);
+
+export type { BatchUser, RegisterPayload, UpdatePayload };

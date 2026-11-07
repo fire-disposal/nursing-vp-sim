@@ -12,7 +12,15 @@ from core.deps import DbSession
 from core.pagination import paginate
 from core.security import get_current_user, require_permission
 from core.tenant import Scope, TenantScope, scope_query, visible_class
-from models import MEMBER_ROLE_STUDENT, Class, ClassMembership, Role, Score, TrainingRecord, User
+from models import (
+    MEMBER_ROLE_STUDENT,
+    Class,
+    ClassMembership,
+    Score,
+    TrainingRecord,
+    User,
+    UserSchoolPersona,
+)
 from modules.training.scoring.grade_scope import grade_conditions, grade_expr
 from schemas import (
     ClassSummaryItemSchema,
@@ -58,7 +66,7 @@ class StatsService:
         )
 
     def _visible_student_ids(self):
-        """可统计的学生：本校；教师视角再收窄到自己任教的班。"""
+        """可统计的学生：本校；若作用域显式按班收窄则再收窄。"""
         q = self.db.query(User.id).filter(User.school_id == self.tenant.school_id)
         if self.tenant.class_ids is not None:
             q = q.filter(User.id.in_(self._student_ids_in_classes(self.tenant.class_ids or {-1})))
@@ -70,7 +78,7 @@ class StatsService:
             return query
         return query.filter(TrainingRecord.user_id.in_(self._visible_student_ids()))
 
-    def get_trends(self, current_user: User, date_from: str | None = None) -> TrendStats:
+    def get_trends(self, current_user: User, date_from: str | None = None, class_id: int | None = None) -> TrendStats:
         since = _trend_since(date_from)
 
         base = (
@@ -99,6 +107,10 @@ class StatsService:
             base = base.filter(TrainingRecord.user_id == current_user.id)
         else:
             base = self._narrow_training(base)
+            if class_id is not None:
+                # 校级教师/管理员可按班级筛趋势；作用域外一律 404
+                visible_class(self.db, self.tenant, class_id)
+                base = base.filter(TrainingRecord.user_id.in_(self._student_ids_in_classes({class_id})))
 
         rows = base.group_by(func.date(TrainingRecord.start_time)).order_by("d").all()
 
@@ -133,10 +145,7 @@ class StatsService:
         limit: int = 50,
         class_id: int | None = None,
     ) -> PaginatedResponse[TeacherSummaryItem]:
-        student_role = self.db.query(Role).filter(Role.name == "student").first()
-        if not student_role:
-            return PaginatedResponse(items=[], total=0, offset=offset, limit=limit)
-        student_role_id = student_role.id
+        student_ids = self.db.query(UserSchoolPersona.user_id).filter(UserSchoolPersona.persona == "student")
 
         base = (
             self.db.query(
@@ -155,12 +164,12 @@ class StatsService:
                 & (TrainingRecord.status == "completed")
                 & (TrainingRecord.is_student_practice == True),
             )
-            .filter(User.role_id == student_role_id)
+            .filter(User.id.in_(student_ids))
         )
 
         base = scope_query(base, User.school_id, self.tenant)
         if self.tenant.class_ids is not None:
-            # 教师视角：名单只到「自己任教的班」，跨班学生即使同校也不进名单
+            # 作用域按班收窄时（历史/无视角）：名单只到这些班
             base = base.filter(User.id.in_(self._student_ids_in_classes(self.tenant.class_ids or {-1})))
 
         if class_id is not None:
@@ -190,7 +199,7 @@ class StatsService:
     ) -> list[ClassSummaryItemSchema]:
         q = scope_query(self.db.query(Class), Class.school_id, self.tenant)
         if self.tenant.class_ids is not None:
-            # 教师视角：只看自己任教的班（cohort_label 只是标签，挡不住别校班级）
+            # 作用域按班收窄时：只看这些班（cohort_label 只是标签，挡不住别校班级）
             q = q.filter(Class.id.in_(self.tenant.class_ids or {-1}))
         if cohort_label is not None:
             q = q.filter(Class.cohort_label == cohort_label)
@@ -273,8 +282,9 @@ def get_trends(
     date_from: Annotated[
         str | None, Query(description="窗口起点 ISO 格式（含），如 2026-09-24T00:00:00+08:00；不传 = 不限")
     ] = None,
+    class_id: Annotated[int | None, Query(description="班级筛选；只能指向作用域内的班级，否则 404")] = None,
 ):
-    return StatsService(db, scope).get_trends(current_user, date_from)
+    return StatsService(db, scope).get_trends(current_user, date_from, class_id)
 
 
 @router.get("/teacher-summary", response_model=PaginatedResponse[TeacherSummaryItem])

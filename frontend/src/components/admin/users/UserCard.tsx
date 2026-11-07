@@ -1,11 +1,10 @@
-import { APP_TIME_ZONE } from "@/utils/date";
-import { ActionIcon, Badge, Group, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
-import { IconBan, IconCheck, IconPencil, IconTrash, IconUserSearch } from "@tabler/icons-react";
+import { ActionIcon, Badge, Checkbox, Group, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
+import { IconBan, IconCheck, IconCoin, IconPencil, IconTrash, IconUserSearch, IconWorld } from "@tabler/icons-react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
-import { Checkbox } from "@mantine/core";
-import { RoleBadge } from "@/components/ui/role-badge";
+import { PersonaBadges } from "@/components/ui/persona-badges";
 import { getUserAvatar } from "@/utils/avatar";
+import { APP_TIME_ZONE } from "@/utils/date";
 import MembershipTags from "./MembershipTags";
 import type { UserBrief } from "./types";
 
@@ -16,6 +15,8 @@ interface UserCardProps {
 	onEdit: (user: UserBrief) => void;
 	onDelete: (user: UserBrief) => void;
 	onToggleActive: (user: UserBrief) => void;
+	onQuota?: (user: UserBrief) => void;
+	onSchoolPersonas?: (user: UserBrief) => void;
 	/** 平台视角（跨院校）才需要院校名：院校管理员看到的都是本校，多一行是噪音。 */
 	showSchool?: boolean;
 }
@@ -34,6 +35,8 @@ export default function UserCard({
 	onEdit,
 	onDelete,
 	onToggleActive,
+	onQuota,
+	onSchoolPersonas,
 	showSchool = false,
 }: UserCardProps) {
 	const inactive = user.is_active === false;
@@ -79,10 +82,7 @@ export default function UserCard({
 									{user.display_name}
 								</Text>
 							</UnstyledButton>
-							<RoleBadge
-								role={user.role}
-								label={user.role_display_name || user.role}
-							/>
+							<PersonaBadges personas={user.personas} size="xs" />
 							{inactive && (
 								<Badge variant="light" color="gray" size="xs">
 									已停用
@@ -133,6 +133,32 @@ export default function UserCard({
 										<IconUserSearch size={15} />
 									</ActionIcon>
 								</Tooltip>
+								{onSchoolPersonas && !user.is_platform && (
+									<Tooltip label="多校视角">
+										<ActionIcon
+											variant="subtle"
+											color="gray"
+											size="md"
+											onClick={() => onSchoolPersonas(user)}
+											aria-label={`设置 ${user.display_name} 的多校视角`}
+										>
+											<IconWorld size={15} />
+										</ActionIcon>
+									</Tooltip>
+								)}
+								{onQuota && !user.is_platform && (
+									<Tooltip label="额度">
+										<ActionIcon
+											variant="subtle"
+											color="gray"
+											size="md"
+											onClick={() => onQuota(user)}
+											aria-label={`设置 ${user.display_name} 的额度`}
+										>
+											<IconCoin size={15} />
+										</ActionIcon>
+									</Tooltip>
+								)}
 								<Tooltip label="编辑">
 									<ActionIcon
 										variant="subtle"

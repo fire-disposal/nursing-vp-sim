@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from core.budget import assert_within_budget
 from core.database import SessionLocal, db_session, get_db
 from core.rate_limits import check_qa_limit
 from core.security import require_permission
@@ -31,7 +32,7 @@ router = APIRouter()
 def _qa_user_context(user: User) -> dict[str, str]:
     return {
         "user_name": user.display_name or "学生",
-        "user_role": user.role.name if user.role else "学生",
+        "user_role": user.active_persona or "student",
     }
 
 
@@ -136,7 +137,7 @@ async def create_session(
     db.commit()
     log.info(
         f"新会话创建: session_id={session.id} q_len={len(req.question)}",
-        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
+        extra={"user_id": current_user.id, "user_role": current_user.active_persona or ""},
     )
     return QAAskResponse(
         session_id=session.id,
@@ -158,6 +159,7 @@ async def ask_in_session(
     session = db.query(QASession).filter(QASession.id == session_id, QASession.user_id == current_user.id).first()
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
+    assert_within_budget(db, current_user, "llm")
     await check_qa_limit(current_user.id, request)
     llm_messages = build_qa_history(session_id, db)
     qa_system = render_template(QA_SYSTEM, **_qa_user_context(current_user))
@@ -187,7 +189,7 @@ async def ask_in_session(
     db.commit()
     log.info(
         f"会话追问: session_id={session_id} q_len={len(req.question)}",
-        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
+        extra={"user_id": current_user.id, "user_role": current_user.active_persona or ""},
     )
     return QAAskResponse(
         session_id=session.id,
@@ -212,6 +214,7 @@ async def ask_stream(
         if not session:
             raise HTTPException(status_code=404, detail="会话不存在")
         await check_qa_limit(current_user.id, request)
+        assert_within_budget(db, current_user, "llm")
         qa_system = render_template(QA_SYSTEM, **_qa_user_context(current_user))
         llm_messages = build_qa_history(session_id, db)
         llm_messages.insert(0, {"role": "system", "content": qa_system})

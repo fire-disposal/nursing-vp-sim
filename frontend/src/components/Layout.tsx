@@ -1,12 +1,13 @@
-import { Box, Button, Modal, Skeleton, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import { Box, Button, Modal, SimpleGrid, Skeleton, Stack, Text, Title } from "@mantine/core";
 import { IconAlertTriangle, IconMessageCircle, IconStethoscope } from "@tabler/icons-react";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { useFeedback } from "@/components/FeedbackProvider";
 import AdaptiveShell from "@/components/shell/AdaptiveShell";
-import { NAV_ITEMS } from "@/components/shell/navigation";
+import { filterNavByPersona, NAV_ITEMS } from "@/components/shell/navigation";
 
 import useAuthStore from "@/stores/authStore";
+import { usePersonaStore } from "@/stores/personaStore";
 import { isAdminPermissions } from "@/utils/permissions";
 import { APP_VERSION } from "@/version";
 
@@ -117,20 +118,23 @@ export default function Layout() {
 	const permissions = useAuthStore((s) => s.permissions);
 	const logout = useAuthStore((s) => s.logout);
 	const permKey = permissions.join(",");
+	const persona = usePersonaStore((s) => s.active);
 	const [aboutOpen, setAboutOpen] = useState(false);
 	const { openFeedback } = useFeedback();
 
 	const hasAdminPerm = isAdminPermissions(permissions);
 
 	const { userLinks, adminLinks } = useMemo(() => {
-		const filtered = NAV_ITEMS.filter(
+		// 先按视角收窄"这一档身份有哪些入口"，再按权限判"这个人能不能进"：
+		// 顺序反了也不会错，但视角先行能让导航结构（分组是否存在）随切视角立刻变化。
+		const filtered = filterNavByPersona(NAV_ITEMS, persona).filter(
 			(l) => !l.permission || permissions.includes(l.permission),
 		);
 		return {
 			userLinks: filtered.filter((l) => l.section === "user"),
 			adminLinks: filtered.filter((l) => l.section === "admin"),
 		};
-	}, [permKey]);
+	}, [permKey, persona]);
 
 	const handleLogout = () => {
 		logout();
@@ -143,7 +147,6 @@ export default function Layout() {
 			<AdaptiveShell
 				userLinks={userLinks}
 				adminLinks={adminLinks}
-				groupUserLinks={hasAdminPerm}
 				onLogout={handleLogout}
 				onAbout={() => setAboutOpen(true)}
 			>

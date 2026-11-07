@@ -19,7 +19,7 @@ import pytest
 
 from core.database import Base, engine
 from core.tenant import platform_scope
-from models import Class, ClassMembership, Role, RolePermission, School, User
+from models import Class, ClassMembership, School, User, UserSchoolPersona
 from modules.admin.users import UserService
 
 if TYPE_CHECKING:
@@ -31,8 +31,6 @@ _TABLES = [
     School.__table__,
     Class.__table__,
     ClassMembership.__table__,
-    Role.__table__,
-    RolePermission.__table__,
     User.__table__,
 ]
 
@@ -44,11 +42,6 @@ def _schema():
 
 @pytest.fixture
 def db(pg_session):
-    role = pg_session.query(Role).filter(Role.name == "student").first()
-    if role is None:
-        role = Role(name="student", display_name="学生", is_system=True)
-        pg_session.add(role)
-        pg_session.flush()
     return pg_session
 
 
@@ -66,7 +59,7 @@ def _row(username: str, **overrides) -> dict:
         "username": username,
         "password": "secret123",
         "display_name": username,
-        "role": "student",
+        "personas": ["student"],
         "student_id": None,
         "class_id": None,
         "class_name": None,
@@ -181,11 +174,14 @@ def test_mixed_batch_reports_every_skipped_row_with_its_index(db):
             username="dup-user",
             password_hash="x",
             display_name="dup",
-            role_id=_student_role(db).id,
             school_id=school.id,
             created_at=NOW,
         )
     )
+    db.flush()
+    # 已存在的同名账号必须是学生视角，才走"同名不同姓"的拒绝分支
+    dup = db.query(User).filter(User.username == "dup-user").one()
+    db.add(UserSchoolPersona(user_id=dup.id, school_id=dup.school_id, persona="student"))
     db.flush()
     service = UserService(db, platform_scope())
 
@@ -228,10 +224,6 @@ def test_audit_records_skip_reasons(db):
     assert entry.payload["skip_reasons"] == {"学校「没这所学校」不存在（名称需与「院校管理」里的一致）": 1}
 
 
-def _student_role(db: Session) -> Role:
-    return db.query(Role).filter(Role.name == "student").one()
-
-
 def test_batch_endpoint_serializes_skipped_rows(db):
     """HTTP 边界上锁形状：前端按 `skipped_rows[i].index` 把原因映射回 CSV 行号。"""
     from fastapi.testclient import TestClient
@@ -248,7 +240,8 @@ def test_batch_endpoint_serializes_skipped_rows(db):
         school_id = None
         username = "api-admin"
         display_name = "API 管理员"
-        role = type("_Role", (), {"name": "super_admin"})()
+        is_platform = True
+        active_persona = "platform"
 
         def has_permission(self, *_args: object) -> bool:
             return True

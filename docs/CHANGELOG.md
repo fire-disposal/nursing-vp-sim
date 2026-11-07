@@ -955,3 +955,87 @@ vitest 832 passed、`tsc --noEmit` 与 biome 干净。
 
 **验证**：新增队列推进（下一份）单测与导航矩阵契约；前端 `tsc`、biome、Vitest、`build` 与后端
 pytest 全绿。
+
+## 2026.11 — 视角权限：学校 × 视角
+
+**视角即权限预设** `core/personas.py` 定义四组预设（`student / teacher / admin / ops`），每组同时声明
+**权限**与**数据作用域**（`tenant` 全校 / `class` 任教班级 / `self` 仅本人）。账号可被授予多个视角
+（`user_personas`），请求头 `X-View-Persona` 选择当前生效的那一个；未授予 → 403。审计新增
+`audit_logs.actor_persona`，记录"操作时处于哪个视角"。
+
+**学校 × 视角边界** 院校边界只来自账号（`users.school_id`，平台账号为 NULL），视角永不放宽院校；
+`resolve_scope` 改为读当前视角声明的 scope，不再用 `user_manage` 反推（此前 ops 视角会被误判成
+班级受限）。平台账号从"角色名叫 super_admin"提升为显式标记 `users.is_platform`，= 全部院校 ×
+全部视角（派生，不落 `user_personas` 行），迁移时由原超管角色回填。
+
+**授予 API 与界面** 新增 `GET /api/admin/personas`、`GET/PUT /api/admin/users/{id}/personas`：
+跨校目标 404、超管目标 400、调用者只能授予其当前权限覆盖得到的视角；授予后清权限缓存并审计
+`user.personas_updated`（含前后集合与院校）。「角色管理」页替换为「视角管理」：预设卡（权限 +
+作用域 + 已授予人数）+ 用户授予弹窗。角色 CRUD 与权限编辑从产品面移除。
+
+**语境控件** 侧栏顶部一张卡同时展示院校与视角（院校在前）：可切换者用选择器，不可切换者显示
+带锁只读值并说明原因；始终显示，便于判断账号归属。
+
+**迁移**：`user_personas` 建表 + `audit_logs.actor_persona` + `users.is_platform`；回填
+student/teacher/admin 三类系统角色与平台标记；超管与自定义角色不写 `user_personas` 行。
+
+**验证**：pytest 1692 passed（含视角预设、作用域矩阵、授予规则）；前端 846 passed / 1 skipped、
+`tsc`/biome/`build` 干净；迁移由 pre-push 临时库往返校验。仍待完成（Step 2）：删除
+`role_permissions`/`roles`/`role_id`、JWT `role` 字段，以及导入/导出按"学校 × 视角"重做。
+
+### 权限路径闭环：角色退场、平台视角
+
+**平台视角** 新增第五个预设 `platform`（跨院校：院校管理、密钥、审计、成本、版本归因等平台级功能），
+只能授予平台账号；`resolve_scope` 对它返回全局。超级管理员默认视角改为 `platform`，仍可切回
+学校侧视角做事。语境块保留院校字段——平台视角下学校选择不参与作用域，但不再隐藏控件。
+
+**角色只剩账号类型** `role_permissions` 表与 `load_role_permissions` 全部删除；`SYSTEM_PERMISSIONS`
+消失，`roles` 只保留“账号类型 + 默认视角 + 展示”，角色 CRUD/权限编辑端点移除，`/admin/roles`
+只读列表。没有视角授予的账号可以登录但无权限（显式状态，由管理员补授）。
+迁移：`user_personas` 按“预设权限 ⊆ 角色权限”做最后一次派生，随后删表。
+
+**审计** 非法 `X-View-Persona`（未授予 / 非平台账号冒用平台视角）现在留 `access.denied`
+（target_type=persona，含请求的视角）；授予变更继续记 `user.personas_updated`。
+
+**验证**：新增授予服务用例（跨校 404 / 平台目标 400 / 平台视角不可外授 / 提权 403 / 授予留痕），
+作用域矩阵补平台视角；pytest 全绿、前端 tsc/biome/vitest/build 全绿。
+
+### 角色彻底退场
+
+**模型** `roles` / `users.role_id` / `role_permissions` / `Role` 模型全部删除。
+账号身份 = 院校（`school_id`）+ 班级归属 + 视角授予（`user_personas`）+ 平台标记（`is_platform`）。
+用户接口的 `role`/`role_display_name` 改为 `personas: string[]`；筛选参数 `role` → `persona`；
+注册/编辑/批量导入改用 `personas`（导入 CSV 第 4 列「角色」→「视角」，默认 `student`）。
+审计不再写 `actor_role`（历史列保留只读），新记录以 `actor_persona` 为准。
+
+**迁移** 先按“预设权限 ⊆ 角色权限”与角色名补一次 personas、把旧 `super_admin` 标为平台，再删除
+`roles` 与 `users.role_id`。种子账号改为“平台号 + 示例院校下的 admin/teacher/student 视角账号”。
+
+**验证**：后端 ruff/ty/import 通过；前端 tsc/biome 通过；pytest 与 vitest 全量迁移中（见提交记录）。
+
+## 2026.11 — 成本限额：用户日额度 × 院校月额度
+
+**额度** 新增 `school_budgets`（院校月度 LLM/TTS 上限、院校默认日额度）与 `user_budgets`
+（用户日额度）。继承链：**用户个人 > 院校默认 > 平台默认**；0 = 当前层不限。平台默认按
+线上历史定标：用户 LLM ¥2/日、TTS ¥0.2/日（真实最坏日 ¥0.70 / ¥0.007），北京时间零点刷新。
+
+**拦截** 聊天（流式/非流式/纠错）、TTS 合成、问答、评分重试、评分复核在花钱入口前检查；
+超限返回 `429 + code=budget_exceeded`，区分个人日额度 / 院校月额度。评分结束本身不拦，
+避免个体额度耗尽导致训练无法结算。
+
+**管理** 平台在院校页设月度上限与院校默认日额度；院校管理员在用户卡设本校用户个人日额度；
+两者均可清除恢复继承。成本面板的院校预算改为读取院校额度；训练首页提示当日剩余额度。
+
+**迁移** `f4d8b2c6a1e9_create_budget_tables`（临时库 upgrade/downgrade 往返通过）。
+**验证**：后端 pytest 317 passed、ruff/ty 全绿；前端 vitest 291 passed、tsc/build 全绿；
+临时 PG 冒烟验证三级继承与个人/院校两种 429。
+
+**导航与语境** 桌面顶栏新增院校/视角内联胶囊，左侧栏不再被语境卡占位；侧栏移除二级折叠，
+改为平铺条目 + 分隔线（视角已经承担分区语义）。小屏仍在抽屉保留同一套语境入口。
+
+**教师改为校级视角** 教师 `scope` 从 `class` 改为 `tenant`：能看/管本校范围，班级退化为校内业务分组与筛选条件，不再作为授权边界。教学看板新增班级筛选（趋势、KPI、待批阅、学生名单、作业完成率同源受控）；训练记录、成绩、批改、作业、用户等页面原有班级筛选继续生效。
+**边界** 非平台账号失去院校归属时作用域失败关闭；教师角度的历史跨校班级成员关系不再扩大视野；平台账号注册禁止带班级；平台账号不参与个人额度。
+
+**授权单一来源（院校 × 视角）** 新增 `core/access.py` 收口四件事：授予来源、授权策略、访问上下文、请求解析。删除 `user_personas`，全部授予落 `user_school_personas(user_id, school_id, persona)`；`users.school_id` 退为默认/家院校。平台账号保留 `platform` 全局；其他视角必须先选院校，学生视角只到本人，超管不再默认获得“所有学校的学生面”。
+**多校** 普通账号可按 `X-School-Scope` 在已授予院校间切换；院校管理员只能授予本校，跨校授予仅平台账号。新增 `user_school_profiles(user_id, school_id, student_id)`（为多校学生学号准备，当前跨校学生视角暂未开放）。前端院校选择器覆盖多校账号与平台任意视角；跨校授权弹窗按院校加载/保存。
+**迁移** `a1c` 建表 → `b3e6` 从 `user_personas` 回填并删旧表 → `c4/d5` 建学生 profile 并回填家院校学号；临时 PG 上 c8d（模拟生产角色模型）→ head 演练通过，升级/降级还原旧表通过。

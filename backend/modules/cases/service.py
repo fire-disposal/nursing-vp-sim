@@ -203,7 +203,7 @@ class CaseService:
             .all()
         )
 
-    def create(self, case_data: dict, user_id: int, user_role: str, *, is_open: bool = True) -> CaseManageView:
+    def create(self, case_data: dict, user_id: int, actor_persona: str, *, is_open: bool = True) -> CaseManageView:
         """新建病例 = draft：内容先落工作副本，发布（含门禁）产生第一个 revision。"""
         cd = validate_case_data(case_data, strict=True)
         case = Case(
@@ -220,11 +220,11 @@ class CaseService:
             self.db.flush()
         log.info(
             f"病例创建: case_id={case.id} case_name={case.name}",
-            extra={"user_id": user_id, "user_role": user_role},
+            extra={"user_id": user_id, "actor_persona": actor_persona},
         )
         return self._manage_view(case, 0)
 
-    def update(self, case_id: int, case_data: dict, user_id: int, user_role: str) -> CaseManageView:
+    def update(self, case_id: int, case_data: dict, user_id: int, actor_persona: str) -> CaseManageView:
         """编辑工作副本。
 
         已发布病例的编辑必须先过发布门禁（字段级 error 即 422，不落库），内容变化则追加
@@ -255,13 +255,13 @@ class CaseService:
             self.db.flush()
         log.info(
             f"病例编辑: case_id={case_id} case_name={case.name}",
-            extra={"user_id": user_id, "user_role": user_role},
+            extra={"user_id": user_id, "actor_persona": actor_persona},
         )
         count = (self.db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.case_id == case_id).scalar()) or 0
         return self._manage_view(case, count)
 
     def publish(
-        self, case_id: int, user_id: int, user_role: str, *, request: Request | None = None
+        self, case_id: int, user_id: int, actor_persona: str, *, request: Request | None = None
     ) -> tuple[CaseManageView, CaseReport]:
         """发布门禁 + 版本落地。
 
@@ -299,7 +299,7 @@ class CaseService:
                 revision = append_revision(self.db, case, user_id=user_id)
                 log.info(
                     f"病例发布: case_id={case_id} revision_no={revision.revision_no}",
-                    extra={"user_id": user_id, "user_role": user_role},
+                    extra={"user_id": user_id, "actor_persona": actor_persona},
                 )
                 revision_no = revision.revision_no
             else:
@@ -318,7 +318,9 @@ class CaseService:
         count = (self.db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.case_id == case_id).scalar()) or 0
         return self._manage_view(case, count), report
 
-    def archive(self, case_id: int, user_id: int, user_role: str, *, request: Request | None = None) -> CaseManageView:
+    def archive(
+        self, case_id: int, user_id: int, actor_persona: str, *, request: Request | None = None
+    ) -> CaseManageView:
         """归档：只阻止新使用（作业/训练），不删除历史 revision 与既有训练。"""
         case = self.get(case_id)
         before_status = case.status
@@ -334,10 +336,10 @@ class CaseService:
                 payload={"status": {"before": before_status, "after": CASE_STATUS_ARCHIVED}},
             )
             self.db.flush()
-        log.info(f"病例归档: case_id={case_id}", extra={"user_id": user_id, "user_role": user_role})
+        log.info(f"病例归档: case_id={case_id}", extra={"user_id": user_id, "actor_persona": actor_persona})
         return self._manage_view(case, self.training_count(case_id))
 
-    def delete(self, case_id: int, user_id: int, user_role: str, *, request: Request | None = None) -> None:
+    def delete(self, case_id: int, user_id: int, actor_persona: str, *, request: Request | None = None) -> None:
         case = self.get(case_id)
         count = (self.db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.case_id == case_id).scalar()) or 0
         if count > 0:
@@ -361,7 +363,7 @@ class CaseService:
             self.db.flush()
         log.info(
             f"病例删除: case_id={case_id} case_name={case_name}",
-            extra={"user_id": user_id, "user_role": user_role},
+            extra={"user_id": user_id, "actor_persona": actor_persona},
         )
 
     def set_open(self, case_id: int, is_open: bool, *, request: Request | None = None) -> Case:

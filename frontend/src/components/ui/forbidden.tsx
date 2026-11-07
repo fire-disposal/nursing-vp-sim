@@ -33,7 +33,7 @@ export default function Forbidden({ permission }: ForbiddenProps) {
 				{label
 					? `这个页面需要「${label}」权限，你当前的角色没有。`
 					: "这个页面需要权限，你当前的角色没有。"}
-				可以让管理员在「人员 → 角色管理」里调整，或先回到自己有权限的页面。
+				可以让管理员在「人员 → 视角管理」里调整，或先回到自己有权限的页面。
 			</Text>
 			<Group gap="xs" mt={4}>
 				<Button variant="default" onClick={() => navigate(-1)}>

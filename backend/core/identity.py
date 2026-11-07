@@ -13,9 +13,9 @@ admin 共用同一个值），「仅学生、仅本校」的偏唯一索引不�
 from sqlalchemy.orm import Session
 
 from core.exceptions import ValidationError
-from models import Role, User
+from models import User, UserSchoolProfile
 
-STUDENT_ROLE_NAME = "student"
+STUDENT_PERSONA = "student"
 
 
 def normalize_student_id(raw: object) -> str | None:
@@ -36,11 +36,10 @@ def find_student_conflict(
         return None
     query = (
         db.query(User)
-        .join(Role, Role.id == User.role_id)
+        .join(UserSchoolProfile, UserSchoolProfile.user_id == User.id)
         .filter(
-            Role.name == STUDENT_ROLE_NAME,
-            User.school_id == school_id,
-            User.student_id == sid,
+            UserSchoolProfile.school_id == school_id,
+            UserSchoolProfile.student_id == sid,
         )
     )
     if exclude_user_id is not None:

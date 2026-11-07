@@ -7,6 +7,7 @@ from fastapi import Request
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core.access import accessible_school_ids, grantable_personas, resolve_access
 from core.audit import (
     ACTION_AUTH_LOGIN_BLOCKED,
     ACTION_AUTH_LOGIN_FAILED,
@@ -19,11 +20,26 @@ from core.audit import (
 )
 from core.config import LOGIN_LOCK_SECONDS, LOGIN_LOCKOUT_ENABLED, LOGIN_MAX_FAILED_ATTEMPTS
 from core.exceptions import AuthError, ConflictError, ValidationError
-from core.identity import STUDENT_ROLE_NAME, assert_student_identity_free, normalize_student_id
-from core.security import create_access_token, hash_password, load_role_permissions, verify_password
+from core.identity import assert_student_identity_free, normalize_student_id
+from core.personas import PERSONAS, is_super_admin
+from core.security import (
+    create_access_token,
+    hash_password,
+    load_user_personas,
+    resolve_view_persona,
+    verify_password,
+)
 from core.tenant import resolve_scope, visible_class, writable_school_id
 from core.unit_of_work import unit_of_work
-from models import MEMBER_ROLE_STUDENT, MEMBER_ROLE_TEACHER, ClassMembership, Role, School, User
+from models import (
+    MEMBER_ROLE_STUDENT,
+    MEMBER_ROLE_TEACHER,
+    ClassMembership,
+    School,
+    User,
+    UserSchoolPersona,
+    UserSchoolProfile,
+)
 from schemas import (
     OkResponse,
     RegisterRequest,
@@ -32,6 +48,7 @@ from schemas import (
     UserBrief,
     UserMembershipItem,
     UserProfileUpdateRequest,
+    UserSchoolGrant,
 )
 
 log = logging.getLogger(__name__)
@@ -42,21 +59,17 @@ class AuthService:
         self.db = db
 
     def build_token_response(self, user: User) -> TokenResponse:
-        token = create_access_token(
-            {
-                "user_id": user.id,
-                "role_id": user.role_id,
-                "role": user.role.name if user.role else "",
-                "tv": user.token_version,
-            }
-        )
-        permissions = list(load_role_permissions(self.db, user.role_id))
+        token = create_access_token({"user_id": user.id, "tv": user.token_version})
+        # 登录/刷新不带请求头 → 默认视角；家院校没有授予时回落到第一所可用院校。
+        ctx = resolve_access(self.db, user)
         return TokenResponse(
             access_token=token,
-            role=user.role.name if user.role else "",
             display_name=user.display_name,
             user_id=user.id,
-            permissions=permissions,
+            permissions=sorted(ctx.permissions),
+            personas=sorted(load_user_personas(self.db, user, ctx.school_id)),
+            active_persona=ctx.persona,
+            is_platform=is_super_admin(user),
             gender=user.gender,
             avatar=user.avatar,
         )
@@ -76,16 +89,38 @@ class AuthService:
             .first()
         )
 
+    def _school_grants(self, user: User) -> list[UserSchoolGrant]:
+        """该账号在各院校的授予（平台账号返回空：它派生全视角，不靠行）。"""
+        if is_super_admin(user):
+            return []
+        if getattr(user, "school_id", None) is None:
+            return []
+        ids = accessible_school_ids(self.db, user)
+        if not ids:
+            return []
+        names = {row[0]: row[1] for row in self.db.query(School.id, School.name).filter(School.id.in_(ids)).all()}
+        home_school = getattr(user, "school_id", None)
+        ordered = sorted(ids, key=lambda sid: (sid != home_school, names.get(sid, ""), sid))
+        return [
+            UserSchoolGrant(
+                school_id=sid,
+                school_name=names.get(sid, f"院校 #{sid}"),
+                personas=sorted(load_user_personas(self.db, user, sid)),
+            )
+            for sid in ordered
+        ]
+
     def _user_to_brief(self, user: User) -> UserBrief:
         # 单用户多班级：返回 memberships 数组，不再取第一条（多班学生「显示 B 班」的老毛病）
         rows = [m for m in user.memberships if m.class_id is not None and m.class_ is not None]
         rows.sort(key=lambda m: (m.class_.cohort_label, m.class_.name, m.class_id))
         brand = self._school_brand(getattr(user, "school_id", None))
+        active_school = getattr(user, "active_school_id", None) or getattr(user, "school_id", None)
         return UserBrief(
             id=user.id,
             username=user.username,
-            role=user.role.name if user.role else "",
-            role_display_name=user.role.display_name if user.role else "",
+            personas=sorted(load_user_personas(self.db, user, active_school)),
+            is_platform=is_super_admin(user),
             school_id=getattr(user, "school_id", None),
             school_name=brand[0] if brand else None,
             school_theme_color=brand[1] if brand else None,
@@ -95,6 +130,8 @@ class AuthService:
             student_id=user.student_id,
             gender=user.gender,
             avatar=user.avatar,
+            active_school_id=active_school,
+            school_personas=self._school_grants(user),
             memberships=[
                 UserMembershipItem(
                     class_id=m.class_id,
@@ -211,7 +248,7 @@ class AuthService:
         log.info(
             "登录成功: username=%s",
             username,
-            extra={"user_id": user.id, "user_role": user.role.name if user.role else "", "action": "login"},
+            extra={"user_id": user.id, "action": "login"},
         )
         record_detached(
             request,
@@ -224,48 +261,53 @@ class AuthService:
         )
         return user
 
+    def _validate_new_personas(self, personas: list[str], actor: User) -> list[str]:
+        unique = list(dict.fromkeys(personas or ["student"]))
+        unknown = sorted(set(unique) - set(PERSONAS))
+        if unknown:
+            raise ValidationError(detail=f"未知视角: {unknown}")
+        if "platform" in unique and not is_super_admin(actor):
+            raise AuthError("无权创建平台账号", status_code=403)
+        granted = set(grantable_personas(actor))
+        for key in unique:
+            if key not in granted:
+                exceeded = sorted(
+                    set(PERSONAS[key].permissions) - set(getattr(actor, "_permissions_cache", None) or ())
+                )
+                raise AuthError(f"无权授予视角 {key}：包含你没有的权限 {exceeded}", status_code=403)
+        return unique
+
     def register(self, req: RegisterRequest, current_user: User, *, request: Request | None = None) -> RegisterResponse:
         existing = self.db.query(User).filter(User.username == req.username).first()
         if existing:
             raise ConflictError(detail="用户名已存在")
 
-        role_obj = self.db.query(Role).filter(Role.name == req.role).first()
-        if not role_obj:
-            raise ValidationError(detail="角色不存在")
-
-        # 反越权（RB-9）：只能创建自身权限集合内的角色，否则等于相对自身的垂直提权
-        # （今天 user_manage 只属于 super_admin 故不可利用，但自定义角色一出现就会暴露）
-        grantable = set(load_role_permissions(self.db, current_user.role_id))
-        exceeded = sorted(set(load_role_permissions(self.db, role_obj.id)) - grantable)
-        if exceeded:
-            raise AuthError(
-                f"无权创建「{role_obj.display_name}」账号：目标角色包含你自身没有的权限 {exceeded}", status_code=403
-            )
+        personas = self._validate_new_personas(req.personas, current_user)
+        # 平台账号不属于任何院校/班级。班级优先级曾排在平台判定之前，带 class_id 的
+        # 请求会让平台号落进某校班级（从花名册/统计里冒出来），这里直接拒绝。
+        if "platform" in personas and req.class_id is not None:
+            raise ValidationError("平台账号不能加入班级")
 
         # 院校归属：班级优先（班级自带院校），否则取显式 school_id。
-        # 院校管理员由 writable_school_id 强制本校；平台角色必须给出归属 —— 否则会造出
-        # school_id 为空的“日常账号”，而空院校在作用域里等于跨院校，属数据面污染。
+        # 平台账号不属于任何院校；其余账号必须落在有院校的范围内。
         scope = resolve_scope(self.db, current_user)
         cls = visible_class(self.db, scope, req.class_id) if req.class_id is not None else None
         if cls is not None:
             school_id = cls.school_id
-        elif req.role == "super_admin":
-            # 平台角色（school_id 为空）只能由平台管理员创建，且不属于任何院校
-            if scope.school_id is not None:
-                raise AuthError("无权创建平台角色账号", status_code=403)
+        elif "platform" in personas:
             school_id = None
         else:
             school_id = writable_school_id(scope, req.school_id)
 
         student_id = normalize_student_id(req.student_id)
-        if req.role == STUDENT_ROLE_NAME:
+        if "student" in personas:
             # 本校同学号只能有一个学生账号：重复注册要在建号之前挡住，并说明撞了谁
             assert_student_identity_free(self.db, school_id=school_id, student_id=student_id)
 
         user = User(
             username=req.username,
             password_hash=hash_password(req.password),
-            role_id=role_obj.id,
+            is_platform="platform" in personas,
             school_id=school_id,
             display_name=req.display_name,
             student_id=student_id,
@@ -274,8 +316,13 @@ class AuthService:
         with unit_of_work(self.db, conflict_detail="用户名已存在"):
             self.db.add(user)
             self.db.flush()
+            if school_id is not None:
+                for key in personas:
+                    self.db.add(UserSchoolPersona(user_id=user.id, school_id=school_id, persona=key))
+                if "student" in personas and student_id:
+                    self.db.add(UserSchoolProfile(user_id=user.id, school_id=school_id, student_id=student_id))
             if req.class_id is not None:
-                member_role = MEMBER_ROLE_TEACHER if req.role == "teacher" else MEMBER_ROLE_STUDENT
+                member_role = MEMBER_ROLE_TEACHER if "teacher" in personas else MEMBER_ROLE_STUDENT
                 self.db.add(ClassMembership(user_id=user.id, class_id=req.class_id, member_role=member_role))
             record(
                 self.db,
@@ -284,33 +331,46 @@ class AuthService:
                 target_id=user.id,
                 target_label=user.username,
                 request=request,
-                payload={"role": req.role, "class_id": req.class_id, "school_id": school_id},
+                payload={"personas": personas, "class_id": req.class_id, "school_id": school_id},
             )
         self.db.refresh(user)
         log.info(
-            "用户注册: target_id=%d target_name=%s role=%s",
+            "用户注册: target_id=%d target_name=%s personas=%s",
             user.id,
             user.username,
-            user.role.name if user.role else "",
+            ",".join(personas),
             extra={
                 "user_id": current_user.id,
-                "user_role": current_user.role.name if current_user.role else "",
+                "actor_persona": current_user.active_persona,
                 "action": "register",
             },
         )
         return RegisterResponse(
             id=user.id,
             username=user.username,
-            role=user.role.name if user.role else "",
+            personas=personas,
             display_name=user.display_name,
             student_id=user.student_id,
         )
 
     def get_me(self, current_user: User) -> UserBrief:
         brief = self._user_to_brief(current_user)
-        # 权限集合由角色决定且可能刚被改动 → 每次 /auth/me 现取（load_role_permissions 自身有 2s 缓存）
-        if current_user.role_id is not None:
-            brief.permissions = sorted(load_role_permissions(self.db, current_user.role_id))
+        # 权限集合由**当前视角**决定且可能刚被改动 → 每次 /auth/me 现取。
+        # `get_current_user` 已按 X-View-Persona 解析并把结果挂到 `_permissions_cache`
+        # （缺失时这里按默认视角解析，refresh/直调路径同样成立）。
+        cached = getattr(current_user, "_permissions_cache", None)
+        if cached is None:
+            active, perms = resolve_view_persona(self.db, current_user)
+        else:
+            perms = frozenset(cached)
+            active = current_user.active_persona
+            if active is None:
+                active, _resolved = resolve_view_persona(self.db, current_user)
+        brief.permissions = sorted(perms)
+        brief.active_persona = active
+        brief.personas = sorted(
+            load_user_personas(self.db, current_user, getattr(current_user, "active_school_id", None))
+        )
         return brief
 
     def update_me(self, req: UserProfileUpdateRequest, current_user: User) -> UserBrief:

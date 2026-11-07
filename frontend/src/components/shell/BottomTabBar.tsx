@@ -40,15 +40,21 @@ interface TabSpec {
 export function BottomTabBar({
 	links,
 	onOpenNav,
+	tier: tierProp,
 }: {
 	links: NavItem[];
 	/** 传入即渲染「更多」Tab（打开完整菜单）；管理轨必须传，学生轨不传。 */
 	onOpenNav?: () => void;
+	/**
+	 * 移动端轨：缺省按权限推断（旧口径）。给了就用它——视角是显式的，
+	 * 学生在 admin 视角下也该看到学生的底部 Tab，而不是被 `permissions` 判成 staff。
+	 */
+	tier?: "student" | "staff";
 }) {
 	const location = useLocation();
 	const navigate = useNavigate();
 	const permissions = useAuthStore((s) => s.permissions);
-	const tier = isAdminPermissions(permissions) ? "staff" : "student";
+	const tier = tierProp ?? (isAdminPermissions(permissions) ? "staff" : "student");
 	const tabs: TabSpec[] = links
 		.filter((l) => l.mobile?.tier === tier)
 		.sort((a, b) => (a.mobile?.order ?? 0) - (b.mobile?.order ?? 0))

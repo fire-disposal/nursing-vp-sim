@@ -49,6 +49,10 @@ class AuditLog(Base):
     actor_username: Mapped[str | None] = mapped_column(sa.String(50), nullable=True)
     actor_display_name: Mapped[str | None] = mapped_column(sa.String(50), nullable=True)
     actor_role: Mapped[str | None] = mapped_column(sa.String(20), nullable=True)
+    #: 操作时**生效的视角**（`X-View-Persona`）。同一账号可持多个视角，
+    #: 只有角色名无法回答"当时是以管理员还是教师身份做的"。
+    #: 无视角的老数据/自定义角色为空，或记为 `role.name`。
+    actor_persona: Mapped[str | None] = mapped_column(sa.String(20), nullable=True)
 
     action: Mapped[str] = mapped_column(sa.String(64), nullable=False)
     target_type: Mapped[str] = mapped_column(sa.String(32), nullable=False)

@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import {
 	Alert,
 	Badge,
@@ -13,14 +12,16 @@ import {
 	Text,
 } from "@mantine/core";
 import { IconUserPlus } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { getUsers } from "@/api/admin/users";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
+import PersonaBadges from "@/components/ui/persona-badges";
 import { SearchInput } from "@/components/ui/search-input";
-import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import { useAddClassMembers } from "@/hooks/useClasses";
+import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 
 const ROLE_DATA = [
 	{ value: "student", label: "学生" },
@@ -174,7 +175,7 @@ export default function AddMembersDialog({
 										{inClass ? (
 											<Badge size="xs" variant="light" color="gray">已在班级</Badge>
 										) : (
-											<Badge size="xs" variant="outline">{u.role_display_name || u.role}</Badge>
+											<PersonaBadges personas={u.personas} size="xs" />
 										)}
 									</Group>
 								);

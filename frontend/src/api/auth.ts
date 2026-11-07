@@ -1,3 +1,4 @@
+import type { RegisterPayload } from "./admin/users";
 import type { ApiPath } from "./api-path";
 import type { components } from "./api-types.gen";
 import { api } from "./client";
@@ -10,7 +11,7 @@ export const login = (username: string, password: string) =>
 		{ username, password },
 	);
 
-export const register = (data: Schemas["RegisterRequest"]) =>
+export const register = (data: RegisterPayload) =>
 	api.post<Schemas["RegisterResponse"]>(
 		"/auth/register" satisfies ApiPath as string,
 		data,

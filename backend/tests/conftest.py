@@ -57,6 +57,62 @@ def ensure_school(db, name: str = "测试院校"):
     return school
 
 
+def make_user(
+    db,
+    *,
+    username: str | None = None,
+    school=None,
+    personas: tuple[str, ...] = ("student",),
+    is_platform: bool = False,
+    **fields,
+):
+    """建一个账号（可带视角授予）。字段仍可覆盖；默认学生视角 + 无院校。"""
+    import uuid
+    from datetime import UTC, datetime
+
+    from models import User
+
+    now = datetime.now(UTC)
+    user = User(
+        username=username or f"u-{uuid.uuid4().hex[:8]}",
+        password_hash="x",
+        display_name=fields.pop("display_name", "测试用户"),
+        school_id=fields.pop("school_id", school.id if school is not None else None),
+        is_platform=is_platform,
+        created_at=now,
+        updated_at=now,
+        **fields,
+    )
+    db.add(user)
+    db.flush()
+    grant_personas(db, user, *personas)
+    return user
+
+
+def grant_personas(db, user, *personas: str) -> None:
+    from models import UserSchoolPersona
+
+    if user.school_id is None:
+        return
+    existing = {
+        row.persona
+        for row in db.query(UserSchoolPersona).filter(
+            UserSchoolPersona.user_id == user.id, UserSchoolPersona.school_id == user.school_id
+        )
+    }
+    for persona in personas:
+        if persona not in existing:
+            db.add(UserSchoolPersona(user_id=user.id, school_id=user.school_id, persona=persona))
+    db.flush()
+
+
+def clear_personas(db, user) -> None:
+    from models import UserSchoolPersona
+
+    db.query(UserSchoolPersona).filter(UserSchoolPersona.user_id == user.id).delete(synchronize_session="fetch")
+    db.flush()
+
+
 @pytest.fixture
 def pg_session():
     """PG 会话夹具（savepoint 隔离）——本仓**始终面向 PostgreSQL**，不做跨库降级。

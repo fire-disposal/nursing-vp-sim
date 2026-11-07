@@ -1,10 +1,10 @@
 import {
 	IconActivity,
 	IconBook2,
+	IconBuildingCommunity,
 	IconChartBar,
 	IconClipboardCheck,
 	IconClipboardList,
-	IconBuildingCommunity,
 	IconCoins,
 	IconFileSearch,
 	IconFileText,
@@ -25,6 +25,7 @@ import {
 import { type ComponentType, type CSSProperties, lazy, type ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import type { Permission } from "@/utils/permissions";
+import { isPersonaId, type PersonaId } from "@/utils/personas";
 
 const DashboardHome = lazy(() => import("@/pages/DashboardHome"));
 
@@ -43,7 +44,7 @@ const Profile = lazy(() => import("@/pages/Profile"));
 const Admin = lazy(() => import("@/pages/Admin"));
 const AdminUsers = lazy(() => import("@/pages/admin/UsersPage"));
 const AdminUserDetail = lazy(() => import("@/pages/admin/UserDetailPage"));
-const AdminRoles = lazy(() => import("@/pages/admin/RolesPage"));
+const AdminPersonas = lazy(() => import("@/pages/admin/PersonasPage"));
 const AdminClasses = lazy(
 	() => import("@/pages/admin/ClassesPage"),
 );
@@ -103,15 +104,18 @@ export interface NavGroupDef {
 	label: string;
 	icon: NavIcon;
 	defaultOpen: boolean;
+	/** 哪些视角看得到本分组（与条目级 `nav.personas` 覆盖合并，见 `filterNavByPersona`）。 */
+	personas: PersonaId[];
 }
 
 export const NAV_GROUPS: NavGroupDef[] = [
-	{ key: "personal", label: "我的训练", icon: IconStethoscope, defaultOpen: false },
+	// 我的训练：所有视角都保留自己的训练入口（管理/运维也要能练，训练档案是自己的）
+	{ key: "personal", label: "我的训练", icon: IconStethoscope, defaultOpen: false, personas: ["student", "teacher", "admin", "ops"] },
 	// 教学 = 日常查看与操作（看板/作业/成绩/记录）；教学资源 = 低频配置（病例/问卷/标准）
-	{ key: "teaching", label: "教学", icon: IconSchool, defaultOpen: true },
-	{ key: "content", label: "教学资源", icon: IconBook2, defaultOpen: false },
-	{ key: "people", label: "人员", icon: IconUsers, defaultOpen: false },
-	{ key: "system", label: "运维", icon: IconActivity, defaultOpen: false },
+	{ key: "teaching", label: "教学", icon: IconSchool, defaultOpen: true, personas: ["teacher", "admin"] },
+	{ key: "content", label: "教学资源", icon: IconBook2, defaultOpen: false, personas: ["teacher", "admin", "platform"] },
+	{ key: "people", label: "人员", icon: IconUsers, defaultOpen: false, personas: ["admin", "platform"] },
+	{ key: "system", label: "运维", icon: IconActivity, defaultOpen: false, personas: ["ops", "platform"] },
 ];
 
 /**
@@ -141,6 +145,9 @@ export interface NavMeta {
 	 *  需要 `case_manage` 与 `stats_view` 两个键，路由级只判一个会误挡另一半人）。
 	 *  与路由级 `permission` 二选一；两者都给时**条目级优先**。 */
 	permission?: Permission;
+	/** 条目级视角覆盖：给出时**取代**所在分组的视角集合（用于分组口径之外的单点例外，
+	 *  如「系统反馈」运维/教学/管理都该看到，而不是只有运维）。不给则跟随分组。 */
+	personas?: PersonaId[];
 }
 
 
@@ -234,11 +241,11 @@ export const APP_ROUTES: AppRoute[] = [
 		activity: "manage",
 	},
 	{
-		path: "/admin/roles",
-		element: <AdminRoles />,
+		path: "/admin/personas",
+		element: <AdminPersonas />,
 		permission: "role_manage",
 		activity: "manage",
-		nav: { label: "角色管理", icon: IconShield, section: "admin", group: "people" },
+		nav: { label: "视角管理", icon: IconShield, section: "admin", group: "people" },
 	},
 	{
 		path: "/admin/schools",
@@ -414,7 +421,15 @@ export const APP_ROUTES: AppRoute[] = [
 		activity: "manage",
 		// 维护者口径：这类反馈**针对系统本身**（bug/建议/评分与内容错误）→ 归运维，
 		// 标签用"系统反馈"以消除"是否指教学反馈"的歧义
-		nav: { label: "系统反馈", icon: IconMessageCircle, section: "admin", group: "system" },
+		nav: {
+			label: "系统反馈",
+			icon: IconMessageCircle,
+			section: "admin",
+			group: "system",
+			// 教学/管理也会收到针对系统的反馈（评分口径、内容错误），不该只有运维能处理；
+			// 权限门仍是 `feedback_review`，这里只放开"哪些视角在导航里看得到"
+			personas: ["teacher", "admin", "ops", "platform"],
+		},
 	},
 ];
 
@@ -426,3 +441,28 @@ export interface NavItem extends NavMeta {
 export const NAV_ITEMS: NavItem[] = APP_ROUTES.filter(
 	(r): r is AppRoute & { nav: NavMeta } => !!r.nav,
 ).map((r) => ({ to: r.path, ...r.nav, permission: r.nav.permission ?? r.permission }));
+
+/**
+ * 按**当前视角**过滤导航条目（只管"这一档视角该不该看到这个入口"，不判权限）。
+ *
+ * 判定顺序：
+ * 1. 条目级 `personas` 覆盖优先（如「系统反馈」）；
+ * 2. 否则看所在分组 `NAV_GROUPS[].personas`；
+ * 3. 无分组（`section: "user"` 的散条目）且无覆盖 → 对所有视角可见。
+ *
+ * 纯裁剪：不新增、不重排、不改写条目（返回的是输入里那些对象本身）。侧栏按
+ * `group` 做分隔线分区，却不在这里给条目补 `group`。
+ *
+ * `persona` 为空（旧后端没有 personas 字段 / 会话未落定）时**原样返回**：不能因为不认识
+ * 视角就把整个侧栏清空。未知取值（legacy 自定义角色名会被后端当作 persona 回传）同理——
+ * 拿不到这一档的规则就不做臆测，整份导航交给权限门裁决。
+ */
+export function filterNavByPersona(items: NavItem[], persona: string | null | undefined): NavItem[] {
+	if (!persona || !isPersonaId(persona)) return items;
+	return items.filter((item) => {
+		const allowed: readonly string[] | undefined =
+			item.personas ?? (item.group ? NAV_GROUPS.find((g) => g.key === item.group)?.personas : undefined);
+		if (!allowed) return true;
+		return allowed.includes(persona);
+	});
+}

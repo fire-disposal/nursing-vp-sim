@@ -75,6 +75,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/costs/budgets/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Quota
+         * @description 当前用户的可用额度：个人日额度 + 院校月额度与重置时间。
+         */
+        get: operations["my_quota_api_admin_costs_budgets_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/costs/budgets/schools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List School Budgets */
+        get: operations["list_school_budgets_api_admin_costs_budgets_schools_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/costs/budgets/schools/{school_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set School Budget */
+        put: operations["set_school_budget_api_admin_costs_budgets_schools__school_id__put"];
+        post?: never;
+        /**
+         * Clear School Budget
+         * @description 清除院校额度设置：月度重新不限，用户默认日额度回到平台默认。
+         */
+        delete: operations["clear_school_budget_api_admin_costs_budgets_schools__school_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/costs/budgets/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List User Budgets */
+        get: operations["list_user_budgets_api_admin_costs_budgets_users_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/costs/budgets/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set User Budget */
+        put: operations["set_user_budget_api_admin_costs_budgets_users__user_id__put"];
+        post?: never;
+        /**
+         * Clear User Budget
+         * @description 清除用户个人额度：回到院校默认 → 平台默认。
+         */
+        delete: operations["clear_user_budget_api_admin_costs_budgets_users__user_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/classes/{class_id}/members": {
         parameters: {
             query?: never;
@@ -300,53 +396,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/roles": {
+    "/api/admin/personas": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List Roles */
-        get: operations["list_roles_api_admin_roles_get"];
+        /** List Personas */
+        get: operations["list_personas_api_admin_personas_get"];
         put?: never;
-        /** Create Role */
-        post: operations["create_role_api_admin_roles_post"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/admin/roles/{role_id}": {
+    "/api/admin/users/{user_id}/personas": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        /** Update Role */
-        put: operations["update_role_api_admin_roles__role_id__put"];
+        /** Get User Personas */
+        get: operations["get_user_personas_api_admin_users__user_id__personas_get"];
+        /** Set User Personas */
+        put: operations["set_user_personas_api_admin_users__user_id__personas_put"];
         post?: never;
-        /** Delete Role */
-        delete: operations["delete_role_api_admin_roles__role_id__delete"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/admin/roles/export": {
+    "/api/admin/users/{user_id}/personas/schools/{school_id}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
-        /** Export Roles */
-        post: operations["export_roles_api_admin_roles_export_post"];
+        /** Get User School Personas */
+        get: operations["get_user_school_personas_api_admin_users__user_id__personas_schools__school_id__get"];
+        /**
+         * Set User School Personas
+         * @description 给用户在**指定院校**授予视角（家院校的授予仍走上面的默认端点）。
+         */
+        put: operations["set_user_school_personas_api_admin_users__user_id__personas_schools__school_id__put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3248,8 +3347,8 @@ export interface components {
             actor_username: string | null;
             /** Actor Display Name */
             actor_display_name: string | null;
-            /** Actor Role */
-            actor_role: string | null;
+            /** Actor Persona */
+            actor_persona?: string | null;
             /** Action */
             action: string;
             /** Target Type */
@@ -3357,11 +3456,8 @@ export interface components {
             password: string;
             /** Display Name */
             display_name: string;
-            /**
-             * Role
-             * @default student
-             */
-            role: string;
+            /** Personas */
+            personas?: string[];
             /** Student Id */
             student_id?: string | null;
             /** Class Id */
@@ -3434,6 +3530,19 @@ export interface components {
         Body_upload_school_logo_api_admin_schools__school_id__logo_post: {
             /** File */
             file: string;
+        };
+        /** BudgetUpdateRequest */
+        BudgetUpdateRequest: {
+            /**
+             * Llm Limit
+             * @default 0
+             */
+            llm_limit: number;
+            /**
+             * Tts Limit
+             * @default 0
+             */
+            tts_limit: number;
         };
         /** BulkAssignClassRequest */
         BulkAssignClassRequest: {
@@ -4485,6 +4594,49 @@ export interface components {
              */
             calls: number;
         };
+        /** MyQuotaBucket */
+        MyQuotaBucket: {
+            /** Limit */
+            limit: number;
+            /** Used */
+            used: number;
+            /**
+             * Source
+             * @default platform
+             */
+            source: string;
+        };
+        /** MyQuotaResponse */
+        MyQuotaResponse: {
+            llm: components["schemas"]["MyQuotaBucket"];
+            tts: components["schemas"]["MyQuotaBucket"];
+            /** School Name */
+            school_name?: string | null;
+            /**
+             * School Llm Limit
+             * @default 0
+             */
+            school_llm_limit: number;
+            /**
+             * School Tts Limit
+             * @default 0
+             */
+            school_tts_limit: number;
+            /**
+             * School Llm Used
+             * @default 0
+             */
+            school_llm_used: number;
+            /**
+             * School Tts Used
+             * @default 0
+             */
+            school_tts_used: number;
+            /** Day Reset At */
+            day_reset_at: string;
+            /** Month Reset At */
+            month_reset_at: string;
+        };
         /** OkResponse */
         OkResponse: {
             /**
@@ -4659,6 +4811,34 @@ export interface components {
             portrait_states?: {
                 [key: string]: string;
             } | null;
+        };
+        /**
+         * PersonaCatalogItem
+         * @description 视角目录项：预设 + 作用域 + **调用者作用域内**持有该视角的人数。
+         *
+         *     ``user_count`` 按调用者的 ``TenantScope`` 统计（平台全局 / 院校本校），
+         *     超管派生拥有的视角也计入（它没有 ``user_personas`` 行）。
+         */
+        PersonaCatalogItem: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "platform" | "tenant" | "self";
+            /**
+             * Permissions
+             * @default []
+             */
+            permissions: string[];
+            /**
+             * User Count
+             * @default 0
+             */
+            user_count: number;
         };
         /** QAAskResponse */
         QAAskResponse: {
@@ -5053,11 +5233,8 @@ export interface components {
             username: string;
             /** Password */
             password: string;
-            /**
-             * Role
-             * @default student
-             */
-            role: string;
+            /** Personas */
+            personas?: string[];
             /** Display Name */
             display_name: string;
             /** Student Id */
@@ -5075,8 +5252,8 @@ export interface components {
             id: number;
             /** Username */
             username: string;
-            /** Role */
-            role: string;
+            /** Personas */
+            personas?: string[];
             /** Display Name */
             display_name: string;
             /** Student Id */
@@ -5123,46 +5300,6 @@ export interface components {
             facts?: string[];
             /** Problems */
             problems?: string[];
-        };
-        /** RoleCreateRequest */
-        RoleCreateRequest: {
-            /** Name */
-            name: string;
-            /** Display Name */
-            display_name: string;
-            /** Permissions */
-            permissions?: string[];
-        };
-        /** RoleResponse */
-        RoleResponse: {
-            /** Id */
-            id: number;
-            /** Name */
-            name: string;
-            /** Display Name */
-            display_name: string;
-            /**
-             * Is System
-             * @default false
-             */
-            is_system: boolean;
-            /**
-             * Permissions
-             * @default []
-             */
-            permissions: string[];
-            /**
-             * User Count
-             * @default 0
-             */
-            user_count: number;
-        };
-        /** RoleUpdateRequest */
-        RoleUpdateRequest: {
-            /** Display Name */
-            display_name?: string | null;
-            /** Permissions */
-            permissions?: string[] | null;
         };
         /** ScenarioActor */
         ScenarioActor: {
@@ -6330,6 +6467,54 @@ export interface components {
             /** Messages */
             messages?: components["schemas"]["DeliveryMessage"][];
         };
+        /** SchoolBudgetItem */
+        SchoolBudgetItem: {
+            /** School Id */
+            school_id: number;
+            /** School Name */
+            school_name: string;
+            /**
+             * Llm Monthly Limit
+             * @default 0
+             */
+            llm_monthly_limit: number;
+            /**
+             * Tts Monthly Limit
+             * @default 0
+             */
+            tts_monthly_limit: number;
+            /** Default Daily Llm Limit */
+            default_daily_llm_limit?: number | null;
+            /** Default Daily Tts Limit */
+            default_daily_tts_limit?: number | null;
+            /**
+             * Llm Used
+             * @default 0
+             */
+            llm_used: number;
+            /**
+             * Tts Used
+             * @default 0
+             */
+            tts_used: number;
+        };
+        /** SchoolBudgetUpdateRequest */
+        SchoolBudgetUpdateRequest: {
+            /**
+             * Llm Monthly Limit
+             * @default 0
+             */
+            llm_monthly_limit: number;
+            /**
+             * Tts Monthly Limit
+             * @default 0
+             */
+            tts_monthly_limit: number;
+            /** Default Daily Llm Limit */
+            default_daily_llm_limit?: number | null;
+            /** Default Daily Tts Limit */
+            default_daily_tts_limit?: number | null;
+        };
         /**
          * SchoolCostItem
          * @description 院校维度的成本行。``school_id=None`` 是归因不到院校的“未归属”桶（不会丢）。
@@ -6804,8 +6989,8 @@ export interface components {
             id: number;
             /** Username */
             username: string;
-            /** Role */
-            role: string;
+            /** Personas */
+            personas?: string[];
             /** Display Name */
             display_name: string;
             /** Student Id */
@@ -7101,8 +7286,6 @@ export interface components {
              * @default bearer
              */
             token_type: string;
-            /** Role */
-            role: string;
             /** Display Name */
             display_name: string;
             /** User Id */
@@ -7112,6 +7295,18 @@ export interface components {
              * @default []
              */
             permissions: string[];
+            /**
+             * Personas
+             * @default []
+             */
+            personas: string[];
+            /** Active Persona */
+            active_persona?: string | null;
+            /**
+             * Is Platform
+             * @default false
+             */
+            is_platform: boolean;
             /** Gender */
             gender?: string | null;
             /** Avatar */
@@ -7510,10 +7705,13 @@ export interface components {
             id: number;
             /** Username */
             username: string;
-            /** Role */
-            role: string;
-            /** Role Display Name */
-            role_display_name: string;
+            /** Personas */
+            personas?: string[];
+            /**
+             * Is Platform
+             * @default false
+             */
+            is_platform: boolean;
             /** School Id */
             school_id?: number | null;
             /** School Name */
@@ -7549,6 +7747,75 @@ export interface components {
             is_active: boolean;
             /** Permissions */
             permissions?: string[];
+            /** Active Persona */
+            active_persona?: string | null;
+            /** Active School Id */
+            active_school_id?: number | null;
+            /** School Personas */
+            school_personas?: components["schemas"]["UserSchoolGrant"][];
+        };
+        /** UserBudgetItem */
+        UserBudgetItem: {
+            /** User Id */
+            user_id: number;
+            /** Username */
+            username: string;
+            /** Display Name */
+            display_name: string;
+            /** School Id */
+            school_id?: number | null;
+            /**
+             * Daily Llm Limit
+             * @default 0
+             */
+            daily_llm_limit: number;
+            /**
+             * Daily Tts Limit
+             * @default 0
+             */
+            daily_tts_limit: number;
+            /**
+             * Is Default
+             * @default true
+             */
+            is_default: boolean;
+            /**
+             * Source
+             * @default platform
+             */
+            source: string;
+            /**
+             * Llm Used Today
+             * @default 0
+             */
+            llm_used_today: number;
+            /**
+             * Tts Used Today
+             * @default 0
+             */
+            tts_used_today: number;
+            /** School Name */
+            school_name?: string | null;
+            /**
+             * School Llm Limit
+             * @default 0
+             */
+            school_llm_limit: number;
+            /**
+             * School Tts Limit
+             * @default 0
+             */
+            school_tts_limit: number;
+            /**
+             * School Llm Used
+             * @default 0
+             */
+            school_llm_used: number;
+            /**
+             * School Tts Used
+             * @default 0
+             */
+            school_tts_used: number;
         };
         /**
          * UserMembershipItem
@@ -7583,6 +7850,27 @@ export interface components {
              */
             member_role: "student" | "teacher";
         };
+        /**
+         * UserPersonasResponse
+         * @description 某账号**当前持有**的视角 key 集合（超管 = 全部，派生）。
+         */
+        UserPersonasResponse: {
+            /** User Id */
+            user_id: number;
+            /** Personas */
+            personas?: string[];
+        };
+        /**
+         * UserPersonasUpdateRequest
+         * @description 全量替换授予：去重后写入，未知 key → 400，无权授予 → 403。
+         */
+        UserPersonasUpdateRequest: {
+            /**
+             * Personas
+             * @description 要授予的视角 key；全量替换
+             */
+            personas?: string[];
+        };
         /** UserProfileUpdateRequest */
         UserProfileUpdateRequest: {
             /** Display Name */
@@ -7593,6 +7881,15 @@ export interface components {
             gender?: string | null;
             /** Avatar */
             avatar?: string | null;
+        };
+        /** UserSchoolGrant */
+        UserSchoolGrant: {
+            /** School Id */
+            school_id: number;
+            /** School Name */
+            school_name: string;
+            /** Personas */
+            personas?: string[];
         };
         /** UserUpdateRequest */
         UserUpdateRequest: {
@@ -7612,8 +7909,8 @@ export interface components {
              * @description 所属院校；省略 = 不修改
              */
             school_id?: number | null;
-            /** Role */
-            role?: string | null;
+            /** Personas */
+            personas?: string[] | null;
             /** Password */
             password?: string | null;
             /** Gender */
@@ -8079,6 +8376,236 @@ export interface operations {
             };
         };
     };
+    my_quota_api_admin_costs_budgets_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyQuotaResponse"];
+                };
+            };
+        };
+    };
+    list_school_budgets_api_admin_costs_budgets_schools_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolBudgetItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_school_budget_api_admin_costs_budgets_schools__school_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path: {
+                school_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SchoolBudgetUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolBudgetItem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_school_budget_api_admin_costs_budgets_schools__school_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path: {
+                school_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_user_budgets_api_admin_costs_budgets_users_get: {
+        parameters: {
+            query?: {
+                school_id?: number | null;
+                search?: string | null;
+                limit?: number;
+            };
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserBudgetItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_user_budget_api_admin_costs_budgets_users__user_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BudgetUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserBudgetItem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_user_budget_api_admin_costs_budgets_users__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_class_members_api_admin_classes__class_id__members_get: {
         parameters: {
             query?: {
@@ -8519,13 +9046,12 @@ export interface operations {
             };
         };
     };
-    list_roles_api_admin_roles_get: {
+    list_personas_api_admin_personas_get: {
         parameters: {
-            query?: {
-                /** @description 角色名模糊搜索 */
-                search?: string;
+            query?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
             };
-            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8537,7 +9063,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RoleResponse"][];
+                    "application/json": components["schemas"]["PersonaCatalogItem"][];
                 };
             };
             /** @description Validation Error */
@@ -8551,26 +9077,63 @@ export interface operations {
             };
         };
     };
-    create_role_api_admin_roles_post: {
+    get_user_personas_api_admin_users__user_id__personas_get: {
         parameters: {
             query?: never;
-            header?: never;
-            path?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPersonasResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_user_personas_api_admin_users__user_id__personas_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path: {
+                user_id: number;
+            };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RoleCreateRequest"];
+                "application/json": components["schemas"]["UserPersonasUpdateRequest"];
             };
         };
         responses: {
             /** @description Successful Response */
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RoleResponse"];
+                    "application/json": components["schemas"]["UserPersonasResponse"];
                 };
             };
             /** @description Validation Error */
@@ -8584,18 +9147,55 @@ export interface operations {
             };
         };
     };
-    update_role_api_admin_roles__role_id__put: {
+    get_user_school_personas_api_admin_users__user_id__personas_schools__school_id__get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path: {
-                role_id: number;
+                user_id: number;
+                school_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPersonasResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_user_school_personas_api_admin_users__user_id__personas_schools__school_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path: {
+                user_id: number;
+                school_id: number;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RoleUpdateRequest"];
+                "application/json": components["schemas"]["UserPersonasUpdateRequest"];
             };
         };
         responses: {
@@ -8605,71 +9205,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RoleResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_role_api_admin_roles__role_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                role_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeleteResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    export_roles_api_admin_roles_export_post: {
-        parameters: {
-            query?: {
-                format?: string;
-                /** @description 角色名模糊搜索 */
-                search?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["UserPersonasResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9165,8 +9701,8 @@ export interface operations {
                 limit?: number;
                 /** @description 搜索用户名/姓名/学号 */
                 search?: string | null;
-                /** @description 角色筛选 student/teacher */
-                role?: string | null;
+                /** @description 视角筛选 student/teacher/admin/ops */
+                persona?: string | null;
                 /** @description 院校筛选（平台角色可跨院校查看） */
                 school_id?: number | null;
                 class_id?: number | null;
@@ -9209,8 +9745,8 @@ export interface operations {
                 format?: string;
                 /** @description 搜索用户名/姓名/学号 */
                 search?: string | null;
-                /** @description 角色筛选 student/teacher */
-                role?: string | null;
+                /** @description 视角筛选 student/teacher/admin/ops */
+                persona?: string | null;
                 /** @description 院校筛选（平台角色可跨院校查看） */
                 school_id?: number | null;
                 class_id?: number | null;
@@ -12784,6 +13320,8 @@ export interface operations {
             query?: {
                 /** @description 窗口起点 ISO 格式（含），如 2026-09-24T00:00:00+08:00；不传 = 不限 */
                 date_from?: string | null;
+                /** @description 班级筛选；只能指向作用域内的班级，否则 404 */
+                class_id?: number | null;
             };
             header?: {
                 "X-School-Scope"?: string | null;

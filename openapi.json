@@ -713,6 +713,478 @@
         }
       }
     },
+    "/api/admin/costs/budgets/me": {
+      "get": {
+        "tags": [
+          "管理",
+          "成本限额"
+        ],
+        "summary": "My Quota",
+        "description": "当前用户的可用额度：个人日额度 + 院校月额度与重置时间。",
+        "operationId": "my_quota_api_admin_costs_budgets_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyQuotaResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/costs/budgets/schools": {
+      "get": {
+        "tags": [
+          "管理",
+          "成本限额"
+        ],
+        "summary": "List School Budgets",
+        "operationId": "list_school_budgets_api_admin_costs_budgets_schools_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SchoolBudgetItem"
+                  },
+                  "title": "Response List School Budgets Api Admin Costs Budgets Schools Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/costs/budgets/schools/{school_id}": {
+      "put": {
+        "tags": [
+          "管理",
+          "成本限额"
+        ],
+        "summary": "Set School Budget",
+        "operationId": "set_school_budget_api_admin_costs_budgets_schools__school_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "school_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "School Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SchoolBudgetUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchoolBudgetItem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "管理",
+          "成本限额"
+        ],
+        "summary": "Clear School Budget",
+        "description": "清除院校额度设置：月度重新不限，用户默认日额度回到平台默认。",
+        "operationId": "clear_school_budget_api_admin_costs_budgets_schools__school_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "school_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "School Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Clear School Budget Api Admin Costs Budgets Schools  School Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/costs/budgets/users": {
+      "get": {
+        "tags": [
+          "管理",
+          "成本限额"
+        ],
+        "summary": "List User Budgets",
+        "operationId": "list_user_budgets_api_admin_costs_budgets_users_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "school_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "School Id"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserBudgetItem"
+                  },
+                  "title": "Response List User Budgets Api Admin Costs Budgets Users Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/costs/budgets/users/{user_id}": {
+      "put": {
+        "tags": [
+          "管理",
+          "成本限额"
+        ],
+        "summary": "Set User Budget",
+        "operationId": "set_user_budget_api_admin_costs_budgets_users__user_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BudgetUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserBudgetItem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "管理",
+          "成本限额"
+        ],
+        "summary": "Clear User Budget",
+        "description": "清除用户个人额度：回到院校默认 → 平台默认。",
+        "operationId": "clear_user_budget_api_admin_costs_budgets_users__user_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Clear User Budget Api Admin Costs Budgets Users  User Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/classes/{class_id}/members": {
       "get": {
         "tags": [
@@ -1674,14 +2146,14 @@
         ]
       }
     },
-    "/api/admin/roles": {
+    "/api/admin/personas": {
       "get": {
         "tags": [
           "管理",
-          "角色管理"
+          "视角授权"
         ],
-        "summary": "List Roles",
-        "operationId": "list_roles_api_admin_roles_get",
+        "summary": "List Personas",
+        "operationId": "list_personas_api_admin_personas_get",
         "security": [
           {
             "HTTPBearer": []
@@ -1689,16 +2161,20 @@
         ],
         "parameters": [
           {
-            "name": "search",
-            "in": "query",
+            "name": "X-School-Scope",
+            "in": "header",
             "required": false,
             "schema": {
-              "type": "string",
-              "description": "角色名模糊搜索",
-              "default": "",
-              "title": "Search"
-            },
-            "description": "角色名模糊搜索"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "responses": {
@@ -1709,54 +2185,9 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/RoleResponse"
+                    "$ref": "#/components/schemas/PersonaCatalogItem"
                   },
-                  "title": "Response List Roles Api Admin Roles Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "管理",
-          "角色管理"
-        ],
-        "summary": "Create Role",
-        "operationId": "create_role_api_admin_roles_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RoleCreateRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RoleResponse"
+                  "title": "Response List Personas Api Admin Personas Get"
                 }
               }
             }
@@ -1774,14 +2205,76 @@
         }
       }
     },
-    "/api/admin/roles/{role_id}": {
+    "/api/admin/users/{user_id}/personas": {
+      "get": {
+        "tags": [
+          "管理",
+          "视角授权"
+        ],
+        "summary": "Get User Personas",
+        "operationId": "get_user_personas_api_admin_users__user_id__personas_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPersonasResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
       "put": {
         "tags": [
           "管理",
-          "角色管理"
+          "视角授权"
         ],
-        "summary": "Update Role",
-        "operationId": "update_role_api_admin_roles__role_id__put",
+        "summary": "Set User Personas",
+        "operationId": "set_user_personas_api_admin_users__user_id__personas_put",
         "security": [
           {
             "HTTPBearer": []
@@ -1789,12 +2282,28 @@
         ],
         "parameters": [
           {
-            "name": "role_id",
+            "name": "user_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "integer",
-              "title": "Role Id"
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
             }
           }
         ],
@@ -1803,7 +2312,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RoleUpdateRequest"
+                "$ref": "#/components/schemas/UserPersonasUpdateRequest"
               }
             }
           }
@@ -1814,53 +2323,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RoleResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "管理",
-          "角色管理"
-        ],
-        "summary": "Delete Role",
-        "operationId": "delete_role_api_admin_roles__role_id__delete",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "role_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Role Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeleteResponse"
+                  "$ref": "#/components/schemas/UserPersonasResponse"
                 }
               }
             }
@@ -1878,14 +2341,14 @@
         }
       }
     },
-    "/api/admin/roles/export": {
-      "post": {
+    "/api/admin/users/{user_id}/personas/schools/{school_id}": {
+      "get": {
         "tags": [
           "管理",
-          "角色管理"
+          "视角授权"
         ],
-        "summary": "Export Roles",
-        "operationId": "export_roles_api_admin_roles_export_post",
+        "summary": "Get User School Personas",
+        "operationId": "get_user_school_personas_api_admin_users__user_id__personas_schools__school_id__get",
         "security": [
           {
             "HTTPBearer": []
@@ -1893,27 +2356,38 @@
         ],
         "parameters": [
           {
-            "name": "format",
-            "in": "query",
-            "required": false,
+            "name": "user_id",
+            "in": "path",
+            "required": true,
             "schema": {
-              "type": "string",
-              "pattern": "^(csv|xlsx)$",
-              "default": "csv",
-              "title": "Format"
+              "type": "integer",
+              "title": "User Id"
             }
           },
           {
-            "name": "search",
-            "in": "query",
+            "name": "school_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "School Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
             "required": false,
             "schema": {
-              "type": "string",
-              "description": "角色名模糊搜索",
-              "default": "",
-              "title": "Search"
-            },
-            "description": "角色名模糊搜索"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
           }
         ],
         "responses": {
@@ -1921,7 +2395,91 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/UserPersonasResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "管理",
+          "视角授权"
+        ],
+        "summary": "Set User School Personas",
+        "description": "给用户在**指定院校**授予视角（家院校的授予仍走上面的默认端点）。",
+        "operationId": "set_user_school_personas_api_admin_users__user_id__personas_schools__school_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "school_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "School Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserPersonasUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPersonasResponse"
+                }
               }
             }
           },
@@ -2727,7 +3285,7 @@
             "description": "搜索用户名/姓名/学号"
           },
           {
-            "name": "role",
+            "name": "persona",
             "in": "query",
             "required": false,
             "schema": {
@@ -2739,10 +3297,10 @@
                   "type": "null"
                 }
               ],
-              "description": "角色筛选 student/teacher",
-              "title": "Role"
+              "description": "视角筛选 student/teacher/admin/ops",
+              "title": "Persona"
             },
-            "description": "角色筛选 student/teacher"
+            "description": "视角筛选 student/teacher/admin/ops"
           },
           {
             "name": "school_id",
@@ -2892,7 +3450,7 @@
             "description": "搜索用户名/姓名/学号"
           },
           {
-            "name": "role",
+            "name": "persona",
             "in": "query",
             "required": false,
             "schema": {
@@ -2904,10 +3462,10 @@
                   "type": "null"
                 }
               ],
-              "description": "角色筛选 student/teacher",
-              "title": "Role"
+              "description": "视角筛选 student/teacher/admin/ops",
+              "title": "Persona"
             },
-            "description": "角色筛选 student/teacher"
+            "description": "视角筛选 student/teacher/admin/ops"
           },
           {
             "name": "school_id",
@@ -9650,6 +10208,24 @@
             "description": "窗口起点 ISO 格式（含），如 2026-09-24T00:00:00+08:00；不传 = 不限"
           },
           {
+            "name": "class_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "班级筛选；只能指向作用域内的班级，否则 404",
+              "title": "Class Id"
+            },
+            "description": "班级筛选；只能指向作用域内的班级，否则 404"
+          },
+          {
             "name": "X-School-Scope",
             "in": "header",
             "required": false,
@@ -12689,7 +13265,7 @@
             ],
             "title": "Actor Display Name"
           },
-          "actor_role": {
+          "actor_persona": {
             "anyOf": [
               {
                 "type": "string"
@@ -12698,7 +13274,7 @@
                 "type": "null"
               }
             ],
-            "title": "Actor Role"
+            "title": "Actor Persona"
           },
           "action": {
             "type": "string",
@@ -12802,7 +13378,6 @@
           "actor_id",
           "actor_username",
           "actor_display_name",
-          "actor_role",
           "action",
           "target_type",
           "target_id",
@@ -13014,12 +13589,12 @@
             "maxLength": 50,
             "title": "Display Name"
           },
-          "role": {
-            "type": "string",
-            "maxLength": 20,
-            "minLength": 1,
-            "title": "Role",
-            "default": "student"
+          "personas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Personas"
           },
           "student_id": {
             "anyOf": [
@@ -13219,6 +13794,22 @@
           "file"
         ],
         "title": "Body_upload_school_logo_api_admin_schools__school_id__logo_post"
+      },
+      "BudgetUpdateRequest": {
+        "properties": {
+          "llm_limit": {
+            "type": "number",
+            "title": "Llm Limit",
+            "default": 0.0
+          },
+          "tts_limit": {
+            "type": "number",
+            "title": "Tts Limit",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "title": "BudgetUpdateRequest"
       },
       "BulkAssignClassRequest": {
         "properties": {
@@ -15454,6 +16045,86 @@
         "title": "ModelCalls",
         "description": "本回合花掉的模型调用数（工具循环的轮数，**一个循环、一个计数**）。"
       },
+      "MyQuotaBucket": {
+        "properties": {
+          "limit": {
+            "type": "number",
+            "title": "Limit"
+          },
+          "used": {
+            "type": "number",
+            "title": "Used"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "default": "platform"
+          }
+        },
+        "type": "object",
+        "required": [
+          "limit",
+          "used"
+        ],
+        "title": "MyQuotaBucket"
+      },
+      "MyQuotaResponse": {
+        "properties": {
+          "llm": {
+            "$ref": "#/components/schemas/MyQuotaBucket"
+          },
+          "tts": {
+            "$ref": "#/components/schemas/MyQuotaBucket"
+          },
+          "school_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Name"
+          },
+          "school_llm_limit": {
+            "type": "number",
+            "title": "School Llm Limit",
+            "default": 0.0
+          },
+          "school_tts_limit": {
+            "type": "number",
+            "title": "School Tts Limit",
+            "default": 0.0
+          },
+          "school_llm_used": {
+            "type": "number",
+            "title": "School Llm Used",
+            "default": 0.0
+          },
+          "school_tts_used": {
+            "type": "number",
+            "title": "School Tts Used",
+            "default": 0.0
+          },
+          "day_reset_at": {
+            "type": "string",
+            "title": "Day Reset At"
+          },
+          "month_reset_at": {
+            "type": "string",
+            "title": "Month Reset At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "llm",
+          "tts",
+          "day_reset_at",
+          "month_reset_at"
+        ],
+        "title": "MyQuotaResponse"
+      },
       "OkResponse": {
         "properties": {
           "ok": {
@@ -15913,6 +16584,48 @@
         },
         "type": "object",
         "title": "PatientPublicInfo"
+      },
+      "PersonaCatalogItem": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "platform",
+              "tenant",
+              "self"
+            ],
+            "title": "Scope"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Permissions",
+            "default": []
+          },
+          "user_count": {
+            "type": "integer",
+            "title": "User Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "scope"
+        ],
+        "title": "PersonaCatalogItem",
+        "description": "视角目录项：预设 + 作用域 + **调用者作用域内**持有该视角的人数。\n\n``user_count`` 按调用者的 ``TenantScope`` 统计（平台全局 / 院校本校），\n超管派生拥有的视角也计入（它没有 ``user_personas`` 行）。"
       },
       "QAAskResponse": {
         "properties": {
@@ -16829,12 +17542,12 @@
             "minLength": 6,
             "title": "Password"
           },
-          "role": {
-            "type": "string",
-            "maxLength": 20,
-            "minLength": 1,
-            "title": "Role",
-            "default": "student"
+          "personas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Personas"
           },
           "display_name": {
             "type": "string",
@@ -16907,9 +17620,12 @@
             "type": "string",
             "title": "Username"
           },
-          "role": {
-            "type": "string",
-            "title": "Role"
+          "personas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Personas"
           },
           "display_name": {
             "type": "string",
@@ -16931,7 +17647,6 @@
         "required": [
           "id",
           "username",
-          "role",
           "display_name"
         ],
         "title": "RegisterResponse"
@@ -17002,110 +17717,6 @@
         "type": "object",
         "title": "ResolvedTurn",
         "description": "**平台确定性地**结算的产物：世界这一回合发生了什么（内部模型，不直接给学生）。"
-      },
-      "RoleCreateRequest": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "maxLength": 20,
-            "minLength": 1,
-            "title": "Name"
-          },
-          "display_name": {
-            "type": "string",
-            "maxLength": 40,
-            "minLength": 1,
-            "title": "Display Name"
-          },
-          "permissions": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Permissions"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "name",
-          "display_name"
-        ],
-        "title": "RoleCreateRequest"
-      },
-      "RoleResponse": {
-        "properties": {
-          "id": {
-            "type": "integer",
-            "title": "Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "display_name": {
-            "type": "string",
-            "title": "Display Name"
-          },
-          "is_system": {
-            "type": "boolean",
-            "title": "Is System",
-            "default": false
-          },
-          "permissions": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Permissions",
-            "default": []
-          },
-          "user_count": {
-            "type": "integer",
-            "title": "User Count",
-            "default": 0
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "display_name"
-        ],
-        "title": "RoleResponse"
-      },
-      "RoleUpdateRequest": {
-        "properties": {
-          "display_name": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 40
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Display Name"
-          },
-          "permissions": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Permissions"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "RoleUpdateRequest"
       },
       "ScenarioActor": {
         "properties": {
@@ -19752,6 +20363,104 @@
         "title": "SceneDelivery",
         "description": "本回合的最终交付（学生看到的话）。由模型循环产出，平台逐条校验后收下。"
       },
+      "SchoolBudgetItem": {
+        "properties": {
+          "school_id": {
+            "type": "integer",
+            "title": "School Id"
+          },
+          "school_name": {
+            "type": "string",
+            "title": "School Name"
+          },
+          "llm_monthly_limit": {
+            "type": "number",
+            "title": "Llm Monthly Limit",
+            "default": 0.0
+          },
+          "tts_monthly_limit": {
+            "type": "number",
+            "title": "Tts Monthly Limit",
+            "default": 0.0
+          },
+          "default_daily_llm_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Daily Llm Limit"
+          },
+          "default_daily_tts_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Daily Tts Limit"
+          },
+          "llm_used": {
+            "type": "number",
+            "title": "Llm Used",
+            "default": 0.0
+          },
+          "tts_used": {
+            "type": "number",
+            "title": "Tts Used",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "school_id",
+          "school_name"
+        ],
+        "title": "SchoolBudgetItem"
+      },
+      "SchoolBudgetUpdateRequest": {
+        "properties": {
+          "llm_monthly_limit": {
+            "type": "number",
+            "title": "Llm Monthly Limit",
+            "default": 0.0
+          },
+          "tts_monthly_limit": {
+            "type": "number",
+            "title": "Tts Monthly Limit",
+            "default": 0.0
+          },
+          "default_daily_llm_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Daily Llm Limit"
+          },
+          "default_daily_tts_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Daily Tts Limit"
+          }
+        },
+        "type": "object",
+        "title": "SchoolBudgetUpdateRequest"
+      },
       "SchoolCostItem": {
         "properties": {
           "school_id": {
@@ -21016,9 +21725,12 @@
             "type": "string",
             "title": "Username"
           },
-          "role": {
-            "type": "string",
-            "title": "Role"
+          "personas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Personas"
           },
           "display_name": {
             "type": "string",
@@ -21082,7 +21794,6 @@
         "required": [
           "id",
           "username",
-          "role",
           "display_name",
           "student_id",
           "created_at"
@@ -21788,10 +22499,6 @@
             "title": "Token Type",
             "default": "bearer"
           },
-          "role": {
-            "type": "string",
-            "title": "Role"
-          },
           "display_name": {
             "type": "string",
             "title": "Display Name"
@@ -21807,6 +22514,30 @@
             "type": "array",
             "title": "Permissions",
             "default": []
+          },
+          "personas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Personas",
+            "default": []
+          },
+          "active_persona": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Persona"
+          },
+          "is_platform": {
+            "type": "boolean",
+            "title": "Is Platform",
+            "default": false
           },
           "gender": {
             "anyOf": [
@@ -21834,7 +22565,6 @@
         "type": "object",
         "required": [
           "access_token",
-          "role",
           "display_name",
           "user_id"
         ],
@@ -22706,13 +23436,17 @@
             "type": "string",
             "title": "Username"
           },
-          "role": {
-            "type": "string",
-            "title": "Role"
+          "personas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Personas"
           },
-          "role_display_name": {
-            "type": "string",
-            "title": "Role Display Name"
+          "is_platform": {
+            "type": "boolean",
+            "title": "Is Platform",
+            "default": false
           },
           "school_id": {
             "anyOf": [
@@ -22824,19 +23558,141 @@
             },
             "type": "array",
             "title": "Permissions"
+          },
+          "active_persona": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Persona"
+          },
+          "active_school_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active School Id"
+          },
+          "school_personas": {
+            "items": {
+              "$ref": "#/components/schemas/UserSchoolGrant"
+            },
+            "type": "array",
+            "title": "School Personas"
           }
         },
         "type": "object",
         "required": [
           "id",
           "username",
-          "role",
-          "role_display_name",
           "display_name",
           "student_id",
           "created_at"
         ],
         "title": "UserBrief"
+      },
+      "UserBudgetItem": {
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "school_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Id"
+          },
+          "daily_llm_limit": {
+            "type": "number",
+            "title": "Daily Llm Limit",
+            "default": 0.0
+          },
+          "daily_tts_limit": {
+            "type": "number",
+            "title": "Daily Tts Limit",
+            "default": 0.0
+          },
+          "is_default": {
+            "type": "boolean",
+            "title": "Is Default",
+            "default": true
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "default": "platform"
+          },
+          "llm_used_today": {
+            "type": "number",
+            "title": "Llm Used Today",
+            "default": 0.0
+          },
+          "tts_used_today": {
+            "type": "number",
+            "title": "Tts Used Today",
+            "default": 0.0
+          },
+          "school_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Name"
+          },
+          "school_llm_limit": {
+            "type": "number",
+            "title": "School Llm Limit",
+            "default": 0.0
+          },
+          "school_tts_limit": {
+            "type": "number",
+            "title": "School Tts Limit",
+            "default": 0.0
+          },
+          "school_llm_used": {
+            "type": "number",
+            "title": "School Llm Used",
+            "default": 0.0
+          },
+          "school_tts_used": {
+            "type": "number",
+            "title": "School Tts Used",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "username",
+          "display_name"
+        ],
+        "title": "UserBudgetItem"
       },
       "UserMembershipItem": {
         "properties": {
@@ -22920,6 +23776,43 @@
         "title": "UserMembershipUpdate",
         "description": "用户编辑里的成员关系项 —— 提供 ``memberships`` 即为全量替换。"
       },
+      "UserPersonasResponse": {
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "personas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Personas"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id"
+        ],
+        "title": "UserPersonasResponse",
+        "description": "某账号**当前持有**的视角 key 集合（超管 = 全部，派生）。"
+      },
+      "UserPersonasUpdateRequest": {
+        "properties": {
+          "personas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Personas",
+            "description": "要授予的视角 key；全量替换"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "UserPersonasUpdateRequest",
+        "description": "全量替换授予：去重后写入，未知 key → 400，无权授予 → 403。"
+      },
       "UserProfileUpdateRequest": {
         "properties": {
           "display_name": {
@@ -22974,6 +23867,31 @@
         "additionalProperties": false,
         "type": "object",
         "title": "UserProfileUpdateRequest"
+      },
+      "UserSchoolGrant": {
+        "properties": {
+          "school_id": {
+            "type": "integer",
+            "title": "School Id"
+          },
+          "school_name": {
+            "type": "string",
+            "title": "School Name"
+          },
+          "personas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Personas"
+          }
+        },
+        "type": "object",
+        "required": [
+          "school_id",
+          "school_name"
+        ],
+        "title": "UserSchoolGrant"
       },
       "UserUpdateRequest": {
         "properties": {
@@ -23040,16 +23958,19 @@
             "title": "School Id",
             "description": "所属院校；省略 = 不修改"
           },
-          "role": {
+          "personas": {
             "anyOf": [
               {
-                "type": "string"
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Role"
+            "title": "Personas"
           },
           "password": {
             "anyOf": [

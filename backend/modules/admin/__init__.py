@@ -8,12 +8,13 @@ from fastapi import APIRouter
 router = APIRouter(prefix="/api/admin", tags=["管理"])
 
 from .audit_logs import router as _audit_logs
+from .budgets import router as _budgets
 from .class_memberships import router as _class_memberships
 from .classes import router as _classes
 from .costs import router as _costs
 from .llm_monitor import router as _llm_monitor
 from .ops import router as _ops
-from .roles import router as _roles
+from .personas import router as _personas
 from .schools import router as _schools
 from .secrets import router as _secrets
 from .system_notifications import router as _system_notifications
@@ -24,11 +25,12 @@ from .voice import router as _voice
 for r in (
     _audit_logs,
     _classes,
+    _budgets,
     _class_memberships,
     _costs,
     _llm_monitor,
     _ops,
-    _roles,
+    _personas,
     _schools,
     _secrets,
     _system_notifications,

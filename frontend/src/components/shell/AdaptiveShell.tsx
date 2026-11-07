@@ -1,26 +1,29 @@
 import type { ReactNode } from "react";
+import { usePersonaStore } from "@/stores/personaStore";
 import { ActivityProvider, useActivity } from "./ActivityContext";
 import ManageShell from "./ManageShell";
+import { filterNavByPersona, type NavItem } from "./navigation";
 import PracticeShell from "./PracticeShell";
-import type { NavItem } from "./navigation";
 
 function ShellPicker({
 	userLinks,
 	adminLinks,
-	groupUserLinks = false,
 	onLogout,
 	onAbout,
 	children,
 }: {
 	userLinks: NavItem[];
 	adminLinks: NavItem[];
-	/** 教师/管理端把学生向条目收进独立分组（学生端不受影响） */
-	groupUserLinks?: boolean;
 	onLogout: () => void;
 	onAbout: () => void;
 	children: ReactNode;
 }) {
 	const activity = useActivity();
+	// 视角过滤的落点在壳里（侧栏与底部 Tab 都在这里渲染）：单点做一次，
+	// 任何调用方（Layout / 未来的壳挂点）都不用记得处理视角，也就不会漏。
+	const persona = usePersonaStore((s) => s.active);
+	const navUserLinks = filterNavByPersona(userLinks, persona);
+	const navAdminLinks = filterNavByPersona(adminLinks, persona);
 
 	switch (activity) {
 		case "practice":
@@ -28,9 +31,8 @@ function ShellPicker({
 		default:
 			return (
 				<ManageShell
-					userLinks={userLinks}
-					adminLinks={adminLinks}
-					groupUserLinks={groupUserLinks}
+					userLinks={navUserLinks}
+					adminLinks={navAdminLinks}
 					onLogout={onLogout}
 					onAbout={onAbout}
 				>
@@ -49,15 +51,12 @@ function ShellPicker({
 export default function AdaptiveShell({
 	userLinks,
 	adminLinks,
-	groupUserLinks = false,
 	onLogout,
 	onAbout,
 	children,
 }: {
 	userLinks: NavItem[];
 	adminLinks: NavItem[];
-	/** 教师/管理端把学生向条目收进独立分组（学生端不受影响） */
-	groupUserLinks?: boolean;
 	onLogout: () => void;
 	onAbout: () => void;
 	children: ReactNode;
@@ -67,7 +66,6 @@ export default function AdaptiveShell({
 			<ShellPicker
 				userLinks={userLinks}
 				adminLinks={adminLinks}
-				groupUserLinks={groupUserLinks}
 				onLogout={onLogout}
 				onAbout={onAbout}
 			>

@@ -21,6 +21,8 @@ import EmptyState from "@/components/ui/empty-state";
 import StatCard from "@/components/ui/stat-card";
 import { Table } from "@mantine/core";
 import { useChartTheme } from "@/hooks/useChartTheme";
+import useAuthStore from "@/stores/authStore";
+import { useSchoolScopeStore } from "@/stores/schoolScopeStore";
 
 function BudgetProgress({
 	label,
@@ -166,9 +168,21 @@ function CostTrendChart({ data }: { data: CostDashboardResponse }) {
 }
 
 function MonthlyBudgetCard({ data }: { data: CostDashboardResponse }) {
-	const pct = data.monthly_budget > 0
-		? Math.min((data.monthly_used / data.monthly_budget) * 100, 100)
-		: 0;
+	if (data.monthly_budget <= 0) {
+		return (
+			<Card style={{ height: "100%" }}>
+				<CardHeader>
+					<CardTitle>月度预算</CardTitle>
+				</CardHeader>
+				<CardContent>
+					<Text size="sm" c="dimmed">
+						本校尚未配置月度限额。平台账号可在「院校管理」调整各校限额。
+					</Text>
+				</CardContent>
+			</Card>
+		);
+	}
+	const pct = Math.min((data.monthly_used / data.monthly_budget) * 100, 100);
 
 	return (
 		<Card style={{ height: "100%" }}>
@@ -211,60 +225,6 @@ function MonthlyBudgetCard({ data }: { data: CostDashboardResponse }) {
 						)}
 					</Stack>
 				</Stack>
-			</CardContent>
-		</Card>
-	);
-}
-
-/**
- * 院校费用拆分（仅平台角色可见 —— 后端只对平台视角返回 `by_school`）。
- * 「未归属」是系统任务/平台账号的开销：各校之和 + 未归属 = 平台总计，不静默丢。
- */
-function SchoolCostTable({ data }: { data: CostDashboardResponse }) {
-	const rows = data.by_school || [];
-	if (rows.length === 0) return null;
-
-	return (
-		<Card>
-			<CardHeader>
-				<Group justify="space-between" align="center" wrap="wrap">
-					<CardTitle>院校费用拆分（本月）</CardTitle>
-					<Text size="xs" c="dimmed">{rows.length} 项 · 按费用降序</Text>
-				</Group>
-			</CardHeader>
-			<CardContent>
-				<TableScroll minWidth={560}>
-					<Table>
-						<Table.Thead>
-							<Table.Tr>
-								<Table.Th>院校</Table.Th>
-								<Table.Th style={{ textAlign: "right" }}>LLM</Table.Th>
-								<Table.Th style={{ textAlign: "right" }}>语音</Table.Th>
-								<Table.Th style={{ textAlign: "right" }}>调用数</Table.Th>
-								<Table.Th style={{ textAlign: "right" }}>合计</Table.Th>
-							</Table.Tr>
-						</Table.Thead>
-						<Table.Tbody>
-							{rows.map((r) => (
-								<Table.Tr key={r.school_id ?? "unattributed"}>
-									<Table.Td style={{ fontWeight: 500 }}>{r.school_name}</Table.Td>
-									<Table.Td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-										¥{r.llm_cost.toFixed(2)}
-									</Table.Td>
-									<Table.Td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-										¥{r.voice_cost.toFixed(2)}
-									</Table.Td>
-									<Table.Td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-										{r.calls}
-									</Table.Td>
-									<Table.Td style={{ textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-										¥{r.total_cost.toFixed(2)}
-									</Table.Td>
-								</Table.Tr>
-							))}
-						</Table.Tbody>
-					</Table>
-				</TableScroll>
 			</CardContent>
 		</Card>
 	);
@@ -379,6 +339,19 @@ export default function CostDashboard() {
 		staleTime: 60_000,
 	});
 
+	// 成本统计只按「当前院校」出数：平台账号未选院校时不给全平台聚合（那只走查询接口）
+	const isPlatformAccount = useAuthStore((s) => s.user?.is_platform ?? false);
+	const scopedSchool = useSchoolScopeStore((s) => s.school);
+	if (isPlatformAccount && !scopedSchool) {
+		return (
+			<EmptyState
+				icon={IconCoins}
+				title="成本按院校统计"
+				description="平台账号请在左侧「当前院校」选择一所学校后再查看；全平台汇总只通过查询接口返回。"
+			/>
+		);
+	}
+
 	if (isLoading) return <LoadingSkeleton />;
 
 	const empty: CostDashboardResponse = {
@@ -429,7 +402,6 @@ export default function CostDashboard() {
 						</Grid.Col>
 					</Grid>
 
-					<SchoolCostTable data={d} />
 					<TopUsersTable data={d} />
 					<UserCostBreakdown />
 				</>

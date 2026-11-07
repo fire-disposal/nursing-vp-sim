@@ -71,3 +71,62 @@ class CostExportRequest(BaseModel):
     service: str | None = None
     granularity: str = "daily"
     format: str = "json"
+
+
+class SchoolBudgetItem(BaseModel):
+    school_id: int
+    school_name: str
+    llm_monthly_limit: float = 0.0
+    tts_monthly_limit: float = 0.0
+    default_daily_llm_limit: float | None = None
+    default_daily_tts_limit: float | None = None
+    llm_used: float = 0.0
+    tts_used: float = 0.0
+
+
+class UserBudgetItem(BaseModel):
+    user_id: int
+    username: str
+    display_name: str
+    school_id: int | None = None
+    daily_llm_limit: float = 0.0
+    daily_tts_limit: float = 0.0
+    is_default: bool = True
+    source: str = "platform"
+    llm_used_today: float = 0.0
+    tts_used_today: float = 0.0
+    school_name: str | None = None
+    school_llm_limit: float = 0.0
+    school_tts_limit: float = 0.0
+    school_llm_used: float = 0.0
+    school_tts_used: float = 0.0
+
+
+class BudgetUpdateRequest(BaseModel):
+    llm_limit: float = 0.0
+    tts_limit: float = 0.0
+
+
+class SchoolBudgetUpdateRequest(BaseModel):
+    llm_monthly_limit: float = 0.0
+    tts_monthly_limit: float = 0.0
+    default_daily_llm_limit: float | None = None
+    default_daily_tts_limit: float | None = None
+
+
+class MyQuotaBucket(BaseModel):
+    limit: float
+    used: float
+    source: str = "platform"
+
+
+class MyQuotaResponse(BaseModel):
+    llm: MyQuotaBucket
+    tts: MyQuotaBucket
+    school_name: str | None = None
+    school_llm_limit: float = 0.0
+    school_tts_limit: float = 0.0
+    school_llm_used: float = 0.0
+    school_tts_used: float = 0.0
+    day_reset_at: str
+    month_reset_at: str

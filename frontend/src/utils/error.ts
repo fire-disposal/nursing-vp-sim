@@ -83,7 +83,19 @@ function detailFrom(detail: unknown, depth = 0): ApiErrorDetail {
 			message?: unknown;
 			problems?: unknown;
 			detail?: unknown;
+			code?: unknown;
+			scope?: unknown;
+			channel?: unknown;
 		};
+		if (structured.code === "budget_exceeded") {
+			const schoolScope = structured.scope === "school";
+			const channel = structured.channel === "tts" ? "语音" : "对话";
+			const windowLabel = schoolScope ? "本月" : "今日";
+			return {
+				...empty,
+				message: `${schoolScope ? "院校" : "个人"}${windowLabel}${channel}额度已用尽，请稍后再试或联系管理员调整额度。`,
+			};
+		}
 		const message =
 			typeof structured.message === "string"
 				? normalizeText(structured.message)

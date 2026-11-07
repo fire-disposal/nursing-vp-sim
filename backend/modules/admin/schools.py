@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Annotated
 
-from fastapi import APIRouter, Depends, File, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile
 from sqlalchemy import func
 
 from core.audit import (
@@ -22,9 +22,10 @@ from core.audit import (
 from core.deps import DbSession
 from core.exceptions import NotFoundError, ValidationError
 from core.images import ImageRejected, normalize_image
-from core.security import require_permission
+from core.personas import is_super_admin
+from core.security import get_current_user, require_permission
 from core.unit_of_work import unit_of_work
-from models import Class, Role, RolePermission, School, User
+from models import Class, School, User, UserSchoolPersona
 from schemas import DeleteSchoolResponse, SchoolCreate, SchoolResponse, SchoolUpdate
 
 if TYPE_CHECKING:
@@ -68,11 +69,9 @@ class SchoolService:
         # 院校管理员 = 该院校里持有 user_manage 的账号；没有它等于没人能管这所院校
         admins = {
             row[0]: row[1]
-            for row in self.db.query(User.school_id, func.count(func.distinct(User.id)))
-            .join(Role, Role.id == User.role_id)
-            .join(RolePermission, RolePermission.role_id == Role.id)
-            .filter(User.school_id.isnot(None), RolePermission.permission == "user_manage")
-            .group_by(User.school_id)
+            for row in self.db.query(UserSchoolPersona.school_id, func.count(func.distinct(UserSchoolPersona.user_id)))
+            .filter(UserSchoolPersona.persona == "admin")
+            .group_by(UserSchoolPersona.school_id)
             .all()
         }
         return {"class": classes, "user": users, "admin": admins}
@@ -234,7 +233,10 @@ class SchoolService:
 
 
 @router.get("", response_model=list[SchoolResponse])
-def list_schools(current_user: _PlatformAdmin, db: DbSession):
+def list_schools(current_user: Annotated[User, Depends(get_current_user)], db: DbSession):
+    # 平台账号在任意视角都需要院校清单（顶栏切校）；普通账号仍要 school_manage。
+    if not is_super_admin(current_user) and not current_user.has_permission("school_manage"):
+        raise HTTPException(status_code=403, detail="缺少权限：school_manage")
     return SchoolService(db).list_all()
 
 

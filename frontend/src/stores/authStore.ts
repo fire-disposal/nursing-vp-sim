@@ -7,8 +7,23 @@ import {
 	getMe,
 } from "@/api";
 import { dispatchForceLogout } from "@/events";
+import { usePersonaStore } from "@/stores/personaStore";
 import { useSchoolScopeStore } from "@/stores/schoolScopeStore";
 import type { AuthState, User } from "../types/store";
+
+/** 把服务端回话里的视角写进 personaStore（登录 / 刷新 / `/auth/me` 三处共用）。 */
+function syncPersonas(data: { personas?: string[]; active_persona?: string | null }): void {
+	if (!Array.isArray(data.personas)) return;
+	usePersonaStore.getState().setAvailable(data.personas, data.active_persona ?? null);
+}
+
+/** 取 HTTP 状态码（axios 错误的形状）；不是 axios 错误就返回 undefined。 */
+function httpStatusOf(err: unknown): number | undefined {
+	if (typeof err !== "object" || err === null || !("response" in err)) return undefined;
+	const response = err.response;
+	if (typeof response !== "object" || response === null || !("status" in response)) return undefined;
+	return typeof response.status === "number" ? response.status : undefined;
+}
 
 interface ExtendedAuthState extends AuthState {
 	permissions: string[];
@@ -61,11 +76,13 @@ const useAuthStore = create<ExtendedAuthState>()(
 
 			login: async (username: string, password: string): Promise<User> => {
 				const { data } = await apiLogin(username, password);
+				// 换人登录不能带走上一账号的院校作用域/视角偏好（与 logout 对齐；
+				// 覆盖“会话过期后直接登录另一个账号、没走 logout”的路径）。
+				useSchoolScopeStore.getState().setSchool(null);
+				usePersonaStore.getState().clear();
 				const user: User = {
 					id: data.user_id,
 					username: data.display_name || username,
-					role: data.role,
-					role_display_name: data.role,
 					display_name: data.display_name,
 					student_id: null,
 					gender: data.gender ?? null,
@@ -75,19 +92,30 @@ const useAuthStore = create<ExtendedAuthState>()(
 					memberships: [],
 					// 登录响应不含院校品牌字段：占位为 false，紧接着的 /auth/me 会补齐
 					school_has_logo: false,
+					// 视角身份：登录响应已带上授予集合与默认生效视角，`/auth/me` 再补齐一次
+					personas: data.personas ?? [],
+					active_persona: data.active_persona ?? null,
+					active_school_id: null,
+					school_personas: [],
+					is_platform: data.is_platform ?? false,
 				};
 				set({ user, token: data.access_token, permissions: data.permissions });
+				syncPersonas(data);
 
 				startRefreshTimer();
 
 				try {
 					const { data: me } = await getMe();
+					syncPersonas(me);
 					const current = get().user;
 					if (current) {
 						set({
 							user: {
 								...current,
-								role_display_name: me.role_display_name || data.role,
+								personas: me.personas ?? current.personas ?? [],
+								active_persona: me.active_persona ?? current.active_persona ?? null,
+								active_school_id: me.active_school_id ?? null,
+								school_personas: me.school_personas ?? [],
 								memberships: me.memberships ?? [],
 								// 院校归属只存在于 /auth/me（登录响应没有）：漏合并会让院校管理员
 								// 在壳里被显示成「平台」，等于告诉他"你是跨校的"
@@ -102,7 +130,7 @@ const useAuthStore = create<ExtendedAuthState>()(
 						});
 					}
 				} catch {
-					// ignore — role_display_name stays as fallback
+					// ignore — 视角/院校字段由登录响应兜底，权限留给下一次 revalidateSession
 				}
 
 				return get().user!;
@@ -112,6 +140,7 @@ const useAuthStore = create<ExtendedAuthState>()(
 				try {
 					const { data } = await apiRefreshToken();
 					set({ token: data.access_token, permissions: data.permissions });
+					syncPersonas(data);
 					return true;
 			} catch (err: unknown) {
 				const is401 = (
@@ -124,6 +153,7 @@ const useAuthStore = create<ExtendedAuthState>()(
 					console.warn("[authStore] refreshAuth 401 — 清除会话");
 					stopRefreshTimer();
 					set({ user: null, token: null, permissions: [] });
+					usePersonaStore.getState().clear();
 				} else {
 					console.warn("[authStore] refreshAuth 网络/服务端错误 — 保持现有会话", err);
 				}
@@ -134,18 +164,23 @@ const useAuthStore = create<ExtendedAuthState>()(
 			refreshUser: async (): Promise<void> => {
 				try {
 					const { data } = await getMe();
+					syncPersonas(data);
 					const current = get().user;
 					const user: User = {
 						id: data.id,
 						username: data.username || current?.username || "",
-						role: data.role,
-						role_display_name: data.role_display_name || data.role,
 						display_name: data.display_name,
 						student_id: data.student_id ?? null,
 						is_active: data.is_active ?? true,
 						gender: data.gender ?? null,
 						avatar: data.avatar ?? null,
 						memberships: data.memberships ?? [],
+						// 视角身份：授予集合 + 当前生效视角（`/auth/me` 现取，权威口径）
+						personas: data.personas ?? [],
+						active_persona: data.active_persona ?? null,
+						active_school_id: data.active_school_id ?? null,
+						school_personas: data.school_personas ?? [],
+						is_platform: data.is_platform ?? false,
 						school_id: data.school_id ?? null,
 						school_name: data.school_name ?? null,
 						school_theme_color: data.school_theme_color ?? null,
@@ -159,14 +194,35 @@ const useAuthStore = create<ExtendedAuthState>()(
 							? data.permissions
 							: get().permissions,
 					});
+					// 非家院校被服务端选为默认（家院校没有任何授予）时，同步顶栏快照，
+					// 否则顶栏会显示家院校、请求头却已指向另一所。
+					if (data.active_school_id != null && data.active_school_id !== data.school_id) {
+						const grant = (data.school_personas ?? []).find(
+							(item) => item.school_id === data.active_school_id,
+						);
+						if (grant) {
+							useSchoolScopeStore.getState().setSchool({
+								id: grant.school_id,
+								name: grant.school_name,
+								themeColor: null,
+								hasLogo: false,
+								logoUpdatedAt: null,
+							});
+						}
+					}
 				} catch (err: unknown) {
+					const status = httpStatusOf(err);
+					// 视角被撤销（或换了账号后残留）→ 服务端 403「视角不可用」。
+					// 清掉本地选择后重试一次：下一次请求不带 header，服务端回落默认视角。
+					// 递归有界：clear 后 active 为空，不进这个分支。
+					if (status === 403) {
+						console.warn("[authStore] /auth/me 403 — 清除失效视角/院校后重试");
+						usePersonaStore.getState().clear();
+						useSchoolScopeStore.getState().setSchool(null);
+						return get().refreshUser();
+					}
 					// 仅 401 视为会话失效；网络抖动/服务端瞬时错误保留会话（与 refreshAuth 一致）
-					const is401 = (
-						err != null &&
-						typeof err === "object" &&
-						"response" in err &&
-						(err as { response?: { status?: number } }).response?.status === 401
-					);
+					const is401 = status === 401;
 					if (is401) {
 						console.warn("[authStore] refreshUser 401 — 清除会话");
 						get().logout();
@@ -209,6 +265,8 @@ const useAuthStore = create<ExtendedAuthState>()(
 				set({ user: null, token: null, permissions: [] });
 				// 「当前院校」是上一个平台的偏好，换人登录不能带走（换账号后作用域必须回到全部院校）
 				useSchoolScopeStore.getState().setSchool(null);
+				// 视角同理：上一个账号的视角选择对下一个人没有意义，且可能不在其授予集合里
+				usePersonaStore.getState().clear();
 				dispatchForceLogout();
 			},
 		}),

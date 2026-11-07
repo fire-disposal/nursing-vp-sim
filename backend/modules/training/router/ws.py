@@ -52,9 +52,7 @@ async def _authenticate(token: str) -> User | None:
 
     db = SessionLocal()
     try:
-        from sqlalchemy.orm import joinedload
-
-        user = db.query(User).options(joinedload(User.role)).filter(User.id == user_id).first()
+        user = db.query(User).filter(User.id == user_id).first()
         if not user:
             log.warning("WS auth: user %d not found", user_id)
             return None

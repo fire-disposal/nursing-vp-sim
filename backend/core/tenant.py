@@ -3,8 +3,14 @@
 三件事只在这里定义，别处不许自己判断：
 
 1. 谁跨院校（``school_id is None`` = 平台角色，例如 super_admin）；
-2. 谁看全校（有 ``user_manage`` 的院校管理员）；
-3. 谁只看自己任教班（无 ``user_manage`` 但有 teacher 成员关系的人）。
+2. 谁看全校（当前**视角**的 scope 为 ``tenant``，例如 admin/ops）；
+3. 谁只看自己（``self``，例如 student）：只给空班级集合，端点自身按 ``user_id``
+   收窄到"我"。教师是**校级**视角（``tenant``），班级只是校内业务分组/筛选，不再是
+   授权边界。
+
+数据作用域来自**视角声明**（``core/personas.py`` 的 ``PersonaDef.scope``），不是
+从"有没有 ``user_manage``"反推。迁移前没有 ``user_personas`` 行的账号（legacy）
+仍按旧逻辑推断，见 ``_legacy_scope``。
 
 用法：端点依赖 ``Scope``，所有取他人数据的查询经 ``scope_query`` 收窄；写操作先用
 ``require_school`` 校验目标行的院校。越权一律 404（不暴露存在性），缺权限才是 403。
@@ -24,10 +30,13 @@ from fastapi import Depends, Header
 
 from core.deps import CurrentUser, DbSession
 from core.exceptions import NotFoundError
-from models import MEMBER_ROLE_TEACHER, Class, ClassMembership, School, User
+from core.personas import is_super_admin, persona_scope
+from models import Class, School
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Query, Session
+
+    from models import User
 
 
 @dataclass(frozen=True)
@@ -35,7 +44,7 @@ class TenantScope:
     """解析后的可见范围。``school_id=None`` 表示跨院校（平台角色）。"""
 
     school_id: int | None
-    #: ``None`` = 不按班级收窄；否则只允许这些班级（教师视角）。
+    #: ``None`` = 不按班级收窄；否则只允许这些班级（无视角账号的失败关闭空集）。
     class_ids: frozenset[int] | None
     user_id: int
 
@@ -53,24 +62,35 @@ def platform_scope(user_id: int = 0) -> TenantScope:
 
 
 def resolve_scope(db: Session, user: User) -> TenantScope:
-    if user.school_id is None:
+    """当前请求的可见范围。
+
+    - 超管：默认全局；若请求头选择了院校工作视图（``active_school_id``）则收窄到该校；
+    - 普通账号：取请求头选择的院校（已在鉴权层校验属于其授予集合），否则家院校；
+      两者都没有 → **失败关闭**（空院校作用域），绝不回落到全局；
+    - 其余按**当前生效视角**（``user.active_persona``）的 ``scope`` 生成院校边界；
+    - 没有视角（未授予任何视角）→ 院校边界保留、class_ids 为空：能登录，但看不到数据。
+    """
+    active_school = getattr(user, "active_school_id", None)
+    if is_super_admin(user):
+        # 平台账号默认跨院校；顶栏选了一所学校时，工作视图收窄到该校。
+        # 学生视角即使平台账号也只到本人（class_ids 空），不获得全校学生面。
+        class_ids = frozenset() if persona_scope(user.active_persona) == "self" else None
+        return TenantScope(school_id=active_school, class_ids=class_ids, user_id=user.id)
+    school_id = active_school if active_school is not None else getattr(user, "school_id", None)
+    if school_id is None:
+        # 非平台账号没有院校：不能退化成全局。0 不匹配任何真实院校，读为空、写 404。
+        return TenantScope(school_id=0, class_ids=frozenset(), user_id=user.id)
+
+    scope = persona_scope(user.active_persona)
+    if scope is None:
+        return TenantScope(school_id=school_id, class_ids=frozenset(), user_id=user.id)
+    if scope == "platform":
+        # 平台级视角：院校轴无意义（只有平台账号能被授予它，校验在 resolve_view_persona）
         return TenantScope(school_id=None, class_ids=None, user_id=user.id)
-    if user.has_permission("user_manage"):
-        return TenantScope(school_id=user.school_id, class_ids=None, user_id=user.id)
-    rows = (
-        db.query(ClassMembership.class_id)
-        .filter(
-            ClassMembership.user_id == user.id,
-            ClassMembership.member_role == MEMBER_ROLE_TEACHER,
-            ClassMembership.class_id.isnot(None),
-        )
-        .all()
-    )
-    return TenantScope(
-        school_id=user.school_id,
-        class_ids=frozenset(r[0] for r in rows if r[0] is not None),
-        user_id=user.id,
-    )
+    if scope == "tenant":
+        return TenantScope(school_id=school_id, class_ids=None, user_id=user.id)
+    # self：院校边界仍生效，但看不到任何他人班级；端点用 user_id 收窄到"我"
+    return TenantScope(school_id=school_id, class_ids=frozenset(), user_id=user.id)
 
 
 def apply_school_scope(scope: TenantScope, requested: str | None) -> TenantScope:

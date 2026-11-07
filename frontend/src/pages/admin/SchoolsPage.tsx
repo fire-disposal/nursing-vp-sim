@@ -17,6 +17,7 @@ import { useState } from "react";
 import { z } from "zod";
 
 import type { SchoolItem } from "@/api/admin/schools";
+import SchoolQuotaModal from "@/components/admin/SchoolQuotaModal";
 import { useConfirm } from "@/components/ui/confirm";
 import type { DataTableColumn } from "@/components/ui/data-table";
 import ErrorState from "@/components/ui/error-state";
@@ -49,6 +50,7 @@ type SchoolFormValues = z.infer<typeof schoolSchema>;
  * 删除只允许删空院校 —— 有班级或账号时后端会 409，这里把原因原样呈现。
  */
 export default function SchoolsPage() {
+	const [quotaSchool, setQuotaSchool] = useState<{ id: number; name: string } | null>(null);
 	const { searchInput, debouncedValue: search, handleSearchChange } = useDebouncedSearch();
 	const [modalOpen, setModalOpen] = useState(false);
 	const [editId, setEditId] = useState<number | null>(null);
@@ -204,6 +206,9 @@ export default function SchoolsPage() {
 						<Button variant="subtle" color="gray" size="sm" onClick={() => openEdit(s)}>
 							编辑
 						</Button>
+						<Button variant="subtle" color="gray" size="sm" onClick={() => setQuotaSchool(s)}>
+							额度
+						</Button>
 						{blocked ? (
 							<Tooltip label={`该院校下还有 ${s.class_count} 个班级、${s.user_count} 个账号，先清空才能删除`}>
 								<Box>{btn}</Box>
@@ -261,6 +266,9 @@ export default function SchoolsPage() {
 							<Group gap={4}>
 								<Button variant="subtle" color="gray" size="xs" onClick={() => openEdit(s)}>
 									编辑
+								</Button>
+								<Button variant="subtle" color="gray" size="xs" onClick={() => setQuotaSchool(s)}>
+									额度
 								</Button>
 								<Button variant="subtle" color="red" size="xs" onClick={() => handleDelete(s)}>
 									删除
@@ -418,6 +426,8 @@ export default function SchoolsPage() {
 					</Stack>
 				</form>
 			</Modal>
+
+			<SchoolQuotaModal school={quotaSchool} opened={quotaSchool != null} onClose={() => setQuotaSchool(null)} />
 		</div>
 	);
 }

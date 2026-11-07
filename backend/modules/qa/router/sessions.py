@@ -60,7 +60,7 @@ def delete_session(
 
     log.info(
         f"会话删除: session_id={session_id}",
-        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
+        extra={"user_id": current_user.id, "user_role": current_user.active_persona or ""},
     )
     return {"message": "删除成功"}
 
