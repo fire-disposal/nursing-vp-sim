@@ -2,6 +2,7 @@ import {
 	IconActivity,
 	IconBook2,
 	IconChartBar,
+	IconClipboardCheck,
 	IconClipboardList,
 	IconBuildingCommunity,
 	IconCoins,
@@ -32,6 +33,7 @@ const TrainingEntry = lazy(() => import("@/pages/TrainingEntry"));
 const History = lazy(() => import("@/pages/History"));
 const VersionsPage = lazy(() => import("@/pages/admin/VersionsPage"));
 const TeacherRecordDetail = lazy(() => import("@/pages/admin/TeacherRecordDetail"));
+const ReviewWorkbench = lazy(() => import("@/pages/admin/ReviewWorkbench"));
 const RecordDetail = lazy(() => import("@/pages/RecordDetail"));
 const QA = lazy(() => import("@/pages/QA"));
 const AdminSecrets = lazy(() => import("@/pages/admin/SecretsPage"));
@@ -335,6 +337,19 @@ export const APP_ROUTES: AppRoute[] = [
 		element: <TeacherRecordDetail />,
 		permission: "score_review",
 		activity: "manage",
+	},
+	{
+		path: "/admin/review",
+		element: <ReviewWorkbench />,
+		permission: "score_review",
+		activity: "manage",
+		nav: {
+			label: "批改工作台",
+			icon: IconClipboardCheck,
+			section: "admin",
+			group: "teaching",
+			mobile: { order: 25, tier: "staff" },
+		},
 	},
 	{
 		path: "/admin/questionnaires",

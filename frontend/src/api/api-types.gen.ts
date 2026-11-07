@@ -6533,6 +6533,11 @@ export interface components {
             /** Applicable Raw Max */
             applicable_raw_max?: number | null;
             /**
+             * Display Max
+             * @default 100
+             */
+            display_max: number;
+            /**
              * Raw Scale
              * @default 2
              */

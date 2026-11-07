@@ -39,7 +39,7 @@ export default function RolesPage() {
 	const [editDisplayName, setEditDisplayName] = useState("");
 	const [showCreate, setShowCreate] = useState(false);
 	// 角色列表不分页：分页键只留在 params 里，进请求与导出都用 exportParams（同源去分页）
-	const list = useListFilters<RoleListParams>({ search: "" }, { limit: 0, searchKey: "search" });
+	const list = useListFilters<RoleListParams>({ search: "" }, { limit: 0, searchKey: "search", urlSync: true });
 	const search = String(list.exportParams.search ?? "");
 	const { confirm } = useConfirm();
 

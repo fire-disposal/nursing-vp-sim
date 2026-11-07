@@ -21,6 +21,8 @@ interface Props {
 	/** 展示分满分（分母），与结果区同一口径 */
 	scoreMax: number;
 	onSubmit: (detailScores: RawReviewSubmitPayload, comment: string) => void;
+	/** 批改工作台：提供时底部多一个「保存并下一份」，连续批改不用退回列表逐条点 */
+	onSubmitAndNext?: (detailScores: RawReviewSubmitPayload, comment: string) => void;
 	onClose: () => void;
 	submitting: boolean;
 }
@@ -55,6 +57,7 @@ export default function ReviewEditor({
 	onReload,
 	scoreMax,
 	onSubmit,
+	onSubmitAndNext,
 	onClose,
 	submitting,
 }: Props) {
@@ -76,6 +79,11 @@ export default function ReviewEditor({
 	const handleSubmit = () => {
 		if (!rawDims) return;
 		onSubmit(buildRawReviewPayload(rawDims, editedScores, notApplicableItems, rawScale), comment);
+	};
+
+	const handleSubmitAndNext = () => {
+		if (!rawDims || !onSubmitAndNext) return;
+		onSubmitAndNext(buildRawReviewPayload(rawDims, editedScores, notApplicableItems, rawScale), comment);
 	};
 
 	const basisNotice = reviewBasisNotice(review?.review_basis);
@@ -205,6 +213,11 @@ export default function ReviewEditor({
 							<Button variant="outline" onClick={onClose} disabled={submitting}>
 								取消
 							</Button>
+							{onSubmitAndNext && (
+								<Button variant="light" onClick={handleSubmitAndNext} disabled={submitting}>
+									保存并下一份
+								</Button>
+							)}
 							<Button onClick={handleSubmit} disabled={submitting}>
 								{submitting ? "提交中..." : "提交复核"}
 							</Button>

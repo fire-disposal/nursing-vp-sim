@@ -20418,6 +20418,11 @@
             ],
             "title": "Applicable Raw Max"
           },
+          "display_max": {
+            "type": "number",
+            "title": "Display Max",
+            "default": 100.0
+          },
           "raw_scale": {
             "type": "integer",
             "title": "Raw Scale",

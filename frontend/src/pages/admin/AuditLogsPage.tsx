@@ -66,7 +66,7 @@ function fmtTime(value: string | null): string {
 export default function AuditLogsPage() {
 	const list = useListFilters<AuditLogParams>(
 		{ actor_id: undefined, action: "", target_type: "", outcome: "", date_from: "", date_to: "", search: "" },
-		{ limit: LIMIT, searchKey: "search" },
+		{ limit: LIMIT, searchKey: "search", urlSync: true },
 	);
 
 	const {

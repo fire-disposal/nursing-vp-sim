@@ -28,6 +28,8 @@ class ScoreReviewResponse(BaseModel):
     review_comment: str | None = None
     #: 复核量尺信息：适用原始满分 / 原始量尺 / 基准来源 / 不适用条目
     applicable_raw_max: float | None = None
+    #: 展示分满分（各展示维度 max 之和；维度缺失时 100）—— 复核界面据此说明换算口径
+    display_max: float = 100.0
     raw_scale: int = 2
     review_basis: str | None = None
     not_applicable_items: list[str] = []

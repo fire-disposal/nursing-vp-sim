@@ -63,7 +63,7 @@ export default function QuestionnairesTab() {
 	// 筛选的唯一持有者：type / search（防抖）/ is_active 与后端 QuestionnaireTemplateFilters 同源
 	const list = useListFilters<QuestionnaireTemplateParams>(
 		{ type: "", search: "", is_active: undefined },
-		{ limit: LIMIT, searchKey: "search" },
+		{ limit: LIMIT, searchKey: "search", urlSync: true },
 	);
 
 	const { confirm } = useConfirm();

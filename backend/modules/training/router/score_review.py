@@ -61,6 +61,18 @@ def _raw_layer(score: Score, rubric: dict, applicable_raw_max: float) -> dict:
     )
 
 
+def _display_max(score: Score) -> float:
+    """展示分满分：各展示维度 ``max`` 之和（与前端 `getScoreDenominator` 同一口径）。"""
+    dims = score.detail_scores or {}
+    total = 0.0
+    for dim in dims.values():
+        if isinstance(dim, dict):
+            max_value = dim.get("max")
+            if isinstance(max_value, (int, float)) and not isinstance(max_value, bool) and max_value > 0:
+                total += float(max_value)
+    return total if total > 0 else 100.0
+
+
 def _not_applicable_of(score: Score) -> frozenset[str]:
     meta = score.score_meta or {}
     items = meta.get("not_applicable_items")
@@ -107,6 +119,7 @@ def get_score_review(
         review_total_score=latest_review.total_score if latest_review else None,
         review_comment=latest_review.comment if latest_review else None,
         applicable_raw_max=applicable_raw_max,
+        display_max=_display_max(score),
         raw_scale=int(rubric.get("raw_scale", 2)),
         review_basis=basis,
         not_applicable_items=sorted(_not_applicable_of(score)),
@@ -210,6 +223,7 @@ def submit_score_review(
         review_total_score=review.total_score,
         review_comment=review.comment,
         applicable_raw_max=applicable_raw_max,
+        display_max=_display_max(score),
         raw_scale=raw_scale,
         review_basis=basis,
         not_applicable_items=sorted(not_applicable),

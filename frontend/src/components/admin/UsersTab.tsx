@@ -76,7 +76,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	// 筛选只有一个持有者：值 → 请求参数（含导出参数）由 useListFilters 构造一次
 	const list = useListFilters<UserListParams>(
 		{ search: "", role: "", class_id: undefined, cohort_label: undefined, include_inactive: false, school_id: undefined },
-		{ limit: 50, searchKey: "search" },
+		{ limit: 50, searchKey: "search", urlSync: true },
 	);
 	// ClassFilter 是非受控组件：清除筛选时用 key 重挂载，避免"筛选已清空、下拉还显示旧选择"
 	const [classFilterNonce, setClassFilterNonce] = useState(0);

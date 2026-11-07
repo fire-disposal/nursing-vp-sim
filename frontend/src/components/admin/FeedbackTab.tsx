@@ -492,7 +492,7 @@ export default function FeedbackTab() {
 	// 列表筛选的唯一持有者：列表请求参数与导出参数同源（见 useListFilters）
 	const list = useListFilters<FeedbackAdminParams>(
 		{ tag: "", date_from: "", date_to: "", search: "", replied: undefined },
-		{ limit: LIMIT, searchKey: "search" },
+		{ limit: LIMIT, searchKey: "search", urlSync: true },
 	);
 	const chartsOpen = useUiPrefsStore((s) => s.feedbackChartsOpen);
 	const setChartsOpen = useUiPrefsStore((s) => s.setFeedbackChartsOpen);

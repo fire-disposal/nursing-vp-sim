@@ -50,7 +50,7 @@ interface CasesTabProps {
 
 export default function CasesTab({ onExportParamsChange, renderHeader }: CasesTabProps) {
 	// 筛选只有一个持有者：值 → 请求参数（含导出参数）由 useListFilters 构造一次
-	const list = useListFilters<CaseManageParams>(INITIAL_FILTERS, { limit: LIMIT, searchKey: "name" });
+	const list = useListFilters<CaseManageParams>(INITIAL_FILTERS, { limit: LIMIT, searchKey: "name", urlSync: true });
 	const [showEditor, setShowEditor] = useState(false);
 	const queryClient = useQueryClient();
 	const toast = useToast();
