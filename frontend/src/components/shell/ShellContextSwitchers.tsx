@@ -28,15 +28,7 @@ export default function ShellContextSwitchers() {
 	return (
 		<Paper withBorder radius="md" p="xs" mb="sm">
 			<Stack gap="xs">
-				{hasMultiPersona && (
-					<Box>
-						<Text size="10px" fw={600} c="dimmed" tt="uppercase" mb={4}>
-							当前视角
-						</Text>
-						<PersonaSwitcher variant="segmented" />
-					</Box>
-				)}
-				{hasMultiPersona && canManageSchools && <Divider />}
+				{/* 顺序：院校（数据作用域）在前，视角（功能权限）在后 —— 外到内、一般到具体 */}
 				{canManageSchools &&
 					(hasMultiSchool ? (
 						<Box>
@@ -54,6 +46,15 @@ export default function ShellContextSwitchers() {
 							<Text size="sm">{schools[0]?.name ?? "—"}</Text>
 						</Box>
 					))}
+				{hasMultiPersona && canManageSchools && <Divider />}
+				{hasMultiPersona && (
+					<Box>
+						<Text size="10px" fw={600} c="dimmed" tt="uppercase" mb={4}>
+							当前视角
+						</Text>
+						<PersonaSwitcher variant="segmented" />
+					</Box>
+				)}
 			</Stack>
 		</Paper>
 	);
