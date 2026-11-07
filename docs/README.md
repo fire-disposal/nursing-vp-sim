@@ -13,6 +13,7 @@
 | [scenario.md](scenario.md) | 情境训练：内容在库里、时间语义、DM 权限待定 |
 | [cases/](cases/) | 五个病例的可读文本（由 `backend/scripts/render_cases.py` 生成的派生物） |
 | [ops/](ops/) | 排障与运维速查：诊断契约、院校隔离、前端 UI 约定、语音/LLM 排障、事故复盘 |
+| [ops/training-core-observation-20261107.md](ops/training-core-observation-20261107.md) | 训练区现状观察与待验证改善假设（历史快照，非运行期契约） |
 | [calibration/](calibration/) | 判例与校准资产（研究用） |
 | [CHANGELOG.md](CHANGELOG.md) | 历史 |
 
