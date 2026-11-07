@@ -3,7 +3,6 @@ import { assignmentSchema } from "@/schemas/assignment";
 import { classFormSchema } from "@/schemas/class";
 import { notificationSchema } from "@/schemas/notification";
 import { profileSchema } from "@/schemas/profile";
-import { roleCreateSchema } from "@/schemas/role";
 import { secretFormSchema } from "@/schemas/secret";
 import { editUserSchema, registerUserSchema } from "@/schemas/user";
 
@@ -144,17 +143,6 @@ describe("profileSchema", () => {
 
 	it("accepts optional studentId", () => {
 		expect(profileSchema.safeParse({ displayName: "王", studentId: "2026001", gender: "女" }).success).toBe(true);
-	});
-});
-
-describe("roleCreateSchema", () => {
-	it("accepts valid role", () => {
-		expect(roleCreateSchema.safeParse({ name: "nurse", displayName: "护士" }).success).toBe(true);
-	});
-
-	it("rejects empty name or display", () => {
-		expect(roleCreateSchema.safeParse({ name: "", displayName: "x" }).success).toBe(false);
-		expect(roleCreateSchema.safeParse({ name: "x", displayName: "" }).success).toBe(false);
 	});
 });
 

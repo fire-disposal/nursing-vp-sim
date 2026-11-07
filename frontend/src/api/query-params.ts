@@ -15,6 +15,5 @@ export type ListQuery<P extends keyof paths> = paths[P] extends {
 export type UserListParams = ListQuery<"/api/admin/users">;
 export type CaseManageParams = ListQuery<"/api/cases/manage/list">;
 export type FeedbackAdminParams = ListQuery<"/api/admin/feedback">;
-export type RoleListParams = ListQuery<"/api/admin/roles">;
 export type QuestionnaireTemplateParams = ListQuery<"/api/questionnaires/templates">;
 export type AuditLogParams = ListQuery<"/api/admin/audit-logs">;

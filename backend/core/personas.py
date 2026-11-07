@@ -150,7 +150,12 @@ def grants_all_personas(user: User) -> bool:
 
 
 def is_super_admin(user: User) -> bool:
-    """唯一的超管判定点。别处不要再写 ``role.name == "super_admin"``。"""
+    """唯一的平台账号判定点：`users.is_platform`。
+
+    迁移期兼容：列尚未回填的旧库/测试夹具仍以角色名兜底（Step 2 删除角色后去掉这一行）。
+    """
+    if getattr(user, "is_platform", False):
+        return True
     role = getattr(user, "role", None)
     return bool(role is not None and role.name == SUPER_ADMIN_ROLE)
 
@@ -161,6 +166,8 @@ def default_persona_for(user: User) -> str | None:
     返回 None 表示"没有可用的视角预设"，此时生效权限回落到 `role_permissions`，
     审计里的 persona 记为 `role.name`。
     """
+    if is_super_admin(user):
+        return DEFAULT_PERSONA_BY_ROLE[SUPER_ADMIN_ROLE]
     role = getattr(user, "role", None)
     if role is None:
         return None

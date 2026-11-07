@@ -11,6 +11,7 @@ from pathlib import Path
 
 from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
 from core.database import SessionLocal
+from core.personas import SUPER_ADMIN_ROLE
 from core.roles import SYSTEM_PERMISSIONS, SYSTEM_ROLES
 from core.security import clear_permission_cache, hash_password
 from core.time_limits import DEFAULT_TIME_LIMIT_MINUTES
@@ -60,10 +61,13 @@ def _seed_user(
     if role_id is None:
         log.warning("角色 %s 未找到，跳过种子用户", role_name)
         return
+    is_platform = role_name == SUPER_ADMIN_ROLE
     existing = db.query(User).filter(User.username == username).first()
     if existing:
-        if existing.role_id != role_id:
+        if existing.role_id != role_id or (is_platform and not existing.is_platform):
             existing.role_id = role_id
+            if is_platform:
+                existing.is_platform = True
             db.commit()
             log.debug("%s 角色已修正 (%s → %s)", default_display, username, role_name)
     else:
@@ -73,6 +77,7 @@ def _seed_user(
                 password_hash=hash_password(password),
                 role_id=role_id,
                 display_name=default_display,
+                is_platform=is_platform,
             )
         )
         db.commit()

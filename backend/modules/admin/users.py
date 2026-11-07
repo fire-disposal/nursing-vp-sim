@@ -32,6 +32,7 @@ from core.identity import (
     normalize_student_id,
 )
 from core.pagination import paginate
+from core.personas import SUPER_ADMIN_ROLE, is_super_admin
 from core.security import hash_password, load_role_permissions, require_permission
 from core.tenant import Scope, TenantScope, scope_query, visible_class, writable_school_id
 from core.unit_of_work import unit_of_work
@@ -74,8 +75,6 @@ log = logging.getLogger(__name__)
 
 _DETAIL_RECENT_LIMIT = 20
 _DETAIL_DAYS = 30
-# core.roles.SYSTEM_PERMISSIONS 的键名：系统内置最高权限角色的名字
-_SUPER_ADMIN_ROLE = "super_admin"
 # ClassMembership.member_role 的取值白名单：该列是自由字符串，
 # 不校验就能写入任意值（数据质量洞，2026-09-26 审计 RB-9）
 _MEMBER_ROLES = frozenset({MEMBER_ROLE_STUDENT, MEMBER_ROLE_TEACHER})
@@ -292,13 +291,14 @@ class UserService:
         `seed.py` 在角色表非空时不再补种管理员，因此一旦最后一个超管被停用/删除，
         改角色与改权限的能力只能直连数据库恢复 —— 这是合法的自毁路径。
         """
-        if user.role is None or user.role.name != _SUPER_ADMIN_ROLE or not user.is_active:
+        if not is_super_admin(user) or not user.is_active:
             return
         remaining = (
             self.db.query(sa_func.count(User.id))
             .join(Role, Role.id == User.role_id)
             .filter(
-                Role.name == _SUPER_ADMIN_ROLE,
+                # 迁移期：is_platform 尚未回填的库/夹具仍按角色名认人
+                or_(User.is_platform.is_(True), Role.name == SUPER_ADMIN_ROLE),
                 User.is_active.is_(True),
                 User.id != user.id,
             )
@@ -444,7 +444,7 @@ class UserService:
         - 院校管理员只能提交本校（`writable_school_id` 越界 = 404），不能借编辑把人搬走；
         - 单校不变量：账号还在别的院校的班级里时拒绝，先解除那些班级归属（不静默删归属）。
         """
-        if user.role is not None and user.role.name == _SUPER_ADMIN_ROLE:
+        if is_super_admin(user):
             raise ValidationError("平台超级管理员不属于任何院校，不能设置院校归属")
         target = writable_school_id(self.scope, school_id)
         if self.db.get(School, target) is None:
@@ -505,7 +505,7 @@ class UserService:
             # 超级管理员账号**不可删除**（政策）：系统内如需收回权限用"停用"，
             # 删除只留给普通账号。此前没有任何显式守卫，只是恰好被 llm/voice/qa 的外键
             # 或 assignment.teacher_id RESTRICT 撞成 500 —— 不可预期且理由误导。
-            if user.role.name == _SUPER_ADMIN_ROLE:
+            if is_super_admin(user):
                 raise ValidationError("超级管理员账号不可删除：如需收回权限请改用停用（数据保留、可恢复）")
             # 删除同样受角色范围约束（此前完全无检查）
             self._assert_role_within_scope(current_user, user.role, action="删除账号")

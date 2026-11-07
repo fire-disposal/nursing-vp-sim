@@ -955,3 +955,30 @@ vitest 832 passed、`tsc --noEmit` 与 biome 干净。
 
 **验证**：新增队列推进（下一份）单测与导航矩阵契约；前端 `tsc`、biome、Vitest、`build` 与后端
 pytest 全绿。
+
+## 2026.11 — 视角权限：学校 × 视角
+
+**视角即权限预设** `core/personas.py` 定义四组预设（`student / teacher / admin / ops`），每组同时声明
+**权限**与**数据作用域**（`tenant` 全校 / `class` 任教班级 / `self` 仅本人）。账号可被授予多个视角
+（`user_personas`），请求头 `X-View-Persona` 选择当前生效的那一个；未授予 → 403。审计新增
+`audit_logs.actor_persona`，记录"操作时处于哪个视角"。
+
+**学校 × 视角边界** 院校边界只来自账号（`users.school_id`，平台账号为 NULL），视角永不放宽院校；
+`resolve_scope` 改为读当前视角声明的 scope，不再用 `user_manage` 反推（此前 ops 视角会被误判成
+班级受限）。平台账号从"角色名叫 super_admin"提升为显式标记 `users.is_platform`，= 全部院校 ×
+全部视角（派生，不落 `user_personas` 行），迁移时由原超管角色回填。
+
+**授予 API 与界面** 新增 `GET /api/admin/personas`、`GET/PUT /api/admin/users/{id}/personas`：
+跨校目标 404、超管目标 400、调用者只能授予其当前权限覆盖得到的视角；授予后清权限缓存并审计
+`user.personas_updated`（含前后集合与院校）。「角色管理」页替换为「视角管理」：预设卡（权限 +
+作用域 + 已授予人数）+ 用户授予弹窗。角色 CRUD 与权限编辑从产品面移除。
+
+**语境控件** 侧栏顶部一张卡同时展示院校与视角（院校在前）：可切换者用选择器，不可切换者显示
+带锁只读值并说明原因；始终显示，便于判断账号归属。
+
+**迁移**：`user_personas` 建表 + `audit_logs.actor_persona` + `users.is_platform`；回填
+student/teacher/admin 三类系统角色与平台标记；超管与自定义角色不写 `user_personas` 行。
+
+**验证**：pytest 1692 passed（含视角预设、作用域矩阵、授予规则）；前端 846 passed / 1 skipped、
+`tsc`/biome/`build` 干净；迁移由 pre-push 临时库往返校验。仍待完成（Step 2）：删除
+`role_permissions`/`roles`/`role_id`、JWT `role` 字段，以及导入/导出按"学校 × 视角"重做。

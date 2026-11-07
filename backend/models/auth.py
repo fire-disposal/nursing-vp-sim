@@ -67,6 +67,9 @@ class User(Base, TimestampMixin):
     avatar: Mapped[str | None] = mapped_column(String(255), nullable=True)
     wechat_openid: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
     is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
+    # 平台账号标记（原 super_admin 的显式化）：平台 = 全部院校 × 全部视角。
+    # 只能由数据迁移/运维置位，API 不接受写入；角色名不再承担这一语义。
+    is_platform: Mapped[bool] = mapped_column(default=False, server_default=text("false"), nullable=False)
     token_version: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # 账号级登录失败锁定（方案 A6）：连续密码错误计数 + 锁定截止时刻（NULL = 未锁定）
