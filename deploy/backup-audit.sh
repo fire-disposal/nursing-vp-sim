@@ -142,21 +142,11 @@ for d in /opt/nursing-vp-sim/backups /opt/twinsia/backups /opt/emoguard/backups;
 done
 
 echo
-echo "══ 4. 体积预算（防止无上界增长把生产卷写满）"
-check_budget() { # $1=目录 $2=预算 MiB
-  local dir=$1 budget=$2 mb
-  [[ -d $dir ]] || { echo "  - $dir 不存在，跳过"; return; }
-  mb=$(size_mb "$dir")
-  if ((mb <= budget)); then
-    ok "$dir $(human "$((mb * 1048576))")（预算 $(human "$((budget * 1048576))")）"
-  else
-    bad "$dir $(human "$((mb * 1048576))") 超出预算 $(human "$((budget * 1048576))") —— 检查保留策略"
-  fi
-}
-check_budget /opt/nursing-vp-sim/backups 1024
-check_budget /opt/twinsia/backups 512
-check_budget /opt/emoguard/backups 256
-
+echo "══ 4. 磁盘余量"
+# 每目录的体积预算**不在这里重算**：判据是第 1 节转发的宿主 canonical 审计
+# （cli.py audit 按 datasets.toml 的 budget_mb、只算数据集自有产物）。
+# 这里曾用 du 递归量父目录，把嵌套的 emoguard-media 算进 emoguard-db 的 256MB 预算，
+# 2026-11-04~06 每晚与 canonical 一起误报；两份实现必然漂移，只留本机独有的安全线。
 avail=$(df -Pm / | awk 'NR==2 {print $4}')
 if ((avail >= 5120)); then
   ok "根分区可用 $((avail / 1024)) GiB"
