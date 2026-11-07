@@ -345,43 +345,7 @@ export interface paths {
         /** List Roles */
         get: operations["list_roles_api_admin_roles_get"];
         put?: never;
-        /** Create Role */
-        post: operations["create_role_api_admin_roles_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/roles/{role_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Update Role */
-        put: operations["update_role_api_admin_roles__role_id__put"];
         post?: never;
-        /** Delete Role */
-        delete: operations["delete_role_api_admin_roles__role_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/roles/export": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Export Roles */
-        post: operations["export_roles_api_admin_roles_export_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4713,7 +4677,7 @@ export interface components {
              * Scope
              * @enum {string}
              */
-            scope: "tenant" | "class" | "self";
+            scope: "platform" | "tenant" | "class" | "self";
             /**
              * Permissions
              * @default []
@@ -5189,16 +5153,10 @@ export interface components {
             /** Problems */
             problems?: string[];
         };
-        /** RoleCreateRequest */
-        RoleCreateRequest: {
-            /** Name */
-            name: string;
-            /** Display Name */
-            display_name: string;
-            /** Permissions */
-            permissions?: string[];
-        };
-        /** RoleResponse */
+        /**
+         * RoleResponse
+         * @description 账号类型（角色）：权限不再挂在这里，见 core/personas.py。
+         */
         RoleResponse: {
             /** Id */
             id: number;
@@ -5212,22 +5170,10 @@ export interface components {
              */
             is_system: boolean;
             /**
-             * Permissions
-             * @default []
-             */
-            permissions: string[];
-            /**
              * User Count
              * @default 0
              */
             user_count: number;
-        };
-        /** RoleUpdateRequest */
-        RoleUpdateRequest: {
-            /** Display Name */
-            display_name?: string | null;
-            /** Permissions */
-            permissions?: string[] | null;
         };
         /** ScenarioActor */
         ScenarioActor: {
@@ -8736,138 +8682,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RoleResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_role_api_admin_roles_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RoleCreateRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoleResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_role_api_admin_roles__role_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                role_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RoleUpdateRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoleResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_role_api_admin_roles__role_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                role_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeleteResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    export_roles_api_admin_roles_export_post: {
-        parameters: {
-            query?: {
-                format?: string;
-                /** @description 角色名模糊搜索 */
-                search?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

@@ -5,7 +5,7 @@
  * 那一个（未授予 → 403）。前端只需要「有哪些、叫什么、怎么排序」，权限判定仍然走
  * `permissions`（由后端按当前视角算好），这里**不做权限推断**。
  */
-export type PersonaId = "student" | "teacher" | "admin" | "ops";
+export type PersonaId = "student" | "teacher" | "admin" | "ops" | "platform";
 
 /** 侧栏/切换器的展示名（与后端预设一一对应，见 backend/core/personas.py）。 */
 export const PERSONA_LABELS: Record<PersonaId, string> = {
@@ -13,10 +13,11 @@ export const PERSONA_LABELS: Record<PersonaId, string> = {
 	teacher: "教师",
 	admin: "管理",
 	ops: "运维",
+	platform: "平台",
 };
 
 /** 展示顺序：从窄到宽（学生 → 教师 → 管理 → 运维）。 */
-export const PERSONA_ORDER: PersonaId[] = ["student", "teacher", "admin", "ops"];
+export const PERSONA_ORDER: PersonaId[] = ["student", "teacher", "admin", "ops", "platform"];
 
 const PERSONA_IDS = new Set<string>(PERSONA_ORDER);
 

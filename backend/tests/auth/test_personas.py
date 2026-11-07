@@ -36,9 +36,8 @@ from core.personas import (
     grants_all_personas,
     persona_permissions,
 )
-from core.roles import SYSTEM_PERMISSIONS
 from core.security import clear_permission_cache, load_user_personas, resolve_view_persona
-from models import AuditLog, Role, RolePermission, User, UserPersona
+from models import AuditLog, Role, User, UserPersona
 
 # ── 预设快照 ────────────────────────────────────────────────────────────────
 
@@ -60,7 +59,6 @@ _ADMIN = {
     "user_manage",
     "role_manage",
     "grade_class_manage",
-    "school_manage",
     "case_manage",
     "training_access",
     "scenario_training",
@@ -81,16 +79,24 @@ _OPS = {
     "feedback_review",
     "export_data",
 }
+_PLATFORM = {
+    "school_manage",
+    "api_manage",
+    "audit_view",
+    "audit_export",
+    "llm_monitor",
+    "export_data",
+}
 
 
-def test_persona_keys_are_exactly_the_four_contracted_ones():
-    assert set(PERSONA_KEYS) == {"student", "teacher", "admin", "ops"}
+def test_persona_keys_are_exactly_the_five_contracted_ones():
+    assert set(PERSONA_KEYS) == {"student", "teacher", "admin", "ops", "platform"}
     assert set(PERSONAS) == set(PERSONA_KEYS)
 
 
 @pytest.mark.parametrize(
     ("persona", "expected"),
-    [("student", _STUDENT), ("teacher", _TEACHER), ("admin", _ADMIN), ("ops", _OPS)],
+    [("student", _STUDENT), ("teacher", _TEACHER), ("admin", _ADMIN), ("ops", _OPS), ("platform", _PLATFORM)],
 )
 def test_persona_presets_match_contract_exactly(persona: str, expected: set[str]):
     """预设是权限包的全部内容：**不多不少**（多的就是越权，少的会 403）。"""
@@ -111,14 +117,6 @@ def test_unknown_persona_has_no_permissions():
     assert persona_permissions("") == frozenset()
 
 
-def test_system_permissions_derive_from_personas():
-    """`core/roles.py` 不再手写清单：三种角色 = 同名视角，超管 = 全部权限。"""
-    assert set(SYSTEM_PERMISSIONS["student"]) == _STUDENT
-    assert set(SYSTEM_PERMISSIONS["teacher"]) == _TEACHER
-    assert set(SYSTEM_PERMISSIONS["admin"]) == _ADMIN
-    assert set(SYSTEM_PERMISSIONS["super_admin"]) == set(PERMISSION_KEYS)
-
-
 # ── 授予集合 / 默认视角（纯函数，不碰 DB）─────────────────────────────────────
 
 
@@ -137,11 +135,11 @@ def test_default_persona_per_system_role():
     assert default_persona_for(_stub_user("student")) == "student"
     assert default_persona_for(_stub_user("teacher")) == "teacher"
     assert default_persona_for(_stub_user("admin")) == "admin"
-    assert default_persona_for(_stub_user("super_admin")) == "admin"
+    assert default_persona_for(_stub_user("super_admin")) == "platform"
 
 
 def test_default_persona_is_none_for_custom_role_and_missing_role():
-    """自定义角色没有预设 → None（调用方回落到 legacy role_permissions）。"""
+    """自定义角色没有预设 → None（未授予视角 → 无权限，管理员需显式授予）。"""
     assert default_persona_for(_stub_user("nurse_lead")) is None
     assert default_persona_for(_stub_user(None)) is None
     assert set(DEFAULT_PERSONA_BY_ROLE) == {"student", "teacher", "admin", "super_admin"}
@@ -149,7 +147,7 @@ def test_default_persona_is_none_for_custom_role_and_missing_role():
 
 # ── 视角解析（真实 PG：`user_personas` 的行决定能选什么）───────────────────────
 
-_TABLES = [Role.__table__, RolePermission.__table__, User.__table__, UserPersona.__table__, AuditLog.__table__]
+_TABLES = [Role.__table__, User.__table__, UserPersona.__table__, AuditLog.__table__]
 
 
 #: 授予行的写入需要跨用例可见（`pg_session` 是 savepoint 隔离，同一 session 内可见即可），
@@ -159,29 +157,18 @@ def _schema():
     Base.metadata.create_all(pg_engine, tables=_TABLES)
 
 
-def _role(db, name: str, permissions: set[str] | None = None) -> Role:
+def _role(db, name: str) -> Role:
     role = db.query(Role).filter(Role.name == name).first()
     if role is None:
         role = Role(name=name, display_name=name, is_system=True)
         db.add(role)
         db.flush()
-    if permissions is not None:
-        # 显式给了权限 = **精确口径**（多一条就会让 legacy 断言变成假绿）：
-        # 先删多出来的，再补缺的。
-        rows = db.query(RolePermission).filter(RolePermission.role_id == role.id).all()
-        for row in rows:
-            if row.permission not in permissions:
-                db.delete(row)
-        existing = {row.permission for row in rows} & permissions
-        for perm in permissions - existing:
-            db.add(RolePermission(role_id=role.id, permission=perm))
-        db.flush()
     clear_permission_cache()
     return role
 
 
-def _user(db, role_name: str, *, role_permissions: set[str] | None = None) -> User:
-    role = _role(db, role_name, role_permissions)
+def _user(db, role_name: str) -> User:
+    role = _role(db, role_name)
     user = User(
         username=f"persona-{uuid.uuid4().hex[:10]}",
         password_hash="x",
@@ -257,32 +244,30 @@ def test_super_admin_grants_all_personas_without_rows(pg_session):
     assert persona == "ops"
     assert perms == frozenset(_OPS)
 
-    # 无 header → 默认 admin 视角（而不是 legacy 的 role_permissions）
+    # 无 header → 默认平台视角（跨院校的平台级功能）
     persona, perms = resolve_view_persona(pg_session, user, None)
-    assert persona == "admin"
-    assert perms == frozenset(_ADMIN)
+    assert persona == "platform"
+    assert perms == frozenset(_PLATFORM)
 
 
-def test_legacy_custom_role_uses_role_permissions(pg_session):
-    """迁移前的老用户（无 persona 行）与自定义角色：走 `role_permissions`，不 500。"""
-    custom_perms = {"case_manage", "stats_view"}
-    user = _user(pg_session, "nurse_lead", role_permissions=custom_perms)
+def test_user_without_grants_can_login_but_has_no_permissions(pg_session):
+    """没有授予任何视角：允许解析（/auth/me 要能用），但权限为空、不能借用预设。"""
+    user = _user(pg_session, "nurse_lead")
 
     persona, perms = resolve_view_persona(pg_session, user, None)
 
-    assert persona == "nurse_lead", "legacy 的视角记为角色名（审计需要它）"
-    assert perms == frozenset(custom_perms)
-
-
-def test_legacy_user_cannot_switch_to_a_preset_persona(pg_session):
-    """未被授予任何视角的老用户：选 `admin` 这种预设必须 403，不能"借用"预设权限。"""
-    user = _user(pg_session, "nurse_lead", role_permissions={"case_manage"})
-
+    assert persona == "nurse_lead"
+    assert perms == frozenset()
     with pytest.raises(HTTPException) as exc:
         resolve_view_persona(pg_session, user, "admin")
-
     assert exc.value.status_code == 403
-    assert exc.value.detail == "视角不可用"
+
+
+def test_role_permissions_no_longer_grant_anything(pg_session):
+    """角色不再承载权限：同名 teacher 角色、无 persona 行 → 仍然没有任何权限。"""
+    user = _user(pg_session, "teacher")
+    _persona, perms = resolve_view_persona(pg_session, user, None)
+    assert perms == frozenset()
 
 
 def test_granted_persona_is_selectable_regardless_of_role_name(pg_session):
@@ -290,7 +275,7 @@ def test_granted_persona_is_selectable_regardless_of_role_name(pg_session):
 
     （默认视角仍按契约走 legacy —— `default_persona_for` 只认系统角色。）
     """
-    user = _user(pg_session, "nurse_lead", role_permissions={"case_manage"})
+    user = _user(pg_session, "nurse_lead")
     assert resolve_view_persona(pg_session, user, None)[0] == "nurse_lead"
 
     _grant(pg_session, user, "ops")

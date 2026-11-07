@@ -20,10 +20,10 @@ from core.audit import (
 from core.config import LOGIN_LOCK_SECONDS, LOGIN_LOCKOUT_ENABLED, LOGIN_MAX_FAILED_ATTEMPTS
 from core.exceptions import AuthError, ConflictError, ValidationError
 from core.identity import STUDENT_ROLE_NAME, assert_student_identity_free, normalize_student_id
+from core.personas import permissions_for_role_name
 from core.security import (
     create_access_token,
     hash_password,
-    load_role_permissions,
     load_user_personas,
     resolve_view_persona,
     verify_password,
@@ -243,10 +243,9 @@ class AuthService:
         if not role_obj:
             raise ValidationError(detail="角色不存在")
 
-        # 反越权（RB-9）：只能创建自身权限集合内的角色，否则等于相对自身的垂直提权
-        # （今天 user_manage 只属于 super_admin 故不可利用，但自定义角色一出现就会暴露）
-        grantable = set(load_role_permissions(self.db, current_user.role_id))
-        exceeded = sorted(set(load_role_permissions(self.db, role_obj.id)) - grantable)
+        # 反越权：只能创建"默认视角权限不超过自己当前视角权限"的账号类型。
+        grantable = set(getattr(current_user, "_permissions_cache", None) or ())
+        exceeded = sorted(permissions_for_role_name(role_obj.name) - grantable)
         if exceeded:
             raise AuthError(
                 f"无权创建「{role_obj.display_name}」账号：目标角色包含你自身没有的权限 {exceeded}", status_code=403

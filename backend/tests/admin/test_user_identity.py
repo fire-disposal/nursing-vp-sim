@@ -14,7 +14,7 @@ import pytest
 from core.database import Base, engine
 from core.exceptions import ValidationError
 from core.tenant import platform_scope
-from models import Class, ClassMembership, Role, RolePermission, School, User
+from models import Class, ClassMembership, Role, School, User
 from modules.admin.users import UserService
 from schemas.user import UserUpdateRequest
 
@@ -28,7 +28,6 @@ _TABLES = [
     Class.__table__,
     ClassMembership.__table__,
     Role.__table__,
-    RolePermission.__table__,
     User.__table__,
 ]
 

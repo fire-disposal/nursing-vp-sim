@@ -982,3 +982,20 @@ student/teacher/admin 三类系统角色与平台标记；超管与自定义角�
 **验证**：pytest 1692 passed（含视角预设、作用域矩阵、授予规则）；前端 846 passed / 1 skipped、
 `tsc`/biome/`build` 干净；迁移由 pre-push 临时库往返校验。仍待完成（Step 2）：删除
 `role_permissions`/`roles`/`role_id`、JWT `role` 字段，以及导入/导出按"学校 × 视角"重做。
+
+### 权限路径闭环：角色退场、平台视角
+
+**平台视角** 新增第五个预设 `platform`（跨院校：院校管理、密钥、审计、成本、版本归因等平台级功能），
+只能授予平台账号；`resolve_scope` 对它返回全局。超级管理员默认视角改为 `platform`，仍可切回
+学校侧视角做事。语境块保留院校字段——平台视角下学校选择不参与作用域，但不再隐藏控件。
+
+**角色只剩账号类型** `role_permissions` 表与 `load_role_permissions` 全部删除；`SYSTEM_PERMISSIONS`
+消失，`roles` 只保留“账号类型 + 默认视角 + 展示”，角色 CRUD/权限编辑端点移除，`/admin/roles`
+只读列表。没有视角授予的账号可以登录但无权限（显式状态，由管理员补授）。
+迁移：`user_personas` 按“预设权限 ⊆ 角色权限”做最后一次派生，随后删表。
+
+**审计** 非法 `X-View-Persona`（未授予 / 非平台账号冒用平台视角）现在留 `access.denied`
+（target_type=persona，含请求的视角）；授予变更继续记 `user.personas_updated`。
+
+**验证**：新增授予服务用例（跨校 404 / 平台目标 400 / 平台视角不可外授 / 提权 403 / 授予留痕），
+作用域矩阵补平台视角；pytest 全绿、前端 tsc/biome/vitest/build 全绿。

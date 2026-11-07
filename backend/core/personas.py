@@ -28,14 +28,14 @@ SUPER_ADMIN_ROLE = "super_admin"
 #: - ``tenant``：本校全部（无班级收窄）；
 #: - ``class``：本校 + 本人任教的班级；
 #: - ``self``：本校 + 空班级集合（端点自身再按 ``user_id`` 收窄到"我"）。
-PersonaScope = Literal["tenant", "class", "self"]
+PersonaScope = Literal["platform", "tenant", "class", "self"]
 
 #: 系统内置角色名 → 默认视角（自定义角色的默认视角 = legacy role_permissions）
 DEFAULT_PERSONA_BY_ROLE: dict[str, str] = {
     "student": "student",
     "teacher": "teacher",
     "admin": "admin",
-    SUPER_ADMIN_ROLE: "admin",
+    SUPER_ADMIN_ROLE: "platform",
 }
 
 
@@ -88,7 +88,6 @@ PERSONAS: dict[str, PersonaDef] = {
             "user_manage",
             "role_manage",
             "grade_class_manage",
-            "school_manage",
             "case_manage",
             "training_access",
             "scenario_training",
@@ -115,6 +114,21 @@ PERSONAS: dict[str, PersonaDef] = {
             "export_data",
         ),
     ),
+    # 平台级：跨院校的管理页面与功能（院校管理、密钥、审计、成本、版本归因…）。
+    # 只授予平台账号；`resolve_scope` 对它返回全局，院校切换器对它无意义。
+    "platform": PersonaDef(
+        key="platform",
+        label="平台视角",
+        scope="platform",
+        permissions=(
+            "school_manage",
+            "api_manage",
+            "audit_view",
+            "audit_export",
+            "llm_monitor",
+            "export_data",
+        ),
+    ),
 }
 
 PERSONA_KEYS: tuple[str, ...] = tuple(PERSONAS)
@@ -122,6 +136,17 @@ PERSONA_KEYS: tuple[str, ...] = tuple(PERSONAS)
 _unknown_persona_perms = {p for d in PERSONAS.values() for p in d.permissions} - set(PERMISSION_KEYS)
 if _unknown_persona_perms:
     raise ValueError(f"personas.py 使用了未在 core/permissions.py 定义的权限: {sorted(_unknown_persona_perms)}")
+
+
+def permissions_for_role_name(name: str | None) -> frozenset[str]:
+    """角色（账号类型）的默认权限集合 —— 仅用于"操作者能否支配该账号"的上限判定。
+
+    权限本身只来自视角预设；角色只是默认视角。平台角色 = 全部权限。
+    """
+    if name == SUPER_ADMIN_ROLE:
+        return frozenset(PERMISSION_KEYS)
+    persona = DEFAULT_PERSONA_BY_ROLE.get(name or "")
+    return persona_permissions(persona) if persona else frozenset()
 
 
 def persona_permissions(key: str) -> frozenset[str]:

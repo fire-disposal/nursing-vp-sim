@@ -8,7 +8,7 @@ import { api } from "../client";
  * 类型暂写在这里（后端契约先于 openapi 生成落地）：`api-types.gen.ts` 是生成文件，
  * 不在本次改动范围内；接口稳定后可换成 `components["schemas"][...]`。
  */
-export type PersonaScope = "tenant" | "class" | "self";
+export type PersonaScope = "platform" | "tenant" | "class" | "self";
 
 export interface PersonaPreset {
 	key: string;

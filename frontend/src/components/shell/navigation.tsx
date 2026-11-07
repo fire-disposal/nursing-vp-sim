@@ -113,9 +113,9 @@ export const NAV_GROUPS: NavGroupDef[] = [
 	{ key: "personal", label: "我的训练", icon: IconStethoscope, defaultOpen: false, personas: ["student", "teacher", "admin", "ops"] },
 	// 教学 = 日常查看与操作（看板/作业/成绩/记录）；教学资源 = 低频配置（病例/问卷/标准）
 	{ key: "teaching", label: "教学", icon: IconSchool, defaultOpen: true, personas: ["teacher", "admin"] },
-	{ key: "content", label: "教学资源", icon: IconBook2, defaultOpen: false, personas: ["teacher", "admin"] },
-	{ key: "people", label: "人员", icon: IconUsers, defaultOpen: false, personas: ["admin"] },
-	{ key: "system", label: "运维", icon: IconActivity, defaultOpen: false, personas: ["ops"] },
+	{ key: "content", label: "教学资源", icon: IconBook2, defaultOpen: false, personas: ["teacher", "admin", "platform"] },
+	{ key: "people", label: "人员", icon: IconUsers, defaultOpen: false, personas: ["admin", "platform"] },
+	{ key: "system", label: "运维", icon: IconActivity, defaultOpen: false, personas: ["ops", "platform"] },
 ];
 
 /**
@@ -428,7 +428,7 @@ export const APP_ROUTES: AppRoute[] = [
 			group: "system",
 			// 教学/管理也会收到针对系统的反馈（评分口径、内容错误），不该只有运维能处理；
 			// 权限门仍是 `feedback_review`，这里只放开"哪些视角在导航里看得到"
-			personas: ["teacher", "admin", "ops"],
+			personas: ["teacher", "admin", "ops", "platform"],
 		},
 	},
 ];

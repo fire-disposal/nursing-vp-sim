@@ -27,8 +27,8 @@ const NAV_GROUP_PERSONAS = Object.fromEntries(
 ) as unknown as Record<NavGroupKey, readonly string[]>;
 
 describe("视角导航过滤", () => {
-	it("视角取值与后端预设一致：student/teacher/admin/ops", () => {
-		expect([...PERSONA_ORDER]).toEqual(["student", "teacher", "admin", "ops"]);
+	it("视角取值与后端预设一致：student/teacher/admin/ops/platform", () => {
+		expect([...PERSONA_ORDER]).toEqual(["student", "teacher", "admin", "ops", "platform"]);
 	});
 
 	it("学生：看不到教学 / 教学资源 / 人员 / 运维分组", () => {
@@ -58,8 +58,8 @@ describe("视角导航过滤", () => {
 		for (const key of ["people", "teaching", "content"] as const) {
 			expect(groups, `管理视角缺少 ${key} 分组`).toContain(key);
 		}
-		// 运维分组本身仍是运维专属（只有「系统反馈」被条目级放开）
-		expect(NAV_GROUP_PERSONAS.system).toEqual(["ops"]);
+		// 运维分组：运维 + 平台（只有「系统反馈」被条目级对教师/管理放开）
+		expect(NAV_GROUP_PERSONAS.system).toEqual(["ops", "platform"]);
 	});
 
 	it("运维：只剩运维分组，教学/人员/教学资源一律不可见", () => {
@@ -75,8 +75,8 @@ describe("视角导航过滤", () => {
 		expect(labels).toContain("审计日志");
 	});
 
-	it("「系统反馈」对教师 / 管理 / 运维可见，对学生不可见", () => {
-		for (const persona of ["teacher", "admin", "ops"]) {
+	it("「系统反馈」对教师 / 管理 / 运维 / 平台可见，对学生不可见", () => {
+		for (const persona of ["teacher", "admin", "ops", "platform"]) {
 			expect(labelsOf(persona), `${persona} 应看到系统反馈`).toContain("系统反馈");
 		}
 		expect(labelsOf("student")).not.toContain("系统反馈");
@@ -84,14 +84,25 @@ describe("视角导航过滤", () => {
 
 	it("条目级 personas 覆盖分组口径（是取代，不是并集）", () => {
 		const feedback = NAV_ITEMS.find((item) => item.label === "系统反馈");
-		expect(feedback?.personas).toEqual(["teacher", "admin", "ops"]);
-		// 分组本身仍只给运维
-		expect(NAV_GROUP_PERSONAS.system).toEqual(["ops"]);
+		expect(feedback?.personas).toEqual(["teacher", "admin", "ops", "platform"]);
+		// 分组本身给运维 + 平台
+		expect(NAV_GROUP_PERSONAS.system).toEqual(["ops", "platform"]);
 		// 运维分组里除覆盖条目外，教师/管理一个都看不到
 		const leaked = itemsOf("admin")
 			.filter((item) => item.group === "system" && !item.personas)
 			.map((item) => item.label);
 		expect(leaked).toEqual([]);
+	});
+
+	it("平台：人员 / 教学资源 / 运维可见，教学分组不可见", () => {
+		const groups = groupsOf("platform");
+		expect(groups).toContain("people");
+		expect(groups).toContain("content");
+		expect(groups).toContain("system");
+		expect(groups).not.toContain("teaching");
+		const labels = labelsOf("platform");
+		expect(labels).toContain("院校管理");
+		expect(labels).toContain("审计日志");
 	});
 
 	it("每个视角都至少留下一个入口（不允许把侧栏过滤成空）", () => {

@@ -24,7 +24,7 @@ from core.exceptions import NotFoundError, ValidationError
 from core.images import ImageRejected, normalize_image
 from core.security import require_permission
 from core.unit_of_work import unit_of_work
-from models import Class, Role, RolePermission, School, User
+from models import Class, School, User, UserPersona
 from schemas import DeleteSchoolResponse, SchoolCreate, SchoolResponse, SchoolUpdate
 
 if TYPE_CHECKING:
@@ -69,9 +69,8 @@ class SchoolService:
         admins = {
             row[0]: row[1]
             for row in self.db.query(User.school_id, func.count(func.distinct(User.id)))
-            .join(Role, Role.id == User.role_id)
-            .join(RolePermission, RolePermission.role_id == Role.id)
-            .filter(User.school_id.isnot(None), RolePermission.permission == "user_manage")
+            .join(UserPersona, UserPersona.user_id == User.id)
+            .filter(User.school_id.isnot(None), UserPersona.persona == "admin")
             .group_by(User.school_id)
             .all()
         }

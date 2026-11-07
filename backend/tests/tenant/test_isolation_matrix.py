@@ -12,10 +12,10 @@ from datetime import UTC, datetime
 import pytest
 
 from core.exceptions import NotFoundError, ValidationError
-from core.roles import SYSTEM_PERMISSIONS
+from core.personas import DEFAULT_PERSONA_BY_ROLE, permissions_for_role_name
 from core.security import clear_permission_cache
 from core.tenant import apply_school_scope, platform_scope, resolve_scope, school_name_map
-from models import Case, Class, ClassMembership, Role, RolePermission, School, TrainingRecord, User
+from models import Case, Class, ClassMembership, Role, School, TrainingRecord, User
 from modules.admin.class_memberships import upsert_members
 from modules.admin.classes import ClassService
 from modules.admin.exports import RecordService
@@ -26,24 +26,14 @@ from modules.scoreboard.service import ScoreboardScope, ScoreboardService
 NOW = datetime.now(UTC)
 
 
-def _role(db, name: str) -> Role:
-    """建角色并授予代码里的系统权限（测试库跳过 seed，权限行需自建）。
-
-    权限缓存是**进程级**（`core.security._permission_cache`，按 role_id 缓存）：
-    savepoint 回滚不会清它，而各测试文件会复用同一批 role_id —— 不显式清缓存就会
-    读到别的用例留下的权限集合，表现成"作用域莫名变窄"。这里建完角色立刻清。
-    """
+def _role(db, name: str):
+    """建账号类型（权限不再写库；角色只决定默认视角）。"""
     role = db.query(Role).filter(Role.name == name).first()
     if role is None:
         role = Role(name=name, display_name=name, is_system=True)
         db.add(role)
         db.flush()
-    # 幂等补齐：别的用例可能已提交过同名角色但没授全权限（savepoint 之外的提交不受回滚约束）
-    existing = {rp.permission for rp in db.query(RolePermission).filter(RolePermission.role_id == role.id).all()}
-    for perm in set(SYSTEM_PERMISSIONS.get(name, [])) - existing:
-        db.add(RolePermission(role_id=role.id, permission=perm))
-    db.flush()
-    clear_permission_cache(role.id)
+    clear_permission_cache()
     return role
 
 
@@ -66,10 +56,10 @@ def _user(db, username: str, role: str, school_id: int | None) -> User:
     )
     db.add(user)
     db.flush()
-    # 模拟 get_current_user 的权限装载：作用域解析依赖 has_permission("user_manage")
-    from core.security import load_role_permissions
-
-    user.set_permissions_cache(set(load_role_permissions(db, user.role_id)))
+    # 模拟 get_current_user：装载默认视角与对应权限（作用域由视角声明决定）
+    user.set_active_persona(DEFAULT_PERSONA_BY_ROLE.get(role))
+    user.set_permissions_cache(set(permissions_for_role_name(role)))
+    clear_permission_cache()
     return user
 
 

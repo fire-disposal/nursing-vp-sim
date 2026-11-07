@@ -24,15 +24,6 @@ class Role(Base):
     is_system: Mapped[bool] = mapped_column(default=False)
 
 
-class RolePermission(Base):
-    __tablename__ = "role_permissions"
-    __table_args__ = (UniqueConstraint("role_id", "permission", name="ix_rp_role_perm"),)
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    role_id: Mapped[int] = mapped_column(Integer, ForeignKey("roles.id", ondelete="CASCADE"))
-    permission: Mapped[str] = mapped_column(String(40))
-
-
 class UserPersona(Base):
     """用户被授予的视角（多对多，复合主键）。
 

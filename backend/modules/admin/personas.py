@@ -135,6 +135,9 @@ class PersonaService:
         unknown = sorted(set(unique) - set(PERSONA_KEYS))
         if unknown:
             raise ValidationError(f"未知视角: {unknown}")
+        # 平台级视角跨院校：只属于平台账号，绝不能被授予普通院校账号
+        if "platform" in unique and not is_super_admin(target):
+            raise ValidationError("平台视角只能授予平台账号")
 
         grantable = self._grantable(actor)
         if grantable is not None:

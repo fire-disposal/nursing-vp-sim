@@ -1873,7 +1873,7 @@
       "get": {
         "tags": [
           "管理",
-          "角色管理"
+          "角色"
         ],
         "summary": "List Roles",
         "operationId": "list_roles_api_admin_roles_get",
@@ -1908,215 +1908,6 @@
                   },
                   "title": "Response List Roles Api Admin Roles Get"
                 }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "管理",
-          "角色管理"
-        ],
-        "summary": "Create Role",
-        "operationId": "create_role_api_admin_roles_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RoleCreateRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RoleResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/admin/roles/{role_id}": {
-      "put": {
-        "tags": [
-          "管理",
-          "角色管理"
-        ],
-        "summary": "Update Role",
-        "operationId": "update_role_api_admin_roles__role_id__put",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "role_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Role Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RoleUpdateRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RoleResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "管理",
-          "角色管理"
-        ],
-        "summary": "Delete Role",
-        "operationId": "delete_role_api_admin_roles__role_id__delete",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "role_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Role Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeleteResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/admin/roles/export": {
-      "post": {
-        "tags": [
-          "管理",
-          "角色管理"
-        ],
-        "summary": "Export Roles",
-        "operationId": "export_roles_api_admin_roles_export_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "format",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "pattern": "^(csv|xlsx)$",
-              "default": "csv",
-              "title": "Format"
-            }
-          },
-          {
-            "name": "search",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "description": "角色名模糊搜索",
-              "default": "",
-              "title": "Search"
-            },
-            "description": "角色名模糊搜索"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
               }
             }
           },
@@ -16133,6 +15924,7 @@
           "scope": {
             "type": "string",
             "enum": [
+              "platform",
               "tenant",
               "class",
               "self"
@@ -17251,36 +17043,6 @@
         "title": "ResolvedTurn",
         "description": "**平台确定性地**结算的产物：世界这一回合发生了什么（内部模型，不直接给学生）。"
       },
-      "RoleCreateRequest": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "maxLength": 20,
-            "minLength": 1,
-            "title": "Name"
-          },
-          "display_name": {
-            "type": "string",
-            "maxLength": 40,
-            "minLength": 1,
-            "title": "Display Name"
-          },
-          "permissions": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Permissions"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "name",
-          "display_name"
-        ],
-        "title": "RoleCreateRequest"
-      },
       "RoleResponse": {
         "properties": {
           "id": {
@@ -17300,14 +17062,6 @@
             "title": "Is System",
             "default": false
           },
-          "permissions": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Permissions",
-            "default": []
-          },
           "user_count": {
             "type": "integer",
             "title": "User Count",
@@ -17320,40 +17074,8 @@
           "name",
           "display_name"
         ],
-        "title": "RoleResponse"
-      },
-      "RoleUpdateRequest": {
-        "properties": {
-          "display_name": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 40
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Display Name"
-          },
-          "permissions": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Permissions"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "RoleUpdateRequest"
+        "title": "RoleResponse",
+        "description": "账号类型（角色）：权限不再挂在这里，见 core/personas.py。"
       },
       "ScenarioActor": {
         "properties": {

@@ -16,10 +16,11 @@ from sqlalchemy.orm import Session
 from core.database import Base
 from core.database import engine as pg_engine
 from core.exceptions import AuthError, NotFoundError, ValidationError
-from core.roles import SYSTEM_PERMISSIONS
+from core.permissions import PERMISSION_KEYS
+from core.personas import permissions_for_role_name
 from core.security import clear_permission_cache
 from core.tenant import TenantScope, platform_scope
-from models import Class, ClassMembership, Role, RolePermission, School, User
+from models import Class, ClassMembership, Role, School, User
 from modules.admin.users import UserService
 from schemas import UserMembershipUpdate, UserUpdateRequest
 from tests.conftest import ensure_school
@@ -32,7 +33,6 @@ _TABLES = [
     Class.__table__,
     ClassMembership.__table__,
     Role.__table__,
-    RolePermission.__table__,
     User.__table__,
 ]
 
@@ -43,31 +43,19 @@ def _schema():
     Base.metadata.create_all(pg_engine, tables=_TABLES)
 
 
-def _sync_system_roles(session: Session) -> None:
-    """把系统角色的权限对齐到 `core.roles.SYSTEM_PERMISSIONS`。
-
-    真库里同名角色可能早被迁移/其它测试种下、权限集与代码定义不一致（例如 admin 少了
-    teacher 的权限），只补"缺失的角色"是不够的。这里在 **savepoint 内**做全量对齐 →
-    teardown 回滚，不会改动真实库。
-    """
+def _ensure_roles(session: Session) -> None:
+    """确保系统角色（账号类型）存在；权限不再写库（视角预设是唯一来源）。"""
     by_name = {role.name: role for role in session.query(Role).all()}
-    for name, perms in SYSTEM_PERMISSIONS.items():
-        role = by_name.get(name)
-        if role is None:
-            role = Role(name=name, display_name=name, is_system=True)
-            session.add(role)
-            session.flush()
-        session.query(RolePermission).filter(RolePermission.role_id == role.id).delete()
-        for perm in perms:
-            session.add(RolePermission(role_id=role.id, permission=perm))
+    for name in ("student", "teacher", "admin", "super_admin"):
+        if name not in by_name:
+            session.add(Role(name=name, display_name=name, is_system=True))
     session.flush()
 
 
 @pytest.fixture
 def db(pg_session):
-    # load_role_permissions 有进程级缓存（role_id → perms，2s TTL），逐用例清理
     clear_permission_cache()
-    _sync_system_roles(pg_session)
+    _ensure_roles(pg_session)
     yield pg_session
     clear_permission_cache()
 
@@ -87,6 +75,8 @@ def _make_user(db: Session, username: str, role_name: str) -> User:
     db.add(user)
     db.commit()
     db.refresh(user)
+    # 权限按当前视角算：测试直接注入"该账号类型默认视角"的权限集合
+    user.set_permissions_cache(set(permissions_for_role_name(role_name)))
     return user
 
 
@@ -256,13 +246,9 @@ class TestMembershipReplacement:
 
 
 def _make_role_with_perms(db: Session, name: str, perms: list[str]) -> Role:
-    """ "权限等同超管但不叫 super_admin"的第三方角色：用于把守卫逼到"最后一个超管"分支
-    （否则会被反越权的 403 先拦下，测不到兜底逻辑）。"""
+    """建一个账号类型；权限不再写库，调用方随后给 actor 注入权限集合。"""
     role = Role(name=name, display_name=name, is_system=False)
     db.add(role)
-    db.flush()
-    for perm in perms:
-        db.add(RolePermission(role_id=role.id, permission=perm))
     db.commit()
     db.refresh(role)
     return role
@@ -300,8 +286,9 @@ class TestHighPrivilegeAccountLifecycle:
 
     def test_cannot_deactivate_last_active_super_admin(self, db):
         # 操作者权限等同超管（作用域检查会放行），目标就是唯一启用中的超管
-        _make_role_with_perms(db, "platform_admin", SYSTEM_PERMISSIONS["super_admin"])
+        _make_role_with_perms(db, "platform_admin", [])
         actor = _make_user(db, "platform-actor", "platform_admin")
+        actor.set_permissions_cache(set(PERMISSION_KEYS))
         target = _make_user(db, "root-only", "super_admin")
 
         with pytest.raises(ValidationError) as exc:
@@ -312,8 +299,9 @@ class TestHighPrivilegeAccountLifecycle:
 
     def test_super_admin_not_deletable_even_with_peer_present(self, db):
         """即使还有别的超管，也不允许删除某个超管账号（政策是无条件不可删）。"""
-        _make_role_with_perms(db, "platform_admin2", SYSTEM_PERMISSIONS["super_admin"])
+        _make_role_with_perms(db, "platform_admin2", [])
         actor = _make_user(db, "platform-actor2", "platform_admin2")
+        actor.set_permissions_cache(set(PERMISSION_KEYS))
         _make_user(db, "root-other", "super_admin")
         target = _make_user(db, "root-only2", "super_admin")
 

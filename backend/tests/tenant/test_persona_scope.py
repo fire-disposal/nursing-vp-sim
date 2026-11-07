@@ -76,6 +76,14 @@ def test_account_without_school_is_global():
     assert scope.school_id is None
 
 
-def test_legacy_user_keeps_old_inference():
-    assert resolve_scope(_Db({7}), _user(persona=None)).class_ids == frozenset({7})
-    assert resolve_scope(_Db({7}), _user(persona=None, perms={"user_manage"})).class_ids is None
+def test_user_without_persona_has_school_but_no_classes():
+    """没有授予任何视角：院校边界保留，class_ids 为空（能登录、看不到数据）。"""
+    scope = resolve_scope(_Db({7}), _user(persona=None))
+    assert scope.school_id == 3
+    assert scope.class_ids == frozenset()
+
+
+def test_platform_persona_is_global():
+    scope = resolve_scope(_Db({7}), _user(persona="platform"))
+    assert scope.school_id is None
+    assert scope.class_ids is None

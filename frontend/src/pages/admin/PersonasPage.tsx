@@ -44,6 +44,7 @@ const SCOPE_HINT: Record<
 	PersonaScope,
 	{ zh: string; en: string; color: string }
 > = {
+	platform: { zh: "平台级（跨院校）", en: "Platform-wide", color: "grape" },
 	tenant: { zh: "全校数据", en: "Tenant-wide", color: "red" },
 	class: { zh: "所带班级", en: "Own classes", color: "blue" },
 	self: { zh: "仅本人", en: "Self only", color: "gray" },

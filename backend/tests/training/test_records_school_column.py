@@ -21,7 +21,6 @@ from models import (
     Class,
     ClassMembership,
     Role,
-    RolePermission,
     School,
     Score,
     ScoreReview,
@@ -40,7 +39,6 @@ _TABLES = [
     Class.__table__,
     ClassMembership.__table__,
     Role.__table__,
-    RolePermission.__table__,
     User.__table__,
     Case.__table__,
     Assignment.__table__,
@@ -75,7 +73,6 @@ def _reviewer(db: Session) -> User:
         role = Role(name="records-reviewer", display_name="records-reviewer", is_system=False)
         db.add(role)
         db.flush()
-        db.add(RolePermission(role_id=role.id, permission="score_review"))
         db.flush()
     user = User(
         username="records-reviewer",

@@ -32,8 +32,8 @@ from core.identity import (
     normalize_student_id,
 )
 from core.pagination import paginate
-from core.personas import SUPER_ADMIN_ROLE, is_super_admin
-from core.security import hash_password, load_role_permissions, require_permission
+from core.personas import SUPER_ADMIN_ROLE, is_super_admin, permissions_for_role_name
+from core.security import hash_password, require_permission, resolve_view_persona
 from core.tenant import Scope, TenantScope, scope_query, visible_class, writable_school_id
 from core.unit_of_work import unit_of_work
 from infra.exporter import ColumnDef, ExportAudit, export_response
@@ -274,14 +274,21 @@ class UserService:
         )
 
     def _grantable(self, current_user: User) -> set[str]:
-        """操作者自身角色拥有的权限 = 其可授予/可支配的上限（与 roles.py 同一套反越权口径）。"""
-        return set(load_role_permissions(self.db, current_user.role_id))
+        """操作者**当前视角**的权限 = 其可支配的上限（权限只来自视角）。"""
+        cached = getattr(current_user, "_permissions_cache", None)
+        if cached is not None:
+            return set(cached)
+        return set(resolve_view_persona(self.db, current_user)[1])
 
     def _assert_role_within_scope(self, current_user: User, role_obj: Role, *, action: str) -> None:
-        exceeded = sorted(set(load_role_permissions(self.db, role_obj.id)) - self._grantable(current_user))
+        # 角色不再承载权限，但"账号类型"仍暗示默认视角：不能支配超出自身权限的账号类型。
+        # 平台账号天然可支配全部，不做集合比较。
+        if is_super_admin(current_user):
+            return
+        exceeded = sorted(permissions_for_role_name(role_obj.name) - self._grantable(current_user))
         if exceeded:
             raise AuthError(
-                f"无权{action}「{role_obj.display_name}」：目标角色包含你自身没有的权限 {exceeded}",
+                f"无权{action}「{role_obj.display_name}」：该账号类型默认视角包含你没有的权限 {exceeded}",
                 status_code=403,
             )
 

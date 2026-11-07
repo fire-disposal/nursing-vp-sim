@@ -11,19 +11,16 @@ from sqlalchemy.orm import Session, joinedload
 
 from core.config import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, JWT_SECRET_KEY, REFRESH_MAX_AGE_HOURS
 from core.database import get_db
-from core.personas import PERSONA_KEYS, default_persona_for, grants_all_personas, persona_permissions
-from models import RolePermission, User, UserPersona
+from core.personas import PERSONA_KEYS, default_persona_for, grants_all_personas, persona_permissions, persona_scope
+from models import User, UserPersona
 
 security = HTTPBearer()
 
 #: 请求头：当前生效视角。只能选"已授予"的视角，见 resolve_view_persona。
 VIEW_PERSONA_HEADER = "X-View-Persona"
 
-# Process-level permission cache: role_id -> (expires_at_monotonic, frozenset[str])
-_permission_cache: dict[int, tuple[float, frozenset[str]]] = {}
-# 视角授予集合缓存：user_id -> (expires_at_monotonic, frozenset[str] | None)
-# None 表示"该用户没有任何 persona 行"（legacy / 自定义角色），由调用方回落到 role_permissions。
-_user_persona_cache: dict[int, tuple[float, frozenset[str] | None]] = {}
+# 视角授予集合缓存：user_id -> (expires_at_monotonic, frozenset[str])
+_user_persona_cache: dict[int, tuple[float, frozenset[str]]] = {}
 # TTL 取 2s：缓存是**进程内**的，而生产跑 --workers 2（Dockerfile.backend 的 --workers），
 # 改权限只会在写入的那个 worker 上被 clear_permission_cache 立即失效，另一个 worker 只能等 TTL。
 # 60s 意味着"降权后另一个 worker 最长 60s 仍按旧权限放行"；2s 把窗口压到可接受量级，
@@ -31,21 +28,10 @@ _user_persona_cache: dict[int, tuple[float, frozenset[str] | None]] = {}
 _PERM_CACHE_TTL = 2
 
 
-def load_role_permissions(db: Session, role_id: int) -> frozenset[str]:
-    now = time.monotonic()
-    cached = _permission_cache.get(role_id)
-    if cached is not None and now < cached[0]:
-        return cached[1]
-    rows = db.query(RolePermission.permission).filter(RolePermission.role_id == role_id).all()
-    perms = frozenset(r.permission for r in rows)
-    _permission_cache[role_id] = (now + _PERM_CACHE_TTL, perms)
-    return perms
-
-
 def load_user_personas(db: Session, user: User) -> frozenset[str]:
     """该用户**已授予**的视角集合（超管 = 全集，派生）。
 
-    无 persona 行且非超管 → 空集，调用方据此走 legacy `role_permissions`。
+    无 persona 行且非超管 → 空集（没有任何权限；管理员需在视角管理里授予）。
     写入侧（授权变更）负责 `clear_permission_cache(user.id)`。
     """
     if grants_all_personas(user):
@@ -53,10 +39,10 @@ def load_user_personas(db: Session, user: User) -> frozenset[str]:
     now = time.monotonic()
     cached = _user_persona_cache.get(user.id)
     if cached is not None and now < cached[0]:
-        return cached[1] if cached[1] is not None else frozenset()
+        return cached[1]
     rows = db.query(UserPersona.persona).filter(UserPersona.user_id == user.id).all()
     granted = frozenset(r.persona for r in rows)
-    _user_persona_cache[user.id] = (now + _PERM_CACHE_TTL, granted or None)
+    _user_persona_cache[user.id] = (now + _PERM_CACHE_TTL, granted)
     return granted
 
 
@@ -69,42 +55,38 @@ def resolve_view_persona(
 
     - `requested` 给了但不在授予集合内 → 403「视角不可用」（前端只能选已授予的）；
     - 未给 → 默认视角（系统角色 → `default_persona_for`；超管 → admin）；
-    - 无 persona 行且非超管 → legacy：persona 记为 `role.name`，权限取 `role_permissions`
-      （迁移前的老用户 / 自定义角色不因新表为空而 500 或失权）。
+    - 未授予任何视角 → 允许登录（`/auth/me` 仍要可用），但权限为空集。
     """
     granted = load_user_personas(db, user)
-    legacy = not granted
     default = default_persona_for(user)
 
-    if requested:
-        desired = requested.strip()
-        if legacy:
-            # 未授予任何视角的用户，唯一可用的"视角"就是 legacy 身份本身
-            role = getattr(user, "role", None)
-            if desired != (role.name if role is not None else ""):
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="视角不可用")
-            return desired, load_role_permissions(db, user.role_id)
+    def _activate(desired: str) -> tuple[str, frozenset[str]]:
         if desired not in granted:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="视角不可用")
+        # 平台级视角只属于平台账号：即使数据里误授予了，也拒绝非平台账号使用它跨院校
+        if persona_scope(desired) == "platform" and not grants_all_personas(user):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="视角不可用")
         return desired, persona_permissions(desired)
 
-    if legacy or default is None:
-        role = getattr(user, "role", None)
-        return (role.name if role is not None else None), load_role_permissions(db, user.role_id)
+    if requested:
+        return _activate(requested.strip())
 
-    active = default if default in granted else sorted(granted)[0]
-    return active, persona_permissions(active)
+    if default is not None and default in granted:
+        return _activate(default)
+    if granted:
+        return _activate(next(iter(sorted(granted))))
+
+    # 没有任何授予：保留"可登录但无权限"的稳定状态，由管理员在视角管理里补授。
+    role = getattr(user, "role", None)
+    return (role.name if role is not None else None), frozenset()
 
 
-def clear_permission_cache(role_id: int | None = None) -> None:
-    """清权限缓存。入参沿用历史语义：给了 `role_id` 只清那条角色权限，
-    但视角授予集合按 `user_id` 缓存、且与角色权限同源（都影响生效权限），
-    因此**无论怎么调**都一并清空 `user_personas` 缓存。"""
-    if role_id is not None:
-        _permission_cache.pop(role_id, None)
+def clear_permission_cache(user_id: int | None = None) -> None:
+    """清视角授予缓存；给 `user_id` 只清该用户，不给则全清（多 worker 各自 TTL 兜底）。"""
+    if user_id is not None:
+        _user_persona_cache.pop(user_id, None)
     else:
-        _permission_cache.clear()
-    _user_persona_cache.clear()
+        _user_persona_cache.clear()
 
 
 def _set_user_permissions(user: User, db: Session, persona: str | None = None) -> None:
@@ -164,8 +146,29 @@ def get_current_user(
     # `request` 声明为 `Request | None = None`：FastAPI 仍会注入，
     # 同时允许测试与内部代码直接调用（request 为 None 时只不写 state）。
     requested = request.headers.get(VIEW_PERSONA_HEADER) if request is not None else None
-    # 越权视角由 resolve_view_persona 抛 403「视角不可用」
-    active, perms = resolve_view_persona(db, user, requested)
+    # 越权视角由 resolve_view_persona 抛 403「视角不可用」：这是"有人尝试以没有的视角行事"，
+    # 属于访问拒绝证据，必须留痕（独立 session，业务回滚不影响）。
+    try:
+        active, perms = resolve_view_persona(db, user, requested)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_403_FORBIDDEN and request is not None:
+            from core.audit import ACTION_ACCESS_DENIED, record_detached
+
+            request.state.audit_actor = user
+            request.state.view_persona = requested
+            try:
+                record_detached(
+                    request,
+                    action=ACTION_ACCESS_DENIED,
+                    target_type="persona",
+                    target_id=str(requested),
+                    target_label=str(requested),
+                    outcome="denied",
+                    payload={"requested_persona": requested},
+                )
+            except Exception:  # 审计失败不得改变鉴权结果
+                pass
+        raise
     user.set_permissions_cache(set(perms))
     # /auth/me 要在不重复解析的前提下回报当前视角
     # 与 _permissions_cache 同构的请求级快照，随对象生命周期消亡
