@@ -14,7 +14,6 @@ import {
 
 export const PRODUCT_NAME = "虚拟患者训练系统";
 export const HERO_TITLE = "把 LLM 做成可教学、可评估的虚拟患者";
-export const HERO_SUBTITLE = "护理病史采集训练平台：5 个训练面板、19 项评分维度、6 种情绪状态，覆盖对话、评分与知识溯源。";
 export const CTA_LABEL = "进入系统";
 export const CTA_HREF = "/login";
 

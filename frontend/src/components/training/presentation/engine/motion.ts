@@ -167,8 +167,3 @@ export function mouthFrameAt(
 	return { shape: (["small", "mid", "wide"] as const)[level], width };
 }
 
-/** 口型目标 0..1：说话时跟包络走，不说话时留下极小的静息口缝。 */
-export function mouthTarget(speaking: boolean | undefined, envelope: number): number {
-	const env = Math.min(1, Math.max(0, envelope));
-	return speaking === true ? 0.32 + 0.68 * env : 0.04;
-}

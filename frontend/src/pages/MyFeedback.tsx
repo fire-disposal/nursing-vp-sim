@@ -1,12 +1,14 @@
+import { REPLY_FILTER_OPTIONS_WITH_ALL, TAG_FILTER_OPTIONS, repliedToUi, tagLabel, uiToReplied } from "@/config/feedback-tags";
 import { APP_TIME_ZONE } from "@/utils/date";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Badge, Badge as MantineBadge, Box, Container, Group, Modal, Paper, Select, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Badge, Box, Container, Group, Paper, Select, SimpleGrid, Stack, Text } from "@mantine/core";
 import { IconCamera, IconMessageCircle, IconMessageReply } from "@tabler/icons-react";
 import { useState } from "react";
 import { feedbackImageUrl, getMyFeedback } from "@/api/admin/feedback";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import AuthImage from "@/components/ui/auth-image";
+import { FeedbackImagePreview } from "@/components/feedback/ImagePreviewModal";
 import EmptyState from "@/components/ui/empty-state";
 import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
@@ -24,36 +26,9 @@ type FeedbackItem = Schemas["FeedbackItem"] & {
 
 const RATING_LABELS = ["很不满意", "不满意", "一般", "满意", "很满意"];
 const RATING_COLORS = ["red", "orange", "yellow", "green", "blue"];
-const TAG_LABELS: Record<string, string> = {
-	feature: "功能建议", bug: "BUG反馈", experience: "体验评价",
-	content: "内容质量", ui: "界面设计", other: "其他",
-};
 const LIMIT = 20;
 
 type MyFeedbackParams = { tag?: string; replied?: boolean };
-
-/** 回复状态的三态（全部/已回复/未回复）与后端布尔参数互转。 */
-function repliedToUi(replied: boolean | undefined): string {
-	if (replied === true) return "replied";
-	if (replied === false) return "unreplied";
-	return "";
-}
-
-function uiToReplied(value: string): boolean | undefined {
-	if (value === "replied") return true;
-	if (value === "unreplied") return false;
-	return undefined;
-}
-
-const TAG_OPTIONS = [
-	{ label: "全部", value: "" },
-	{ label: "BUG", value: "bug" },
-	{ label: "功能", value: "feature" },
-	{ label: "体验", value: "experience" },
-	{ label: "内容", value: "content" },
-	{ label: "UI", value: "ui" },
-	{ label: "其他", value: "other" },
-];
 
 export default function MyFeedbackPage() {
 	// 与其它列表页同一套筛选范式（见 ui-improvement-plan §6.4）：筛选态一次构造出请求参数，
@@ -132,10 +107,7 @@ export default function MyFeedbackPage() {
 								aria-label="标签"
 								value={list.values.tag || null}
 								onChange={(v) => list.setFilter("tag", v ?? "")}
-								data={TAG_OPTIONS.filter((opt) => opt.value !== "").map((opt) => ({
-									value: opt.value,
-									label: opt.label,
-								}))}
+								data={TAG_FILTER_OPTIONS}
 							/>
 							<Text size="xs" c="dimmed">
 								回复状态
@@ -143,11 +115,7 @@ export default function MyFeedbackPage() {
 							<Select
 								size="xs"
 								w={110}
-								data={[
-									{ value: "", label: "全部" },
-									{ value: "replied", label: "已回复" },
-									{ value: "unreplied", label: "未回复" },
-								]}
+								data={REPLY_FILTER_OPTIONS_WITH_ALL}
 								value={repliedToUi(list.values.replied)}
 								onChange={(v) => list.setFilter("replied", uiToReplied(v ?? ""))}
 							/>
@@ -178,7 +146,7 @@ export default function MyFeedbackPage() {
 								<Paper key={fb.id} withBorder p="md">
 									<Group justify="space-between" align="flex-start" wrap="wrap" gap="xs">
 										<Group gap="xs" wrap="wrap">
-											<MantineBadge
+											<Badge
 												variant="light"
 												color={RATING_COLORS[ratingIndex]}
 												radius="md"
@@ -188,10 +156,10 @@ export default function MyFeedbackPage() {
 												<Text component="span" inherit opacity={0.75}>
 													{RATING_LABELS[ratingIndex]}
 												</Text>
-											</MantineBadge>
+											</Badge>
 											{fb.tag && (
 												<Badge variant="outline" size="xs">
-													{TAG_LABELS[fb.tag] || fb.tag}
+													{tagLabel(fb.tag)}
 												</Badge>
 											)}
 											<Badge
@@ -289,15 +257,7 @@ export default function MyFeedbackPage() {
 					/>
 				)}
 
-				{previewUrl && (
-					<Modal opened onClose={() => setPreviewUrl(null)} title="截图预览" size={800} centered withinPortal>
-						<AuthImage
-							src={previewUrl}
-							alt="截图预览"
-							style={{ maxHeight: "70vh", maxWidth: "100%", objectFit: "contain", borderRadius: "var(--mantine-radius-md)" }}
-						/>
-					</Modal>
-				)}
+				<FeedbackImagePreview url={previewUrl} onClose={() => setPreviewUrl(null)} />
 			</Stack>
 		</Container>
 	);

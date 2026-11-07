@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { assignmentSchema } from "@/schemas/assignment";
 import { classFormSchema } from "@/schemas/class";
-import { llmConfigSchema } from "@/schemas/llm-config";
 import { notificationSchema } from "@/schemas/notification";
 import { profileSchema } from "@/schemas/profile";
 import { roleCreateSchema } from "@/schemas/role";
@@ -265,17 +264,6 @@ describe("classFormSchema", () => {
 
 	it("rejects empty name", () => {
 		expect(classFormSchema.safeParse({ name: "", cohortLabel: "2024级" }).success).toBe(false);
-	});
-});
-
-describe("llmConfigSchema", () => {
-	it("accepts valid config", () => {
-		expect(llmConfigSchema.safeParse({ secretId: "s1", label: "主", purpose: "patient_chat" }).success).toBe(true);
-	});
-
-	it("rejects missing secret or purpose", () => {
-		expect(llmConfigSchema.safeParse({ secretId: "", label: "", purpose: "x" }).success).toBe(false);
-		expect(llmConfigSchema.safeParse({ secretId: "s1", label: "", purpose: "" }).success).toBe(false);
 	});
 });
 

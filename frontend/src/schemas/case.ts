@@ -1,9 +1,5 @@
 import { z } from "zod";
 
-/** 病例生命周期：draft 工作副本 → published 可训练 → archived 冻结。 */
-export const caseStatusSchema = z.enum(["draft", "published", "archived"]);
-export type CaseStatus = z.infer<typeof caseStatusSchema>;
-
 /** 发布门禁的字段级问题项（与后端 CaseValidationIssue 同形）。 */
 const caseValidationIssueSchema = z.object({
 	severity: z.string(),
@@ -21,7 +17,6 @@ export const caseValidationReportSchema = z.object({
 	warnings: z.array(caseValidationIssueSchema),
 	infos: z.array(caseValidationIssueSchema),
 });
-export type CaseValidationReportValues = z.infer<typeof caseValidationReportSchema>;
 
 /**
  * 发布/编辑被门禁拒绝（422）时的响应外壳：``detail`` = ``{code, report}``。

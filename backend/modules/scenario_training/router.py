@@ -457,16 +457,20 @@ def close_session_route(
         raise _map_error(exc) from exc
 
 
-@router.get("/assets/{pack_key}/{asset_id}")
-def get_asset(pack_key: str, asset_id: str, db: DbSession, current_user: _StudentUser) -> Response:
-    """提供场景资源（pack 声明的图片）。需要登录态。"""
+def _image_response(db: DbSession, pack_key: str, asset_id: str) -> Response:
+    """取资源字节 → 图片响应（学生侧与管理侧预览共用同一套缓存与 404 语义）。"""
     _, pack = pack_loader.load_pack(db, pack_key)
     try:
         content, mime = assets_mod.read_image(db, pack, asset_id)
     except assets_mod.AssetNotFound as exc:
         raise HTTPException(status_code=404, detail="资源不存在") from exc
-    headers = {"Cache-Control": _CACHE_REPLACEABLE}
-    return Response(content=content, media_type=mime, headers=headers)
+    return Response(content=content, media_type=mime, headers={"Cache-Control": _CACHE_REPLACEABLE})
+
+
+@router.get("/assets/{pack_key}/{asset_id}")
+def get_asset(pack_key: str, asset_id: str, db: DbSession, current_user: _StudentUser) -> Response:
+    """提供场景资源（pack 声明的图片）。需要登录态。"""
+    return _image_response(db, pack_key, asset_id)
 
 
 # --------------------------------------------------------------------------- #
@@ -660,12 +664,14 @@ def _validation_of(db: DbSession, pack_key: str, content: dict[str, Any]) -> Sce
     )
 
 
-@router.get("/admin/packs/{pack_key}/content", dependencies=[_ContentManager])
-def admin_pack_content(pack_key: str, db: DbSession) -> ScenarioPackContent:
-    """编辑器：读这份病例的**当前内容**（存回去就走 POST 同一个端点）。"""
-    row = _require_pack(db, pack_key)
-    content = row.content or {}
-    problems = pack_loader.validate_content(content)
+def _pack_content_response(
+    row: StPack,
+    content: dict[str, Any],
+    *,
+    problems: list[ScenarioPackProblem] | None = None,
+    changed: bool = False,
+) -> ScenarioPackContent:
+    """编辑器读/存共用的响应体：病例行 + 内容 → 前端要的字段（元信息只取一处）。"""
     meta = pack_loader.content_meta(content)
     return ScenarioPackContent(
         key=row.key,
@@ -675,8 +681,18 @@ def admin_pack_content(pack_key: str, db: DbSession) -> ScenarioPackContent:
         published=bool(row.published),
         published_at=_stamp(row.published_at),
         content=content,
-        problems=[ScenarioPackProblem.model_validate(item) for item in problems],
+        problems=problems or [],
+        changed=changed,
     )
+
+
+@router.get("/admin/packs/{pack_key}/content", dependencies=[_ContentManager])
+def admin_pack_content(pack_key: str, db: DbSession) -> ScenarioPackContent:
+    """编辑器：读这份病例的**当前内容**（存回去就走 POST 同一个端点）。"""
+    row = _require_pack(db, pack_key)
+    content = row.content or {}
+    problems = [ScenarioPackProblem.model_validate(item) for item in pack_loader.validate_content(content)]
+    return _pack_content_response(row, content, problems=problems)
 
 
 @router.post("/admin/packs/{pack_key}/content", dependencies=[_ContentManager])
@@ -703,17 +719,7 @@ def admin_save_pack_content(
     with unit_of_work(db, conflict_detail="保存情境包失败"):
         row, changed = _install_pack(db, pack, created_by=current_user.id)
         assets_mod.seed_assets(db, pack, case_folder.images_of(pack.key))
-    meta = pack_loader.content_meta(row.content or {})
-    return ScenarioPackContent(
-        key=row.key,
-        title=meta["title"],
-        one_line=meta["one_line"],
-        version=int(row.version),
-        published=bool(row.published),
-        published_at=_stamp(row.published_at),
-        content=row.content or {},
-        changed=changed,
-    )
+    return _pack_content_response(row, row.content or {}, changed=changed)
 
 
 @router.post("/admin/packs/{pack_key}/validate", dependencies=[_ContentManager])
@@ -855,6 +861,43 @@ def admin_delete_pack(pack_key: str, db: DbSession, confirm: bool = Query(defaul
     return ScenarioAdminPackDelete(key=pack_key, deleted_assets=len(asset_ids))
 
 
+def _persist_asset(
+    db: DbSession,
+    *,
+    pack_key: str,
+    asset_id: str,
+    pack: ScenarioPack,
+    declaration: Asset,
+    data: bytes,
+    user_id: int,
+    conflict_detail: str,
+) -> ScenarioAdminAssetUpload:
+    """归一字节 → 声明写进内容 → 存字节 → 回一份资源视图（上传/替换共用同一条路径）。"""
+    try:
+        normalized, mime = assets_mod.normalize_image(data)
+    except assets_mod.AssetRejected as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    updated = pack.model_copy(update={"assets": [*(item for item in pack.assets if item.id != asset_id), declaration]})
+    problems = validate_pack(updated)
+    if problems:
+        raise HTTPException(status_code=422, detail={"message": "资源声明未通过校验", "problems": problems})
+    with unit_of_work(db, conflict_detail=conflict_detail):
+        try:
+            assets_mod.store_asset(
+                db,
+                pack_key=pack_key,
+                asset_id=asset_id,
+                filename=declaration.file,
+                mime_type=mime,
+                data=normalized,
+            )
+        except assets_mod.AssetRejected as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        _install_pack(db, updated, created_by=user_id)
+    asset = next(item for item in assets_mod.describe(db, updated) if item["id"] == asset_id)
+    return ScenarioAdminAssetUpload(key=pack_key, asset=ScenarioAdminAsset.model_validate(asset))
+
+
 @router.post("/admin/packs/{pack_key}/assets/{asset_id}", dependencies=[_ContentManager])
 async def admin_replace_asset(
     pack_key: str,
@@ -870,54 +913,33 @@ async def admin_replace_asset(
     上传入口**归一**（剥元数据 + WebP），因此声明里的文件名也跟着改成入库的名字——
     文件夹导出时 `img/<file>` 与字节的格式始终一致。
     """
-    row, pack = pack_loader.load_pack(db, pack_key)
+    _, pack = pack_loader.load_pack(db, pack_key)
     existing = next((item for item in pack.assets if item.id == asset_id), None)
     if existing is None:
         raise HTTPException(status_code=404, detail="该包未声明此资源（新增请走上传接口）")
-    data = await file.read()
-    try:
-        normalized, mime = assets_mod.normalize_image(data)
-    except assets_mod.AssetRejected as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    stored = f"{asset_id}.webp"
     declaration = existing.model_copy(
         update={
-            "file": stored,
+            "file": f"{asset_id}.webp",
             "title": title or existing.title,
             "alt": alt or existing.alt,
         }
     )
-    updated = pack.model_copy(update={"assets": [*(item for item in pack.assets if item.id != asset_id), declaration]})
-    problems = validate_pack(updated)
-    if problems:
-        raise HTTPException(status_code=422, detail={"message": "资源声明未通过校验", "problems": problems})
-    with unit_of_work(db, conflict_detail="替换资源失败"):
-        try:
-            assets_mod.store_asset(
-                db,
-                pack_key=pack_key,
-                asset_id=asset_id,
-                filename=stored,
-                mime_type=mime,
-                data=normalized,
-            )
-        except assets_mod.AssetRejected as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
-        _install_pack(db, updated, created_by=current_user.id)
-    asset = next(item for item in assets_mod.describe(db, updated) if item["id"] == asset_id)
-    return ScenarioAdminAssetUpload(key=pack_key, asset=ScenarioAdminAsset.model_validate(asset))
+    return _persist_asset(
+        db,
+        pack_key=pack_key,
+        asset_id=asset_id,
+        pack=pack,
+        declaration=declaration,
+        data=await file.read(),
+        user_id=current_user.id,
+        conflict_detail="替换资源失败",
+    )
 
 
 @router.get("/admin/packs/{pack_key}/assets/{asset_id}", dependencies=[_DataViewer])
 def admin_get_asset(pack_key: str, asset_id: str, db: DbSession) -> Response:
     """管理侧预览：按 pack key 取资源字节。"""
-    _, pack = pack_loader.load_pack(db, pack_key)
-    try:
-        content, mime = assets_mod.read_image(db, pack, asset_id)
-    except assets_mod.AssetNotFound as exc:
-        raise HTTPException(status_code=404, detail="资源不存在") from exc
-    headers = {"Cache-Control": _CACHE_REPLACEABLE}
-    return Response(content=content, media_type=mime, headers=headers)
+    return _image_response(db, pack_key, asset_id)
 
 
 @router.post("/admin/packs/{pack_key}/assets", dependencies=[_ContentManager])
@@ -934,44 +956,28 @@ async def admin_upload_asset(
 
     上传入口**归一**（剥元数据 + WebP），声明的文件名就是入库的名字（`<asset_id>.webp`）。
     """
-    row, pack = pack_loader.load_pack(db, pack_key)
-    del row
-    data = await file.read()
-    try:
-        normalized, mime = assets_mod.normalize_image(data)
-    except assets_mod.AssetRejected as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    stored = f"{asset_id}.webp"
+    _, pack = pack_loader.load_pack(db, pack_key)
     # 已存在的声明要**保留它自己的字段**（尤其 reveal_with 闸门）——上传只更新字节与文件名，
     # 不重建声明；表单显式给了 title/alt 才覆盖。
     existing = next((item for item in pack.assets if item.id == asset_id), None)
     declaration = Asset(
         id=asset_id,
         kind="image",
-        file=stored,
+        file=f"{asset_id}.webp",
         title=title or (existing.title if existing else "") or asset_id,
         alt=alt or (existing.alt if existing else "") or title or asset_id,
         reveal_with=list(existing.reveal_with) if existing else [],
     )
-    updated = pack.model_copy(update={"assets": [*(item for item in pack.assets if item.id != asset_id), declaration]})
-    problems = validate_pack(updated)
-    if problems:
-        raise HTTPException(status_code=422, detail={"message": "资源声明未通过校验", "problems": problems})
-    with unit_of_work(db, conflict_detail="上传资源失败"):
-        try:
-            assets_mod.store_asset(
-                db,
-                pack_key=pack_key,
-                asset_id=asset_id,
-                filename=stored,
-                mime_type=mime,
-                data=normalized,
-            )
-        except assets_mod.AssetRejected as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
-        _install_pack(db, updated, created_by=current_user.id)
-    asset = next(item for item in assets_mod.describe(db, updated) if item["id"] == asset_id)
-    return ScenarioAdminAssetUpload(key=pack_key, asset=ScenarioAdminAsset.model_validate(asset))
+    return _persist_asset(
+        db,
+        pack_key=pack_key,
+        asset_id=asset_id,
+        pack=pack,
+        declaration=declaration,
+        data=await file.read(),
+        user_id=current_user.id,
+        conflict_detail="上传资源失败",
+    )
 
 
 @router.delete("/admin/packs/{pack_key}/assets/{asset_id}", dependencies=[_ContentManager])

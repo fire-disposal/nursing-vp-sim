@@ -59,10 +59,6 @@ SOURCE_LABELS: dict[str, str] = {
 }
 
 
-def calibration_state() -> str:
-    return CALIBRATION_STATE
-
-
 def policy_descriptor() -> dict:
     """政策身份与当前可用性 —— 所有成绩视图共同携带。"""
     calibrated = CALIBRATION_STATE == CALIBRATION_CALIBRATED

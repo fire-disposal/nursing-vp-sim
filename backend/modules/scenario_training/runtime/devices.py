@@ -120,8 +120,3 @@ def build_devices(pack: ScenarioPack, world: World) -> list[ScenarioDevice]:
                 )
             )
     return devices
-
-
-def device_refs(pack: ScenarioPack) -> set[str]:
-    """所有设备通道覆盖的状态键——白板据此让位（同一读数不出现两次）。"""
-    return {channel.ref for device in pack.presentation.devices for channel in device.channels}

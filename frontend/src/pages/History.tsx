@@ -1,20 +1,18 @@
 import { APP_TIME_ZONE } from "@/utils/date";
 import { recordDurationMinutes } from "@/utils/duration";
 import RecordSubPageLayout from "@/components/shell/RecordSubPageLayout";
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Badge, Box, Button, Group, Paper, Select, Stack, Text, UnstyledButton } from "@mantine/core";
 import { IconCircleX, IconClipboardList, IconPlayerPlay, IconTrash } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
-import { abandonRecord, deleteRecord, getRecords } from "@/api";
-import type { components } from "@/api/api-types.gen";
+import { getRecords } from "@/api";
 import { queryKeys } from "@/api/query-keys";
-import { useToast } from "@/components/Toast";
 import ErrorState from "@/components/ui/error-state";
 import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import { SearchInput } from "@/components/ui/search-input";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
-import { useConfirm } from "@/components/ui/confirm";
+import { useRecordActions } from "@/hooks/useRecordActions";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
@@ -23,8 +21,6 @@ import TableScroll from "@/components/ui/table-scroll";
 import { Table } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import { goTraining } from "@/utils/training-nav";
-
-type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
 
 const LIMIT = 50;
 
@@ -57,9 +53,6 @@ export default function History() {
 	const location = useLocation();
 	// 进入训练页记来源页（含当前筛选的 URL），训练壳出口据此回跳到这里而非固定路径
 	const trainingFrom = location.pathname + location.search;
-	const toast = useToast();
-	const { confirm } = useConfirm();
-	const queryClient = useQueryClient();
 
 	const status = searchParams.get("status") || "";
 	const date_from = searchParams.get("date_from") || "";
@@ -103,47 +96,7 @@ export default function History() {
 	const records = data?.items ?? [];
 	const total = data?.total ?? 0;
 
-	const deleteMutation = useMutation({
-		mutationFn: (id: number) => deleteRecord(id),
-		onSuccess: () => {
-			toast.success("训练记录已删除");
-			queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
-		},
-		onError: (err: unknown) => {
-			toast.apiError(err, "删除失败");
-		},
-	});
-
-	const handleDeleteRecord = async (r: TrainingRecordBrief) => {
-		const ok = await confirm({
-			title: "删除记录",
-			message: `确定删除「${r.case_name}」的训练记录吗？此操作不可撤销。`,
-			confirmLabel: "确定删除",
-			danger: true,
-		});
-		if (!ok) return;
-		deleteMutation.mutate(r.id);
-	};
-
-	const abandonMutation = useMutation({
-		mutationFn: (id: number) => abandonRecord(id),
-		onSuccess: () => {
-			toast.success("训练记录已放弃");
-			queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
-		},
-		onError: (err: unknown) => toast.apiError(err, "操作失败"),
-	});
-
-	const handleAbandonRecord = async (r: TrainingRecordBrief) => {
-		const ok = await confirm({
-			title: "放弃训练",
-			message: `确定放弃「${r.case_name}」的训练吗？放弃后将保留对话记录但不会评分。`,
-			confirmLabel: "确定放弃",
-			danger: true,
-		});
-		if (!ok) return;
-		abandonMutation.mutate(r.id);
-	};
+	const { handleDeleteRecord, handleAbandonRecord } = useRecordActions();
 
 	useEffect(() => {
 		setParam("search", debouncedSearch);

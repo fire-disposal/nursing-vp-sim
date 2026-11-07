@@ -18,7 +18,6 @@ from ..api_models import (
     ScenarioOutcome,
     ScenarioReport,
     ScenarioScore,
-    ScenarioTimelineEntry,
     ScenarioView,
 )
 from ..judge.rules import DecisionResult, dims_snapshot, evaluate, score_report, summarize
@@ -134,7 +133,3 @@ def build_report(pack: ScenarioPack, world: World, *, view: ScenarioView) -> Sce
         ),
         timeline=list(view.timeline),
     )
-
-
-def timeline_of(view: ScenarioView) -> list[ScenarioTimelineEntry]:
-    return list(view.timeline)

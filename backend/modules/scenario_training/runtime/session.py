@@ -383,6 +383,30 @@ def _messages_of(view: Any, seq: int) -> list[Any]:
     return out
 
 
+def _turn_result(
+    *,
+    request_id: str,
+    seq: int,
+    turn: int,
+    view: Any,
+    outcome: AttemptOutcome,
+    block_reason: str | None = None,
+    time_cost: int = 0,
+) -> ScenarioTurnResult:
+    """三种回合（正常 / 求提示 / 澄清）共用的结果外壳：消息按 seq 取本轮，视图同一份。"""
+    return ScenarioTurnResult(
+        request_id=request_id,
+        seq=seq,
+        committed=True,
+        turn=turn,
+        time_cost=time_cost,
+        outcome=outcome,
+        block_reason=block_reason,
+        messages=_messages_of(view, seq),
+        view=view,
+    )
+
+
 async def _phase(hooks: TurnHooks | None, name: TurnPhase) -> None:
     if hooks is not None and hooks.on_phase is not None:
         await hooks.on_phase(name)
@@ -433,15 +457,12 @@ def _clarification(
         "models": ModelCalls().model_dump(),
         "problems": list(problems or []),
     }
-    result = ScenarioTurnResult(
+    result = _turn_result(
         request_id=request.request_id,
         seq=seq,
-        committed=True,
         turn=world.turn,
-        outcome=AttemptOutcome.CLARIFICATION,
-        block_reason=None,
-        messages=_messages_of(view, seq),
         view=view,
+        outcome=AttemptOutcome.CLARIFICATION,
     )
     return payload, result
 
@@ -487,15 +508,12 @@ async def _hint(
         "problems": problems,
         **_agent_payload(outcome),
     }
-    result = ScenarioTurnResult(
+    result = _turn_result(
         request_id=request.request_id,
         seq=seq,
-        committed=True,
         turn=world.turn,
-        outcome=AttemptOutcome.HINT,
-        block_reason=None,
-        messages=_messages_of(view, seq),
         view=view,
+        outcome=AttemptOutcome.HINT,
     )
     return payload, result
 
@@ -585,16 +603,14 @@ async def _turn(
         "problems": problems,
         **_agent_payload(outcome),
     }
-    result = ScenarioTurnResult(
+    result = _turn_result(
         request_id=request.request_id,
         seq=seq,
-        committed=True,
         turn=resolved.turn,
-        time_cost=resolved.time_cost,
+        view=view,
         outcome=resolved.outcome,
         block_reason=resolved.block_reason or None,
-        messages=_messages_of(view, seq),
-        view=view,
+        time_cost=resolved.time_cost,
     )
     return payload, result
 

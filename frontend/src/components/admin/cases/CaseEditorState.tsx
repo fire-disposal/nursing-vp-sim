@@ -192,11 +192,6 @@ export function numField(state: CaseEditorState, path: string, def = 0): number 
 	return typeof v === "number" ? v : def;
 }
 
-export function boolField(state: CaseEditorState, path: string, def = false): boolean {
-	const v = field(state, path, def);
-	return typeof v === "boolean" ? v : def;
-}
-
 export function arrayField(state: CaseEditorState, path: string, def: CaseJsonValue[] = []): CaseJsonValue[] {
 	const v = field(state, path, def);
 	return Array.isArray(v) ? v : def;

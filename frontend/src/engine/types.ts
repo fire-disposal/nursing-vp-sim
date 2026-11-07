@@ -47,8 +47,4 @@ export interface MessageBus {
 	off(event: string, handler: (...args: any[]) => void): void;
 }
 
-export interface BadgeInfo {
-	text: string;
-	variant: "default" | "destructive";
-}
 

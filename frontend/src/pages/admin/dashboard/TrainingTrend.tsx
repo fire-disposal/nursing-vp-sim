@@ -2,26 +2,17 @@ import { Group, Table } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { IconChartBar, IconClipboardList } from "@tabler/icons-react";
 import { useState } from "react";
-import {
-	Bar,
-	CartesianGrid,
-	ComposedChart,
-	Legend,
-	Line,
-	ResponsiveContainer,
-	Tooltip,
-	XAxis,
-	YAxis,
-} from "recharts";
+import { Bar, ComposedChart, Legend, ResponsiveContainer, Tooltip } from "recharts";
 import type { components } from "@/api/api-types.gen";
 import TableScroll from "@/components/ui/table-scroll";
 import { queryKeys } from "@/api/query-keys";
 import { getTeacherSummary, getTrends } from "@/api/stats";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
+import { TrainingTrendChart, TrendAxes } from "@/components/admin/TrainingTrendChart";
 import EmptyState from "@/components/ui/empty-state";
 import Pagination from "@/components/ui/pagination";
-import { useBarColors, useChartTheme } from "@/hooks/useChartTheme";
+import { useBarColors } from "@/hooks/useChartTheme";
 
 type TeacherSummaryItem = components["schemas"]["TeacherSummaryItem"];
 
@@ -78,7 +69,6 @@ export function TrainingTrend({ dateFrom }: { dateFrom?: string }) {
 		};
 	});
 	const hasData = daily.length > 0;
-	const chartTheme = useChartTheme();
 	const barColors = useBarColors();
 
 	// 后端 teacher_summary 是 outerjoin：从没训练过的学生也在表里（次数/时长均为 0），
@@ -99,33 +89,7 @@ export function TrainingTrend({ dateFrom }: { dateFrom?: string }) {
 								data={daily}
 								margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
 							>
-								<CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
-								<XAxis
-									dataKey="date"
-									tick={{ fontSize: 12 }}
-									tickFormatter={(v: string) => v.slice(5)}
-								/>
-								<YAxis
-									yAxisId="left"
-									tick={{ fontSize: 12 }}
-									label={{
-										value: "次数",
-										position: "insideLeft",
-										offset: -5,
-										style: { fontSize: 12 },
-									}}
-								/>
-								<YAxis
-									yAxisId="right"
-									orientation="right"
-									tick={{ fontSize: 12 }}
-									label={{
-										value: "分钟",
-										position: "insideRight",
-										offset: -5,
-										style: { fontSize: 12 },
-									}}
-								/>
+								<TrendAxes rightLabel="分钟" />
 								<Tooltip content={<ChartTooltip />} />
 								<Legend />
 								<Bar
@@ -158,61 +122,7 @@ export function TrainingTrend({ dateFrom }: { dateFrom?: string }) {
 				</CardHeader>
 				<CardContent>
 					{hasData ? (
-						<ResponsiveContainer width="100%" height={280}>
-							<ComposedChart
-								data={daily}
-								margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
-							>
-								<CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
-								<XAxis
-									dataKey="date"
-									tick={{ fontSize: 12 }}
-									tickFormatter={(v: string) => v.slice(5)}
-								/>
-								<YAxis
-									yAxisId="left"
-									tick={{ fontSize: 12 }}
-									label={{
-										value: "次数",
-										position: "insideLeft",
-										offset: -5,
-										style: { fontSize: 12 },
-									}}
-								/>
-								<YAxis
-									yAxisId="right"
-									orientation="right"
-									domain={[0, 60]}
-									tick={{ fontSize: 12 }}
-									label={{
-										value: "得分",
-										position: "insideRight",
-										offset: -5,
-										style: { fontSize: 12 },
-									}}
-								/>
-								<Tooltip content={<ChartTooltip />} />
-								<Legend />
-								<Bar
-									yAxisId="left"
-									dataKey="sessions"
-									name="训练次数"
-									fill={barColors.sessions}
-									radius={[4, 4, 0, 0]}
-									barSize={28}
-								/>
-								<Line
-									yAxisId="right"
-									type="monotone"
-									dataKey="avg_score"
-									name="平均得分"
-									stroke={barColors.score}
-									strokeWidth={2.5}
-									dot={{ r: 4, fill: barColors.score }}
-									connectNulls
-								/>
-							</ComposedChart>
-						</ResponsiveContainer>
+						<TrainingTrendChart data={daily} scoreDomain={[0, 60]} />
 					) : (
 						<EmptyState icon={IconChartBar} title="暂无该时间段的数据" />
 					)}

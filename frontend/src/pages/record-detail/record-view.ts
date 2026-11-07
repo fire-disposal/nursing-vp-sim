@@ -59,10 +59,6 @@ const PRACTICE_KIND_LABELS: Record<PracticeKind, string> = {
 	transfer: "变式迁移练习",
 };
 
-export function practiceKindLabel(kind: string | undefined): string {
-	return kind === "transfer" || kind === "remediation" ? PRACTICE_KIND_LABELS[kind] : "再练习";
-}
-
 function asRecord(raw: unknown): Record<string, unknown> | null {
 	return raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : null;
 }

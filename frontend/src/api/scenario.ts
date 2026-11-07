@@ -72,8 +72,6 @@ export type ScenarioPackValidation = Schemas["ScenarioPackValidation"];
 /** 编辑器读/存共用的一份响应：当前内容 + 版本 + 遗留问题。 */
 export type ScenarioPackContent = Schemas["ScenarioPackContent"];
 export type ScenarioNewPackRequest = Schemas["ScenarioNewPackRequest"];
-export type ScenarioChannelStatus = ScenarioDeviceChannel["status"];
-export type ScenarioDeviceKind = ScenarioDevice["kind"];
 export interface ScenarioAdminSessionQuery { pack_key?: string | null; status?: string | null; limit?: number; offset?: number }
 
 /** 上传请求体：multipart 的字段名与生成物一致，只有 `file` 在浏览器里是 `File`（生成物是二进制字符串）。 */
@@ -114,9 +112,6 @@ export const getScenarioSession = (sessionId: number) =>
 			`/scenario/sessions/${sessionId}` as ApiPath,
 		)
 		.then((r) => r.data);
-
-export const postScenarioTurn = (sessionId: number, request: ScenarioTurnRequest) =>
-	api.post<ScenarioTurnResult>(`/scenario/sessions/${sessionId}/turns` as ApiPath, request).then((r) => r.data);
 
 export const getScenarioRequest = (sessionId: number, requestId: string) =>
 	api.get<ScenarioRequestLookup>(`/scenario/sessions/${sessionId}/requests/${encodeURIComponent(requestId)}` as ApiPath).then((r) => r.data);
@@ -346,13 +341,6 @@ export const deleteAdminScenarioAsset = (packKey: string, assetId: string) =>
 			`/scenario/admin/packs/${packKey}/assets/${assetId}` as ApiPath,
 		)
 		.then((r) => r.data);
-
-/**
- * 场景资源地址：**按 pack key** 取字节（不是修订 id），可直接交给 `AuthImage`。
- */
-export function scenarioAssetSrc(packKey: string, assetId: string): string {
-	return `/scenario/assets/${encodeURIComponent(packKey)}/${encodeURIComponent(assetId)}`;
-}
 
 // --------------------------------------------------------------------------- //
 // 场景编辑器（管理侧「编辑」块）

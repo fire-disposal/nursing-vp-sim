@@ -3,7 +3,6 @@ import {
 	archiveCase,
 	createCase,
 	deleteCase,
-	generateCase,
 	getCaseRevisions,
 	publishCase,
 	updateCase,
@@ -112,11 +111,4 @@ export function useDeleteCaseConfirm() {
 	};
 
 	return checkAndConfirm;
-}
-
-export function useGenerateCase() {
-	return useMutation({
-		mutationFn: (data: Parameters<typeof generateCase>[0]) =>
-			generateCase(data),
-	});
 }

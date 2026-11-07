@@ -12,28 +12,16 @@ import {
 } from "@tabler/icons-react";
 import { useNavigate, useParams } from "react-router-dom";
 import TableScroll from "@/components/ui/table-scroll";
-import {
-	Bar,
-	CartesianGrid,
-	ComposedChart,
-	Legend,
-	Line,
-	ResponsiveContainer,
-	Tooltip,
-	XAxis,
-	YAxis,
-} from "recharts";
 import { getStudentDetail } from "@/api";
 import { getUsers } from "@/api/admin/users";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import MembershipTags from "@/components/admin/users/MembershipTags";
-import { ChartTooltip } from "@/components/ui/chart-tooltip";
+import { TrainingTrendChart } from "@/components/admin/TrainingTrendChart";
 import PageHeader from "@/components/ui/page-header";
 import StatCard from "@/components/ui/stat-card";
 import { Table } from "@mantine/core";
-import { useBarColors, useChartTheme } from "@/hooks/useChartTheme";
 
 
 type StudentRecentRecord = components["schemas"]["StudentRecentRecord"];
@@ -42,8 +30,6 @@ type StudentDailyStat = components["schemas"]["StudentDailyStat"];
 export default function UserDetailPage() {
 	const { userId } = useParams<{ userId: string }>();
 	const navigate = useNavigate();
-	const chartTheme = useChartTheme();
-	const barColors = useBarColors();
 
 	const { data: student, isLoading, isError, error } = useQuery({
 		queryKey: queryKeys.admin.users.studentDetail(userId),
@@ -118,61 +104,7 @@ export default function UserDetailPage() {
 						<IconTrendingUp size={18} />
 						<Text fw={600}>近30天训练趋势</Text>
 					</Group>
-					<ResponsiveContainer width="100%" height={280}>
-						<ComposedChart
-							data={daily}
-							margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
-						>
-							<CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
-							<XAxis
-								dataKey="date"
-								tick={{ fontSize: 12 }}
-								tickFormatter={(v: string) => v.slice(5)}
-							/>
-							<YAxis
-								yAxisId="left"
-								tick={{ fontSize: 12 }}
-								label={{
-									value: "次数",
-									position: "insideLeft",
-									offset: -5,
-									style: { fontSize: 12 },
-								}}
-							/>
-							<YAxis
-								yAxisId="right"
-								orientation="right"
-								tick={{ fontSize: 12 }}
-								label={{
-									value: "得分",
-									position: "insideRight",
-									offset: -5,
-									style: { fontSize: 12 },
-								}}
-								domain={[0, 100]}
-							/>
-							<Tooltip content={<ChartTooltip />} />
-							<Legend />
-							<Bar
-								yAxisId="left"
-								dataKey="sessions"
-								name="训练次数"
-								fill={barColors.sessions}
-								radius={[4, 4, 0, 0]}
-								barSize={28}
-							/>
-							<Line
-								yAxisId="right"
-								type="monotone"
-								dataKey="avg_score"
-								name="平均得分"
-								stroke={barColors.score}
-								strokeWidth={2.5}
-								dot={{ r: 4, fill: barColors.score }}
-								connectNulls
-							/>
-						</ComposedChart>
-					</ResponsiveContainer>
+					<TrainingTrendChart data={daily} scoreDomain={[0, 100]} />
 				</Stack>
 			)}
 

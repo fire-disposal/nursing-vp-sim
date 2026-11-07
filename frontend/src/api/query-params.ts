@@ -12,9 +12,6 @@ export type ListQuery<P extends keyof paths> = paths[P] extends {
 	? NonNullable<Q>
 	: never;
 
-/** 导出参数 = 同端点筛选去掉分页（后端导出端点复用同一套筛选键）。 */
-export type ExportParams<T> = Omit<T, "offset" | "limit">;
-
 export type UserListParams = ListQuery<"/api/admin/users">;
 export type CaseManageParams = ListQuery<"/api/cases/manage/list">;
 export type FeedbackAdminParams = ListQuery<"/api/admin/feedback">;

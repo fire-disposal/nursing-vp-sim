@@ -113,11 +113,6 @@ def student_member_id_query(class_id: int) -> Select:
     return member_id_query(class_id, role=MEMBER_ROLE_STUDENT)
 
 
-def teacher_member_id_query(class_id: int) -> Select:
-    """本班**教师**成员的 ``user_id`` 子查询。"""
-    return member_id_query(class_id, role="teacher")
-
-
 def student_user_id_condition(column: Any, class_id: int):
     """``column.in_(本班学生成员)`` —— 传 ``User.id`` / ``TrainingRecord.user_id`` 皆可。"""
     return column.in_(student_member_id_query(class_id))
@@ -134,10 +129,6 @@ def member_ids(db: Session, class_id: int, *, role: str | None = None) -> list[i
 def student_member_ids(db: Session, class_id: int) -> list[int]:
     """本班学生成员 user_id（有序）。学生名单 / 作业受众候选的唯一口径。"""
     return member_ids(db, class_id, role=MEMBER_ROLE_STUDENT)
-
-
-def teacher_member_ids(db: Session, class_id: int) -> list[int]:
-    return member_ids(db, class_id, role="teacher")
 
 
 def member_class_ids(db: Session, user_id: int, *, role: str | None = None) -> list[int]:

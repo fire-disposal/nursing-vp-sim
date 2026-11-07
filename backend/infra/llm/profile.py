@@ -143,11 +143,6 @@ def get_model(purpose: str) -> str:
     return _resolve(purpose).model
 
 
-def get_semaphore(purpose: str) -> int:
-    """Return the concurrency limit for a purpose."""
-    return _resolve(purpose).semaphore
-
-
 def get_enable_thinking(purpose: str) -> bool:
     """Return whether DeepSeek thinking mode is enabled for a purpose."""
     return _resolve(purpose).enable_thinking

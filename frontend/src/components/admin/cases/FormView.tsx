@@ -1,10 +1,9 @@
 import type { CaseDispatch, CaseEditorState } from "./CaseEditorState";
 import { arrayField, numField, objField, stringField } from "./CaseEditorState";
 import { AiFieldsSection } from "./AiFieldsSection";
-import { BackgroundEditor } from "./BackgroundEditor";
 import BlueprintEditor from "./BlueprintEditor";
 import CapabilitiesEditor from "./CapabilitiesEditor";
-import { ExamAnchorsEditor } from "./ExamAnchorsEditor";
+import { KeyValueEditor } from "./KeyValueEditor";
 import { PatientSection } from "./PatientSection";
 import { PersonalitySection } from "./PersonalitySection";
 import { QuizEditor } from "./QuizEditor";
@@ -73,16 +72,23 @@ export function FormView({ state, dispatch, disabled }: Props) {
 				{/* 教学蓝图：缺失时不写入任何键，须由作者显式启用 */}
 				<BlueprintEditor state={state} dispatch={dispatch} disabled={disabled} />
 
-				<ExamAnchorsEditor
+				<KeyValueEditor
+					title="查体锚点"
+					description='定义各检查项的正常范围值。支持范围格式如 "36.8-37.2"'
+					actionLabel="查体锚点"
 					value={objField(state, "activities.physical_exam.config.vital_signs") as Record<string, string>}
 					onChange={(v) => set("activities.physical_exam.config.vital_signs", v)}
 					disabled={disabled}
 				/>
 
-				<BackgroundEditor
+				<KeyValueEditor
+					title="隐藏背景"
+					description="LLM 内部上下文，患者不会主动透露的数据。如吸烟史、职业暴露等"
+					actionLabel="背景项"
 					value={objField(state, "deep_background") as Record<string, string>}
 					onChange={(v) => set("deep_background", v)}
 					disabled={disabled}
+					multiline
 				/>
 
 				<QuizEditor

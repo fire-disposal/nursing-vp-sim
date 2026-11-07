@@ -1,7 +1,7 @@
 import logging
 from copy import deepcopy
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, NoReturn
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func
@@ -23,6 +23,7 @@ from models import (
     Assignment,
     AssignmentRecipient,
     Case,
+    CaseRevision,
     ClassMembership,
     LLMCallLog,
     Message,
@@ -85,6 +86,74 @@ def _cascade_delete_training_record(db: Session, record_id: int) -> None:
 def _lock_user_row(db: Session, user_id: int) -> None:
     """行级锁串行化同一用户的并发 start，防全局唯一 in_progress 竞态双开。"""
     db.query(User).filter(User.id == user_id).with_for_update().first()
+
+
+def _active_training(db: Session, user_id: int) -> TrainingRecord | None:
+    """该用户当前在途训练（全局唯一：与作业/自由练习/盲盒入口无关）。"""
+    return (
+        db.query(TrainingRecord)
+        .filter(
+            TrainingRecord.user_id == user_id,
+            TrainingRecord.status == TrainingStatus.IN_PROGRESS,
+        )
+        .first()
+    )
+
+
+def _reject_second_training(db: Session, record: TrainingRecord) -> NoReturn:
+    """已有在途训练 → 409，带记录 id / 病例名 / 开始时间供前端跳回。"""
+    record_case = record.case or db.query(Case).filter(Case.id == record.case_id).first()
+    raise HTTPException(
+        status_code=409,
+        detail={
+            "code": "existing_training",
+            "record_id": record.id,
+            "case_name": record_case.name if record_case else "未知病例",
+            "started_at": record.start_time.isoformat() if record.start_time else None,
+        },
+    )
+
+
+def _owned_record(
+    db: Session,
+    record_id: int,
+    current_user: User,
+    *,
+    forbidden: str = "无权操作此记录",
+) -> TrainingRecord:
+    """取记录并校验归属：本人，或持 ``score_review`` 的教师/管理员。"""
+    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
+    if not record:
+        raise NotFoundError(detail="训练记录不存在")
+    if not current_user.has_permission("score_review") and record.user_id != current_user.id:
+        raise AuthError(detail=forbidden, status_code=403)
+    return record
+
+
+def _start_record(
+    db: Session,
+    user: User,
+    case: Case,
+    revision: CaseRevision,
+    config: dict,
+    request: Request,
+    *,
+    assignment_id: str | None = None,
+    is_overdue: bool = False,
+) -> tuple[TrainingRecord, str]:
+    """三个训练入口（自主 / 作业 / 盲盒）共用的建记录调用：内容与 workflow 都取自钉住的 revision。"""
+    return _create_record(
+        db,
+        user.id,
+        case,
+        revision.content or {},
+        config,
+        workflow=workflow_for_case_revision(revision),
+        revision_id=revision.id,
+        assignment_id=assignment_id,
+        is_overdue=is_overdue,
+        app_state=request.app.state,
+    )
 
 
 def _build_config(features: dict | None = None, time_limit_minutes: int | None = None) -> dict:
@@ -378,42 +447,16 @@ def start_training(
         raise AuthError(detail="该病例暂未开放", status_code=403)
 
     _lock_user_row(db, current_user.id)
-    # Global: only ONE in_progress regardless of assignment or free practice
-    global_existing = (
-        db.query(TrainingRecord)
-        .filter(
-            TrainingRecord.user_id == current_user.id,
-            TrainingRecord.status == TrainingStatus.IN_PROGRESS,
-        )
-        .first()
-    )
-    if global_existing:
-        gc = global_existing.case or db.query(Case).filter(Case.id == global_existing.case_id).first()
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "code": "existing_training",
-                "record_id": global_existing.id,
-                "case_name": gc.name if gc else "未知病例",
-                "started_at": global_existing.start_time.isoformat() if global_existing.start_time else None,
-            },
-        )
+    # 全局唯一：不论作业、盲盒还是自由练习，同一用户只能有一局在途
+    if (active := _active_training(db, current_user.id)) is not None:
+        _reject_second_training(db, active)
 
     config = _stamp_experiment(_build_config(req.features, req.time_limit_minutes), req.experiment)
     # 学员训练按**已发布版本**的内容进行：病例后续编辑不改变本次训练。
     # workflow 也由这条 revision 决定（请求体不能选择 workflow）并冻结在记录上。
     revision = require_current_revision(db, case)
 
-    record, greeting = _create_record(
-        db,
-        current_user.id,
-        case,
-        revision.content or {},
-        config,
-        workflow=workflow_for_case_revision(revision),
-        revision_id=revision.id,
-        app_state=request.app.state,
-    )
+    record, greeting = _start_record(db, current_user, case, revision, config, request)
 
     log.info(
         f"训练开始: record_id={record.id} case_id={case.id} case_name={case.name}",
@@ -495,29 +538,12 @@ def start_training_from_assignment(
     if assignment.max_attempts and assignment.max_attempts > 0 and attempt_count >= assignment.max_attempts:
         raise HTTPException(status_code=400, detail="已达到最大尝试次数，无法开始新训练")
     _lock_user_row(db, current_user.id)
-    # Global: only ONE in_progress regardless of assignment or is_student_practice
-    global_existing = (
-        db.query(TrainingRecord)
-        .filter(
-            TrainingRecord.user_id == current_user.id,
-            TrainingRecord.status == TrainingStatus.IN_PROGRESS,
-        )
-        .first()
-    )
-    if global_existing and (
-        global_existing.assignment_id != assignment.id
-        or global_existing.case_id != (assignment.case.id if assignment.case else None)
+    # 只有「另一份作业/另一个病例」的在途记录才拦；同一作业重进由下方复用逻辑返回原记录
+    active = _active_training(db, current_user.id)
+    if active is not None and (
+        active.assignment_id != assignment.id or active.case_id != (assignment.case.id if assignment.case else None)
     ):
-        case = global_existing.case or db.query(Case).filter(Case.id == global_existing.case_id).first()
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "code": "existing_training",
-                "record_id": global_existing.id,
-                "case_name": case.name if case else "未知病例",
-                "started_at": global_existing.start_time.isoformat() if global_existing.start_time else None,
-            },
-        )
+        _reject_second_training(db, active)
 
     # Same assignment: return existing record
     existing = (
@@ -571,17 +597,15 @@ def start_training_from_assignment(
     # 作业钉住的病例版本（发布时固化，列已 NOT NULL）：解析不到就拒绝开始，
     # 不回落病例当前版本 —— 否则同一作业会在不同时间跑在不同内容上。
     revision = require_pinned_revision(db, assignment.case_revision_id, case=case)
-    record, greeting = _create_record(
+    record, greeting = _start_record(
         db,
-        current_user.id,
+        current_user,
         case,
-        revision.content or {},
+        revision,
         config,
-        workflow=workflow_for_case_revision(revision),
-        revision_id=revision.id,
+        request,
         assignment_id=assignment.id,
         is_overdue=is_overdue,
-        app_state=request.app.state,
     )
 
     log.info(
@@ -608,25 +632,8 @@ def start_blind_box_training(
     结束后揭示病例便于复盘。
     """
     _lock_user_row(db, current_user.id)
-    global_existing = (
-        db.query(TrainingRecord)
-        .filter(
-            TrainingRecord.user_id == current_user.id,
-            TrainingRecord.status == TrainingStatus.IN_PROGRESS,
-        )
-        .first()
-    )
-    if global_existing:
-        gc = global_existing.case or db.query(Case).filter(Case.id == global_existing.case_id).first()
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "code": "existing_training",
-                "record_id": global_existing.id,
-                "case_name": gc.name if gc else "未知病例",
-                "started_at": global_existing.start_time.isoformat() if global_existing.start_time else None,
-            },
-        )
+    if (active := _active_training(db, current_user.id)) is not None:
+        _reject_second_training(db, active)
 
     # 随机池只含**可开始**的病例：抽到一条没有学生工作区的 workflow（如 clinical_reasoning）
     # 会让盲盒偶发 409 —— 随机入口只能从真能开始的集合里抽。
@@ -646,16 +653,7 @@ def start_blind_box_training(
             "behavior": {"mode": TrainingMode.BLIND_BOX.value},
         }
     )
-    record, greeting = _create_record(
-        db,
-        current_user.id,
-        case,
-        revision.content or {},
-        config,
-        workflow=workflow_for_case_revision(revision),
-        revision_id=revision.id,
-        app_state=request.app.state,
-    )
+    record, greeting = _start_record(db, current_user, case, revision, config, request)
 
     pending_questionnaires = count_pending_required(db, current_user.id, case.id)
     return TrainingStartResponse(
@@ -703,25 +701,8 @@ def start_practice_training(
         ) from exc
 
     _lock_user_row(db, current_user.id)
-    global_existing = (
-        db.query(TrainingRecord)
-        .filter(
-            TrainingRecord.user_id == current_user.id,
-            TrainingRecord.status == TrainingStatus.IN_PROGRESS,
-        )
-        .first()
-    )
-    if global_existing:
-        existing_case = global_existing.case or db.query(Case).filter(Case.id == global_existing.case_id).first()
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "code": "existing_training",
-                "record_id": global_existing.id,
-                "case_name": existing_case.name if existing_case else "未知病例",
-                "started_at": global_existing.start_time.isoformat() if global_existing.start_time else None,
-            },
-        )
+    if (active := _active_training(db, current_user.id)) is not None:
+        _reject_second_training(db, active)
 
     config = _stamp_experiment(_build_config())
     config["name"] = PRACTICE_LABELS.get(req.kind, req.kind)
@@ -764,11 +745,7 @@ def pause_training(
     questionnaire: Annotated[bool, Query()] = False,
 ):
     """记录离页暂停，或在必做训练前问卷期间冻结倒计时。"""
-    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-    if not record:
-        raise NotFoundError(detail="训练记录不存在")
-    if not current_user.has_permission("score_review") and record.user_id != current_user.id:
-        raise AuthError(detail="无权操作此记录", status_code=403)
+    record = _owned_record(db, record_id, current_user)
     if record.status != TrainingStatus.IN_PROGRESS:
         return OkResponse(message="训练已结束，无需暂停")
 
@@ -820,11 +797,7 @@ def resume_training(
     db: Annotated[Session, Depends(get_db)],
 ):
     """恢复训练，并结算普通离页或训练前问卷产生的暂停时长。"""
-    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-    if not record:
-        raise NotFoundError(detail="训练记录不存在")
-    if not current_user.has_permission("score_review") and record.user_id != current_user.id:
-        raise AuthError(detail="无权操作此记录", status_code=403)
+    record = _owned_record(db, record_id, current_user)
 
     mode = normalize_training_mode((record.practice_snapshot or {}).get("behavior", {}).get("mode"))
     rs = dict(record.runtime_state or {})
@@ -859,12 +832,7 @@ def resume_training(
 def delete_record(
     record_id: int, current_user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)]
 ):
-    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-    if not record:
-        raise NotFoundError(detail="训练记录不存在")
-
-    if not current_user.has_permission("score_review") and record.user_id != current_user.id:
-        raise AuthError(detail="无权删除此记录", status_code=403)
+    record = _owned_record(db, record_id, current_user, forbidden="无权删除此记录")
 
     try:
         _cascade_delete_training_record(db, record_id)
@@ -891,11 +859,7 @@ def abandon_record(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-    if not record:
-        raise NotFoundError(detail="训练记录不存在")
-    if not current_user.has_permission("score_review") and record.user_id != current_user.id:
-        raise AuthError(detail="无权操作此记录", status_code=403)
+    record = _owned_record(db, record_id, current_user)
     if record.status != TrainingStatus.IN_PROGRESS:
         raise HTTPException(status_code=400, detail="只能放弃进行中的训练")
 

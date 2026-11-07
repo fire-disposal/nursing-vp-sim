@@ -17,10 +17,6 @@ export const ARTIFACT_SUBMITTED = "submitted";
 /** manifest.actions[].id：学生主动结束训练 */
 export const ACTION_COMPLETE_SESSION = "complete_session";
 
-/** completion.blockers[].code —— 前端只用于给 blocker 找到落点，不用于判定 */
-export const CODE_SESSION_NOT_ACTIVE = "SESSION_NOT_ACTIVE";
-export const CODE_ARTIFACT_NOT_SUBMITTED = "ARTIFACT_NOT_SUBMITTED";
-
 export interface ManifestActivityAvailability {
 	state: string;
 	reason_code: string | null;

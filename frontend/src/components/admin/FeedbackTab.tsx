@@ -1,3 +1,4 @@
+import { REPLY_FILTER_OPTIONS, TAG_FILTER_OPTIONS, repliedToUi, tagColor, tagLabel, uiToReplied } from "@/config/feedback-tags";
 import { APP_TIME_ZONE, shanghaiDateKey } from "@/utils/date";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -8,7 +9,6 @@ import {
 	Center,
 	Group,
 	Paper,
-	Modal,
 	Select,
 	Stack,
 	Text,
@@ -45,6 +45,7 @@ import type { FeedbackAdminParams } from "@/api/query-params";
 import { useToast } from "@/components/Toast";
 import ExportButton from "@/components/ExportButton";
 import AuthImage from "@/components/ui/auth-image";
+import { FeedbackImagePreview } from "@/components/feedback/ImagePreviewModal";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
 
 import EmptyState from "@/components/ui/empty-state";
@@ -66,34 +67,6 @@ type FeedbackItem = Schemas["FeedbackItem"] & {
 	version?: string;
 	auto_fix_attempted?: boolean;
 	auto_fix_at?: string | null;
-};
-
-const TAG_OPTIONS = [
-	{ label: "全部", value: "" },
-	{ label: "功能建议", value: "feature" },
-	{ label: "BUG反馈", value: "bug" },
-	{ label: "体验评价", value: "experience" },
-	{ label: "内容质量", value: "content" },
-	{ label: "界面设计", value: "ui" },
-	{ label: "其他", value: "other" },
-];
-
-const TAG_COLOR: Record<string, "blue" | "red" | "green" | "yellow" | "gray"> = {
-	feature: "blue",
-	bug: "red",
-	experience: "green",
-	content: "yellow",
-	ui: "blue",
-	other: "gray",
-};
-
-const TAG_LABEL: Record<string, string> = {
-	feature: "功能建议",
-	bug: "BUG反馈",
-	experience: "体验评价",
-	content: "内容质量",
-	ui: "界面设计",
-	other: "其他",
 };
 
 const RATING_LABELS = ["很不满意", "不满意", "一般", "满意", "很满意"];
@@ -151,8 +124,8 @@ function FeedbackRow({ fb, onReplied }: { fb: FeedbackItem; onReplied: () => voi
 							{fb.user_name}
 						</Text>
 					</Group>
-					<Badge variant="light" color={TAG_COLOR[fb.tag] || "gray"}>
-						{TAG_LABEL[fb.tag] || fb.tag}
+					<Badge variant="light" color={tagColor(fb.tag)}>
+						{tagLabel(fb.tag)}
 					</Badge>
 				</Group>
 				{fb.content && (
@@ -251,11 +224,7 @@ function FeedbackRow({ fb, onReplied }: { fb: FeedbackItem; onReplied: () => voi
 					</Stack>
 				)}
 			</Paper>
-			{previewUrl && (
-				<Modal opened onClose={() => setPreviewUrl(null)} title="截图预览" size={800} centered withinPortal>
-						<AuthImage src={previewUrl} alt="截图预览" style={{ maxWidth: "100%", maxHeight: "70vh", objectFit: "contain", borderRadius: "var(--mantine-radius-md)" }} />
-				</Modal>
-			)}
+			<FeedbackImagePreview url={previewUrl} onClose={() => setPreviewUrl(null)} />
 		</>
 	);
 }
@@ -529,8 +498,7 @@ export default function FeedbackTab() {
 	const setChartsOpen = useUiPrefsStore((s) => s.setFeedbackChartsOpen);
 
 	// 回复状态在 UI 上是三态，进请求时映射为 replied: true / false / 不传
-	const replyStatus =
-		list.values.replied === true ? "replied" : list.values.replied === false ? "unreplied" : "";
+	const replyStatus = repliedToUi(list.values.replied);
 
 	const { data: feedbacksData, isLoading, refetch } = useQuery({
 		queryKey: queryKeys.admin.feedback.list(list.params),
@@ -600,14 +568,8 @@ export default function FeedbackTab() {
 							/>
 							<Select
 								value={replyStatus || null}
-								onChange={(v) =>
-									list.setFilter("replied", v === "replied" ? true : v === "unreplied" ? false : undefined)
-								}
-								data={[
-									{ value: "", label: "全部回复" },
-									{ value: "replied", label: "已回复" },
-									{ value: "unreplied", label: "未回复" },
-								]}
+								onChange={(v) => list.setFilter("replied", uiToReplied(v ?? ""))}
+								data={REPLY_FILTER_OPTIONS}
 								size="sm"
 								clearable
 								w={110}
@@ -619,10 +581,7 @@ export default function FeedbackTab() {
 								placeholder="全部标签"
 								value={list.values.tag || null}
 								onChange={(v) => list.setFilter("tag", v ?? "")}
-								data={TAG_OPTIONS.filter((opt) => opt.value !== "").map((opt) => ({
-									value: opt.value,
-									label: opt.label,
-								}))}
+								data={TAG_FILTER_OPTIONS}
 							/>
 						</>
 					}

@@ -13,7 +13,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 IDENTITY_UNKNOWN = "unknown"
@@ -112,13 +112,3 @@ def build_comparability(keys: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
             {"label": key_label(bucket["key"]), "count": bucket["count"], "key": bucket["key"]} for bucket in groups
         ],
     }
-
-
-def group_rows(
-    rows: Iterable[tuple[Any, Mapping[str, Any]]],
-) -> list[tuple[str, list[Any]]]:
-    """按组签名把 (记录, 键) 行分组，返回 ``[(签名, [记录...])]``（稳定顺序）。"""
-    buckets: dict[str, list[Any]] = {}
-    for row, key in rows:
-        buckets.setdefault(key_signature(key), []).append(row)
-    return sorted(buckets.items())

@@ -1,21 +1,18 @@
 import { formatDateTime } from "@/utils/date";
 import { recordDurationMinutes } from "@/utils/duration";
 import { Badge, Button, Group, Select, SimpleGrid, Text, UnstyledButton } from "@mantine/core";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
 	IconArrowDown, IconArrowUp, IconArrowsUpDown, IconClipboardList, IconPencil, IconShieldCheck, IconTrash } from "@tabler/icons-react";
 import ErrorDisplay from "@/components/ui/error-display";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { type CSSProperties, useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { abandonRecord, deleteRecord, getCases, getRecords } from "@/api";
+import { getCases, getRecords } from "@/api";
 import type { GetRecordsParams } from "@/api";
-import type { components } from "@/api/api-types.gen";
 import { Checkbox } from "@mantine/core";
 import { queryKeys } from "@/api/query-keys";
 import ClassFilter, { type ClassFilterParams } from "@/components/admin/ClassFilter";
-import { useToast } from "@/components/Toast";
-import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import PageHeader from "@/components/ui/page-header";
 import ListPage from "@/components/ui/list-page";
@@ -27,9 +24,8 @@ import TableScroll from "@/components/ui/table-scroll";
 import { Table } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import { useActiveSchoolBrand } from "@/hooks/useActiveSchoolBrand";
+import { useRecordActions } from "@/hooks/useRecordActions";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
-
-type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
 
 type SortField = "start_time" | "score_total" | "duration" | null;
 type SortDir = "asc" | "desc";
@@ -49,9 +45,6 @@ const SORT_BUTTON_STYLE: CSSProperties = {
 export default function TeacherRecordsPage() {
 	const [searchParams, setSearchParams] = useSearchParams();
 	const navigate = useNavigate();
-	const toast = useToast();
-	const { confirm } = useConfirm();
-	const queryClient = useQueryClient();
 	// 平台角色在「全部院校」视角下逐行标院校；收窄到某校时整页同校，标出来只是噪音
 	const { isPlatform, school: activeSchool } = useActiveSchoolBrand();
 	const showSchoolColumn = isPlatform && !activeSchool;
@@ -172,47 +165,7 @@ export default function TeacherRecordsPage() {
 		};
 	}, [records]);
 
-	const deleteMutation = useMutation({
-		mutationFn: (id: number) => deleteRecord(id),
-		onSuccess: () => {
-			toast.success("训练记录已删除");
-			queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
-		},
-		onError: (err: unknown) => {
-			toast.apiError(err, "删除失败");
-		},
-	});
-
-	const handleDeleteRecord = async (r: TrainingRecordBrief) => {
-		const ok = await confirm({
-			title: "删除记录",
-			message: `确定删除「${r.case_name}」的训练记录吗？此操作不可撤销。`,
-			confirmLabel: "确定删除",
-			danger: true,
-		});
-		if (!ok) return;
-		deleteMutation.mutate(r.id);
-	};
-
-	const abandonMutation = useMutation({
-		mutationFn: (id: number) => abandonRecord(id),
-		onSuccess: () => {
-			toast.success("训练记录已放弃");
-			queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
-		},
-		onError: (err: unknown) => toast.apiError(err, "操作失败"),
-	});
-
-	const handleAbandonRecord = async (r: TrainingRecordBrief) => {
-		const ok = await confirm({
-			title: "放弃训练",
-			message: `确定放弃「${r.case_name}」的训练吗？放弃后将保留对话记录但不会评分。`,
-			confirmLabel: "确定放弃",
-			danger: true,
-		});
-		if (!ok) return;
-		abandonMutation.mutate(r.id);
-	};
+	const { handleDeleteRecord, handleAbandonRecord } = useRecordActions();
 
 	const handleClearFilters = () => {
 		setSearchParams({}, { replace: true });
