@@ -18,8 +18,8 @@ import { usePersonaStore } from "@/stores/personaStore";
 import { isAdminPermissions } from "@/utils/permissions";
 import SidebarNav from "./SidebarNav";
 import { BottomTabBar } from "./BottomTabBar";
-import PersonaSwitcher from "./PersonaSwitcher";
-import { SchoolLogo, SchoolScopeSwitcher } from "./SchoolScopeSwitcher";
+import { SchoolLogo } from "./SchoolScopeSwitcher";
+import ShellContextSwitchers from "./ShellContextSwitchers";
 import ShellTransition from "./ShellTransition";
 import type { NavItem } from "./navigation";
 
@@ -63,9 +63,6 @@ export default function ManageShell({
 	 * 没有视角（旧后端 / 未落定）才回落到旧口径。
 	 */
 	const persona = usePersonaStore((s) => s.active);
-	const personaCount = usePersonaStore((s) => s.available.length);
-	/** 多视角才需要切换器（单视角用户看到选择器只是噪声） */
-	const hasMultiPersona = personaCount > 1;
 	const mobileTier: "student" | "staff" = persona ? (persona === "student" ? "student" : "staff") : isAdmin ? "staff" : "student";
 	/** 教工轨要给「更多」（管理端条目放不进底栏）；学生轨不给。 */
 	const staffTier = mobileTier === "staff";
@@ -188,23 +185,17 @@ export default function ManageShell({
 						<Text fw={700} size="sm" visibleFrom="xs">
 							虚拟患者系统
 						</Text>
-						{canManageSchools ? (
-							<Box visibleFrom="sm" style={{ flexShrink: 0 }}>
-								<SchoolScopeSwitcher width={180} />
-							</Box>
-						) : (
-							schoolLabel && (
-								<Badge
-									variant="light"
-									color="gray"
-									size="sm"
-									visibleFrom="sm"
-									leftSection={activeSchool ? <SchoolLogo school={activeSchool} size={14} /> : undefined}
-									style={{ flexShrink: 0, textTransform: "none" }}
-								>
-									{schoolLabel}
-								</Badge>
-							)
+						{!canManageSchools && schoolLabel && (
+							<Badge
+								variant="light"
+								color="gray"
+								size="sm"
+								visibleFrom="sm"
+								leftSection={activeSchool ? <SchoolLogo school={activeSchool} size={14} /> : undefined}
+								style={{ flexShrink: 0, textTransform: "none" }}
+							>
+								{schoolLabel}
+							</Badge>
 						)}
 						<UnstyledButton
 							onClick={onAbout}
@@ -254,26 +245,9 @@ export default function ManageShell({
 			</AppShell.Header>
 
 			<AppShell.Navbar p="sm">
-				{canManageSchools && (
-					<Box hiddenFrom="sm" mb="sm">
-						<Text size="xs" c="dimmed" mb={4}>
-							当前院校
-						</Text>
-						<SchoolScopeSwitcher width="100%" />
-					</Box>
-				)}
-				{/* 视角切换器：侧栏顶部（桌面常驻可见，移动端随抽屉打开）。
-				    放这里而不是顶栏：顶栏在 `sm` 以下已被院校切换器/汉堡挤满，
-				    两个"当前语境"控件并排会互相抢焦点。
-				    只在真有多视角时渲染整块（含标题），否则会留下一个孤立的「当前视角」标签。 */}
-				{hasMultiPersona && (
-					<Box mb="sm">
-						<Text size="xs" c="dimmed" mb={4}>
-							当前视角
-						</Text>
-						<PersonaSwitcher variant="segmented" />
-					</Box>
-				)}
+				{/* 「当前语境」二合一：视角（功能权限）+ 院校（数据作用域）。
+				    分开摆会让人在两个控件间来回找；合并后在桌面侧栏与移动抽屉里都是同一块。 */}
+				<ShellContextSwitchers />
 				<SidebarNav
 					userLinks={userLinks}
 					adminLinks={adminLinks}
