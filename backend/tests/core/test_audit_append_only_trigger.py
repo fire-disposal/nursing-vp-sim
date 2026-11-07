@@ -15,9 +15,9 @@ import sqlalchemy as sa
 
 from core.database import Base
 from core.database import engine as pg_engine
-from models import AuditLog, Role, User
+from models import AuditLog, User
 
-_TABLES = [Role.__table__, User.__table__, AuditLog.__table__]
+_TABLES = [User.__table__, AuditLog.__table__]
 
 _FUNC = """
 CREATE OR REPLACE FUNCTION audit_logs_forbid_mutation() RETURNS trigger AS $$

@@ -14,11 +14,10 @@ import pytest
 from core.audit import ACTION_FEEDBACK_REPLIED
 from core.database import Base
 from core.database import engine as pg_engine
-from models import AuditLog, Feedback, FeedbackImage, Notification, Role, User
+from models import AuditLog, Feedback, FeedbackImage, Notification, User
 from modules.feedback.service import FeedbackService
 
 _TABLES = [
-    Role.__table__,
     User.__table__,
     Feedback.__table__,
     FeedbackImage.__table__,
@@ -39,15 +38,9 @@ def db(pg_session):
 
 
 def _user(db, name: str) -> User:
-    role = db.query(Role).filter(Role.name == "student").first() or Role(
-        name="student", display_name="学生", is_system=True
-    )
-    db.add(role)
-    db.flush()
     user = User(
         username=name,
         password_hash="x",
-        role_id=role.id,
         display_name=name,
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),

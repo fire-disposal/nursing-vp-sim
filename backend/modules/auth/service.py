@@ -19,8 +19,8 @@ from core.audit import (
 )
 from core.config import LOGIN_LOCK_SECONDS, LOGIN_LOCKOUT_ENABLED, LOGIN_MAX_FAILED_ATTEMPTS
 from core.exceptions import AuthError, ConflictError, ValidationError
-from core.identity import STUDENT_ROLE_NAME, assert_student_identity_free, normalize_student_id
-from core.personas import permissions_for_role_name
+from core.identity import assert_student_identity_free, normalize_student_id
+from core.personas import PERSONAS, is_super_admin
 from core.security import (
     create_access_token,
     hash_password,
@@ -30,7 +30,7 @@ from core.security import (
 )
 from core.tenant import resolve_scope, visible_class, writable_school_id
 from core.unit_of_work import unit_of_work
-from models import MEMBER_ROLE_STUDENT, MEMBER_ROLE_TEACHER, ClassMembership, Role, School, User
+from models import MEMBER_ROLE_STUDENT, MEMBER_ROLE_TEACHER, ClassMembership, School, User, UserPersona
 from schemas import (
     OkResponse,
     RegisterRequest,
@@ -49,19 +49,11 @@ class AuthService:
         self.db = db
 
     def build_token_response(self, user: User) -> TokenResponse:
-        token = create_access_token(
-            {
-                "user_id": user.id,
-                "role_id": user.role_id,
-                "role": user.role.name if user.role else "",
-                "tv": user.token_version,
-            }
-        )
+        token = create_access_token({"user_id": user.id, "tv": user.token_version})
         # 登录/刷新不带 X-View-Persona → 解析出的是**默认**视角
         active, perms = resolve_view_persona(self.db, user)
         return TokenResponse(
             access_token=token,
-            role=user.role.name if user.role else "",
             display_name=user.display_name,
             user_id=user.id,
             permissions=sorted(perms),
@@ -94,8 +86,7 @@ class AuthService:
         return UserBrief(
             id=user.id,
             username=user.username,
-            role=user.role.name if user.role else "",
-            role_display_name=user.role.display_name if user.role else "",
+            personas=sorted(load_user_personas(self.db, user)),
             school_id=getattr(user, "school_id", None),
             school_name=brand[0] if brand else None,
             school_theme_color=brand[1] if brand else None,
@@ -221,7 +212,7 @@ class AuthService:
         log.info(
             "登录成功: username=%s",
             username,
-            extra={"user_id": user.id, "user_role": user.role.name if user.role else "", "action": "login"},
+            extra={"user_id": user.id, "action": "login"},
         )
         record_detached(
             request,
@@ -234,47 +225,47 @@ class AuthService:
         )
         return user
 
+    def _validate_new_personas(self, personas: list[str], actor: User) -> list[str]:
+        unique = list(dict.fromkeys(personas or ["student"]))
+        unknown = sorted(set(unique) - set(PERSONAS))
+        if unknown:
+            raise ValidationError(detail=f"未知视角: {unknown}")
+        if "platform" in unique and not is_super_admin(actor):
+            raise AuthError("无权创建平台账号", status_code=403)
+        grantable = set(getattr(actor, "_permissions_cache", None) or ())
+        for key in unique:
+            exceeded = sorted(set(PERSONAS[key].permissions) - grantable)
+            if exceeded:
+                raise AuthError(f"无权授予视角 {key}：包含你没有的权限 {exceeded}", status_code=403)
+        return unique
+
     def register(self, req: RegisterRequest, current_user: User, *, request: Request | None = None) -> RegisterResponse:
         existing = self.db.query(User).filter(User.username == req.username).first()
         if existing:
             raise ConflictError(detail="用户名已存在")
 
-        role_obj = self.db.query(Role).filter(Role.name == req.role).first()
-        if not role_obj:
-            raise ValidationError(detail="角色不存在")
-
-        # 反越权：只能创建"默认视角权限不超过自己当前视角权限"的账号类型。
-        grantable = set(getattr(current_user, "_permissions_cache", None) or ())
-        exceeded = sorted(permissions_for_role_name(role_obj.name) - grantable)
-        if exceeded:
-            raise AuthError(
-                f"无权创建「{role_obj.display_name}」账号：目标角色包含你自身没有的权限 {exceeded}", status_code=403
-            )
+        personas = self._validate_new_personas(req.personas, current_user)
 
         # 院校归属：班级优先（班级自带院校），否则取显式 school_id。
-        # 院校管理员由 writable_school_id 强制本校；平台角色必须给出归属 —— 否则会造出
-        # school_id 为空的“日常账号”，而空院校在作用域里等于跨院校，属数据面污染。
+        # 平台账号不属于任何院校；其余账号必须落在有院校的范围内。
         scope = resolve_scope(self.db, current_user)
         cls = visible_class(self.db, scope, req.class_id) if req.class_id is not None else None
         if cls is not None:
             school_id = cls.school_id
-        elif req.role == "super_admin":
-            # 平台角色（school_id 为空）只能由平台管理员创建，且不属于任何院校
-            if scope.school_id is not None:
-                raise AuthError("无权创建平台角色账号", status_code=403)
+        elif "platform" in personas:
             school_id = None
         else:
             school_id = writable_school_id(scope, req.school_id)
 
         student_id = normalize_student_id(req.student_id)
-        if req.role == STUDENT_ROLE_NAME:
+        if "student" in personas:
             # 本校同学号只能有一个学生账号：重复注册要在建号之前挡住，并说明撞了谁
             assert_student_identity_free(self.db, school_id=school_id, student_id=student_id)
 
         user = User(
             username=req.username,
             password_hash=hash_password(req.password),
-            role_id=role_obj.id,
+            is_platform="platform" in personas,
             school_id=school_id,
             display_name=req.display_name,
             student_id=student_id,
@@ -283,8 +274,10 @@ class AuthService:
         with unit_of_work(self.db, conflict_detail="用户名已存在"):
             self.db.add(user)
             self.db.flush()
+            for key in personas:
+                self.db.add(UserPersona(user_id=user.id, persona=key))
             if req.class_id is not None:
-                member_role = MEMBER_ROLE_TEACHER if req.role == "teacher" else MEMBER_ROLE_STUDENT
+                member_role = MEMBER_ROLE_TEACHER if "teacher" in personas else MEMBER_ROLE_STUDENT
                 self.db.add(ClassMembership(user_id=user.id, class_id=req.class_id, member_role=member_role))
             record(
                 self.db,
@@ -293,24 +286,24 @@ class AuthService:
                 target_id=user.id,
                 target_label=user.username,
                 request=request,
-                payload={"role": req.role, "class_id": req.class_id, "school_id": school_id},
+                payload={"personas": personas, "class_id": req.class_id, "school_id": school_id},
             )
         self.db.refresh(user)
         log.info(
-            "用户注册: target_id=%d target_name=%s role=%s",
+            "用户注册: target_id=%d target_name=%s personas=%s",
             user.id,
             user.username,
-            user.role.name if user.role else "",
+            ",".join(personas),
             extra={
                 "user_id": current_user.id,
-                "user_role": current_user.role.name if current_user.role else "",
+                "actor_persona": current_user.active_persona,
                 "action": "register",
             },
         )
         return RegisterResponse(
             id=user.id,
             username=user.username,
-            role=user.role.name if user.role else "",
+            personas=personas,
             display_name=user.display_name,
             student_id=user.student_id,
         )

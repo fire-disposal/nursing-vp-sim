@@ -4,7 +4,6 @@ import BatchImport from "@/components/admin/users/BatchImport";
 import type { ClassItem } from "@/types/store";
 import type { BatchCreateResult, BatchPreviewResult, BatchUser } from "@/components/admin/users/types";
 
-const ROLES = [{ name: "student", display_name: "学生" }];
 const CLASSES: ClassItem[] = [
 	{
 		id: 1,
@@ -71,7 +70,6 @@ function renderImport(
 		<BatchImport
 			open
 			onClose={vi.fn()}
-			roles={ROLES}
 			classes={classes}
 			onImport={onImport}
 			onPreview={onPreview}
@@ -98,7 +96,7 @@ describe("BatchImport 班级消歧", () => {
 		renderImport();
 
 		paste([
-			"用户名,密码,姓名,角色,学号,届别,班级名称",
+			"用户名,密码,姓名,视角,学号,届别,班级名称",
 			"s1,123456,张三,student,S1,,护理1班",
 		]);
 
@@ -111,7 +109,7 @@ describe("BatchImport 班级消歧", () => {
 		renderImport();
 
 		paste([
-			"用户名,密码,姓名,角色,学号,届别,班级名称",
+			"用户名,密码,姓名,视角,学号,届别,班级名称",
 			"s1,123456,张三,student,S1,2024级,护理1班",
 		]);
 
@@ -125,7 +123,7 @@ describe("BatchImport 班级消歧", () => {
 		renderImport(CLASSES, onImport);
 
 		paste([
-			"用户名,密码,姓名,角色,学号,学校,届别,班级名称",
+			"用户名,密码,姓名,视角,学号,学校,届别,班级名称",
 			"s1,123456,张三,student,S1,杭州师范大学,2024级,护理1班",
 		]);
 
@@ -142,7 +140,7 @@ describe("BatchImport 班级消歧", () => {
 		renderImport();
 
 		paste([
-			"用户名,密码,姓名,角色,学号,届别,班级名称",
+			"用户名,密码,姓名,视角,学号,届别,班级名称",
 			"s1,123456,张三,student,S1,2026级,护理9班",
 		]);
 
@@ -156,7 +154,7 @@ describe("BatchImport 跨院校同名班级（2026-10-28 生产事故）", () =>
 		renderImport(CLASSES, onImport);
 
 		paste([
-			"用户名,密码,姓名,角色,学号,学校,届别,班级名称",
+			"用户名,密码,姓名,视角,学号,学校,届别,班级名称",
 			"s1,123456,张三,student,S1,杭州师范大学,2024级,护理241",
 		]);
 
@@ -176,7 +174,7 @@ describe("BatchImport 跨院校同名班级（2026-10-28 生产事故）", () =>
 		]);
 
 		paste([
-			"用户名,密码,姓名,角色,学号,届别,班级名称",
+			"用户名,密码,姓名,视角,学号,届别,班级名称",
 			"s1,123456,张三,student,S1,2024级,护理241",
 		]);
 
@@ -191,9 +189,9 @@ describe("BatchImport 混合行的解析与提交", () => {
 		renderImport(CLASSES, onImport);
 
 		paste([
-			"用户名,密码,姓名,角色,学号,学校,届别,班级名称",
+			"用户名,密码,姓名,视角,学号,学校,届别,班级名称",
 			"bad1,123,张一,student,S1,杭州师范大学,2024级,护理1班", // 第2行：密码太短
-			"bad2,123456,张二,teacher,S2,杭州师范大学,2024级,护理1班", // 第3行：角色非学生
+			"bad2,123456,张二,teacher,S2,杭州师范大学,2024级,护理1班", // 第3行：视角非学生
 			",123456,张三,student,S3,杭州师范大学,2024级,护理1班", // 第4行：缺用户名
 			"ok4,123456,李四,student,S4,杭州师范大学,2024级,护理1班",
 			"ok5,123456,王五,student,S5,杭州师范大学,2024级,护理1班",
@@ -203,7 +201,7 @@ describe("BatchImport 混合行的解析与提交", () => {
 		expect(screen.getByText(/预览（3 名学生）/)).toBeInTheDocument();
 		expect(screen.getByText(/未通过校验 3 行/)).toBeInTheDocument();
 		expect(screen.getByText(/第2行\(bad1\): 密码长度不能少于6位/)).toBeInTheDocument();
-		expect(screen.getByText(/第3行\(bad2\): 仅支持学生角色/)).toBeInTheDocument();
+		expect(screen.getByText(/第3行\(bad2\): 仅支持学生视角/)).toBeInTheDocument();
 		expect(screen.getByText(/第4行\(\?\): 用户名\/密码\/姓名不能为空/)).toBeInTheDocument();
 
 		await submitImport(3);
@@ -214,7 +212,7 @@ describe("BatchImport 混合行的解析与提交", () => {
 	it("校验错误全部列出（不再截断到 10 条）", () => {
 		renderImport();
 
-		const rows = ["用户名,密码,姓名,角色,学号,学校,届别,班级名称"];
+		const rows = ["用户名,密码,姓名,视角,学号,学校,届别,班级名称"];
 		for (let i = 1; i <= 12; i++) {
 			rows.push(`bad${i},123,张${i},student,S${i},杭州师范大学,2024级,护理1班`);
 		}
@@ -256,7 +254,7 @@ describe("BatchImport 导入回执", () => {
 		renderImport(CLASSES, onImport);
 
 		paste([
-			"用户名,密码,姓名,角色,学号,学校,届别,班级名称",
+			"用户名,密码,姓名,视角,学号,学校,届别,班级名称",
 			"s1,123456,张三,student,S1,杭州师范大学,2024级,护理1班",
 			"s2,123456,李四,student,S2,杭州师范大学,2024级,护理1班",
 			"s3,123456,王五,student,S3,杭州师范大学,2024级,护理1班",
@@ -275,7 +273,7 @@ describe("BatchImport 导入回执", () => {
 	it("整批成功时不出现失败明细", async () => {
 		renderImport(CLASSES, vi.fn(async () => ({ ...OK, created: 1 })));
 
-		paste(["用户名,密码,姓名,角色,学号,学校,届别,班级名称", "s1,123456,张三,student,S1,杭州师范大学,2024级,护理1班"]);
+		paste(["用户名,密码,姓名,视角,学号,学校,届别,班级名称", "s1,123456,张三,student,S1,杭州师范大学,2024级,护理1班"]);
 		await submitImport(1);
 
 		expect(await screen.findByText(/导入完成/)).toBeInTheDocument();
@@ -293,7 +291,7 @@ describe("BatchImport 导入回执", () => {
 			}),
 		);
 
-		paste(["用户名,密码,姓名,角色,学号,学校,届别,班级名称", "s1,123456,张三,student,S1,杭州师范大学,2024级,护理1班"]);
+		paste(["用户名,密码,姓名,视角,学号,学校,届别,班级名称", "s1,123456,张三,student,S1,杭州师范大学,2024级,护理1班"]);
 		await submitImport(1);
 
 		expect(await screen.findByText(/单次最多导入 500 个用户/)).toBeInTheDocument();

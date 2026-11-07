@@ -1,13 +1,12 @@
-"""权限词表 / 视角预设 / 账号类型的关系。
+"""权限词表 / 视角预设的关系。
 
 自「视角 = 权限预设」起：
 - 权限只来自 `core/personas.py` 的预设；
-- 角色（账号类型）只决定默认视角与展示，不再携带权限。
+- 角色已整体退场（无角色表、无角色列）：用户持有的是**视角授予**，平台身份是 `is_platform`。
 """
 
 from core.permissions import PERMISSION_KEYS, PERMISSION_LABELS, PERMISSIONS, PermissionDef
-from core.personas import DEFAULT_PERSONA_BY_ROLE, PERSONAS, permissions_for_role_name
-from core.roles import SYSTEM_ROLES
+from core.personas import PERSONA_KEYS, PERSONAS, persona_permissions
 
 
 class TestPermissionDef:
@@ -45,15 +44,20 @@ class TestPersonaPresets:
     def test_student_has_minimal_permissions(self):
         assert set(PERSONAS["student"].permissions) == {"training_access", "scenario_training", "qa_access"}
 
-    def test_system_roles_are_account_types_only(self):
-        labels = dict(SYSTEM_ROLES)
-        assert set(labels) == {"student", "teacher", "admin", "super_admin"}
-        assert labels["student"] == "学生"
-        assert labels["super_admin"] == "超级管理员"
-        # 角色不再携带权限：唯一相关是"默认视角"
-        assert set(DEFAULT_PERSONA_BY_ROLE) == set(labels)
+    def test_persona_scope_is_declared_and_known(self):
+        assert {key: persona.scope for key, persona in PERSONAS.items()} == {
+            "student": "self",
+            "teacher": "class",
+            "admin": "tenant",
+            "ops": "tenant",
+            "platform": "platform",
+        }
 
-    def test_role_default_permissions_come_from_personas(self):
-        assert permissions_for_role_name("teacher") == frozenset(PERSONAS["teacher"].permissions)
-        assert permissions_for_role_name("super_admin") == frozenset(PERMISSION_KEYS)
-        assert permissions_for_role_name("custom") == frozenset()
+    def test_permissions_only_come_from_personas(self):
+        """角色退场后唯一的权限来源：视角预设（未知视角 → 空集，不回落到任何角色）。"""
+        assert persona_permissions("teacher") == frozenset(PERSONAS["teacher"].permissions)
+        assert persona_permissions("admin") == frozenset(PERSONAS["admin"].permissions)
+        assert persona_permissions("nurse_lead") == frozenset()
+        assert persona_permissions(None) == frozenset()
+        # 视角 key 里不再有"角色"这种身份（没有 super_admin）
+        assert "super_admin" not in PERSONA_KEYS

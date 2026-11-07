@@ -32,9 +32,9 @@ PACK_KEY = "sputum-ineffective"
 class _FakeUser:
     def __init__(self, permissions: set[str] | None = None, user_id: int = 4242) -> None:
         self.id = user_id
-        self.role_id = 1
         self.token_version = 1
-        self.role = type("_Role", (), {"name": "student"})()
+        self.is_platform = False
+        self.active_persona = "student"
         self._permissions = permissions or {"scenario_training"}
 
     def has_permission(self, key: str) -> bool:

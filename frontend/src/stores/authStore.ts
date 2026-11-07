@@ -79,8 +79,6 @@ const useAuthStore = create<ExtendedAuthState>()(
 				const user: User = {
 					id: data.user_id,
 					username: data.display_name || username,
-					role: data.role,
-					role_display_name: data.role,
 					display_name: data.display_name,
 					student_id: null,
 					gender: data.gender ?? null,
@@ -90,6 +88,9 @@ const useAuthStore = create<ExtendedAuthState>()(
 					memberships: [],
 					// 登录响应不含院校品牌字段：占位为 false，紧接着的 /auth/me 会补齐
 					school_has_logo: false,
+					// 视角身份：登录响应已带上授予集合与默认生效视角，`/auth/me` 再补齐一次
+					personas: data.personas ?? [],
+					active_persona: data.active_persona ?? null,
 				};
 				set({ user, token: data.access_token, permissions: data.permissions });
 				syncPersonas(data);
@@ -104,7 +105,8 @@ const useAuthStore = create<ExtendedAuthState>()(
 						set({
 							user: {
 								...current,
-								role_display_name: me.role_display_name || data.role,
+								personas: me.personas ?? current.personas ?? [],
+								active_persona: me.active_persona ?? current.active_persona ?? null,
 								memberships: me.memberships ?? [],
 								// 院校归属只存在于 /auth/me（登录响应没有）：漏合并会让院校管理员
 								// 在壳里被显示成「平台」，等于告诉他"你是跨校的"
@@ -119,7 +121,7 @@ const useAuthStore = create<ExtendedAuthState>()(
 						});
 					}
 				} catch {
-					// ignore — role_display_name stays as fallback
+					// ignore — 视角/院校字段由登录响应兜底，权限留给下一次 revalidateSession
 				}
 
 				return get().user!;
@@ -158,14 +160,15 @@ const useAuthStore = create<ExtendedAuthState>()(
 					const user: User = {
 						id: data.id,
 						username: data.username || current?.username || "",
-						role: data.role,
-						role_display_name: data.role_display_name || data.role,
 						display_name: data.display_name,
 						student_id: data.student_id ?? null,
 						is_active: data.is_active ?? true,
 						gender: data.gender ?? null,
 						avatar: data.avatar ?? null,
 						memberships: data.memberships ?? [],
+						// 视角身份：授予集合 + 当前生效视角（`/auth/me` 现取，权威口径）
+						personas: data.personas ?? [],
+						active_persona: data.active_persona ?? null,
 						school_id: data.school_id ?? null,
 						school_name: data.school_name ?? null,
 						school_theme_color: data.school_theme_color ?? null,

@@ -27,7 +27,6 @@ from models import (
     Class,
     ClassMembership,
     Notification,
-    Role,
     School,
     Score,
     TrainingRecord,
@@ -42,7 +41,6 @@ from tests.conftest import ensure_school
 _TABLES = [
     legacy_grades_table,
     School.__table__,
-    Role.__table__,
     User.__table__,
     Class.__table__,
     ClassMembership.__table__,
@@ -71,16 +69,10 @@ def db(pg_session):
     return pg_session
 
 
-def _user(db: Session, username: str, role: str = "student") -> User:
-    role_obj = db.query(Role).filter(Role.name == role).first()
-    if role_obj is None:
-        role_obj = Role(name=role, display_name=role, is_system=True)
-        db.add(role_obj)
-        db.flush()
+def _user(db: Session, username: str) -> User:
     user = User(
         username=username,
         password_hash="x",
-        role_id=role_obj.id,
         display_name=username,
         # 受众候选与班级成员同校（单校不变量）
         school_id=ensure_school(db).id,
@@ -118,7 +110,7 @@ def school(db):
     case.current_revision_id = revision.id
     db.commit()
 
-    teacher = _user(db, "t1", "teacher")
+    teacher = _user(db, "t1")
     s1 = _user(db, "s1")
     s2 = _user(db, "s2")
     outsider = _user(db, "s3")

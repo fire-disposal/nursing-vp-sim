@@ -12,7 +12,7 @@ from core.deps import DbSession
 from core.pagination import paginate
 from core.security import get_current_user, require_permission
 from core.tenant import Scope, TenantScope, scope_query, visible_class
-from models import MEMBER_ROLE_STUDENT, Class, ClassMembership, Role, Score, TrainingRecord, User
+from models import MEMBER_ROLE_STUDENT, Class, ClassMembership, Score, TrainingRecord, User, UserPersona
 from modules.training.scoring.grade_scope import grade_conditions, grade_expr
 from schemas import (
     ClassSummaryItemSchema,
@@ -133,10 +133,7 @@ class StatsService:
         limit: int = 50,
         class_id: int | None = None,
     ) -> PaginatedResponse[TeacherSummaryItem]:
-        student_role = self.db.query(Role).filter(Role.name == "student").first()
-        if not student_role:
-            return PaginatedResponse(items=[], total=0, offset=offset, limit=limit)
-        student_role_id = student_role.id
+        student_ids = self.db.query(UserPersona.user_id).filter(UserPersona.persona == "student")
 
         base = (
             self.db.query(
@@ -155,7 +152,7 @@ class StatsService:
                 & (TrainingRecord.status == "completed")
                 & (TrainingRecord.is_student_practice == True),
             )
-            .filter(User.role_id == student_role_id)
+            .filter(User.id.in_(student_ids))
         )
 
         base = scope_query(base, User.school_id, self.tenant)

@@ -50,8 +50,7 @@ function seedPersistedSession() {
 				user: {
 					id: 7,
 					username: "学生1",
-					role: "student",
-					role_display_name: "学生",
+					personas: ["student"],
 					display_name: "学生1",
 					student_id: null,
 					is_active: true,
@@ -122,8 +121,7 @@ describe("冷启动会话的权限 revalidation", () => {
 			data: {
 				id: 7,
 				username: "学生1",
-				role: "student",
-				role_display_name: "学生",
+				personas: ["student"],
 				display_name: "学生1",
 				student_id: null,
 				is_active: true,

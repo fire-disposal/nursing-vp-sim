@@ -78,7 +78,6 @@ export const queryKeys = {
 			studentDetail: (userId: number | string | null | undefined) =>
 				["admin", "users", "studentDetail", userId] as const,
 		},
-		roles: ["admin", "roles"] as const,
 		personas: ["admin", "personas"] as const,
 		/** 授视角弹窗：某用户当前的视角集合 */
 		personasUser: (userId: number | string) =>

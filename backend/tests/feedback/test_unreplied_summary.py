@@ -18,10 +18,10 @@ from sqlalchemy.orm import Session
 
 from core.database import Base
 from core.database import engine as pg_engine
-from models import Feedback, Role, User
+from models import Feedback, User
 from modules.feedback.service import FeedbackService
 
-_TABLES = [Role.__table__, User.__table__, Feedback.__table__]
+_TABLES = [User.__table__, Feedback.__table__]
 
 _AUTHOR = "unreplied-fb-author"
 
@@ -35,13 +35,8 @@ def _schema():
 @pytest.fixture
 def db(pg_session):
     """savepoint 隔离 → 用例内部的 commit 只释放 savepoint，对库零残留。"""
-    role = pg_session.query(Role).filter(Role.name == "student").first() or Role(
-        name="student", display_name="学生", is_system=True
-    )
-    pg_session.add(role)
-    pg_session.flush()
     pg_session.query(Feedback).delete()  # 空库/计数判据需要确定性的空表
-    pg_session.add(User(username=_AUTHOR, password_hash="x", role_id=role.id, display_name="反馈作者"))
+    pg_session.add(User(username=_AUTHOR, password_hash="x", display_name="反馈作者"))
     pg_session.flush()
     return pg_session
 

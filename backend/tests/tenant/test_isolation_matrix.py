@@ -12,10 +12,10 @@ from datetime import UTC, datetime
 import pytest
 
 from core.exceptions import NotFoundError, ValidationError
-from core.personas import DEFAULT_PERSONA_BY_ROLE, permissions_for_role_name
+from core.personas import persona_permissions
 from core.security import clear_permission_cache
 from core.tenant import apply_school_scope, platform_scope, resolve_scope, school_name_map
-from models import Case, Class, ClassMembership, Role, School, TrainingRecord, User
+from models import Case, Class, ClassMembership, School, TrainingRecord, User, UserPersona
 from modules.admin.class_memberships import upsert_members
 from modules.admin.classes import ClassService
 from modules.admin.exports import RecordService
@@ -26,17 +26,6 @@ from modules.scoreboard.service import ScoreboardScope, ScoreboardService
 NOW = datetime.now(UTC)
 
 
-def _role(db, name: str):
-    """建账号类型（权限不再写库；角色只决定默认视角）。"""
-    role = db.query(Role).filter(Role.name == name).first()
-    if role is None:
-        role = Role(name=name, display_name=name, is_system=True)
-        db.add(role)
-        db.flush()
-    clear_permission_cache()
-    return role
-
-
 def _school(db, name: str) -> School:
     school = School(name=name, created_at=NOW)
     db.add(school)
@@ -44,21 +33,28 @@ def _school(db, name: str) -> School:
     return school
 
 
-def _user(db, username: str, role: str, school_id: int | None) -> User:
+def _user(db, username: str, persona: str, school_id: int | None) -> User:
+    """建账号并授予 ``persona``（``"platform"`` = 平台账号，不再落授予行）。
+
+    模拟 ``get_current_user``：装载生效视角与对应权限（作用域由视角声明决定）。
+    """
+    is_platform = persona == "platform"
     user = User(
         username=username,
         password_hash="x",
-        role_id=_role(db, role).id,
         school_id=school_id,
         display_name=username,
+        is_platform=is_platform,
         created_at=NOW,
         updated_at=NOW,
     )
     db.add(user)
     db.flush()
-    # 模拟 get_current_user：装载默认视角与对应权限（作用域由视角声明决定）
-    user.set_active_persona(DEFAULT_PERSONA_BY_ROLE.get(role))
-    user.set_permissions_cache(set(permissions_for_role_name(role)))
+    if not is_platform:
+        db.add(UserPersona(user_id=user.id, persona=persona))
+        db.flush()
+    user.set_active_persona(persona)
+    user.set_permissions_cache(set(persona_permissions(persona)))
     clear_permission_cache()
     return user
 
@@ -84,7 +80,7 @@ def world(pg_session):
     school_b = _school(db, "乙学院")
     admin_a = _user(db, "admin-a", "admin", school_a.id)
     admin_b = _user(db, "admin-b", "admin", school_b.id)
-    platform_user = _user(db, "platform-root", "super_admin", None)
+    platform_user = _user(db, "platform-root", "platform", None)
     class_a = _class(db, "甲班", school_a.id)
     class_b = _class(db, "乙班", school_b.id)
     stu_a = _user(db, "stu-a", "student", school_a.id)
@@ -111,7 +107,7 @@ def world(pg_session):
 def test_scope_resolution_shapes(world):
     assert world["scope_a"].school_id == world["school_a"].id
     assert world["scope_a"].class_ids is None, "有 user_manage 的院校管理员应看全校"
-    assert world["scope_platform"].is_global, "super_admin 的 school_id 为空 → 平台视角"
+    assert world["scope_platform"].is_global, "平台账号（school_id 为空）→ 平台作用域"
 
 
 def test_class_list_only_own_school(world):
@@ -165,8 +161,8 @@ def test_membership_cross_school_rejected(world):
     )
 
 
-def test_platform_role_cannot_join_class(world):
-    """平台角色（school_id 为空）不属于任何院校，不能被塞进班级。"""
+def test_platform_account_cannot_join_class(world):
+    """平台账号（school_id 为空）不属于任何院校，不能被塞进班级。"""
     db = world["db"]
     with pytest.raises(ValidationError):
         upsert_members(db, world["class_a"].id, [world["platform_user"].id], member_role="student")

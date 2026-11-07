@@ -29,9 +29,6 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 # ── action 常量：与 core/permissions.py 同思路，集中一处便于审查与查询 ──────────────
-ACTION_ROLE_CREATED = "role.created"
-ACTION_ROLE_UPDATED = "role.updated"
-ACTION_ROLE_DELETED = "role.deleted"
 ACTION_USER_CREATED = "user.created"
 ACTION_USER_UPDATED = "user.updated"
 ACTION_USER_DEACTIVATED = "user.deactivated"
@@ -76,7 +73,6 @@ ACTION_AUTH_LOGIN_BLOCKED = "auth.login_blocked"
 ACTION_SCENARIO_RATE_LIMITED = "scenario.rate_limited"
 
 TARGET_TYPE_USER = "user"
-TARGET_TYPE_ROLE = "role"
 TARGET_TYPE_SECRET = "secret"
 TARGET_TYPE_EXPORT = "export"
 TARGET_TYPE_FEEDBACK = "feedback"
@@ -100,14 +96,12 @@ def _actor_fields(actor: User | None, persona: str | None = None) -> dict[str, A
             "actor_id": None,
             "actor_username": None,
             "actor_display_name": None,
-            "actor_role": None,
             "actor_persona": persona,
         }
     return {
         "actor_id": actor.id,
         "actor_username": actor.username,
         "actor_display_name": actor.display_name,
-        "actor_role": actor.role.name if actor.role else None,
         "actor_persona": persona,
     }
 
@@ -242,9 +236,6 @@ __all__ = [
     "ACTION_QUESTIONNAIRE_TEMPLATE_CREATED",
     "ACTION_QUESTIONNAIRE_TEMPLATE_DELETED",
     "ACTION_QUESTIONNAIRE_TEMPLATE_UPDATED",
-    "ACTION_ROLE_CREATED",
-    "ACTION_ROLE_DELETED",
-    "ACTION_ROLE_UPDATED",
     "ACTION_SCHOOL_CREATED",
     "ACTION_SCHOOL_DELETED",
     "ACTION_SCHOOL_UPDATED",
@@ -271,7 +262,6 @@ __all__ = [
     "TARGET_TYPE_FEEDBACK",
     "TARGET_TYPE_NOTIFICATION",
     "TARGET_TYPE_QUESTIONNAIRE_TEMPLATE",
-    "TARGET_TYPE_ROLE",
     "TARGET_TYPE_SCHOOL",
     "TARGET_TYPE_SECRET",
     "TARGET_TYPE_TRAINING_RECORD",

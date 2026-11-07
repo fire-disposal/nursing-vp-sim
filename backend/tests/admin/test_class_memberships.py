@@ -14,7 +14,7 @@ from core.database import Base
 from core.database import engine as pg_engine
 from core.exceptions import NotFoundError, ValidationError
 from core.tenant import TenantScope
-from models import AuditLog, Class, ClassMembership, Role, School, User
+from models import AuditLog, Class, ClassMembership, School, User
 from models.school import legacy_grades_table
 from modules.admin.class_memberships import (
     ClassMembershipService,
@@ -33,7 +33,6 @@ from tests.conftest import ensure_school
 _TABLES = [
     legacy_grades_table,
     School.__table__,
-    Role.__table__,
     User.__table__,
     Class.__table__,
     ClassMembership.__table__,
@@ -53,21 +52,10 @@ def db(pg_session):
     return pg_session
 
 
-def _role(db: Session, name: str) -> Role:
-    role_obj = db.query(Role).filter(Role.name == name).first()
-    if role_obj is None:
-        role_obj = Role(name=name, display_name=name, is_system=True)
-        db.add(role_obj)
-        db.flush()
-    return role_obj
-
-
-def _user(db: Session, username: str, role: str = "student") -> User:
-    role_obj = _role(db, role)
+def _user(db: Session, username: str, persona: str = "student") -> User:
     user = User(
         username=username,
         password_hash="x",
-        role_id=role_obj.id,
         display_name=username,
         # 成员关系要求用户与班级同校（单校不变量），故账号统一挂测试院校
         school_id=ensure_school(db).id,
@@ -264,13 +252,11 @@ class TestImportClassResolution:
     """
 
     def _row(self, db: Session, username: str, **extra) -> dict:
-        _role(db, "student")
-        db.commit()
         return {
             "username": username,
             "password": "secret123",
             "display_name": username,
-            "role": "student",
+            "personas": ["student"],
             **extra,
         }
 

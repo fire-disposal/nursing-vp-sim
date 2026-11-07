@@ -8,7 +8,7 @@
 - 默认视角 / 超管派生 / legacy 回落三条分支各钉一条；
 - 越权视角必须 403 且 detail 为「视角不可用」（前端按它提示，不该显示"权限不足"）；
 - 审计落的是**操作时的视角**而不是角色名 —— 同一教师切到 admin 视角后，
-  事后只看得见 `actor_role=teacher` 就回答不了"他当时以什么身份做的"。
+  事后只看得见账号名就回答不了"他当时以什么身份做的"。
 """
 
 from __future__ import annotations
@@ -24,12 +24,11 @@ from fastapi import HTTPException
 
 os.environ["JWT_SECRET_KEY"] = "test-secret-key-for-testing-only"
 
-from core.audit import ACTION_ROLE_UPDATED, TARGET_TYPE_ROLE, record
+from core.audit import ACTION_USER_PERSONAS_UPDATED, ACTION_USER_UPDATED, TARGET_TYPE_USER, record
 from core.database import Base
 from core.database import engine as pg_engine
 from core.permissions import PERMISSION_KEYS
 from core.personas import (
-    DEFAULT_PERSONA_BY_ROLE,
     PERSONA_KEYS,
     PERSONAS,
     default_persona_for,
@@ -37,7 +36,7 @@ from core.personas import (
     persona_permissions,
 )
 from core.security import clear_permission_cache, load_user_personas, resolve_view_persona
-from models import AuditLog, Role, User, UserPersona
+from models import AuditLog, User, UserPersona
 
 # ── 预设快照 ────────────────────────────────────────────────────────────────
 
@@ -120,34 +119,28 @@ def test_unknown_persona_has_no_permissions():
 # ── 授予集合 / 默认视角（纯函数，不碰 DB）─────────────────────────────────────
 
 
-def _stub_user(role_name: str | None) -> Any:
-    role = None if role_name is None else SimpleNamespace(name=role_name)
-    return SimpleNamespace(id=1, role=role, role_id=1)
+def _stub_user(*, platform: bool = False) -> Any:
+    """只带 ``is_platform`` 的账号替身：角色退场后平台身份是唯一判据。"""
+    return SimpleNamespace(id=1, is_platform=platform)
 
 
-def test_super_admin_derives_all_personas():
-    assert grants_all_personas(_stub_user("super_admin")) is True
-    for role_name in ("admin", "teacher", "student", "ops", "custom", None):
-        assert grants_all_personas(_stub_user(role_name)) is False
+def test_platform_account_derives_all_personas():
+    assert grants_all_personas(_stub_user(platform=True)) is True
+    assert grants_all_personas(_stub_user(platform=False)) is False
 
 
-def test_default_persona_per_system_role():
-    assert default_persona_for(_stub_user("student")) == "student"
-    assert default_persona_for(_stub_user("teacher")) == "teacher"
-    assert default_persona_for(_stub_user("admin")) == "admin"
-    assert default_persona_for(_stub_user("super_admin")) == "platform"
+def test_default_persona_is_platform_for_platform_account_only():
+    assert default_persona_for(_stub_user(platform=True)) == "platform"
 
 
-def test_default_persona_is_none_for_custom_role_and_missing_role():
-    """自定义角色没有预设 → None（未授予视角 → 无权限，管理员需显式授予）。"""
-    assert default_persona_for(_stub_user("nurse_lead")) is None
-    assert default_persona_for(_stub_user(None)) is None
-    assert set(DEFAULT_PERSONA_BY_ROLE) == {"student", "teacher", "admin", "super_admin"}
+def test_default_persona_is_none_for_school_account():
+    """院校账号没有"默认视角"→ None：生效视角由已授予集合决定（管理员需显式授予）。"""
+    assert default_persona_for(_stub_user(platform=False)) is None
 
 
 # ── 视角解析（真实 PG：`user_personas` 的行决定能选什么）───────────────────────
 
-_TABLES = [Role.__table__, User.__table__, UserPersona.__table__, AuditLog.__table__]
+_TABLES = [User.__table__, UserPersona.__table__, AuditLog.__table__]
 
 
 #: 授予行的写入需要跨用例可见（`pg_session` 是 savepoint 隔离，同一 session 内可见即可），
@@ -157,23 +150,13 @@ def _schema():
     Base.metadata.create_all(pg_engine, tables=_TABLES)
 
 
-def _role(db, name: str) -> Role:
-    role = db.query(Role).filter(Role.name == name).first()
-    if role is None:
-        role = Role(name=name, display_name=name, is_system=True)
-        db.add(role)
-        db.flush()
-    clear_permission_cache()
-    return role
-
-
-def _user(db, role_name: str) -> User:
-    role = _role(db, role_name)
+def _user(db, *, platform: bool = False) -> User:
+    """账号替身：院校账号没有任何视角授予，平台账号派生全部视角。"""
     user = User(
         username=f"persona-{uuid.uuid4().hex[:10]}",
         password_hash="x",
-        role_id=role.id,
-        display_name=f"视角用例 {role_name}",
+        display_name="视角用例",
+        is_platform=platform,
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )
@@ -198,18 +181,19 @@ def _fresh_permission_cache():
     clear_permission_cache()
 
 
-def test_no_header_falls_back_to_default_persona(pg_session):
-    user = _user(pg_session, "teacher")
-    _grant(pg_session, user, "teacher", "admin")
+def test_no_header_uses_a_granted_persona(pg_session):
+    user = _user(pg_session)
+    _grant(pg_session, user, "ops", "teacher")
 
     persona, perms = resolve_view_persona(pg_session, user, None)
 
-    assert persona == "teacher", "系统角色的默认视角由其角色决定"
-    assert perms == frozenset(_TEACHER)
+    # 无默认视角的院校账号：取已授予集合里排序最前的一个（确定性）
+    assert persona == "ops"
+    assert perms == frozenset(_OPS)
 
 
 def test_granted_header_persona_takes_effect(pg_session):
-    user = _user(pg_session, "teacher")
+    user = _user(pg_session)
     _grant(pg_session, user, "teacher", "admin")
 
     persona, perms = resolve_view_persona(pg_session, user, "admin")
@@ -223,7 +207,7 @@ def test_granted_header_persona_takes_effect(pg_session):
 
 
 def test_ungranted_persona_is_rejected_with_contract_detail(pg_session):
-    user = _user(pg_session, "student")
+    user = _user(pg_session)
     _grant(pg_session, user, "student")
 
     with pytest.raises(HTTPException) as exc:
@@ -233,9 +217,9 @@ def test_ungranted_persona_is_rejected_with_contract_detail(pg_session):
     assert exc.value.detail == "视角不可用"
 
 
-def test_super_admin_grants_all_personas_without_rows(pg_session):
-    """超管派生：`user_personas` 没有任何行也能选任意视角，且不因"无行"落入 legacy。"""
-    user = _user(pg_session, "super_admin")
+def test_platform_account_grants_all_personas_without_rows(pg_session):
+    """平台账号派生：`user_personas` 没有任何行也能选任意视角。"""
+    user = _user(pg_session, platform=True)
 
     assert pg_session.query(UserPersona).filter(UserPersona.user_id == user.id).count() == 0
     assert load_user_personas(pg_session, user) == frozenset(PERSONA_KEYS)
@@ -252,31 +236,32 @@ def test_super_admin_grants_all_personas_without_rows(pg_session):
 
 def test_user_without_grants_can_login_but_has_no_permissions(pg_session):
     """没有授予任何视角：允许解析（/auth/me 要能用），但权限为空、不能借用预设。"""
-    user = _user(pg_session, "nurse_lead")
+    user = _user(pg_session)
 
     persona, perms = resolve_view_persona(pg_session, user, None)
 
-    assert persona == "nurse_lead"
+    assert persona is None, "没有任何视角可生效 → 不臆造一个身份"
     assert perms == frozenset()
     with pytest.raises(HTTPException) as exc:
         resolve_view_persona(pg_session, user, "admin")
     assert exc.value.status_code == 403
 
 
-def test_role_permissions_no_longer_grant_anything(pg_session):
-    """角色不再承载权限：同名 teacher 角色、无 persona 行 → 仍然没有任何权限。"""
-    user = _user(pg_session, "teacher")
+def test_grant_snapshot_do_not_leak_between_users(pg_session):
+    """他人授予不影响本人：同库另一账号被授予全部视角，本账号仍无权限。"""
+    other = _user(pg_session)
+    _grant(pg_session, other, *PERSONA_KEYS)
+
+    user = _user(pg_session)
     _persona, perms = resolve_view_persona(pg_session, user, None)
+
     assert perms == frozenset()
 
 
-def test_granted_persona_is_selectable_regardless_of_role_name(pg_session):
-    """授权了就必须能选：自定义角色的用户被授予 `ops` 后，带 header 选 `ops` 生效。
-
-    （默认视角仍按契约走 legacy —— `default_persona_for` 只认系统角色。）
-    """
-    user = _user(pg_session, "nurse_lead")
-    assert resolve_view_persona(pg_session, user, None)[0] == "nurse_lead"
+def test_granted_persona_is_selectable(pg_session):
+    """授权了就必须能选：被授予 `ops` 后，带 header 选 `ops` 生效。"""
+    user = _user(pg_session)
+    assert resolve_view_persona(pg_session, user, None) == (None, frozenset())
 
     _grant(pg_session, user, "ops")
 
@@ -286,15 +271,15 @@ def test_granted_persona_is_selectable_regardless_of_role_name(pg_session):
     assert "case_manage" not in perms
 
 
-def test_default_persona_must_be_granted_else_a_granted_one_is_used(pg_session):
-    """角色是 teacher 但只被授予 ops：不能"默认"到一个没授权的视角。"""
-    user = _user(pg_session, "teacher")
-    _grant(pg_session, user, "ops")
+def test_default_persona_must_be_within_granted_set(pg_session):
+    """授予了 student 与 ops：无 header 只能在已授予集合里取，不能落到 `platform`。"""
+    user = _user(pg_session)
+    _grant(pg_session, user, "student", "ops")
 
     persona, perms = resolve_view_persona(pg_session, user, None)
 
-    assert persona == "ops", "默认 teacher 未授予时，只能取已授予集合里的视角"
-    assert perms == frozenset(_OPS)
+    assert persona in {"ops", "student"}
+    assert perms == frozenset(_OPS if persona == "ops" else _STUDENT)
 
 
 # ── 审计：落操作时的视角 ─────────────────────────────────────────────────────
@@ -305,17 +290,17 @@ def _request_with_persona(persona: str | None, actor: User | None = None):
         state=SimpleNamespace(request_id="req-persona", audit_actor=actor, view_persona=persona),
         headers={"user-agent": "pytest"},
         method="PUT",
-        url=SimpleNamespace(path="/api/admin/roles/1"),
+        url=SimpleNamespace(path="/api/admin/users/1"),
     )
 
 
 def test_record_writes_actor_persona_from_request_state(pg_session):
-    actor = _user(pg_session, "teacher")
+    actor = _user(pg_session)
 
     record(
         pg_session,
-        action=ACTION_ROLE_UPDATED,
-        target_type=TARGET_TYPE_ROLE,
+        action=ACTION_USER_PERSONAS_UPDATED,
+        target_type=TARGET_TYPE_USER,
         target_id=1,
         actor=actor,
         request=_request_with_persona("teacher", actor),
@@ -324,23 +309,23 @@ def test_record_writes_actor_persona_from_request_state(pg_session):
 
     row = pg_session.query(AuditLog).filter(AuditLog.actor_id == actor.id).one()
     assert row.actor_persona == "teacher"
-    # 快照列仍然记角色：视角回答"以什么身份"，角色回答"这个人是什么"
-    assert row.actor_role == "teacher"
+    # 角色退场后身份快照只剩视角：`actor_role` 不再有来源，保持空
+    assert row.actor_role is None
 
 
 def test_record_leaves_actor_persona_null_without_view_persona(pg_session):
     """没有视角（未走 get_current_user 的内部调用）→ 该列为空，不臆造一个值。"""
-    actor = _user(pg_session, "admin")
+    actor = _user(pg_session, platform=True)
     request = SimpleNamespace(
         state=SimpleNamespace(request_id="req-no-persona", audit_actor=actor),
         headers={"user-agent": "pytest"},
         method="PUT",
-        url=SimpleNamespace(path="/api/admin/roles/1"),
+        url=SimpleNamespace(path="/api/admin/users/1"),
     )
 
-    record(pg_session, action=ACTION_ROLE_UPDATED, target_type=TARGET_TYPE_ROLE, actor=actor, request=request)
+    record(pg_session, action=ACTION_USER_UPDATED, target_type=TARGET_TYPE_USER, actor=actor, request=request)
     pg_session.flush()
 
     row = pg_session.query(AuditLog).filter(AuditLog.actor_id == actor.id).one()
     assert row.actor_persona is None
-    assert row.actor_role == "admin"
+    assert row.actor_role is None

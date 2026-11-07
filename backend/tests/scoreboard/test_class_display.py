@@ -20,10 +20,10 @@ import pytest
 from core.database import Base
 from core.database import engine as pg_engine
 from core.tenant import TenantScope
-from models import Class, ClassMembership, Role, School, User
+from models import Class, ClassMembership, School, User
 from modules.scoreboard.service import ScoreboardScope, ScoreboardService
 
-_TABLES = [Role.__table__, User.__table__, School.__table__, Class.__table__, ClassMembership.__table__]
+_TABLES = [User.__table__, School.__table__, Class.__table__, ClassMembership.__table__]
 
 # 本文件只验「班级名口径」，不验院校边界 → 用跨院校作用域，让作用域过滤恒为真。
 _TENANT = TenantScope(school_id=None, class_ids=None, user_id=0)
@@ -49,12 +49,6 @@ def db(pg_session):
 def _seed(db) -> tuple[Class, Class]:
     from datetime import UTC, datetime
 
-    role = db.query(Role).filter(Role.name == "student").first() or Role(
-        name="student", display_name="学生", is_system=True
-    )
-    db.add(role)
-    db.flush()
-
     # classes.school_id 必填（院校/班级组织模型），种子班必须挂在一个院校下
     school = db.query(School).filter(School.id == 1).first()
     if school is None:
@@ -74,7 +68,6 @@ def _seed(db) -> tuple[Class, Class]:
                 username=f"u{uid}",
                 password_hash="x",
                 display_name=f"用户{uid}",
-                role_id=role.id,
                 created_at=now,
                 updated_at=now,
             )

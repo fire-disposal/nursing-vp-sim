@@ -17,9 +17,9 @@ import sqlalchemy as sa
 
 from core.database import Base
 from core.database import engine as pg_engine
-from models import Feedback, Role, User
+from models import Feedback, User
 
-_TABLES = [Role.__table__, User.__table__, Feedback.__table__]
+_TABLES = [User.__table__, Feedback.__table__]
 
 # 会话时区必须是 Asia/Shanghai —— 否则"偏 8 小时"这个前提不成立（判据也就失去意义）
 _EXPECTED_TZ = "Asia/Shanghai"
@@ -82,15 +82,9 @@ def test_no_naive_timestamp_columns_remain(db):
 
 def test_aware_write_reads_back_same_instant(db):
     """写入 aware-UTC → 读回必须还是同一瞬间（旧 naïve 列上会差 8 小时）。"""
-    role = db.query(Role).filter(Role.name == "student").first() or Role(
-        name="student", display_name="学生", is_system=True
-    )
-    db.add(role)
-    db.flush()
     author = User(
         username="ts-roundtrip-author",
         password_hash="x",
-        role_id=role.id,
         display_name="往返用户",
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),

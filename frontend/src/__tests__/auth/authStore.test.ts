@@ -70,9 +70,9 @@ describe("authStore", () => {
 		expect(user).toEqual({
 			id: 2,
 			username: "Student1",
-			role: "student",
 			display_name: "Student1",
-			role_display_name: "student",
+			personas: [],
+			active_persona: null,
 			student_id: null,
 			gender: null,
 			avatar: null,
@@ -86,7 +86,7 @@ describe("authStore", () => {
 			localStorage.getItem("nursing-auth") || "{}",
 		);
 		expect(persisted.state?.token).toBe("new-token");
-		expect(persisted.state?.user?.role).toBe("student");
+		expect(persisted.state?.user?.personas).toEqual([]);
 	});
 
 	it("refreshUser updates user from getMe response", async () => {

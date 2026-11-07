@@ -1,11 +1,10 @@
-import { APP_TIME_ZONE } from "@/utils/date";
-import { ActionIcon, Badge, Group, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
+import { ActionIcon, Badge, Checkbox, Group, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { IconBan, IconCheck, IconPencil, IconTrash, IconUserSearch } from "@tabler/icons-react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
-import { Checkbox } from "@mantine/core";
-import { RoleBadge } from "@/components/ui/role-badge";
+import { PersonaBadges } from "@/components/ui/persona-badges";
 import { getUserAvatar } from "@/utils/avatar";
+import { APP_TIME_ZONE } from "@/utils/date";
 import MembershipTags from "./MembershipTags";
 import type { UserBrief } from "./types";
 
@@ -79,10 +78,7 @@ export default function UserCard({
 									{user.display_name}
 								</Text>
 							</UnstyledButton>
-							<RoleBadge
-								role={user.role}
-								label={user.role_display_name || user.role}
-							/>
+							<PersonaBadges personas={user.personas} size="xs" />
 							{inactive && (
 								<Badge variant="light" color="gray" size="xs">
 									已停用

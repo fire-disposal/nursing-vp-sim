@@ -26,14 +26,14 @@ from sqlalchemy.orm import Session
 from core.database import Base
 from core.database import engine as pg_engine
 from core.statuses import TrainingStatus
-from models import Case, Message, Role, TrainingRecord, User
+from models import Case, Message, TrainingRecord, User
 from modules.training.session.finalize import (
     END_ORIGIN_USER,
     TERMINAL_STATE_KEY,
     finalize_training,
 )
 
-_TABLES = [Role.__table__, User.__table__, Case.__table__, TrainingRecord.__table__, Message.__table__]
+_TABLES = [User.__table__, Case.__table__, TrainingRecord.__table__, Message.__table__]
 
 
 @pytest.fixture
@@ -51,11 +51,8 @@ def db():
 
 
 def _record(db, *, with_student_message: bool) -> TrainingRecord:
-    role = db.query(Role).filter(Role.name == "student").first() or Role(name="student", display_name="学生")
-    db.add(role)
-    db.flush()
     stamp = datetime.now(UTC).timestamp()
-    user = User(username=f"finalize-{stamp}", password_hash="x", display_name="学生", role_id=role.id)
+    user = User(username=f"finalize-{stamp}", password_hash="x", display_name="学生")
     db.add(user)
     db.flush()
     case = Case(name=f"终态病例 {stamp}", description="", difficulty=1, time_limit_minutes=30)

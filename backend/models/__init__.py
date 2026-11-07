@@ -13,7 +13,7 @@ from models.audit import (
     AUDIT_OUTCOMES,
     AuditLog,
 )
-from models.auth import Role, User, UserPersona
+from models.auth import User, UserPersona
 from models.case import (
     CASE_STATUS_ARCHIVED,
     CASE_STATUS_DRAFT,
@@ -120,7 +120,6 @@ __all__ = [
     "QuestionnaireResponse",
     "QuestionnaireTemplate",
     "RateLimitEntry",
-    "Role",
     "School",
     "Score",
     "ScoreReview",

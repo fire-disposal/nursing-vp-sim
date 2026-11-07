@@ -20,11 +20,10 @@ from core.audit import (
 )
 from core.database import Base
 from core.database import engine as pg_engine
-from models import AuditLog, Case, CaseRevision, Role, TrainingRecord, User
+from models import AuditLog, Case, CaseRevision, TrainingRecord, User
 from modules.cases.service import CaseService
 
 _TABLES = [
-    Role.__table__,
     User.__table__,
     Case.__table__,
     CaseRevision.__table__,
@@ -45,15 +44,9 @@ def db(pg_session):
 
 @pytest.fixture
 def admin(db) -> User:
-    role = db.query(Role).filter(Role.name == "admin").first() or Role(
-        name="admin", display_name="管理员", is_system=True
-    )
-    db.add(role)
-    db.flush()
     user = User(
         username="case-audit-admin",
         password_hash="x",
-        role_id=role.id,
         display_name="病例审计员",
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),

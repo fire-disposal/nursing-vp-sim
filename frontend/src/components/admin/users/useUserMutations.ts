@@ -4,6 +4,7 @@ import type { components } from "@/api/api-types.gen";
 import { register } from "@/api/auth";
 import { queryKeys } from "@/api/query-keys";
 import { toast } from "@/components/Toast";
+import type { BatchUser, RegisterPayload, UpdatePayload } from "./types";
 
 type Schemas = components["schemas"];
 
@@ -15,7 +16,7 @@ export function useRegisterMutation() {
 			payload,
 			memberships,
 		}: {
-			payload: Schemas["RegisterRequest"];
+			payload: RegisterPayload;
 			memberships: Schemas["UserMembershipUpdate"][];
 		}) => {
 			// 注册接口只接受单个 class_id：首个归属随注册提交，其余归属注册后全量替换。
@@ -48,7 +49,7 @@ export function useUpdateUserMutation() {
 			data,
 		}: {
 			id: number | string;
-			data: Schemas["UserUpdateRequest"];
+			data: UpdatePayload;
 		}) => updateUser(id, data),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.admin.users.all });
@@ -80,7 +81,7 @@ export function useBatchCreateUsersMutation() {
 	const queryClient = useQueryClient();
 
 	return useMutation({
-		mutationFn: (users: Schemas["BatchUserItem"][]) =>
+		mutationFn: (users: BatchUser[]) =>
 			batchCreateUsers(users).then((r) => r.data),
 		// 回执（成功 / 跳过 / 逐行原因）由导入弹窗留在页面上核对；这里只负责刷新列表。
 		onSuccess: () => {

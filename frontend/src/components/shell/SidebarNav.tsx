@@ -7,12 +7,13 @@ import {
 	ScrollArea,
 	Text,
 } from "@mantine/core";
+import { IconStethoscope } from "@tabler/icons-react";
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import useAuthStore from "@/stores/authStore";
 import { getUserAvatar } from "@/utils/avatar";
+import { personaLabel } from "@/utils/personas";
 import type { NavGroupKey, NavItem } from "./navigation";
-import { IconStethoscope } from "@tabler/icons-react";
 import { NAV_GROUPS } from "./navigation";
 
 function isActive(pathname: string, to: string, end?: boolean): boolean {
@@ -147,7 +148,7 @@ export default function SidebarNav({
 							{user?.display_name ?? "用户"}
 						</Text>
 						<Text size="xs" c="dimmed" truncate>
-							{user?.role_display_name || user?.role || "用户"}
+							{personaLabel(user?.active_persona ?? null) ?? "用户"}
 						</Text>
 					</Box>
 				</Group>

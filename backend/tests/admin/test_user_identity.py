@@ -14,7 +14,7 @@ import pytest
 from core.database import Base, engine
 from core.exceptions import ValidationError
 from core.tenant import platform_scope
-from models import Class, ClassMembership, Role, School, User
+from models import Class, ClassMembership, School, User
 from modules.admin.users import UserService
 from schemas.user import UserUpdateRequest
 
@@ -27,7 +27,6 @@ _TABLES = [
     School.__table__,
     Class.__table__,
     ClassMembership.__table__,
-    Role.__table__,
     User.__table__,
 ]
 
@@ -39,15 +38,7 @@ def _schema():
 
 @pytest.fixture
 def db(pg_session):
-    for name, display in (("student", "学生"), ("teacher", "教师")):
-        if pg_session.query(Role).filter(Role.name == name).first() is None:
-            pg_session.add(Role(name=name, display_name=display, is_system=True))
-    pg_session.flush()
     return pg_session
-
-
-def _student_role(db: Session) -> Role:
-    return db.query(Role).filter(Role.name == "student").one()
 
 
 def _school(db: Session, name: str) -> School:
@@ -64,7 +55,7 @@ def _row(username: str, **overrides) -> dict:
         "username": username,
         "password": "secret123",
         "display_name": username,
-        "role": "student",
+        "personas": ["student"],
         "student_id": None,
         "class_id": None,
         "class_name": None,

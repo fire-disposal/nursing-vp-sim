@@ -23,11 +23,11 @@ from sqlalchemy import func
 from core.audit import ACTION_USER_PERSONAS_UPDATED, TARGET_TYPE_USER, record
 from core.deps import DbSession
 from core.exceptions import AuthError, NotFoundError, ValidationError
-from core.personas import PERSONA_KEYS, PERSONAS, SUPER_ADMIN_ROLE, is_super_admin
+from core.personas import PERSONA_KEYS, PERSONAS, is_super_admin
 from core.security import clear_permission_cache, require_permission, resolve_view_persona
 from core.tenant import Scope, TenantScope, scope_query
 from core.unit_of_work import unit_of_work
-from models import Role, User, UserPersona
+from models import User, UserPersona
 from schemas import (
     PersonaCatalogItem,
     UserPersonasResponse,
@@ -78,11 +78,7 @@ class PersonaService:
         )
         counts: dict[str, int] = {persona: cnt for persona, cnt in rows if persona in PERSONAS}
         super_admin_count = (
-            self._scoped_user_query()
-            .join(Role, Role.id == User.role_id)
-            .filter(Role.name == SUPER_ADMIN_ROLE)
-            .with_entities(func.count(User.id))
-            .scalar()
+            self._scoped_user_query().filter(User.is_platform.is_(True)).with_entities(func.count(User.id)).scalar()
             or 0
         )
         if super_admin_count:

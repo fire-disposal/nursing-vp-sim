@@ -13,10 +13,10 @@ import pytest
 
 from core.database import Base
 from core.database import engine as pg_engine
-from models import AuditLog, Role, User
+from models import AuditLog, User
 from modules.admin.audit_logs import AuditLogFilters, AuditLogService, export_audit_logs
 
-_TABLES = [Role.__table__, User.__table__, AuditLog.__table__]
+_TABLES = [User.__table__, AuditLog.__table__]
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -37,17 +37,11 @@ def seeded(db):
     真实库不受影响）。
     """
     db.query(AuditLog).delete()
-    role = db.query(Role).filter(Role.name == "admin").first() or Role(
-        name="admin", display_name="管理员", is_system=True
-    )
-    db.add(role)
-    db.flush()
     users = []
     for name in ("audit-a", "audit-b"):
         user = User(
             username=name,
             password_hash="x",
-            role_id=role.id,
             display_name=name,
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
@@ -62,20 +56,20 @@ def seeded(db):
             created_at=now - timedelta(hours=2),
             actor_id=users[0].id,
             actor_username=users[0].username,
-            actor_role="admin",
-            action="role.updated",
-            target_type="role",
+            actor_persona="admin",
+            action="user.personas_updated",
+            target_type="user",
             target_id="7",
             target_label="教师",
             outcome="success",
-            payload={"permissions": {"before": ["a"], "after": ["a", "b"]}},
-            request_path="/api/admin/roles/7",
+            payload={"personas": {"before": ["student"], "after": ["student", "teacher"]}},
+            request_path="/api/admin/users/7",
         ),
         AuditLog(
             created_at=now - timedelta(hours=1),
             actor_id=users[1].id,
             actor_username=users[1].username,
-            actor_role="admin",
+            actor_persona="admin",
             action="access.denied",
             target_type="secret",
             target_label="主力通道",
@@ -87,7 +81,7 @@ def seeded(db):
             created_at=now,
             actor_id=users[0].id,
             actor_username=users[0].username,
-            actor_role="admin",
+            actor_persona="admin",
             action="user.deleted",
             target_type="user",
             target_id="12",
@@ -108,7 +102,7 @@ def _list(db, filters, *, offset=0, limit=50):
 
 def test_filters_by_actor_action_outcome_and_target(db, seeded):
     only_a = _list(db, AuditLogFilters(actor_id=seeded.users[0].id))[0]
-    assert {r.action for r in only_a} == {"role.updated", "user.deleted"}
+    assert {r.action for r in only_a} == {"user.personas_updated", "user.deleted"}
 
     denied = _list(db, AuditLogFilters(outcome="denied"))[0]
     assert [r.action for r in denied] == ["access.denied"]
@@ -129,7 +123,8 @@ def test_time_range_and_search(db, seeded):
     assert [r.action for r in by_search] == ["access.denied"]
 
     by_path = _list(db, AuditLogFilters(search="/users/"))[0]
-    assert [r.target_id for r in by_path] == ["12"]
+    # 两条用户侧路径（视角授予 / 删除），新→旧
+    assert [r.target_id for r in by_path] == ["12", "7"]
 
 
 def test_pagination_and_total(db, seeded):
@@ -140,7 +135,7 @@ def test_pagination_and_total(db, seeded):
 
 def test_export_uses_same_filters_as_list(db, seeded):
     """导出必须与列表同集（只多一条上限判定），否则就是"导出无视筛选"。"""
-    filters = AuditLogFilters(action="role.updated")
+    filters = AuditLogFilters(action="user.personas_updated")
     listed, total = _list(db, filters)
     assert total == len(listed) == 1
 
@@ -161,7 +156,7 @@ def test_export_uses_same_filters_as_list(db, seeded):
     with SessionLocal() as cleanup_db:
         cleanup_db.query(AuditLog).filter(AuditLog.action == "export.downloaded").delete(synchronize_session=False)
         cleanup_db.commit()
-    assert "role.updated" in body
+    assert "user.personas_updated" in body
     # 未命中筛选的那两条不得出现在导出里
     assert "access.denied" not in body
     assert "user.deleted" not in body

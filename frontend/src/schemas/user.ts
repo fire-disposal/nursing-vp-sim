@@ -5,13 +5,22 @@ export const membershipDraftSchema = z.object({
   member_role: z.enum(["student", "teacher"]),
 });
 
+/**
+ * 视角集合：账号至少要有一个视角 —— 没有视角的账号登录后无任何权限，
+ * 等于建了一个进不去任何页面的账号。多视角按"授予"语义整体替换。
+ */
+const personasField = z
+  .array(z.string())
+  .min(1, "请至少选择一个视角")
+  .refine((list) => new Set(list).size === list.length, "视角不能重复");
+
 export const registerUserSchema = z.object({
   username: z.string().min(1, "用户名不能为空").regex(/^[a-zA-Z0-9_]+$/, "用户名只能包含字母、数字和下划线"),
   password: z.string().min(6, "密码至少6位"),
-  role: z.string().min(1, "请选择角色"),
+  personas: personasField,
   display_name: z.string().min(1, "姓名不能为空"),
   student_id: z.string().optional(),
-  // 空串 = 未选（平台角色 / 院校管理员由服务端强制本校）。必填性由 UserForm 按角色动态判。
+  // 空串 = 未选（平台账号不属任何院校 / 院校管理员由服务端强制本校）。必填性由 UserForm 按视角动态判。
   school_id: z.string().optional(),
   memberships: z.array(membershipDraftSchema).default([]),
 });
@@ -21,7 +30,7 @@ export const editUserSchema = z.object({
   username: z.string().min(1, "用户名不能为空").regex(/^[a-zA-Z0-9_]+$/, "用户名只能包含字母、数字和下划线"),
   display_name: z.string().min(1, "姓名不能为空"),
   student_id: z.string().optional(),
-  role: z.string().min(1, "请选择角色"),
+  personas: personasField,
   password: z.string().optional(),
   school_id: z.string().optional(),
   memberships: z.array(membershipDraftSchema).default([]),

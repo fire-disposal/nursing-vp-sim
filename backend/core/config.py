@@ -46,7 +46,7 @@ LOGIN_LOCK_SECONDS = int(os.getenv("LOGIN_LOCK_SECONDS", "900"))  # 15 分钟
 # （kill switch）**——生产由 `deploy/.env`（服务器 `/opt/nursing-vp-sim/.env`）置 `true` 开启，
 # 见 docs/ops/scenario-training.md。
 # 关闭时 `/api/scenario/**` 一律 404（不是 403：不暴露功能存在），对学生界面零可见。
-# 开启后学生侧判权限键 `scenario_training`（core/permissions.py，角色授予见 core/roles.py +
+# 开启后学生侧判权限键 `scenario_training`（core/permissions.py，视角授予见 core/personas.py +
 # 存量库补权迁移 c8d9e0f1a2b3）；管理侧复用 `case_manage` / `stats_view`。
 SCENARIO_TRAINING_ENABLED = os.getenv("SCENARIO_TRAINING_ENABLED", "false").lower() == "true"
 

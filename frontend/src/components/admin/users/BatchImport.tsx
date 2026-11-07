@@ -1,3 +1,4 @@
+import { Alert, Box, Button, Group, Modal, Stack, Table, Text, Textarea } from "@mantine/core";
 import {
   IconAlertCircle,
   IconCircleCheck,
@@ -7,17 +8,13 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 import { useRef, useState } from "react";
-import { Alert, Box, Button, Group, Modal, Stack, Text } from "@mantine/core";
-
-import { RoleBadge } from "@/components/ui/role-badge";
+import { PersonaBadges } from "@/components/ui/persona-badges";
 import TableScroll from "@/components/ui/table-scroll";
-import { Textarea } from "@mantine/core";
-import { Table } from "@mantine/core";
 import type { ClassItem } from "@/types/store";
 import { getApiErrorDetail } from "@/utils/error";
-import type { BatchCreateResult, BatchPreviewResult, BatchUser, RoleOption } from "./types";
+import type { BatchCreateResult, BatchPreviewResult, BatchUser } from "./types";
 
-const CSV_HEADERS = ["用户名", "密码", "姓名", "角色", "学号", "学校", "届别", "班级名称"];
+const CSV_HEADERS = ["用户名", "密码", "姓名", "视角", "学号", "学校", "届别", "班级名称"];
 const BOM = "\uFEFF";
 
 /** 预览行带 CSV 行号：后端只见到过滤后的数组，行号由前端负责对回文件。 */
@@ -73,7 +70,6 @@ function splitRecords(text: string): string[] {
 interface BatchImportProps {
   open: boolean;
   onClose: () => void;
-  roles: RoleOption[];
   /** 全部班级，用于把「届别 + 班级名」解析成确定的 class_id。 */
   classes: ClassItem[];
   /** 提交一批学生；返回后端的逐行回执（新建/并入/跳过的行与原因）。 */
@@ -82,7 +78,7 @@ interface BatchImportProps {
   onPreview: (users: BatchUser[]) => Promise<BatchPreviewResult>;
 }
 
-export default function BatchImport({ open, onClose, roles, classes, onImport, onPreview }: BatchImportProps) {
+export default function BatchImport({ open, onClose, classes, onImport, onPreview }: BatchImportProps) {
   const [batchText, setBatchText] = useState("");
   const [previewRows, setPreviewRows] = useState<PreviewRow[]>([]);
   const [plan, setPlan] = useState<BatchPreviewResult | null>(null);
@@ -179,7 +175,12 @@ export default function BatchImport({ open, onClose, roles, classes, onImport, o
       const username = cellOf(parts, "用户名");
       const password = cellOf(parts, "密码");
       const displayName = cellOf(parts, "姓名");
-      const role = cellOf(parts, "角色") || "student";
+      // 「视角」列：逗号分隔可多值（单元格内已按 CSV 引号规则处理）；缺省 = 学生
+      const personaKeys = (cellOf(parts, "视角") || "student")
+        .split(/[、,，;；\s]+/)
+        .map((v) => v.trim())
+        .filter(Boolean);
+      const personas = [...new Set(personaKeys.length > 0 ? personaKeys : ["student"])];
       const studentId = cellOf(parts, "学号") || null;
       const schoolName = cellOf(parts, "学校");
       const cohortLabel = cellOf(parts, "届别");
@@ -193,8 +194,12 @@ export default function BatchImport({ open, onClose, roles, classes, onImport, o
         issues.push({ line, message: `第${line}行(${username}): 密码长度不能少于6位` });
         continue;
       }
-      if (role !== "student") {
-        issues.push({ line, message: `第${line}行(${username}): 仅支持学生角色（当前: ${role}）` });
+      // 批量导入只建学生视角：教师/管理员要从管理端逐个授予（导入不做提权通道）
+      if (personas.length !== 1 || personas[0] !== "student") {
+        issues.push({
+          line,
+          message: `第${line}行(${username}): 批量导入仅支持学生视角（当前: ${personas.join("、") || "空"}）`,
+        });
         continue;
       }
 
@@ -214,7 +219,7 @@ export default function BatchImport({ open, onClose, roles, classes, onImport, o
           username,
           password,
           display_name: displayName,
-          role: "student",
+          personas,
           student_id: studentId,
           school_name: schoolName || null,
           class_name: className || null,
@@ -365,11 +370,12 @@ export default function BatchImport({ open, onClose, roles, classes, onImport, o
     >
         <Text size="xs" c="dimmed" mb="md">
           支持 CSV 文件上传或直接粘贴文本。表头行自动识别，无表头按位置匹配。
-          仅限创建<strong>学生</strong>角色账号；班级不存在时自动创建。
+          仅限创建<strong>学生视角</strong>账号；班级不存在时自动创建。
           <br />
           <strong>学号是身份键</strong>：本校同一学号已有学生账号时，这一行会「并入」那个账号并补上班级归属，
           不新建第二个账号（训练历史跟着人走）；学号相同但姓名不同会跳过，交给人工核对。
-          「学校」列填「院校管理」里的院校名称：平台角色每行必须给出学校或已存在的班级之一；
+          「视角」列逗号分隔可多值，默认 student（批量导入只接受学生视角）；
+          「学校」列填「院校管理」里的院校名称：平台账号每行必须给出学校或已存在的班级之一；
           院校管理员可留空（自动落本校），填了就必须是本校。
           学校不存在、或学校与班级所属院校不一致时，该行报错丢弃。
           同名班级存在于多个届别/院校时，必须补充「届别」或用「学校」消歧。
@@ -514,10 +520,7 @@ export default function BatchImport({ open, onClose, roles, classes, onImport, o
                             <Table.Td>{"*".repeat(Math.min(u.password.length, 8))}</Table.Td>
                             <Table.Td>{u.display_name}</Table.Td>
                             <Table.Td>
-                              <RoleBadge
-                                role={u.role}
-                                label={roles.find((r) => r.name === u.role)?.display_name || u.role}
-                              />
+                              <PersonaBadges personas={u.personas} size="xs" />
                             </Table.Td>
                             <Table.Td>
                               <Text size="sm" c="dimmed">

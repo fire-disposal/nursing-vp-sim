@@ -335,23 +335,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/roles": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Roles */
-        get: operations["list_roles_api_admin_roles_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/admin/schools": {
         parameters: {
             query?: never;
@@ -3247,8 +3230,6 @@ export interface components {
             actor_username: string | null;
             /** Actor Display Name */
             actor_display_name: string | null;
-            /** Actor Role */
-            actor_role: string | null;
             /** Actor Persona */
             actor_persona?: string | null;
             /** Action */
@@ -3358,11 +3339,8 @@ export interface components {
             password: string;
             /** Display Name */
             display_name: string;
-            /**
-             * Role
-             * @default student
-             */
-            role: string;
+            /** Personas */
+            personas?: string[];
             /** Student Id */
             student_id?: string | null;
             /** Class Id */
@@ -5082,11 +5060,8 @@ export interface components {
             username: string;
             /** Password */
             password: string;
-            /**
-             * Role
-             * @default student
-             */
-            role: string;
+            /** Personas */
+            personas?: string[];
             /** Display Name */
             display_name: string;
             /** Student Id */
@@ -5104,8 +5079,8 @@ export interface components {
             id: number;
             /** Username */
             username: string;
-            /** Role */
-            role: string;
+            /** Personas */
+            personas?: string[];
             /** Display Name */
             display_name: string;
             /** Student Id */
@@ -5152,28 +5127,6 @@ export interface components {
             facts?: string[];
             /** Problems */
             problems?: string[];
-        };
-        /**
-         * RoleResponse
-         * @description 账号类型（角色）：权限不再挂在这里，见 core/personas.py。
-         */
-        RoleResponse: {
-            /** Id */
-            id: number;
-            /** Name */
-            name: string;
-            /** Display Name */
-            display_name: string;
-            /**
-             * Is System
-             * @default false
-             */
-            is_system: boolean;
-            /**
-             * User Count
-             * @default 0
-             */
-            user_count: number;
         };
         /** ScenarioActor */
         ScenarioActor: {
@@ -6815,8 +6768,8 @@ export interface components {
             id: number;
             /** Username */
             username: string;
-            /** Role */
-            role: string;
+            /** Personas */
+            personas?: string[];
             /** Display Name */
             display_name: string;
             /** Student Id */
@@ -7112,8 +7065,6 @@ export interface components {
              * @default bearer
              */
             token_type: string;
-            /** Role */
-            role: string;
             /** Display Name */
             display_name: string;
             /** User Id */
@@ -7528,10 +7479,8 @@ export interface components {
             id: number;
             /** Username */
             username: string;
-            /** Role */
-            role: string;
-            /** Role Display Name */
-            role_display_name: string;
+            /** Personas */
+            personas?: string[];
             /** School Id */
             school_id?: number | null;
             /** School Name */
@@ -7567,8 +7516,6 @@ export interface components {
             is_active: boolean;
             /** Permissions */
             permissions?: string[];
-            /** Personas */
-            personas?: string[];
             /** Active Persona */
             active_persona?: string | null;
         };
@@ -7655,8 +7602,8 @@ export interface components {
              * @description 所属院校；省略 = 不修改
              */
             school_id?: number | null;
-            /** Role */
-            role?: string | null;
+            /** Personas */
+            personas?: string[] | null;
             /** Password */
             password?: string | null;
             /** Gender */
@@ -8663,38 +8610,6 @@ export interface operations {
             };
         };
     };
-    list_roles_api_admin_roles_get: {
-        parameters: {
-            query?: {
-                /** @description 角色名模糊搜索 */
-                search?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoleResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     list_schools_api_admin_schools_get: {
         parameters: {
             query?: never;
@@ -9177,8 +9092,8 @@ export interface operations {
                 limit?: number;
                 /** @description 搜索用户名/姓名/学号 */
                 search?: string | null;
-                /** @description 角色筛选 student/teacher */
-                role?: string | null;
+                /** @description 视角筛选 student/teacher/admin/ops */
+                persona?: string | null;
                 /** @description 院校筛选（平台角色可跨院校查看） */
                 school_id?: number | null;
                 class_id?: number | null;
@@ -9221,8 +9136,8 @@ export interface operations {
                 format?: string;
                 /** @description 搜索用户名/姓名/学号 */
                 search?: string | null;
-                /** @description 角色筛选 student/teacher */
-                role?: string | null;
+                /** @description 视角筛选 student/teacher/admin/ops */
+                persona?: string | null;
                 /** @description 院校筛选（平台角色可跨院校查看） */
                 school_id?: number | null;
                 class_id?: number | null;

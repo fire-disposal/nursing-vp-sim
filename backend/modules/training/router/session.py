@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session, joinedload
 from core.database import get_db
 from core.datetime_utils import ensure_utc
 from core.exceptions import AuthError, NotFoundError
-from core.personas import permissions_for_role_name
 from core.security import get_current_user, require_permission
 from core.statuses import (
     AssignmentLifecycle,
@@ -377,8 +376,7 @@ def _create_record(
     # 「这条是不是学生练习」：教师/管理员开始的不算（规则见 modules/training/participation.py）。
     # 权限取**调用者当前视角**（由 `_start_record` 传入）；内部直接调用时回落到角色默认视角。
     if actor_permissions is None:
-        user = db.query(User).options(joinedload(User.role)).filter(User.id == user_id).first()
-        actor_permissions = set(permissions_for_role_name(user.role.name if user and user.role else None))
+        actor_permissions = set()
     record.is_student_practice = is_student_practice(permissions=actor_permissions)
 
     db.add(record)
@@ -466,7 +464,7 @@ def start_training(
         f"训练开始: record_id={record.id} case_id={case.id} case_name={case.name}",
         extra={
             "user_id": current_user.id,
-            "user_role": current_user.role.name if current_user.role else "",
+            "user_role": current_user.active_persona or "",
             "action": "training_start",
         },
     )
@@ -729,7 +727,7 @@ def start_practice_training(
         f"再练习开始: record_id={record.id} kind={req.kind} source_record_id={source.id} target_case_id={target.case.id}",
         extra={
             "user_id": current_user.id,
-            "user_role": current_user.role.name if current_user.role else "",
+            "user_role": current_user.active_persona or "",
             "action": "training_start_practice",
         },
     )
@@ -853,7 +851,7 @@ def delete_record(
 
     log.info(
         f"训练记录删除: record_id={record_id} case_id={record.case_id} owner_id={record.user_id}",
-        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
+        extra={"user_id": current_user.id, "user_role": current_user.active_persona or ""},
     )
     return {"message": "训练记录已删除"}
 

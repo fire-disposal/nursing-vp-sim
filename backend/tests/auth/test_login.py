@@ -10,7 +10,7 @@ from core.audit import ACTION_AUTH_LOGIN_BLOCKED, ACTION_AUTH_LOGIN_FAILED
 from core.config import LOGIN_MAX_FAILED_ATTEMPTS
 from core.exceptions import AuthError
 from core.security import hash_password
-from models import AuditLog, Role, User
+from models import AuditLog, User
 from modules.auth.service import AuthService
 
 
@@ -103,15 +103,9 @@ def _cleanup_login_audit():
 
 
 def _db_user(db, username: str) -> User:
-    role = db.query(Role).filter(Role.name == "student").first()
-    if role is None:
-        role = Role(name="student", display_name="学生")
-        db.add(role)
-        db.flush()
     user = User(
         username=username,
         password_hash=hash_password("secret123"),
-        role_id=role.id,
         display_name=username,
         failed_login_count=0,
         locked_until=None,

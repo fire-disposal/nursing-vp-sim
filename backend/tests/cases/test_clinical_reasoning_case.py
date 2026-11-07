@@ -40,7 +40,6 @@ from models import (
     Class,
     ClassMembership,
     Notification,
-    Role,
     Score,
     TrainingRecord,
     User,
@@ -117,7 +116,6 @@ CLINICAL_CASE: dict = {
 
 _TABLES = [
     legacy_grades_table,
-    Role.__table__,
     User.__table__,
     Class.__table__,
     ClassMembership.__table__,
@@ -164,17 +162,11 @@ def db(pg_session):
     见 core/audit.record_detached）：savepoint 回滚不掉，故按 id 起点在 teardown 清掉。
     """
     marker = pg_session.query(sa.func.max(AuditLog.id)).scalar() or 0
-    role = pg_session.query(Role).filter(Role.name == "admin").first() or Role(
-        name="admin", display_name="管理员", is_system=True
-    )
-    pg_session.add(role)
-    pg_session.flush()
     pg_session.add(
         User(
             id=1,
             username="clinical-author",
             password_hash="x",
-            role_id=role.id,
             display_name="临床病例作者",
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
@@ -448,7 +440,7 @@ class TestCatalogProjection:
 
 
 def _created(db: Session, **overrides) -> Case:
-    CaseService(db).create(_payload(**overrides), user_id=1, user_role="admin")
+    CaseService(db).create(_payload(**overrides), user_id=1, actor_persona="admin")
     return db.query(Case).order_by(Case.id.desc()).first()
 
 
@@ -460,7 +452,7 @@ class TestPublishFlow:
         preview = validate_case_row(case)
         assert preview.errors == []
 
-        view, report = CaseService(db).publish(case.id, user_id=1, user_role="admin")
+        view, report = CaseService(db).publish(case.id, user_id=1, actor_persona="admin")
 
         assert report.errors == []
         assert view.status == CASE_STATUS_PUBLISHED
@@ -477,7 +469,7 @@ class TestPublishFlow:
         case = _created(db, **data)
 
         with pytest.raises(CaseNotPublishableError) as excinfo:
-            CaseService(db).publish(case.id, user_id=1, user_role="admin")
+            CaseService(db).publish(case.id, user_id=1, actor_persona="admin")
 
         fields = {issue.field for issue in excinfo.value.report.errors}
         assert {"findings[0]", "rubric.anchors[2].objectives[0]"} <= fields
@@ -490,20 +482,20 @@ class TestPublishFlow:
         data = _payload()
         data["objectives"]["must_act"][0]["action"] = ""
         with pytest.raises(ValidationError) as excinfo:
-            CaseService(db).create(data, user_id=1, user_role="admin")
+            CaseService(db).create(data, user_id=1, actor_persona="admin")
         assert "objectives.must_act.0.action" in str(excinfo.value)
         assert db.query(Case).count() == 0
 
     def test_published_case_edit_is_gated_and_content_stays_frozen(self, db: Session):
         case = _created(db)
-        CaseService(db).publish(case.id, user_id=1, user_role="admin")
+        CaseService(db).publish(case.id, user_id=1, actor_persona="admin")
         first_revision_id = case.current_revision_id
         frozen = json.loads(json.dumps(case.case_data))
 
         broken = _payload()
         broken["rubric"]["anchors"][0]["objectives"] = ["n.typo"]
         with pytest.raises(CaseNotPublishableError):
-            CaseService(db).update(case.id, broken, user_id=1, user_role="admin")
+            CaseService(db).update(case.id, broken, user_id=1, actor_persona="admin")
 
         db.rollback()
         assert case.case_data == frozen

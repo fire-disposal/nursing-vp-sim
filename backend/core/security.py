@@ -2,17 +2,20 @@ from __future__ import annotations
 
 import time
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
 import bcrypt
 import jwt
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy.orm import Session, joinedload
 
 from core.config import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, JWT_SECRET_KEY, REFRESH_MAX_AGE_HOURS
 from core.database import get_db
 from core.personas import PERSONA_KEYS, default_persona_for, grants_all_personas, persona_permissions, persona_scope
 from models import User, UserPersona
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 security = HTTPBearer()
 
@@ -135,7 +138,7 @@ def get_current_user(
     except jwt.PyJWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的认证令牌")
 
-    user = db.query(User).options(joinedload(User.role)).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == user_id).first()
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在或已被禁用")
 
@@ -198,7 +201,7 @@ def decode_token_allow_expired(
     except jwt.PyJWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的凭证")
 
-    user = db.query(User).options(joinedload(User.role)).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == user_id).first()
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在或已被禁用")
 

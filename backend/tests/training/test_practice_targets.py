@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from core.database import Base
 from core.database import engine as pg_engine
-from models import Case, Role, TrainingRecord, User
+from models import Case, TrainingRecord, User
 from modules.training.practice import (
     PRACTICE_KIND_REMEDIATION,
     PRACTICE_KIND_TRANSFER,
@@ -30,7 +30,7 @@ from modules.training.practice import (
     resolve_practice_target,
 )
 
-_TABLES = [Role.__table__, User.__table__, Case.__table__, TrainingRecord.__table__]
+_TABLES = [User.__table__, Case.__table__, TrainingRecord.__table__]
 
 
 def _fake_current_revision(db, case):
@@ -79,11 +79,8 @@ def db():
 
 
 def _user(db) -> User:
-    role = db.query(Role).filter(Role.name == "student").first() or Role(name="student", display_name="学生")
-    db.add(role)
-    db.flush()
     stamp = datetime.now(UTC).timestamp()
-    user = User(username=f"practice-{stamp}", password_hash="x", display_name="学生", role_id=role.id)
+    user = User(username=f"practice-{stamp}", password_hash="x", display_name="学生")
     db.add(user)
     db.flush()
     return user

@@ -1,6 +1,4 @@
-import { APP_TIME_ZONE } from "@/utils/date";
-import { Badge, Button, Group, Paper, SimpleGrid, Stack, Text } from "@mantine/core";
-import { useQuery } from "@tanstack/react-query";
+import { Badge, Button, Group, Paper, SimpleGrid, Stack, Table, Text } from "@mantine/core";
 import {
 	IconActivity,
 	IconClock,
@@ -10,18 +8,20 @@ import {
 	IconTrendingUp,
 	IconUser,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
-import TableScroll from "@/components/ui/table-scroll";
 import { getStudentDetail } from "@/api";
 import { getUsers } from "@/api/admin/users";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import MembershipTags from "@/components/admin/users/MembershipTags";
 import { TrainingTrendChart } from "@/components/admin/TrainingTrendChart";
+import MembershipTags from "@/components/admin/users/MembershipTags";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import PageHeader from "@/components/ui/page-header";
+import PersonaBadges from "@/components/ui/persona-badges";
 import StatCard from "@/components/ui/stat-card";
-import { Table } from "@mantine/core";
+import TableScroll from "@/components/ui/table-scroll";
+import { APP_TIME_ZONE } from "@/utils/date";
 
 
 type StudentRecentRecord = components["schemas"]["StudentRecentRecord"];
@@ -45,7 +45,8 @@ export default function UserDetailPage() {
 		enabled: !!student?.username,
 		staleTime: 2 * 60_000,
 	});
-	const memberships = briefs?.items.find((u) => u.id === Number(userId))?.memberships;
+	const brief = briefs?.items.find((u) => u.id === Number(userId));
+	const memberships = brief?.memberships;
 
 	if (isLoading) {
 		return <Text ta="center" py={48} c="dimmed">加载中...</Text>;
@@ -73,6 +74,15 @@ export default function UserDetailPage() {
 
 			<Paper withBorder p="sm" mb="lg">
 				<Group gap={10} align="center" wrap="wrap">
+					<Text size="xs" c="dimmed" fw={600}>视角</Text>
+					{/* 角色已退场：身份只由被授予的视角表达，多视角全列（不挑一条当"主身份"） */}
+					{brief?.personas ? (
+						<PersonaBadges personas={brief.personas} size="xs" />
+					) : (
+						<Text size="xs" c="dimmed">
+							{briefFailed ? "视角信息暂不可用" : "加载中…"}
+						</Text>
+					)}
 					<Text size="xs" c="dimmed" fw={600}>班级归属</Text>
 					{!student.username ? (
 						<Text size="xs" c="dimmed">无法确定用户名</Text>

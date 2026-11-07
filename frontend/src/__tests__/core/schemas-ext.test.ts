@@ -152,7 +152,7 @@ describe("registerUserSchema", () => {
 			registerUserSchema.safeParse({
 				username: "student01",
 				password: "secret1",
-				role: "student",
+				personas: ["student"],
 				display_name: "小明",
 			}).success,
 		).toBe(true);
@@ -162,7 +162,7 @@ describe("registerUserSchema", () => {
 		const r = registerUserSchema.safeParse({
 			username: "bad name!",
 			password: "secret1",
-			role: "student",
+			personas: ["student"],
 			display_name: "小明",
 		});
 		expect(r.success).toBe(false);
@@ -173,7 +173,7 @@ describe("registerUserSchema", () => {
 		const r = registerUserSchema.safeParse({
 			username: "ok1",
 			password: "123",
-			role: "student",
+			personas: ["student"],
 			display_name: "小明",
 		});
 		expect(r.success).toBe(false);
@@ -183,7 +183,7 @@ describe("registerUserSchema", () => {
 		const empty = registerUserSchema.safeParse({
 			username: "ok1",
 			password: "secret1",
-			role: "student",
+			personas: ["student"],
 			display_name: "小明",
 		});
 		expect(empty.success).toBe(true);
@@ -192,7 +192,7 @@ describe("registerUserSchema", () => {
 		const multi = registerUserSchema.safeParse({
 			username: "ok1",
 			password: "secret1",
-			role: "student",
+			personas: ["student"],
 			display_name: "小明",
 			memberships: [
 				{ class_id: "1", member_role: "student" },
@@ -207,7 +207,7 @@ describe("registerUserSchema", () => {
 		const r = registerUserSchema.safeParse({
 			username: "ok1",
 			password: "secret1",
-			role: "student",
+			personas: ["student"],
 			display_name: "小明",
 			memberships: [{ class_id: "1", member_role: "admin" }],
 		});
@@ -218,7 +218,7 @@ describe("registerUserSchema", () => {
 describe("editUserSchema", () => {
 	it("accepts minimal edit", () => {
 		expect(
-			editUserSchema.safeParse({ username: "xiao_li", display_name: "小李", role: "student" }).success,
+			editUserSchema.safeParse({ username: "xiao_li", display_name: "小李", personas: ["student"] }).success,
 		).toBe(true);
 	});
 
@@ -232,11 +232,11 @@ describe("editUserSchema", () => {
 	});
 
 	it("requires a plain-ASCII username (it is the login key)", () => {
-		expect(editUserSchema.safeParse({ username: "", display_name: "小李", role: "student" }).success).toBe(
+		expect(editUserSchema.safeParse({ username: "", display_name: "小李", personas: ["student"] }).success).toBe(
 			false,
 		);
 		expect(
-			editUserSchema.safeParse({ username: "张三", display_name: "小李", role: "student" }).success,
+			editUserSchema.safeParse({ username: "张三", display_name: "小李", personas: ["student"] }).success,
 		).toBe(false);
 	});
 });

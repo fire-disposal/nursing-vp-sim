@@ -18,11 +18,11 @@ import sqlalchemy as sa
 
 from core.database import Base
 from core.database import engine as pg_engine
-from models import QARecord, QASession, Role, User
+from models import QARecord, QASession, User
 from modules.qa.citations import embed_citations
 from modules.qa.logic import get_cached_answer
 
-_TABLES = [Role.__table__, User.__table__, QASession.__table__, QARecord.__table__]
+_TABLES = [User.__table__, QASession.__table__, QARecord.__table__]
 
 #: 用例里引用的固定身份（真库这两张表为空；users 序列远大于 7，不会撞号）
 _QA_USER_ID = 7
@@ -42,15 +42,8 @@ def _schema():
 @pytest.fixture
 def qa_db(pg_session):
     """savepoint 隔离 → 用例内部 flush 只落在 savepoint 里，对库零残留。"""
-    role = pg_session.query(Role).filter(Role.name == "student").first() or Role(
-        name="student", display_name="学生", is_system=True
-    )
-    pg_session.add(role)
-    pg_session.flush()
     pg_session.query(QARecord).delete()  # 命中/未命中判据需要确定性的空表
-    pg_session.add(
-        User(id=_QA_USER_ID, username="qa-cache-user", password_hash="x", role_id=role.id, display_name="问答用户")
-    )
+    pg_session.add(User(id=_QA_USER_ID, username="qa-cache-user", password_hash="x", display_name="问答用户"))
     pg_session.add(QASession(id=_QA_SESSION_ID, user_id=_QA_USER_ID, title="问答会话"))
     pg_session.flush()
     return pg_session

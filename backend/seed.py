@@ -7,21 +7,21 @@ Called once during app startup (lifespan).
 import json
 import logging
 import os
+from datetime import UTC, datetime
 from pathlib import Path
 
 from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
 from core.database import SessionLocal
-from core.personas import SUPER_ADMIN_ROLE
-from core.roles import SYSTEM_ROLES
-from core.security import clear_permission_cache, hash_password
+from core.security import hash_password
 from core.time_limits import DEFAULT_TIME_LIMIT_MINUTES
 from models import (
     CASE_STATUS_ARCHIVED,
     CASE_STATUS_PUBLISHED,
     ApiSecret,
     Case,
-    Role,
+    School,
     User,
+    UserPersona,
     VoiceConfig,
 )
 from modules.cases.builtin_sync import is_locally_edited, with_seed_bookmark
@@ -42,127 +42,117 @@ def seed_all() -> None:
 
 def _seed_user(
     db,
-    role_ids: dict[str, int],
     *,
-    role_name: str,
+    personas: list[str],
+    is_platform: bool,
     env_username: str,
     env_password: str,
     default_username: str,
     default_display: str,
+    school_id: int | None,
 ) -> None:
-    """Seed one system user per role. Idempotent — skips if user exists, corrects role_id if drifted."""
+    """Seed one system user by persona set. Idempotent — creates only when missing."""
     username = os.getenv(env_username, default_username)
     password = os.getenv(env_password)
     if not password:
-        log.warning("%s 未设置，跳过 %s 种子用户", env_password, role_name)
+        log.warning("%s 未设置，跳过 %s 种子用户", env_password, default_display)
         return
-    role_id = role_ids.get(role_name)
-    if role_id is None:
-        log.warning("角色 %s 未找到，跳过种子用户", role_name)
-        return
-    is_platform = role_name == SUPER_ADMIN_ROLE
     existing = db.query(User).filter(User.username == username).first()
     if existing:
-        if existing.role_id != role_id or (is_platform and not existing.is_platform):
-            existing.role_id = role_id
-            if is_platform:
-                existing.is_platform = True
+        if is_platform and not existing.is_platform:
+            existing.is_platform = True
             db.commit()
-            log.debug("%s 角色已修正 (%s → %s)", default_display, username, role_name)
-    else:
-        db.add(
-            User(
-                username=username,
-                password_hash=hash_password(password),
-                role_id=role_id,
-                display_name=default_display,
-                is_platform=is_platform,
-            )
-        )
-        db.commit()
-        log.debug("%s 已创建 (%s)", default_display, username)
-
-
-def sync_system_roles(db) -> dict[str, int]:
-    """确保系统角色（账号类型）存在，返回 role_name → id。权限不再写库（视角预设是唯一来源）。"""
-    role_ids: dict[str, int] = {}
-    for name, display_name in SYSTEM_ROLES:
-        role = db.query(Role).filter(Role.name == name).first()
-        if not role:
-            role = Role(name=name, display_name=display_name, is_system=True)
-            db.add(role)
-            db.flush()
-        role_ids[name] = role.id
+            log.debug("%s 平台标记已修正 (%s)", default_display, username)
+        return
+    user = User(
+        username=username,
+        password_hash=hash_password(password),
+        display_name=default_display,
+        school_id=school_id,
+        is_platform=is_platform,
+    )
+    db.add(user)
     db.flush()
-    return role_ids
+    for persona in personas:
+        db.add(UserPersona(user_id=user.id, persona=persona))
+    db.commit()
+    log.debug("%s 已创建 (%s)", default_display, username)
 
 
 def _seed_data() -> None:
     db = SessionLocal()
     try:
-        first_run = db.query(Role).count() == 0
-        role_ids = sync_system_roles(db)
-        db.commit()
-        clear_permission_cache()
-
+        first_run = db.query(User).count() == 0
         if not first_run:
             return
 
-        # 3. 各角色初始用户（幂等：已存在则只修正 role_id，不重复创建）
+        # 平台账号不属于任何院校；其余种子账号挂到示例院校（避免 school_id 为空 = 平台全局）
+        school = db.query(School).first()
+        if school is None:
+            school = School(name="示例院校", created_at=datetime.now(UTC))
+            db.add(school)
+            db.flush()
+
         _seed_user(
             db,
-            role_ids,
-            role_name="super_admin",
+            personas=[],
+            is_platform=True,
             env_username="SEED_ADMIN_USERNAME",
             env_password="SEED_ADMIN_PASSWORD",
             default_username="admin",
             default_display="超级管理员",
+            school_id=None,
         )
         _seed_user(
             db,
-            role_ids,
-            role_name="admin",
+            personas=["admin"],
+            is_platform=False,
             env_username="SEED_OPERATOR_USERNAME",
             env_password="SEED_OPERATOR_PASSWORD",
             default_username="admin2",
             default_display="管理员",
+            school_id=school.id,
         )
         _seed_user(
             db,
-            role_ids,
-            role_name="teacher",
+            personas=["teacher"],
+            is_platform=False,
             env_username="SEED_TEACHER_USERNAME",
             env_password="SEED_TEACHER_PASSWORD",
             default_username="teacher1",
             default_display="教师",
+            school_id=school.id,
         )
         _seed_user(
             db,
-            role_ids,
-            role_name="student",
+            personas=["student"],
+            is_platform=False,
             env_username="SEED_STUDENT_USERNAME",
             env_password="SEED_STUDENT_PASSWORD",
             default_username="student1",
             default_display="学生",
+            school_id=school.id,
         )
 
-        # 4. 测试学生 (仅首次初始化)
-        if db.query(User).filter(User.username != "admin").count() == 0:
-            student_role_id = role_ids.get("student")
-            test_genders = ["男", "女", "男", "女", "男"]
-            for i in range(1, 6):
-                db.add(
-                    User(
-                        username=f"student{i}",
-                        password_hash=hash_password("123456"),
-                        role_id=student_role_id,
-                        display_name=f"学生{i}",
-                        student_id=f"202400{i:02d}",
-                        gender=test_genders[i - 1],
-                    )
-                )
-            db.commit()
-            log.debug("测试学生已创建 (student1-5 / 123456)")
+        # 测试学生（仅首次初始化）
+        test_genders = ["男", "女", "男", "女", "男"]
+        for i in range(2, 6):
+            username = f"student{i}"
+            if db.query(User).filter(User.username == username).first():
+                continue
+            user = User(
+                username=username,
+                password_hash=hash_password("123456"),
+                display_name=f"学生{i}",
+                student_id=f"202400{i:02d}",
+                gender=test_genders[i - 1],
+                school_id=school.id,
+            )
+            db.add(user)
+            db.flush()
+            db.add(UserPersona(user_id=user.id, persona="student"))
+        db.commit()
+        log.debug("测试学生已创建 (student1-5 / 123456)")
 
     finally:
         db.close()

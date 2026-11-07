@@ -34,7 +34,6 @@ from models import (
     CaseRevision,
     Class,
     Message,
-    Role,
     Score,
     ScoreReview,
     TrainingRecord,
@@ -49,7 +48,6 @@ from schemas import ScoreReviewRequest
 #: TrainingRecord 的外键目标必须一起建（PG 会校验真 FK）
 _TABLES = [
     legacy_grades_table,
-    Role.__table__,
     User.__table__,
     Class.__table__,
     Case.__table__,
@@ -103,12 +101,7 @@ class _Queue:
 
 
 def _user(db, name: str) -> User:
-    role = db.query(Role).filter(Role.name == "teacher").first() or Role(
-        name="teacher", display_name="教师", is_system=True
-    )
-    db.add(role)
-    db.flush()
-    user = User(username=name, password_hash="x", display_name=name, role_id=role.id)
+    user = User(username=name, password_hash="x", display_name=name)
     db.add(user)
     db.flush()
     # 直调路由 = 绕过 require_permission 依赖；has_permission 读的是实例缓存

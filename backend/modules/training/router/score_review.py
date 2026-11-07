@@ -209,7 +209,7 @@ def submit_score_review(
 
     log.info(
         f"评分复核: score_id={score.id} reviewer_id={current_user.id} basis={basis}",
-        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
+        extra={"user_id": current_user.id, "user_role": current_user.active_persona or ""},
     )
 
     return ScoreReviewResponse(

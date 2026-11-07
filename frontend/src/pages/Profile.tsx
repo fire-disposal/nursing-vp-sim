@@ -1,4 +1,19 @@
 import {
+	Avatar,
+	Box,
+	Button,
+	Container,
+	Divider,
+	Group,
+	Modal,PasswordInput, 
+	Stack,
+	Text,TextInput, 
+	ThemeIcon,
+	useComputedColorScheme,
+	useMantineColorScheme
+} from "@mantine/core";
+import { schemaResolver, useForm } from "@mantine/form";
+import {
 	IconExternalLink,
 	IconInfoCircle,
 	IconLock,
@@ -10,42 +25,27 @@ import {
 	IconSun,
 	IconUser,
 } from "@tabler/icons-react";
-import { schemaResolver, useForm } from "@mantine/form";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-	Avatar,
-	Box,
-	Button,
-	Container,
-	Divider,
-	Group,
-	Modal,
-	Stack,
-	Text,
-	ThemeIcon,
-	useComputedColorScheme,
-	useMantineColorScheme,
-} from "@mantine/core";
 import { changePassword, updateMyProfile } from "@/api";
-import { APP_VERSION } from "@/version";
 import { useFeedback } from "@/components/FeedbackProvider";
+import ProfileTabs from "@/components/shell/ProfileTabs";
 import { Card } from "@/components/ui/card";
 import { FormMessageBanner } from "@/components/ui/form-message-banner";
-import { PasswordInput, TextInput } from "@mantine/core";
-import { getApiErrorMessage } from "@/utils/error";
-import ProfileTabs from "@/components/shell/ProfileTabs";
 import PageHeader from "@/components/ui/page-header";
-import {
-	type ProfileFormValues,
-	profileSchema,
-} from "@/schemas/profile";
+import PersonaBadges from "@/components/ui/persona-badges";
 import {
 	type ChangePasswordFormValues,
 	changePasswordSchema,
 } from "@/schemas/auth";
+import {
+	type ProfileFormValues,
+	profileSchema,
+} from "@/schemas/profile";
 import useAuthStore from "@/stores/authStore";
 import { getUserAvatar } from "@/utils/avatar";
+import { getApiErrorMessage } from "@/utils/error";
+import { APP_VERSION } from "@/version";
 
 export default function Profile() {
 	const storeUser = useAuthStore((s) => s.user);
@@ -135,10 +135,12 @@ export default function Profile() {
 							<Text size="md" fw={600}>
 								{storeUser?.display_name || "-"}
 							</Text>
-							<Text size="sm" c="dimmed" mt={2}>
-								{storeUser?.role_display_name || storeUser?.role || "用户"}
-								{storeUser?.username && <> · @{storeUser.username}</>}
-							</Text>
+							<Group gap={6} mt={2}>
+								<PersonaBadges personas={storeUser?.personas} size="sm" />
+								{storeUser?.username && (
+									<Text size="sm" c="dimmed">@{storeUser.username}</Text>
+								)}
+							</Group>
 							{storeUser?.student_id && (
 								<Text size="xs" c="dimmed" mt={2}>
 									学号: {storeUser.student_id}

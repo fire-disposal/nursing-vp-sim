@@ -16,10 +16,10 @@ from sqlalchemy import func, select
 
 from core.database import Base
 from core.database import engine as pg_engine
-from models import Case, Role, Score, TrainingRecord, User
+from models import Case, Score, TrainingRecord, User
 from modules.training.scoring.grade_scope import grade_conditions, grade_expr
 
-_TABLES = [Role.__table__, User.__table__, Case.__table__, TrainingRecord.__table__, Score.__table__]
+_TABLES = [User.__table__, Case.__table__, TrainingRecord.__table__, Score.__table__]
 
 _CASE_NAME = "成绩口径病例"
 
@@ -39,14 +39,9 @@ def _schema():
 @pytest.fixture
 def grade_db(pg_session):
     """savepoint 隔离 + 确定性起点：清空成绩表，并种出可供 ``record_id`` 引用的训练记录。"""
-    role = pg_session.query(Role).filter(Role.name == "student").first() or Role(
-        name="student", display_name="学生", is_system=True
-    )
-    pg_session.add(role)
-    pg_session.flush()
     # score_reviews.score_id 是 FK ON DELETE CASCADE，整表清空安全
     pg_session.query(Score).delete()
-    user = User(username="grade-scope-student", password_hash="x", role_id=role.id, display_name="成绩口径学生")
+    user = User(username="grade-scope-student", password_hash="x", display_name="成绩口径学生")
     case = Case(name=_CASE_NAME, description="", difficulty=1, time_limit_minutes=30)
     pg_session.add_all([user, case])
     pg_session.flush()

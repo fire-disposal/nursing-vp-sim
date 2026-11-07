@@ -21,10 +21,10 @@ from core.database import engine as pg_engine
 from core.exceptions import AuthError, NotFoundError, ValidationError
 from core.personas import PERSONAS
 from core.tenant import TenantScope
-from models import AuditLog, Role, School, User, UserPersona
+from models import AuditLog, School, User, UserPersona
 from modules.admin.personas import PersonaService
 
-_TABLES = [School.__table__, Role.__table__, User.__table__, UserPersona.__table__, AuditLog.__table__]
+_TABLES = [School.__table__, User.__table__, UserPersona.__table__, AuditLog.__table__]
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -40,15 +40,9 @@ def _school(db, name: str) -> School:
 
 
 def _actor(db, *, school: School | None, perms: set[str], platform: bool = False) -> User:
-    role = db.query(Role).filter(Role.name == ("super_admin" if platform else "teacher")).first()
-    if role is None:
-        role = Role(name=("super_admin" if platform else "teacher"), display_name="x", is_system=True)
-        db.add(role)
-        db.flush()
     user = User(
         username=f"actor-{uuid.uuid4().hex[:8]}",
         password_hash="x",
-        role_id=role.id,
         display_name="actor",
         school_id=school.id if school else None,
         is_platform=platform,
@@ -62,15 +56,9 @@ def _actor(db, *, school: School | None, perms: set[str], platform: bool = False
 
 
 def _target(db, school: School, *, platform: bool = False) -> User:
-    role = db.query(Role).filter(Role.name == "student").first()
-    if role is None:
-        role = Role(name="student", display_name="学生", is_system=True)
-        db.add(role)
-        db.flush()
     user = User(
         username=f"target-{uuid.uuid4().hex[:8]}",
         password_hash="x",
-        role_id=role.id,
         display_name="target",
         school_id=school.id,
         is_platform=platform,

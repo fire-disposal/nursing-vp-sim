@@ -15,10 +15,10 @@ import pytest
 from core.audit import ACTION_SECRET_CREATED, ACTION_SECRET_DELETED, ACTION_SECRET_UPDATED
 from core.database import Base
 from core.database import engine as pg_engine
-from models import ApiSecret, AuditLog, LLMCallLog, Role, User
+from models import ApiSecret, AuditLog, LLMCallLog, User
 from modules.admin.secrets import ApiSecretService
 
-_TABLES = [Role.__table__, User.__table__, ApiSecret.__table__, LLMCallLog.__table__, AuditLog.__table__]
+_TABLES = [User.__table__, ApiSecret.__table__, LLMCallLog.__table__, AuditLog.__table__]
 _SECRET = "sk-verysecret-abcdef1234"
 
 
@@ -34,15 +34,10 @@ def db(pg_session):
 
 @pytest.fixture
 def request_stub(db):
-    role = db.query(Role).filter(Role.name == "super_admin").first() or Role(
-        name="super_admin", display_name="超级管理员", is_system=True
-    )
-    db.add(role)
-    db.flush()
     actor = User(
         username="secret-audit-actor",
         password_hash="x",
-        role_id=role.id,
+        is_platform=True,
         display_name="密钥操作者",
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),

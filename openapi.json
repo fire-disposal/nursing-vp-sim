@@ -1869,61 +1869,6 @@
         }
       }
     },
-    "/api/admin/roles": {
-      "get": {
-        "tags": [
-          "管理",
-          "角色"
-        ],
-        "summary": "List Roles",
-        "operationId": "list_roles_api_admin_roles_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "search",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "description": "角色名模糊搜索",
-              "default": "",
-              "title": "Search"
-            },
-            "description": "角色名模糊搜索"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/RoleResponse"
-                  },
-                  "title": "Response List Roles Api Admin Roles Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/admin/schools": {
       "get": {
         "tags": [
@@ -2713,7 +2658,7 @@
             "description": "搜索用户名/姓名/学号"
           },
           {
-            "name": "role",
+            "name": "persona",
             "in": "query",
             "required": false,
             "schema": {
@@ -2725,10 +2670,10 @@
                   "type": "null"
                 }
               ],
-              "description": "角色筛选 student/teacher",
-              "title": "Role"
+              "description": "视角筛选 student/teacher/admin/ops",
+              "title": "Persona"
             },
-            "description": "角色筛选 student/teacher"
+            "description": "视角筛选 student/teacher/admin/ops"
           },
           {
             "name": "school_id",
@@ -2878,7 +2823,7 @@
             "description": "搜索用户名/姓名/学号"
           },
           {
-            "name": "role",
+            "name": "persona",
             "in": "query",
             "required": false,
             "schema": {
@@ -2890,10 +2835,10 @@
                   "type": "null"
                 }
               ],
-              "description": "角色筛选 student/teacher",
-              "title": "Role"
+              "description": "视角筛选 student/teacher/admin/ops",
+              "title": "Persona"
             },
-            "description": "角色筛选 student/teacher"
+            "description": "视角筛选 student/teacher/admin/ops"
           },
           {
             "name": "school_id",
@@ -12675,17 +12620,6 @@
             ],
             "title": "Actor Display Name"
           },
-          "actor_role": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Actor Role"
-          },
           "actor_persona": {
             "anyOf": [
               {
@@ -12799,7 +12733,6 @@
           "actor_id",
           "actor_username",
           "actor_display_name",
-          "actor_role",
           "action",
           "target_type",
           "target_id",
@@ -13011,12 +12944,12 @@
             "maxLength": 50,
             "title": "Display Name"
           },
-          "role": {
-            "type": "string",
-            "maxLength": 20,
-            "minLength": 1,
-            "title": "Role",
-            "default": "student"
+          "personas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Personas"
           },
           "student_id": {
             "anyOf": [
@@ -16869,12 +16802,12 @@
             "minLength": 6,
             "title": "Password"
           },
-          "role": {
-            "type": "string",
-            "maxLength": 20,
-            "minLength": 1,
-            "title": "Role",
-            "default": "student"
+          "personas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Personas"
           },
           "display_name": {
             "type": "string",
@@ -16947,9 +16880,12 @@
             "type": "string",
             "title": "Username"
           },
-          "role": {
-            "type": "string",
-            "title": "Role"
+          "personas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Personas"
           },
           "display_name": {
             "type": "string",
@@ -16971,7 +16907,6 @@
         "required": [
           "id",
           "username",
-          "role",
           "display_name"
         ],
         "title": "RegisterResponse"
@@ -17042,40 +16977,6 @@
         "type": "object",
         "title": "ResolvedTurn",
         "description": "**平台确定性地**结算的产物：世界这一回合发生了什么（内部模型，不直接给学生）。"
-      },
-      "RoleResponse": {
-        "properties": {
-          "id": {
-            "type": "integer",
-            "title": "Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "display_name": {
-            "type": "string",
-            "title": "Display Name"
-          },
-          "is_system": {
-            "type": "boolean",
-            "title": "Is System",
-            "default": false
-          },
-          "user_count": {
-            "type": "integer",
-            "title": "User Count",
-            "default": 0
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "display_name"
-        ],
-        "title": "RoleResponse",
-        "description": "账号类型（角色）：权限不再挂在这里，见 core/personas.py。"
       },
       "ScenarioActor": {
         "properties": {
@@ -20986,9 +20887,12 @@
             "type": "string",
             "title": "Username"
           },
-          "role": {
-            "type": "string",
-            "title": "Role"
+          "personas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Personas"
           },
           "display_name": {
             "type": "string",
@@ -21052,7 +20956,6 @@
         "required": [
           "id",
           "username",
-          "role",
           "display_name",
           "student_id",
           "created_at"
@@ -21758,10 +21661,6 @@
             "title": "Token Type",
             "default": "bearer"
           },
-          "role": {
-            "type": "string",
-            "title": "Role"
-          },
           "display_name": {
             "type": "string",
             "title": "Display Name"
@@ -21823,7 +21722,6 @@
         "type": "object",
         "required": [
           "access_token",
-          "role",
           "display_name",
           "user_id"
         ],
@@ -22695,13 +22593,12 @@
             "type": "string",
             "title": "Username"
           },
-          "role": {
-            "type": "string",
-            "title": "Role"
-          },
-          "role_display_name": {
-            "type": "string",
-            "title": "Role Display Name"
+          "personas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Personas"
           },
           "school_id": {
             "anyOf": [
@@ -22814,13 +22711,6 @@
             "type": "array",
             "title": "Permissions"
           },
-          "personas": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Personas"
-          },
           "active_persona": {
             "anyOf": [
               {
@@ -22837,8 +22727,6 @@
         "required": [
           "id",
           "username",
-          "role",
-          "role_display_name",
           "display_name",
           "student_id",
           "created_at"
@@ -23084,16 +22972,19 @@
             "title": "School Id",
             "description": "所属院校；省略 = 不修改"
           },
-          "role": {
+          "personas": {
             "anyOf": [
               {
-                "type": "string"
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Role"
+            "title": "Personas"
           },
           "password": {
             "anyOf": [

@@ -53,7 +53,7 @@ class _UserQuery:
         return self._user
 
     def all(self):
-        # load_role_permissions may run inside get_current_user via _set_user_permissions
+        # load_user_personas may run inside get_current_user via _set_user_permissions
         return []
 
 
@@ -96,7 +96,7 @@ def _user(**kw):
         id=1,
         is_active=True,
         token_version=0,
-        role_id=2,
+        is_platform=False,
         _permissions_cache=None,
     )
     defaults.update(kw)
@@ -119,7 +119,7 @@ class TestLoadUserPersonas:
         db = _PermDb(["teacher", "admin"])
         from core.security import load_user_personas
 
-        granted = load_user_personas(db, _user(id=7, is_platform=False, role=None))
+        granted = load_user_personas(db, _user(id=7, is_platform=False))
         assert granted == frozenset({"teacher", "admin"})
         assert db.persona_query.queries == 1
 
@@ -127,7 +127,7 @@ class TestLoadUserPersonas:
         from core.security import load_user_personas
 
         db = _PermDb(["student"])
-        user = _user(id=3, is_platform=False, role=None)
+        user = _user(id=3, is_platform=False)
         load_user_personas(db, user)
         load_user_personas(db, user)
         assert db.persona_query.queries == 1
@@ -136,7 +136,7 @@ class TestLoadUserPersonas:
         from core.security import load_user_personas
 
         db = _PermDb(["student"])
-        user = _user(id=5, is_platform=False, role=None)
+        user = _user(id=5, is_platform=False)
         load_user_personas(db, user)
         clear_permission_cache(5)
         load_user_personas(db, user)
@@ -146,19 +146,19 @@ class TestLoadUserPersonas:
         from core.security import load_user_personas
 
         db = _PermDb([])
-        assert load_user_personas(db, _user(id=9, is_platform=False, role=None)) == frozenset()
+        assert load_user_personas(db, _user(id=9, is_platform=False)) == frozenset()
 
 
 class TestSetUserPermissions:
     def test_set_cache_from_granted_persona(self):
         db = _PermDb(["teacher"])
-        user = _user(id=1, is_platform=False, role=None)
+        user = _user(id=1, is_platform=False)
         _set_user_permissions(user, db)
         assert user._permissions_cache == set(persona_permissions("teacher"))
 
     def test_skips_when_already_cached(self):
         db = _PermDb(["student"])
-        user = _user(id=1, is_platform=False, role=None, _permissions_cache={"other"})
+        user = _user(id=1, is_platform=False, _permissions_cache={"other"})
         _set_user_permissions(user, db)
         assert user._permissions_cache == {"other"}
 
@@ -169,7 +169,7 @@ class TestGetCurrentUser:
 
     def test_valid_token_returns_user(self):
         token = create_access_token({"user_id": 42})
-        db = _UserDb(_user(id=42, token_version=0, role_id=1))
+        db = _UserDb(_user(id=42, token_version=0, is_platform=True))
         user = get_current_user(self._credentials(token), db)
         assert user.id == 42
 
@@ -276,13 +276,12 @@ class TestPermissionCacheWindow:
 
 
 class TestAuthMeExposesPermissions:
-    def test_get_me_fills_permissions_from_role(self):
+    def test_get_me_fills_permissions_from_persona(self):
         """RB-4：`/auth/me` 必须带 permissions，否则前端降权/升权后最长 24h 仍按旧权限渲染。"""
         from modules.auth.service import AuthService
 
         user = _user(
             username="u1",
-            role=SimpleNamespace(name="admin", display_name="管理员"),
             display_name="用户一",
             student_id=None,
             gender=None,
@@ -295,13 +294,11 @@ class TestAuthMeExposesPermissions:
         assert brief.permissions == sorted(persona_permissions("teacher"))
         assert brief.personas == ["teacher"]
 
-    def test_get_me_without_role_keeps_empty_permissions(self):
+    def test_get_me_without_grants_keeps_empty_permissions(self):
         from modules.auth.service import AuthService
 
         user = _user(
-            role_id=None,
             username="u2",
-            role=None,
             display_name="用户二",
             student_id=None,
             gender=None,

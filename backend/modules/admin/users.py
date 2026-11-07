@@ -2,7 +2,7 @@
 
 import logging
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal
 
@@ -26,13 +26,13 @@ from core.config import BATCH_USER_LIMIT, MAX_EXPORT_ROWS
 from core.deps import DbSession
 from core.exceptions import AuthError, NotFoundError, ValidationError
 from core.identity import (
-    STUDENT_ROLE_NAME,
+    STUDENT_PERSONA,
     assert_student_identity_free,
     find_student_conflict,
     normalize_student_id,
 )
 from core.pagination import paginate
-from core.personas import SUPER_ADMIN_ROLE, is_super_admin, permissions_for_role_name
+from core.personas import PERSONA_KEYS, PERSONAS, is_super_admin, persona_permissions
 from core.security import hash_password, require_permission, resolve_view_persona
 from core.tenant import Scope, TenantScope, scope_query, visible_class, writable_school_id
 from core.unit_of_work import unit_of_work
@@ -44,11 +44,11 @@ from models import (
     Case,
     Class,
     ClassMembership,
-    Role,
     School,
     Score,
     TrainingRecord,
     User,
+    UserPersona,
 )
 from modules.admin.class_memberships import upsert_members
 from modules.training.scoring.grade_scope import grade_conditions, grade_expr
@@ -95,9 +95,8 @@ class MembershipView:
 class UserBriefView:
     id: int
     username: str
-    role: str
-    role_display_name: str
-    #: 院校归属。None = 平台角色（跨院校可见，例如 super_admin）。
+    personas: list[str]
+    #: 院校归属。None = 平台账号（跨院校可见）。
     school_id: int | None
     school_name: str | None
     display_name: str
@@ -140,7 +139,7 @@ class RecordBriefView:
 class StudentDetailView:
     id: int
     username: str
-    role: str
+    personas: list[str]
     display_name: str
     student_id: str | None
     created_at: datetime
@@ -160,7 +159,7 @@ class UserFilters:
     """
 
     search: Annotated[str | None, Query(description="搜索用户名/姓名/学号")] = None
-    role: Annotated[str | None, Query(description="角色筛选 student/teacher")] = None
+    persona: Annotated[str | None, Query(description="视角筛选 student/teacher/admin/ops")] = None
     #: 院校筛选：只有平台角色能跨院校筛；院校管理员筛别人 = 越权探测 → 404
     school_id: Annotated[int | None, Query(description="院校筛选（平台角色可跨院校查看）")] = None
     class_id: Annotated[int | None, Query()] = None
@@ -177,7 +176,7 @@ class PlannedImport:
     display_name: str
     student_id: str | None
     password: str = ""
-    role_id: int | None = None
+    personas: list[str] = field(default_factory=lambda: ["student"])
     action: Literal["create", "link", "skip"] = "skip"
     reason: str | None = None
     school_id: int | None = None
@@ -195,13 +194,36 @@ class UserService:
         self.scope = scope
         # 院校名缓存：一页用户通常只涉及一所院校，避免逐用户查一次
         self._school_names: dict[int, str] = {}
+        # 视角缓存：列表页一次查齐，避免逐用户一次
+        self._persona_cache: dict[int, list[str]] = {}
+
+    def _prime_personas(self, users: list[User]) -> None:
+        ids = [u.id for u in users if not is_super_admin(u) and u.id not in self._persona_cache]
+        if not ids:
+            return
+        for uid, persona in self.db.query(UserPersona.user_id, UserPersona.persona).filter(
+            UserPersona.user_id.in_(ids)
+        ):
+            self._persona_cache.setdefault(uid, []).append(persona)
+
+    def personas_of(self, user: User) -> list[str]:
+        """公开读：授予的视角（列表/导出共用）。"""
+        return self._personas_of(user)
+
+    def _personas_of(self, user: User) -> list[str]:
+        if is_super_admin(user):
+            return list(PERSONA_KEYS)
+        if user.id not in self._persona_cache:
+            self._persona_cache[user.id] = [
+                row[0] for row in self.db.query(UserPersona.persona).filter(UserPersona.user_id == user.id)
+            ]
+        return sorted(self._persona_cache[user.id])
 
     def _brief(self, user: User) -> UserBriefView:
         return UserBriefView(
             id=user.id,
             username=user.username,
-            role=user.role.name if user.role else "",
-            role_display_name=user.role.display_name if user.role else "",
+            personas=self._personas_of(user),
             school_id=user.school_id,
             school_name=self._school_name(user.school_id),
             display_name=user.display_name,
@@ -280,17 +302,40 @@ class UserService:
             return set(cached)
         return set(resolve_view_persona(self.db, current_user)[1])
 
-    def _assert_role_within_scope(self, current_user: User, role_obj: Role, *, action: str) -> None:
-        # 角色不再承载权限，但"账号类型"仍暗示默认视角：不能支配超出自身权限的账号类型。
-        # 平台账号天然可支配全部，不做集合比较。
+    def _assert_can_manage_target(self, current_user: User, target: User, *, action: str) -> None:
+        """不能支配权限高于自己的账号；平台账号不可被普通管理员支配。"""
         if is_super_admin(current_user):
             return
-        exceeded = sorted(permissions_for_role_name(role_obj.name) - self._grantable(current_user))
+        if is_super_admin(target):
+            raise AuthError(f"无权{action}：目标是平台账号", status_code=403)
+        target_perms: set[str] = set()
+        for persona in self._personas_of(target):
+            target_perms |= persona_permissions(persona)
+        exceeded = sorted(target_perms - self._grantable(current_user))
         if exceeded:
-            raise AuthError(
-                f"无权{action}「{role_obj.display_name}」：该账号类型默认视角包含你没有的权限 {exceeded}",
-                status_code=403,
-            )
+            raise AuthError(f"无权{action}：目标账号拥有你没有的权限 {exceeded}", status_code=403)
+
+    def _replace_personas(self, target: User, personas: list[str], *, actor: User) -> list[str]:
+        """全量替换授予：未知视角 400；平台视角只能给平台账号；不能授予自己没有的权限。"""
+        unique = list(dict.fromkeys(personas))
+        unknown = sorted(set(unique) - set(PERSONA_KEYS))
+        if unknown:
+            raise ValidationError(f"未知视角: {unknown}")
+        if "platform" in unique and not is_super_admin(target):
+            raise ValidationError("平台视角只能授予平台账号")
+        if not is_super_admin(actor):
+            actor_perms = self._grantable(actor)
+            for key in unique:
+                above = sorted(set(PERSONAS[key].permissions) - actor_perms)
+                if above:
+                    raise AuthError(f"无权授予视角 {key}：包含你没有的权限 {above}", status_code=403)
+        before = self._personas_of(target)
+        self.db.query(UserPersona).filter(UserPersona.user_id == target.id).delete(synchronize_session="fetch")
+        for key in unique:
+            self.db.add(UserPersona(user_id=target.id, persona=key))
+        self.db.flush()
+        self._persona_cache.pop(target.id, None)
+        return unique
 
     def _assert_not_last_active_super_admin(self, user: User, *, action: str) -> None:
         """禁止让系统失去最后一个**启用中**的 super_admin（2026-09-26 分析 RB-1）。
@@ -302,10 +347,8 @@ class UserService:
             return
         remaining = (
             self.db.query(sa_func.count(User.id))
-            .join(Role, Role.id == User.role_id)
             .filter(
-                # 迁移期：is_platform 尚未回填的库/夹具仍按角色名认人
-                or_(User.is_platform.is_(True), Role.name == SUPER_ADMIN_ROLE),
+                User.is_platform.is_(True),
                 User.is_active.is_(True),
                 User.id != user.id,
             )
@@ -326,7 +369,6 @@ class UserService:
         user = self.get_with_relations(user_id)
         if not user:
             raise NotFoundError("用户不存在")
-        before_role = user.role.name if user.role else None
         before_active = user.is_active
         audit_events: list[tuple[str, dict]] = []
         with unit_of_work(self.db):
@@ -350,17 +392,12 @@ class UserService:
                 user.display_name = req.display_name
             if req.student_id is not None:
                 user.student_id = normalize_student_id(req.student_id)
-            if req.role is not None:
+            if req.personas is not None:
                 if current_user.id == user_id:
-                    raise ValidationError("不能修改自己的角色")
-                role_obj = self.get_role_by_name(req.role)
-                if not role_obj:
-                    raise ValidationError("角色不存在")
-                # 反越权：只能授予自身权限集合内的角色。admin 没有 role_manage/api_manage，
-                # 因此无法把任何账号提为 super_admin（否则等于绕过整个权限表）。
-                self._assert_role_within_scope(current_user, role_obj, action="授予角色")
-                user.role_id = role_obj.id
-                audit_events.append((ACTION_USER_UPDATED, {"role": {"before": before_role, "after": role_obj.name}}))
+                    raise ValidationError("不能修改自己的视角")
+                before_personas = self._personas_of(user)
+                granted = self._replace_personas(user, req.personas, actor=current_user)
+                audit_events.append((ACTION_USER_UPDATED, {"personas": {"before": before_personas, "after": granted}}))
             # 院校归属（单位）可在编辑时调整：放在角色变更之后，守卫看的是**改后**的角色
             # （把账号提为平台角色后再挂院校，会静默丢掉跨院校作用域）
             if req.school_id is not None and req.school_id != user.school_id:
@@ -369,8 +406,8 @@ class UserService:
                 if len(req.password) < 6:
                     raise ValidationError("密码长度不能少于6位")
                 # 反越权：不能重置权限高于自己的账号的密码（否则等于接管该账号）。
-                if user.role is not None and current_user.id != user_id:
-                    self._assert_role_within_scope(current_user, user.role, action="重置密码")
+                if current_user.id != user_id:
+                    self._assert_can_manage_target(current_user, user, action="重置密码")
                 user.password_hash = hash_password(req.password)
                 audit_events.append((ACTION_USER_PASSWORD_RESET, {"self_service": current_user.id == user_id}))
 
@@ -379,13 +416,9 @@ class UserService:
                 if req.is_active != user.is_active:
                     if current_user.id == user_id and not req.is_active:
                         raise ValidationError("不能停用自己的账号")
-                    if current_user.id != user_id and user.role is not None:
-                        # 与"授予角色/重置密码"同口径：不能停用/启用权限高于自己的账号
-                        # （此前只挡了"不能停用自己"，任何持 user_manage 的角色都能停用超管）
-                        self._assert_role_within_scope(
-                            current_user,
-                            user.role,
-                            action="停用账号" if not req.is_active else "启用账号",
+                    if current_user.id != user_id:
+                        self._assert_can_manage_target(
+                            current_user, user, action="停用账号" if not req.is_active else "启用账号"
                         )
                     if not req.is_active:
                         self._assert_not_last_active_super_admin(user, action="停用")
@@ -405,8 +438,7 @@ class UserService:
                 # （不再有「只改第一条」或 class_id=0 清除哨兵）。
                 self._replace_memberships(user, req.memberships)
             # 身份不变量：本校同学号只能有一个学生账号（与导入共用一份判定）
-            role_now = self.db.get(Role, user.role_id) if user.role_id else None
-            if role_now is not None and role_now.name == STUDENT_ROLE_NAME and user.student_id:
+            if STUDENT_PERSONA in self._personas_of(user) and user.student_id:
                 assert_student_identity_free(
                     self.db,
                     school_id=user.school_id,
@@ -504,23 +536,19 @@ class UserService:
     def delete(self, user_id: int, current_user: User, *, request: Request | None = None) -> str:
         if user_id == current_user.id:
             raise ValidationError("不能删除自己")
-        # 作用域外 = 不存在；顺带 join role 供下面的角色上限判定用
-        user = self.get_with_role(user_id)
+        # 作用域外 = 不存在
+        user = self.get_with_relations(user_id)
         if not user:
             raise NotFoundError("用户不存在")
-        if user.role is not None:
-            # 超级管理员账号**不可删除**（政策）：系统内如需收回权限用"停用"，
-            # 删除只留给普通账号。此前没有任何显式守卫，只是恰好被 llm/voice/qa 的外键
-            # 或 assignment.teacher_id RESTRICT 撞成 500 —— 不可预期且理由误导。
-            if is_super_admin(user):
-                raise ValidationError("超级管理员账号不可删除：如需收回权限请改用停用（数据保留、可恢复）")
-            # 删除同样受角色范围约束（此前完全无检查）
-            self._assert_role_within_scope(current_user, user.role, action="删除账号")
+        # 平台账号**不可删除**（政策）：收回权限用"停用"，删除只留给普通账号。
+        if is_super_admin(user):
+            raise ValidationError("超级管理员账号不可删除：如需收回权限请改用停用（数据保留、可恢复）")
+        self._assert_can_manage_target(current_user, user, action="删除账号")
         record_count = self.record_count(user_id)
         if record_count > 0:
             raise ValidationError(f"该用户有 {record_count} 条训练记录，无法删除。请先删除相关训练记录。")
         target_name = user.username
-        target_role = user.role.name if user.role else None
+        target_personas = self._personas_of(user)
         with unit_of_work(self.db):
             record(
                 self.db,
@@ -529,14 +557,14 @@ class UserService:
                 target_id=user.id,
                 target_label=target_name,
                 request=request,
-                payload={"role": target_role},
+                payload={"personas": target_personas},
             )
             self.db.delete(user)
             self.db.flush()
         return target_name
 
     def get_detail(self, user_id: int) -> StudentDetailView:
-        user = self.get_with_role(user_id)
+        user = self.get_with_relations(user_id)
         if not user:
             raise NotFoundError("用户不存在")
         since = datetime.now(UTC) - timedelta(days=_DETAIL_DAYS)
@@ -582,7 +610,7 @@ class UserService:
         return StudentDetailView(
             id=user.id,
             username=user.username,
-            role=user.role.name if user.role else "",
+            personas=self._personas_of(user),
             display_name=user.display_name,
             student_id=user.student_id,
             created_at=user.created_at,
@@ -634,7 +662,7 @@ class UserService:
             password = u.get("password") or ""
             display_name = (u.get("display_name") or "").strip()
             student_id = normalize_student_id(u.get("student_id"))
-            role_name = u.get("role", "")
+            personas = u.get("personas") or ["student"]
 
             row = PlannedImport(
                 index=i,
@@ -655,14 +683,10 @@ class UserService:
             if len(password) < 6:
                 fail("密码长度不能少于6位")
                 continue
-            if role_name != STUDENT_ROLE_NAME:
-                fail(f"批量导入仅支持学生角色（当前: {role_name or '空'}）")
+            if set(personas) != {STUDENT_PERSONA}:
+                fail(f"批量导入仅支持学生视角（当前: {', '.join(personas) or '空'}）")
                 continue
-            role_obj = self.db.query(Role).filter(Role.name == role_name).first()
-            if not role_obj:
-                fail(f"角色 {role_name} 不存在")
-                continue
-            row.role_id = role_obj.id
+            row.personas = ["student"]
 
             # 行内「学校」列：平台角色可以不填班级、直接指定院校；院校管理员填了就必须是本校
             row_school, school_error = resolve_school(u.get("school_name"))
@@ -723,7 +747,7 @@ class UserService:
                 continue
 
             if owner is not None:
-                if owner.role is None or owner.role.name != STUDENT_ROLE_NAME:
+                if STUDENT_PERSONA not in self._personas_of(owner):
                     fail(f"用户名「{username}」已被非学生账号占用")
                     continue
                 if owner.display_name.strip() != display_name:
@@ -797,12 +821,13 @@ class UserService:
                         username=row.username,
                         password_hash=hash_password(row.password),
                         display_name=row.display_name,
-                        role_id=row.role_id,
                         school_id=row.school_id,
                         student_id=row.student_id,
                     )
                     self.db.add(user)
                     self.db.flush()
+                    for persona in row.personas:
+                        self.db.add(UserPersona(user_id=user.id, persona=persona))
                     class_id = self._ensure_import_class(row)
                     if class_id:
                         self.db.add(
@@ -975,26 +1000,17 @@ class UserService:
     def get_with_relations(self, user_id: int) -> User | None:
         return (
             self._in_scope(self.db.query(User))
-            .options(
-                joinedload(User.role),
-                selectinload(User.memberships).joinedload(ClassMembership.class_),
-            )
+            .options(selectinload(User.memberships).joinedload(ClassMembership.class_))
             .filter(User.id == user_id)
             .first()
         )
-
-    def get_with_role(self, user_id: int) -> User | None:
-        return self._in_scope(self.db.query(User)).options(joinedload(User.role)).filter(User.id == user_id).first()
-
-    def get_role_by_name(self, name: str) -> Role | None:
-        return self.db.query(Role).filter(Role.name == name).first()
 
     def create(self, **kwargs) -> User:
         """创建账号：院校归属由 scope 定，调用方给的院校只能是本校/已声明的平台请求。"""
         kwargs["school_id"] = self._target_school(kwargs.get("school_id"))
         kwargs["student_id"] = normalize_student_id(kwargs.get("student_id"))
-        role_obj = self.db.get(Role, kwargs.get("role_id")) if kwargs.get("role_id") else None
-        if role_obj is not None and role_obj.name == STUDENT_ROLE_NAME:
+        personas = list(kwargs.pop("personas", ["student"]))
+        if STUDENT_PERSONA in personas:
             assert_student_identity_free(
                 self.db,
                 school_id=kwargs["school_id"],
@@ -1002,6 +1018,9 @@ class UserService:
             )
         user = User(**kwargs)
         self.db.add(user)
+        self.db.flush()
+        for persona in dict.fromkeys(personas):
+            self.db.add(UserPersona(user_id=user.id, persona=persona))
         self.db.flush()
         return user
 
@@ -1029,21 +1048,18 @@ class UserService:
                     User.student_id.ilike(term),
                 )
             )
-        if filters.role:
-            role_obj = self.get_role_by_name(filters.role)
-            q = q.filter(User.role_id == (role_obj.id if role_obj else -1))
+        if filters.persona:
+            q = q.filter(User.id.in_(self.db.query(UserPersona.user_id).filter(UserPersona.persona == filters.persona)))
         return q
 
     def list_filtered(self, filters: UserFilters, *, offset: int, limit: int) -> tuple[int, list[User]]:
         q = (
             self._filtered_query(filters)
-            .options(
-                joinedload(User.role),
-                selectinload(User.memberships).joinedload(ClassMembership.class_),
-            )
+            .options(selectinload(User.memberships).joinedload(ClassMembership.class_))
             .order_by(User.created_at.desc())
         )
         users, total = paginate(q, offset, limit)
+        self._prime_personas(users)
         return total, users
 
     def record_count(self, user_id: int) -> int:
@@ -1124,8 +1140,7 @@ def _brief(v: UserBriefView) -> UserBrief:
     return UserBrief(
         id=v.id,
         username=v.username,
-        role=v.role,
-        role_display_name=v.role_display_name,
+        personas=v.personas,
         school_id=v.school_id,
         school_name=v.school_name,
         display_name=v.display_name,
@@ -1150,7 +1165,7 @@ def _detail(v: StudentDetailView) -> StudentDetail:
     return StudentDetail(
         id=v.id,
         username=v.username,
-        role=v.role,
+        personas=v.personas,
         display_name=v.display_name,
         student_id=v.student_id,
         created_at=v.created_at,
@@ -1215,12 +1230,13 @@ def export_users(
     format: str = Query("csv", pattern="^(csv|xlsx)$"),
 ):
     # 与列表同一个筛选 DTO、同一个服务入口；多取一条以便 export_response 统一判超限
-    _total, users = UserService(db, scope).list_filtered(filters, offset=0, limit=MAX_EXPORT_ROWS + 1)
+    service = UserService(db, scope)
+    _total, users = service.list_filtered(filters, offset=0, limit=MAX_EXPORT_ROWS + 1)
     columns = [
         ColumnDef("用户名", key="username"),
         ColumnDef("姓名", key="display_name"),
         ColumnDef("学号", key="student_id"),
-        ColumnDef("角色", value=lambda u: u.role.name if u.role else ""),
+        ColumnDef("视角", value=lambda u: ", ".join(service.personas_of(u))),
         ColumnDef("状态", value=lambda u: "启用" if u.is_active else "已停用"),
     ]
     audit = ExportAudit(request=request, target_label="用户列表", filters=_audit_filters(filters))
@@ -1240,7 +1256,7 @@ def update_user(
     view = UserService(db, scope).update(user_id, req, current_user=current_user, request=request)
     log.info(
         f"用户更新: target_id={user_id} target_name={view.username}",
-        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
+        extra={"user_id": current_user.id, "actor_persona": current_user.active_persona},
     )
     return _brief(view)
 
@@ -1255,7 +1271,7 @@ def delete_user(user_id: int, current_user: _Manager, db: DbSession, scope: Scop
     target_name = UserService(db, scope).delete(user_id, current_user, request=request)
     log.info(
         f"用户删除: target_id={user_id} target_name={target_name}",
-        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
+        extra={"user_id": current_user.id, "actor_persona": current_user.active_persona},
     )
     return {"message": "用户已删除"}
 
@@ -1277,7 +1293,7 @@ def batch_create_users(
     result = UserService(db, scope).batch_create([u.model_dump() for u in users], request=request)
     log.info(
         f"批量导入: created={result.created} skipped={result.skipped}",
-        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
+        extra={"user_id": current_user.id, "actor_persona": current_user.active_persona},
     )
     return result
 
@@ -1290,6 +1306,6 @@ def bulk_assign_class(
     log.info(
         f"批量分配班级: assigned={result.assigned} updated={result.updated} "
         f"skipped={result.skipped} class_id={req.class_id} role={req.member_role}",
-        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
+        extra={"user_id": current_user.id, "actor_persona": current_user.active_persona},
     )
     return result

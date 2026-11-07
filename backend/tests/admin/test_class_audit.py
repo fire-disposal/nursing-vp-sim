@@ -23,7 +23,7 @@ from core.audit import (
 from core.database import Base
 from core.database import engine as pg_engine
 from core.tenant import TenantScope
-from models import AuditLog, Class, ClassMembership, Role, School, User
+from models import AuditLog, Class, ClassMembership, School, User
 from models.audit import AUDIT_OUTCOME_SUCCESS
 from models.school import legacy_grades_table
 from modules.admin.class_memberships import ClassMembershipService
@@ -33,7 +33,6 @@ from tests.conftest import ensure_school
 _TABLES = [
     legacy_grades_table,
     School.__table__,
-    Role.__table__,
     User.__table__,
     Class.__table__,
     ClassMembership.__table__,
@@ -52,21 +51,10 @@ def db(pg_session):
     return pg_session
 
 
-def _role(db) -> Role:
-    role = db.query(Role).filter(Role.name == "admin").first()
-    if role is None:
-        role = Role(name="admin", display_name="管理员", is_system=True)
-        db.add(role)
-        db.flush()
-    return role
-
-
 def _user(db, username: str) -> User:
-    role = _role(db)
     user = User(
         username=username,
         password_hash="x",
-        role_id=role.id,
         display_name=username,
         # 院校管理员：与班级同校（单校不变量）
         school_id=ensure_school(db).id,

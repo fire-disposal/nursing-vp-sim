@@ -31,7 +31,7 @@ from pydantic import ValidationError as PydanticValidationError
 from core.database import Base
 from core.database import engine as pg_engine
 from core.statuses import TrainingStatus
-from models import Assignment, Case, CaseRevision, Class, Role, TrainingRecord, User
+from models import Assignment, Case, CaseRevision, Class, TrainingRecord, User
 from models.school import legacy_grades_table
 from modules.cases.validator import validate_case
 from modules.training import workflows
@@ -93,7 +93,6 @@ def two_workflows(monkeypatch) -> None:
 #: TrainingRecord 的外键目标必须一起建（PG 会校验真 FK）
 _TABLES = [
     legacy_grades_table,
-    Role.__table__,
     User.__table__,
     Class.__table__,
     Case.__table__,
@@ -116,12 +115,7 @@ def db(pg_session) -> Session:
 
 
 def _seed_student_and_case(db: Session) -> tuple[User, Case]:
-    role = db.query(Role).filter(Role.name == "student").first() or Role(
-        name="student", display_name="学生", is_system=True
-    )
-    db.add(role)
-    db.flush()
-    user = User(username="wf-student", password_hash="x", display_name="学生", role_id=role.id)
+    user = User(username="wf-student", password_hash="x", display_name="学生")
     case = Case(name="契约病例", description="", difficulty=1, time_limit_minutes=30)
     db.add_all([user, case])
     db.flush()

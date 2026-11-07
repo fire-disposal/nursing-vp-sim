@@ -33,7 +33,6 @@ from models import (
     Class,
     ClassMembership,
     Notification,
-    Role,
     School,
     Score,
     TrainingRecord,
@@ -57,7 +56,6 @@ _PLATFORM = platform_scope()
 _TABLES = [
     legacy_grades_table,
     School.__table__,
-    Role.__table__,
     User.__table__,
     Class.__table__,
     ClassMembership.__table__,
@@ -100,11 +98,6 @@ def db(pg_session):
     见 core/audit.record_detached）：savepoint 回滚不掉，故按 id 起点在 teardown 清掉。
     """
     marker = pg_session.query(sa.func.max(AuditLog.id)).scalar() or 0
-    role = pg_session.query(Role).filter(Role.name == "teacher").first() or Role(
-        name="teacher", display_name="教师", is_system=True
-    )
-    pg_session.add(role)
-    pg_session.flush()
     now = datetime.now(UTC)
     for uid in (1, 7):
         pg_session.add(
@@ -112,7 +105,6 @@ def db(pg_session):
                 id=uid,
                 username=f"case-lifecycle-user-{uid}",
                 password_hash="x",
-                role_id=role.id,
                 display_name=f"发布者{uid}",
                 created_at=now,
                 updated_at=now,
@@ -132,7 +124,7 @@ def _drop_detached_audit_since(marker: int) -> None:
 
 def _create(db: Session, **overrides) -> Case:
     svc = CaseService(db)
-    svc.create(_payload(**overrides), user_id=1, user_role="admin")
+    svc.create(_payload(**overrides), user_id=1, actor_persona="admin")
     return db.query(Case).order_by(Case.id.desc()).first()
 
 
@@ -166,7 +158,7 @@ def test_retired_field_is_reported_not_silently_dropped(db):
 
     assert case.case_data["training_type"] == "history_taking"
 
-    _, report = CaseService(db).publish(case.id, user_id=1, user_role="admin")
+    _, report = CaseService(db).publish(case.id, user_id=1, actor_persona="admin")
 
     assert "training_type" in [i.field for i in report.warnings]
     assert report.errors == []
@@ -174,10 +166,10 @@ def test_retired_field_is_reported_not_silently_dropped(db):
 
 def test_metadata_only_edit_keeps_the_same_revision(db):
     case = _create(db)
-    CaseService(db).publish(case.id, user_id=1, user_role="admin")
+    CaseService(db).publish(case.id, user_id=1, actor_persona="admin")
     first = _revision(db, case)
 
-    CaseService(db).update(case.id, _payload(difficulty=2), user_id=1, user_role="admin")
+    CaseService(db).update(case.id, _payload(difficulty=2), user_id=1, actor_persona="admin")
 
     assert case.difficulty == 2
     assert case.current_revision_id == first.id
@@ -186,9 +178,9 @@ def test_metadata_only_edit_keeps_the_same_revision(db):
 
 def test_update_without_metadata_keeps_column_values(db):
     case = _create(db)
-    CaseService(db).publish(case.id, user_id=1, user_role="admin")
+    CaseService(db).publish(case.id, user_id=1, actor_persona="admin")
 
-    CaseService(db).update(case.id, {**_VALID_CONTENT, "name": "门禁测试病例"}, user_id=1, user_role="admin")
+    CaseService(db).update(case.id, {**_VALID_CONTENT, "name": "门禁测试病例"}, user_id=1, actor_persona="admin")
 
     assert (case.difficulty, case.time_limit_minutes) == (1, 30)
 
@@ -199,7 +191,7 @@ def test_update_without_metadata_keeps_column_values(db):
 def test_publish_creates_first_revision(db):
     case = _create(db)
 
-    view, report = CaseService(db).publish(case.id, user_id=7, user_role="admin")
+    view, report = CaseService(db).publish(case.id, user_id=7, actor_persona="admin")
 
     assert report.errors == []
     assert view.status == CASE_STATUS_PUBLISHED
@@ -215,7 +207,7 @@ def test_publish_rejects_content_the_kernel_does_not_know(db):
     case = _create(db, activities={"no_such_activity": {"config": {}}})
 
     with pytest.raises(CaseNotPublishableError) as exc:
-        CaseService(db).publish(case.id, user_id=1, user_role="admin")
+        CaseService(db).publish(case.id, user_id=1, actor_persona="admin")
 
     assert [(i.field, i.severity) for i in exc.value.report.errors] == [("activities.no_such_activity", "error")]
     db.rollback()
@@ -229,7 +221,7 @@ def test_publish_requires_activities_declaration(db):
     db.commit()
 
     with pytest.raises(CaseNotPublishableError) as exc:
-        CaseService(db).publish(case.id, user_id=1, user_role="admin")
+        CaseService(db).publish(case.id, user_id=1, actor_persona="admin")
 
     assert exc.value.report.errors[0].field == "activities"
 
@@ -239,11 +231,11 @@ def test_publish_requires_activities_declaration(db):
 
 def test_edit_of_published_case_appends_revision_and_freezes_old_content(db):
     case = _create(db)
-    CaseService(db).publish(case.id, user_id=1, user_role="admin")
+    CaseService(db).publish(case.id, user_id=1, actor_persona="admin")
     first = _revision(db, case)
     first_content = dict(first.content)
 
-    view = CaseService(db).update(case.id, _payload(chief_complaint="咳嗽五天"), user_id=1, user_role="admin")
+    view = CaseService(db).update(case.id, _payload(chief_complaint="咳嗽五天"), user_id=1, actor_persona="admin")
 
     assert view.current_revision_no == 2  # 视图立即反映新版本（不读缓存关系）
     revisions = db.query(CaseRevision).order_by(CaseRevision.revision_no).all()
@@ -255,13 +247,13 @@ def test_edit_of_published_case_appends_revision_and_freezes_old_content(db):
 
 def test_invalid_edit_of_published_case_changes_nothing(db):
     case = _create(db)
-    CaseService(db).publish(case.id, user_id=1, user_role="admin")
+    CaseService(db).publish(case.id, user_id=1, actor_persona="admin")
     first = _revision(db, case)
     stored = dict(case.case_data)
 
     with pytest.raises(CaseNotPublishableError):
         CaseService(db).update(
-            case.id, _payload(activities={"no_such_activity": {"config": {}}}), user_id=1, user_role="admin"
+            case.id, _payload(activities={"no_such_activity": {"config": {}}}), user_id=1, actor_persona="admin"
         )
 
     db.rollback()
@@ -278,10 +270,10 @@ def test_draft_and_archived_cases_cannot_start_new_use(db):
     with pytest.raises(ConflictError):
         require_current_revision(db, draft)
 
-    CaseService(db).publish(draft.id, user_id=1, user_role="admin")
+    CaseService(db).publish(draft.id, user_id=1, actor_persona="admin")
     assert require_current_revision(db, draft).revision_no == 1
 
-    CaseService(db).archive(draft.id, user_id=1, user_role="admin")
+    CaseService(db).archive(draft.id, user_id=1, actor_persona="admin")
     db.refresh(draft)
     assert draft.status == CASE_STATUS_ARCHIVED
     with pytest.raises(ConflictError):
@@ -294,11 +286,11 @@ def test_draft_and_archived_cases_cannot_start_new_use(db):
 
 def test_archived_case_is_read_only(db):
     case = _create(db)
-    CaseService(db).publish(case.id, user_id=1, user_role="admin")
-    CaseService(db).archive(case.id, user_id=1, user_role="admin")
+    CaseService(db).publish(case.id, user_id=1, actor_persona="admin")
+    CaseService(db).archive(case.id, user_id=1, actor_persona="admin")
 
     with pytest.raises(ConflictError):
-        CaseService(db).update(case.id, _payload(), user_id=1, user_role="admin")
+        CaseService(db).update(case.id, _payload(), user_id=1, actor_persona="admin")
 
 
 def _assignment(db: Session, case: Case, *, class_id: int = 1):
@@ -335,8 +327,8 @@ def test_draft_case_cannot_be_used_by_assignment(db):
 def test_archived_case_cannot_be_used_by_assignment(db):
     _school(db)
     case = _create(db)
-    CaseService(db).publish(case.id, user_id=1, user_role="admin")
-    CaseService(db).archive(case.id, user_id=1, user_role="admin")
+    CaseService(db).publish(case.id, user_id=1, actor_persona="admin")
+    CaseService(db).archive(case.id, user_id=1, actor_persona="admin")
 
     with pytest.raises(ConflictError):
         _assignment(db, case)
@@ -345,7 +337,7 @@ def test_archived_case_cannot_be_used_by_assignment(db):
 def test_published_case_pins_its_revision_on_assignment(db):
     _school(db)
     case = _create(db)
-    CaseService(db).publish(case.id, user_id=1, user_role="admin")
+    CaseService(db).publish(case.id, user_id=1, actor_persona="admin")
 
     view = _assignment(db, case)
 
@@ -366,10 +358,10 @@ def test_open_requires_published(db):
 def test_student_list_only_shows_published_and_open(db):
     draft = _create(db)
     published = _create(db, name="已发布病例")
-    CaseService(db).publish(published.id, user_id=1, user_role="admin")
+    CaseService(db).publish(published.id, user_id=1, actor_persona="admin")
     archived = _create(db, name="归档病例")
-    CaseService(db).publish(archived.id, user_id=1, user_role="admin")
-    CaseService(db).archive(archived.id, user_id=1, user_role="admin")
+    CaseService(db).publish(archived.id, user_id=1, actor_persona="admin")
+    CaseService(db).archive(archived.id, user_id=1, actor_persona="admin")
 
     items, total = CaseService(db).list_brief(0, 50)
 
@@ -381,8 +373,8 @@ def test_student_list_only_shows_published_and_open(db):
 def test_manage_list_hides_archived_by_default(db):
     draft = _create(db)
     archived = _create(db, name="归档病例")
-    CaseService(db).publish(archived.id, user_id=1, user_role="admin")
-    CaseService(db).archive(archived.id, user_id=1, user_role="admin")
+    CaseService(db).publish(archived.id, user_id=1, actor_persona="admin")
+    CaseService(db).archive(archived.id, user_id=1, actor_persona="admin")
     svc = CaseService(db)
 
     default_views, default_total = svc.list_manage(CaseListFilters(), offset=0, limit=50)

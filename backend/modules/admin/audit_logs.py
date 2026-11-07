@@ -103,7 +103,6 @@ def _to_item(row: AuditLog) -> AuditLogItem:
         actor_id=row.actor_id,
         actor_username=row.actor_username,
         actor_display_name=row.actor_display_name,
-        actor_role=row.actor_role,
         actor_persona=row.actor_persona,
         action=row.action,
         target_type=row.target_type,
@@ -154,7 +153,6 @@ def export_audit_logs(
     columns = [
         ColumnDef("时间", value=lambda r: r.created_at.isoformat() if r.created_at else ""),
         ColumnDef("操作者", value=lambda r: r.actor_username or ""),
-        ColumnDef("角色", value=lambda r: r.actor_role or ""),
         ColumnDef("视角", value=lambda r: getattr(r, "actor_persona", None) or ""),
         ColumnDef("动作", key="action"),
         ColumnDef("目标类型", key="target_type"),

@@ -29,7 +29,7 @@ import sqlalchemy as sa
 from core.database import Base
 from core.database import engine as pg_engine
 from core.exceptions import NotFoundError
-from models import Assignment, Case, CaseRevision, Class, Message, Role, TrainingRecord, User
+from models import Assignment, Case, CaseRevision, Class, Message, TrainingRecord, User
 from models.school import legacy_grades_table
 from modules.training.pipeline.context import (
     STATE_CORRECTION_TARGET,
@@ -54,7 +54,6 @@ if TYPE_CHECKING:
 _TABLES = [
     legacy_grades_table,
     Message.__table__,
-    Role.__table__,
     User.__table__,
     Class.__table__,
     Case.__table__,
@@ -78,12 +77,7 @@ def db(pg_session):
 
 def _record(db: Session, state: dict | None = None) -> TrainingRecord:
     """最小可落库的训练记录（工具/对话写入都发生在这张表上）。"""
-    role = db.query(Role).filter(Role.name == "student").first() or Role(
-        name="student", display_name="学生", is_system=True
-    )
-    db.add(role)
-    db.flush()
-    user = User(username="contract-student", password_hash="x", display_name="学生", role_id=role.id)
+    user = User(username="contract-student", password_hash="x", display_name="学生")
     db.add(user)
     case = Case(name="契约病例", description="", difficulty=1, time_limit_minutes=30)
     db.add(case)

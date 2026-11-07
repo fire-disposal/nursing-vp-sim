@@ -37,7 +37,6 @@ from models import (
     CaseQuestionnaire,
     QuestionnaireQuestion,
     QuestionnaireTemplate,
-    Role,
     SystemNotification,
     User,
 )
@@ -45,7 +44,6 @@ from modules.admin.system_notifications import SystemNotificationService
 from modules.questionnaires.service import QuestionnaireTemplateService
 
 _TABLES = [
-    Role.__table__,
     User.__table__,
     SystemNotification.__table__,
     Case.__table__,
@@ -68,15 +66,9 @@ def db(pg_session):
 
 @pytest.fixture
 def admin(db) -> User:
-    role = db.query(Role).filter(Role.name == "admin").first() or Role(
-        name="admin", display_name="管理员", is_system=True
-    )
-    db.add(role)
-    db.flush()
     user = User(
         username="notif-questionnaire-audit-admin",
         password_hash="x",
-        role_id=role.id,
         display_name="审计员",
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),

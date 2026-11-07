@@ -33,8 +33,7 @@ class UserBrief(BaseModel):
     model_config = _RESP_CFG
     id: int
     username: str
-    role: str
-    role_display_name: str
+    personas: list[str] = Field(default_factory=list)
     #: 院校归属。None = 平台角色（跨院校可见，例如 super_admin）。
     school_id: int | None = None
     school_name: str | None = None
@@ -53,8 +52,7 @@ class UserBrief(BaseModel):
     # 仅 /auth/me 填充（其它列表接口不查权限表，留空）：前端据此在每次加载时刷新侧栏门禁，
     # 否则降权/升权后前端最长 24h 仍按旧权限渲染（2026-09-26 审计 RB-4）。
     permissions: list[str] = Field(default_factory=list)
-    #: 已授予的视角（超管 = 全部视角）与当前请求生效的视角（`X-View-Persona`）
-    personas: list[str] = Field(default_factory=list)
+    #: 当前请求生效的视角（`X-View-Persona`）；已授予集合看上面的 `personas`
     active_persona: str | None = None
 
 
@@ -79,7 +77,7 @@ class UserUpdateRequest(BaseModel):
     #: 院校归属（单位）。省略 = 不修改。平台角色可跨院校调整；院校管理员只能提交本校
     #: （跨校 = 404），越界写入规则见 ``core.tenant.writable_school_id``。
     school_id: int | None = Field(default=None, gt=0, description="所属院校；省略 = 不修改")
-    role: str | None = None
+    personas: list[str] | None = None
     password: str | None = Field(default=None, min_length=6)
     gender: str | None = _GENDER
     avatar: str | None = Field(default=None, max_length=255)
@@ -121,7 +119,7 @@ class StudentDetail(BaseModel):
     model_config = _RESP_CFG
     id: int
     username: str
-    role: str
+    personas: list[str] = Field(default_factory=list)
     display_name: str
     student_id: str | None
     created_at: datetime
@@ -140,7 +138,7 @@ class BatchUserItem(BaseModel):
     username: str = Field(max_length=50)
     password: str
     display_name: str = Field(max_length=50)
-    role: str = Field(default="student", min_length=1, max_length=20)
+    personas: list[str] = Field(default_factory=lambda: ["student"])
     student_id: str | None = None
     class_id: int | None = None
     class_name: str | None = None
@@ -153,7 +151,7 @@ class BatchUserItem(BaseModel):
 class RegisterResponse(BaseModel):
     id: int
     username: str
-    role: str
+    personas: list[str] = Field(default_factory=list)
     display_name: str
     student_id: str | None = None
 

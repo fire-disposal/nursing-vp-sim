@@ -20,7 +20,6 @@ from models import (
     CaseRevision,
     Class,
     ClassMembership,
-    Role,
     School,
     Score,
     ScoreReview,
@@ -38,7 +37,6 @@ _TABLES = [
     School.__table__,
     Class.__table__,
     ClassMembership.__table__,
-    Role.__table__,
     User.__table__,
     Case.__table__,
     Assignment.__table__,
@@ -68,16 +66,9 @@ def _school(db: Session, name: str) -> School:
 
 
 def _reviewer(db: Session) -> User:
-    role = db.query(Role).filter(Role.name == "records-reviewer").first()
-    if role is None:
-        role = Role(name="records-reviewer", display_name="records-reviewer", is_system=False)
-        db.add(role)
-        db.flush()
-        db.flush()
     user = User(
         username="records-reviewer",
         password_hash="x",
-        role_id=role.id,
         display_name="Reviewer",
         school_id=None,
         created_at=NOW,
@@ -103,7 +94,6 @@ def test_records_list_carries_school_name(db):
     student = User(
         username="stu-school",
         password_hash="x",
-        role_id=reviewer.role_id,
         display_name="学生甲",
         school_id=school_a.id,
         created_at=NOW,
@@ -112,7 +102,6 @@ def test_records_list_carries_school_name(db):
     platform_runner = User(
         username="platform-runner",
         password_hash="x",
-        role_id=reviewer.role_id,
         display_name="平台试跑",
         school_id=None,
         created_at=NOW,

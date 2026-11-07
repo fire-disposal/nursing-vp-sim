@@ -11,19 +11,17 @@ export type MemberRole = "student" | "teacher";
 /**
  * 会话用户 —— `/auth/me` 的 `UserBrief` 投影（不再手写第二份同名结构）。
  *
- * 登录响应（`TokenResponse`）只给 userId/role/display_name/gender/avatar 子集，
+ * 角色已退场：`role`/`role_display_name` 不再是会话身份的一部分，身份由
+ * `personas`（被授予的视角集合）+ `active_persona`（当前生效视角）表达。
+ * 生成物仍是旧契约，故先剔除这两个字段；重生成后可直接改回 `Omit<..., "created_at">`。
+ *
+ * 登录响应（`TokenResponse`）只给 user_id/display_name/gender/avatar 子集，
  * `refreshUser()` 之后由 `UserBrief` 补齐；`created_at` 不参与前端会话身份，故剔除。
  */
-export type User = Omit<components["schemas"]["UserBrief"], "created_at">;
-
-export interface RoleItem {
-	id: number;
-	name: string;
-	display_name: string;
-	is_system: boolean;
-	permissions: string[];
-	user_count: number;
-}
+export type User = Omit<
+	components["schemas"]["UserBrief"],
+	"created_at" | "role" | "role_display_name"
+>;
 
 export interface AuthState {
 	user: User | null;

@@ -1,43 +1,43 @@
-import { useQueryClient } from "@tanstack/react-query";
-import {
-	Checkbox, Button, Center, Group, Loader, Modal, Select, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
+import {ActionBar, Button, Center, 
+	Checkbox, Group, Loader, Modal, Select, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
 import { IconPlus, IconUpload, IconUsers } from "@tabler/icons-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useRef, useState } from "react";
 import { removeClassMembers } from "@/api";
 import { bulkAssignClass, previewBatchUsers, updateUser } from "@/api/admin/users";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
+import type { UserListFilterParams } from "@/api/query-params";
 import ClassFilter, { type ClassFilterParams } from "@/components/admin/ClassFilter";
-import { ActionBar } from "@mantine/core";
+import UserCard from "@/components/admin/users/UserCard";
+import ExportButton from "@/components/ExportButton";
+import { useToast } from "@/components/Toast";
+import { useConfirm } from "@/components/ui/confirm";
+import EmptyState from "@/components/ui/empty-state";
+import ErrorState from "@/components/ui/error-state";
 import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import ListPage from "@/components/ui/list-page";
 import PageHeader from "@/components/ui/page-header";
-import ExportButton from "@/components/ExportButton";
-import UserCard from "@/components/admin/users/UserCard";
-import { useToast } from "@/components/Toast";
-import { useConfirm } from "@/components/ui/confirm";
-
-import EmptyState from "@/components/ui/empty-state";
-import ErrorState from "@/components/ui/error-state";
-import { SearchInput } from "@/components/ui/search-input";
 import Pagination from "@/components/ui/pagination";
-import { useClassLabel, useClassesQuery } from "@/hooks/useClasses";
+import { SearchInput } from "@/components/ui/search-input";
+import { useClassesQuery, useClassLabel } from "@/hooks/useClasses";
+import { useListFilters } from "@/hooks/useListFilters";
 import { useSchoolsQuery } from "@/hooks/useSchools";
 import useAuthStore from "@/stores/authStore";
 import { useSchoolScopeStore } from "@/stores/schoolScopeStore";
-import { useListFilters } from "@/hooks/useListFilters";
-import type { UserListParams } from "@/api/query-params";
 import { getApiErrorMessage } from "@/utils/error";
 import BatchImport from "./users/BatchImport";
 import type {
 	BatchUser,
 	EditUserFormValues,
 	MembershipDraft,
+	RegisterPayload,
+	UpdatePayload,
 	UserBrief,
 	UserFormValues,
 } from "./users/types";
 import UserForm from "./users/UserForm";
-import { useRolesQuery, useUserList } from "./users/useUserList";
+import { usePersonasQuery, useUserList } from "./users/useUserList";
 import {
 	useBatchCreateUsersMutation,
 	useDeleteUserMutation,
@@ -74,8 +74,8 @@ interface UsersTabProps {
 
 export default function UsersTab({ currentUserId }: UsersTabProps) {
 	// 筛选只有一个持有者：值 → 请求参数（含导出参数）由 useListFilters 构造一次
-	const list = useListFilters<UserListParams>(
-		{ search: "", role: "", class_id: undefined, cohort_label: undefined, include_inactive: false, school_id: undefined },
+	const list = useListFilters<UserListFilterParams>(
+		{ search: "", persona: "", class_id: undefined, cohort_label: undefined, include_inactive: false, school_id: undefined },
 		{ limit: 50, searchKey: "search", urlSync: true },
 	);
 	// ClassFilter 是非受控组件：清除筛选时用 key 重挂载，避免"筛选已清空、下拉还显示旧选择"
@@ -129,7 +129,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 		return found ? formatClass(found) : classId;
 	};
 
-	// 平台角色已把工作视图收窄到某一所院校时：逐列表的院校筛选是同一件事的第二种表达 → 隐藏，
+	// 平台账号已把工作视图收窄到某一所院校时：逐列表的院校筛选是同一件事的第二种表达 → 隐藏，
 	// 且**请求里也不许再带 school_id** —— 作用域 A + 筛选 B 会被后端判越权（404），
 	// 页面表现为"列表加载失败"，URL 里残留的旧筛选就成了一个自相矛盾的状态。
 	const scopedSchool = useSchoolScopeStore((s) => s.school);
@@ -144,10 +144,10 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 		isError: usersFailed,
 		refetch: refetchUsers,
 	} = useUserList(list.offset, listParams);
-	const { data: roles = [], isError: rolesFailed } = useRolesQuery();
-	// 院校维度只对平台角色有意义：院校管理员本来就只看本校，多一个下拉只是噪音。
+	const { data: personaOptions = [], isError: personasFailed } = usePersonasQuery();
+	// 院校维度只对平台账号有意义：院校管理员本来就只看本校，多一个下拉只是噪音。
 	// 用 `school_manage` 判，而不是 `school_id == null` —— 权限是服务端权威口径，
-	// `/auth/me` 的院校字段缺失时不会把院校管理员误判成平台角色。
+	// `/auth/me` 的院校字段缺失时不会把院校管理员误判成平台账号。
 	const permissions = useAuthStore((s) => s.permissions);
 	const isPlatform = permissions.includes("school_manage");
 	const { data: schools = [] } = useSchoolsQuery({ enabled: isPlatform });
@@ -263,7 +263,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 		let failed = 0;
 		for (const id of selectedIds) {
 			try {
-				await updateUser(id, { password: bulkPassword } as Schemas["UserUpdateRequest"]);
+				await updateUser(id, { password: bulkPassword } as UpdatePayload);
 				success++;
 			} catch {
 				failed++;
@@ -299,14 +299,14 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	};
 
 	const handleSaveRegister = (form: UserFormValues) => {
-		const payload: Schemas["RegisterRequest"] = {
+		const payload: RegisterPayload = {
 			username: form.username,
 			password: form.password,
-			role: form.role,
+			personas: form.personas,
 			display_name: form.display_name,
 			student_id: form.student_id || null,
 		};
-		// 单位只由平台角色选：院校管理员的账号一律落本校，不需要（也不该）在请求里指定
+		// 单位只由平台账号选：院校管理员的账号一律落本校，不需要（也不该）在请求里指定
 		if (isPlatform) payload.school_id = form.school_id ? Number(form.school_id) : null;
 		registerMutation.mutate(
 			{ payload, memberships: toMembershipUpdates(form.memberships) },
@@ -323,13 +323,13 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	};
 
 	const handleSaveEdit = (form: EditUserFormValues) => {
-		const payload: Schemas["UserUpdateRequest"] = {
+		const payload: UpdatePayload = {
 			memberships: toMembershipUpdates(form.memberships),
 		};
 		if (form.display_name) payload.display_name = form.display_name;
 		if (form.username) payload.username = form.username;
 		payload.student_id = form.student_id || null;
-		if (form.role) payload.role = form.role;
+		if (form.personas.length > 0) payload.personas = form.personas;
 		if (form.password) payload.password = form.password;
 		// 省略 = 不修改院校；平台账号（空单位）同样发送空 → 省略，避免把账号从院校里摘出去
 		if (isPlatform && form.school_id) payload.school_id = Number(form.school_id);
@@ -398,7 +398,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 		});
 		if (!ok) return;
 		try {
-			await updateUser(editingUser.id, { password } as Schemas["UserUpdateRequest"]);
+			await updateUser(editingUser.id, { password } as UpdatePayload);
 			queryClient.invalidateQueries({ queryKey: queryKeys.admin.users.all });
 			toast.success("密码已重置");
 			closeUserForm();
@@ -463,18 +463,14 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 								/>
 							)}
 							<Select
-								value={list.values.role || null}
-								onChange={(v) => list.setFilter("role", v ?? "")}
-								data={[
-									{ value: "", label: "全部角色" },
-									...roles.map((r) => ({
-										value: r.name,
-										label: r.display_name,
-									})),
-								]}
-								placeholder="全部角色"
+								value={list.values.persona || null}
+								onChange={(v) => list.setFilter("persona", v ?? "")}
+								data={personaOptions}
+								placeholder={personasFailed ? "视角目录不可用" : "全部视角"}
+								aria-label="视角筛选"
 								size="sm"
 								clearable
+								disabled={personasFailed}
 							/>
 							<ClassFilter
 								key={classFilterNonce}
@@ -542,8 +538,8 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 			<UserForm
 				open={showUserForm && editingUser === null}
 				user={null}
-				roles={roles}
-				rolesFailed={rolesFailed}
+				personas={personaOptions}
+				personasFailed={personasFailed}
 				classes={classes}
 				schools={schools}
 				isPlatform={isPlatform}
@@ -560,8 +556,8 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 			<UserForm
 				open={showUserForm && editingUser !== null}
 				user={editingUser}
-				roles={roles}
-				rolesFailed={rolesFailed}
+				personas={personaOptions}
+				personasFailed={personasFailed}
 				classes={classes}
 				schools={schools}
 				isPlatform={isPlatform}
@@ -578,7 +574,6 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 			<BatchImport
 				open={showBatchImport}
 				onClose={() => setShowBatchImport(false)}
-				roles={roles}
 				classes={classes}
 				onImport={handleBatchImport}
 				onPreview={(users) => previewBatchUsers(users).then((r) => r.data)}

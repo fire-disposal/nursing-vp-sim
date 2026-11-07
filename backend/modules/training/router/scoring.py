@@ -187,7 +187,7 @@ async def end_training(
                 NO_STUDENT_MESSAGES_REASON,
                 extra={
                     "user_id": current_user.id,
-                    "user_role": current_user.role.name if current_user.role else "",
+                    "user_role": current_user.active_persona or "",
                     "action": "training_discard",
                 },
             )
@@ -217,7 +217,7 @@ async def end_training(
             f"训练结束: record_id={record_id} case_id={record.case_id} messages={message_count}",
             extra={
                 "user_id": current_user.id,
-                "user_role": current_user.role.name if current_user.role else "",
+                "user_role": current_user.active_persona or "",
                 "action": "training_end",
             },
         )

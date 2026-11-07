@@ -999,3 +999,16 @@ student/teacher/admin 三类系统角色与平台标记；超管与自定义角�
 
 **验证**：新增授予服务用例（跨校 404 / 平台目标 400 / 平台视角不可外授 / 提权 403 / 授予留痕），
 作用域矩阵补平台视角；pytest 全绿、前端 tsc/biome/vitest/build 全绿。
+
+### 角色彻底退场
+
+**模型** `roles` / `users.role_id` / `role_permissions` / `Role` 模型全部删除。
+账号身份 = 院校（`school_id`）+ 班级归属 + 视角授予（`user_personas`）+ 平台标记（`is_platform`）。
+用户接口的 `role`/`role_display_name` 改为 `personas: string[]`；筛选参数 `role` → `persona`；
+注册/编辑/批量导入改用 `personas`（导入 CSV 第 4 列「角色」→「视角」，默认 `student`）。
+审计不再写 `actor_role`（历史列保留只读），新记录以 `actor_persona` 为准。
+
+**迁移** 先按“预设权限 ⊆ 角色权限”与角色名补一次 personas、把旧 `super_admin` 标为平台，再删除
+`roles` 与 `users.role_id`。种子账号改为“平台号 + 示例院校下的 admin/teacher/student 视角账号”。
+
+**验证**：后端 ruff/ty/import 通过；前端 tsc/biome 通过；pytest 与 vitest 全量迁移中（见提交记录）。

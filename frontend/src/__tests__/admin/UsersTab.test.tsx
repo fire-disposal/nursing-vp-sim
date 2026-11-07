@@ -9,7 +9,7 @@ import { useSchoolScopeStore } from "@/stores/schoolScopeStore";
 
 const mocks = vi.hoisted(() => ({
 	getUsers: vi.fn(),
-	getRoles: vi.fn(),
+	getPersonas: vi.fn(),
 	getClasses: vi.fn(),
 	getSchools: vi.fn(),
 	register: vi.fn(),
@@ -26,8 +26,8 @@ vi.mock("@/api/admin/users", () => ({
 	getStudentDetail: vi.fn(),
 }));
 
-vi.mock("@/api/admin/roles", () => ({
-	getRoles: mocks.getRoles,
+vi.mock("@/api/admin/personas", () => ({
+	getPersonas: mocks.getPersonas,
 }));
 
 vi.mock("@/api/admin/schools", () => ({
@@ -84,8 +84,7 @@ const CLASSES = [
 const MULTI_CLASS_USER = {
 	id: 42,
 	username: "u42",
-	role: "student",
-	role_display_name: "学生",
+	personas: ["student"],
 	display_name: "小明",
 	student_id: "S42",
 	gender: null,
@@ -125,7 +124,7 @@ beforeEach(() => {
 	mocks.getUsers.mockResolvedValue({
 		data: { items: [MULTI_CLASS_USER], total: 1, offset: 0, limit: 50 },
 	});
-	mocks.getRoles.mockResolvedValue({ data: [{ name: "student", display_name: "学生" }] });
+	mocks.getPersonas.mockResolvedValue({ data: [{ key: "student", label: "学生" }] });
 	mocks.getClasses.mockResolvedValue({ data: CLASSES });
 });
 

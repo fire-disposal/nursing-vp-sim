@@ -19,7 +19,6 @@ from schemas.admin.persona import (
     UserPersonasResponse,
     UserPersonasUpdateRequest,
 )
-from schemas.admin.roles import RoleResponse
 from schemas.admin.stats import (
     ClassStudentItem,
     ClassSummaryItemSchema,
@@ -46,7 +45,6 @@ __all__ = [
     "LLMCallLogItem",
     "LLMStatsResponse",
     "PersonaCatalogItem",
-    "RoleResponse",
     "TeacherSummaryItem",
     "TrendStats",
     "UserPersonasResponse",

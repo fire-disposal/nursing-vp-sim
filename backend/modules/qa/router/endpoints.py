@@ -31,7 +31,7 @@ router = APIRouter()
 def _qa_user_context(user: User) -> dict[str, str]:
     return {
         "user_name": user.display_name or "学生",
-        "user_role": user.role.name if user.role else "学生",
+        "user_role": user.active_persona or "student",
     }
 
 
@@ -136,7 +136,7 @@ async def create_session(
     db.commit()
     log.info(
         f"新会话创建: session_id={session.id} q_len={len(req.question)}",
-        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
+        extra={"user_id": current_user.id, "user_role": current_user.active_persona or ""},
     )
     return QAAskResponse(
         session_id=session.id,
@@ -187,7 +187,7 @@ async def ask_in_session(
     db.commit()
     log.info(
         f"会话追问: session_id={session_id} q_len={len(req.question)}",
-        extra={"user_id": current_user.id, "user_role": current_user.role.name if current_user.role else ""},
+        extra={"user_id": current_user.id, "user_role": current_user.active_persona or ""},
     )
     return QAAskResponse(
         session_id=session.id,
