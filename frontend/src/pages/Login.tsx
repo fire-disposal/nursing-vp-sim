@@ -1,6 +1,6 @@
 import { Box, Button, Group, Paper, PasswordInput, Stack, Text, TextInput, ThemeIcon, Title } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
-import { IconBook2, IconChartBar, IconMessageCircle, IconStethoscope } from "@tabler/icons-react";
+import { IconBook2, IconChartBar, IconMessageCircle } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import FormMessageBanner from "@/components/ui/form-message-banner";
@@ -105,9 +105,6 @@ export default function Login() {
 			<Stack gap={0} align="center" w="100%">
 				{/* 品牌头（小屏）：大屏品牌区整块隐藏，窄屏用精简版补上系统标题 */}
 				<Stack hiddenFrom="lg" gap="sm" align="center" w="100%" maw={400} px="md">
-					<ThemeIcon size={44} radius="lg" variant="filled" style={{ boxShadow: "var(--mantine-shadow-md)" }}>
-						<IconStethoscope size={22} />
-					</ThemeIcon>
 					<Stack gap={2} align="center">
 						<Title order={1} size={22} lh={1.2} ta="center">
 							虚拟患者系统
@@ -132,14 +129,6 @@ export default function Login() {
 					<Box visibleFrom="lg" style={{ flex: 1, minWidth: 0, maxWidth: 480 }}>
 						<Stack gap="md" align="flex-start">
 							<Group gap={14} wrap="nowrap">
-								<ThemeIcon
-									size={52}
-									radius="lg"
-									variant="filled"
-									style={{ boxShadow: "var(--mantine-shadow-lg)" }}
-								>
-									<IconStethoscope size={26} />
-								</ThemeIcon>
 								<Stack gap={0}>
 									<Title order={1} size={28} lh={1.2}>
 										虚拟患者系统
