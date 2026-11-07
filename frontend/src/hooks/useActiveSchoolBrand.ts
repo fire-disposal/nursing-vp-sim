@@ -10,11 +10,12 @@ import { type ScopedSchool, useSchoolScopeStore } from "@/stores/schoolScopeStor
  * 注意：这是**观感**，不是隔离。隔离只由服务端 `core/tenant.py` 决定。
  */
 export function useActiveSchoolBrand(): { isPlatform: boolean; school: ScopedSchool | null } {
-	const isPlatform = useAuthStore((s) => s.permissions.includes("school_manage"));
-	const scoped = useSchoolScopeStore((s) => s.school);
 	const user = useAuthStore((s) => s.user);
+	const isPlatform = user?.is_platform === true;
+	const scoped = useSchoolScopeStore((s) => s.school);
 
-	if (isPlatform) return { isPlatform, school: scoped };
+	// 任何账号选中了具体院校（平台工作视图 / 普通多校账号）都以快照为准。
+	if (scoped) return { isPlatform, school: scoped };
 	if (!user?.school_id) return { isPlatform, school: null };
 	return {
 		isPlatform,

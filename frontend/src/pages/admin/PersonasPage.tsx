@@ -13,7 +13,6 @@ import {
 	Text,
 	ThemeIcon,
 } from "@mantine/core";
-import { useQuery } from "@tanstack/react-query";
 import {
 	IconAlertTriangle,
 	IconCheck,
@@ -21,8 +20,8 @@ import {
 	IconUserSearch,
 	IconUsers,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import useAuthStore from "@/stores/authStore";
 import {
 	getPersonas,
 	getUserPersonas,
@@ -39,6 +38,7 @@ import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import { SearchInput } from "@/components/ui/search-input";
 import { PERMISSION_DEFS } from "@/config/permissions.gen";
+import useAuthStore from "@/stores/authStore";
 
 /** 作用域的中英说明：这是本页最重要的信息——它决定「这个视角能看到哪些人的数据」。 */
 const SCOPE_HINT: Record<
@@ -47,7 +47,6 @@ const SCOPE_HINT: Record<
 > = {
 	platform: { zh: "平台级（跨院校）", en: "Platform-wide", color: "grape" },
 	tenant: { zh: "全校数据", en: "Tenant-wide", color: "red" },
-	class: { zh: "所带班级", en: "Own classes", color: "blue" },
 	self: { zh: "仅本人", en: "Self only", color: "gray" },
 };
 

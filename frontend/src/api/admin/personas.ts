@@ -8,7 +8,7 @@ import { api } from "../client";
  * 类型暂写在这里（后端契约先于 openapi 生成落地）：`api-types.gen.ts` 是生成文件，
  * 不在本次改动范围内；接口稳定后可换成 `components["schemas"][...]`。
  */
-export type PersonaScope = "platform" | "tenant" | "class" | "self";
+export type PersonaScope = "platform" | "tenant" | "self";
 
 export interface PersonaPreset {
 	key: string;
@@ -34,3 +34,10 @@ export const getUserPersonas = (userId: number | string) =>
 /** 替换授予：整体覆盖该账号的视角集合（后端去重 + 校验可授予性）。 */
 export const setUserPersonas = (userId: number | string, personas: string[]) =>
 	api.put<UserPersonas>(`/admin/users/${userId}/personas`, { personas });
+
+/** 某账号在指定院校的视角授予（跨校授权只允许平台账号）。 */
+export const getUserSchoolPersonas = (userId: number | string, schoolId: number) =>
+	api.get<UserPersonas>(`/admin/users/${userId}/personas/schools/${schoolId}`);
+
+export const setUserSchoolPersonas = (userId: number | string, schoolId: number, personas: string[]) =>
+	api.put<UserPersonas>(`/admin/users/${userId}/personas/schools/${schoolId}`, { personas });

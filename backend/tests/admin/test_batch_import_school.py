@@ -19,7 +19,7 @@ import pytest
 
 from core.database import Base, engine
 from core.tenant import platform_scope
-from models import Class, ClassMembership, School, User, UserPersona
+from models import Class, ClassMembership, School, User, UserSchoolPersona
 from modules.admin.users import UserService
 
 if TYPE_CHECKING:
@@ -180,7 +180,8 @@ def test_mixed_batch_reports_every_skipped_row_with_its_index(db):
     )
     db.flush()
     # 已存在的同名账号必须是学生视角，才走"同名不同姓"的拒绝分支
-    db.add(UserPersona(user_id=db.query(User.id).filter(User.username == "dup-user").one().id, persona="student"))
+    dup = db.query(User).filter(User.username == "dup-user").one()
+    db.add(UserSchoolPersona(user_id=dup.id, school_id=dup.school_id, persona="student"))
     db.flush()
     service = UserService(db, platform_scope())
 

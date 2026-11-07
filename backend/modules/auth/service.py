@@ -7,6 +7,7 @@ from fastapi import Request
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from core.access import accessible_school_ids, grantable_personas, resolve_access
 from core.audit import (
     ACTION_AUTH_LOGIN_BLOCKED,
     ACTION_AUTH_LOGIN_FAILED,
@@ -30,7 +31,15 @@ from core.security import (
 )
 from core.tenant import resolve_scope, visible_class, writable_school_id
 from core.unit_of_work import unit_of_work
-from models import MEMBER_ROLE_STUDENT, MEMBER_ROLE_TEACHER, ClassMembership, School, User, UserPersona
+from models import (
+    MEMBER_ROLE_STUDENT,
+    MEMBER_ROLE_TEACHER,
+    ClassMembership,
+    School,
+    User,
+    UserSchoolPersona,
+    UserSchoolProfile,
+)
 from schemas import (
     OkResponse,
     RegisterRequest,
@@ -39,6 +48,7 @@ from schemas import (
     UserBrief,
     UserMembershipItem,
     UserProfileUpdateRequest,
+    UserSchoolGrant,
 )
 
 log = logging.getLogger(__name__)
@@ -50,15 +60,15 @@ class AuthService:
 
     def build_token_response(self, user: User) -> TokenResponse:
         token = create_access_token({"user_id": user.id, "tv": user.token_version})
-        # 登录/刷新不带 X-View-Persona → 解析出的是**默认**视角
-        active, perms = resolve_view_persona(self.db, user)
+        # 登录/刷新不带请求头 → 默认视角；家院校没有授予时回落到第一所可用院校。
+        ctx = resolve_access(self.db, user)
         return TokenResponse(
             access_token=token,
             display_name=user.display_name,
             user_id=user.id,
-            permissions=sorted(perms),
-            personas=sorted(load_user_personas(self.db, user)),
-            active_persona=active,
+            permissions=sorted(ctx.permissions),
+            personas=sorted(load_user_personas(self.db, user, ctx.school_id)),
+            active_persona=ctx.persona,
             is_platform=is_super_admin(user),
             gender=user.gender,
             avatar=user.avatar,
@@ -79,15 +89,37 @@ class AuthService:
             .first()
         )
 
+    def _school_grants(self, user: User) -> list[UserSchoolGrant]:
+        """该账号在各院校的授予（平台账号返回空：它派生全视角，不靠行）。"""
+        if is_super_admin(user):
+            return []
+        if getattr(user, "school_id", None) is None:
+            return []
+        ids = accessible_school_ids(self.db, user)
+        if not ids:
+            return []
+        names = {row[0]: row[1] for row in self.db.query(School.id, School.name).filter(School.id.in_(ids)).all()}
+        home_school = getattr(user, "school_id", None)
+        ordered = sorted(ids, key=lambda sid: (sid != home_school, names.get(sid, ""), sid))
+        return [
+            UserSchoolGrant(
+                school_id=sid,
+                school_name=names.get(sid, f"院校 #{sid}"),
+                personas=sorted(load_user_personas(self.db, user, sid)),
+            )
+            for sid in ordered
+        ]
+
     def _user_to_brief(self, user: User) -> UserBrief:
         # 单用户多班级：返回 memberships 数组，不再取第一条（多班学生「显示 B 班」的老毛病）
         rows = [m for m in user.memberships if m.class_id is not None and m.class_ is not None]
         rows.sort(key=lambda m: (m.class_.cohort_label, m.class_.name, m.class_id))
         brand = self._school_brand(getattr(user, "school_id", None))
+        active_school = getattr(user, "active_school_id", None) or getattr(user, "school_id", None)
         return UserBrief(
             id=user.id,
             username=user.username,
-            personas=sorted(load_user_personas(self.db, user)),
+            personas=sorted(load_user_personas(self.db, user, active_school)),
             is_platform=is_super_admin(user),
             school_id=getattr(user, "school_id", None),
             school_name=brand[0] if brand else None,
@@ -98,6 +130,8 @@ class AuthService:
             student_id=user.student_id,
             gender=user.gender,
             avatar=user.avatar,
+            active_school_id=active_school,
+            school_personas=self._school_grants(user),
             memberships=[
                 UserMembershipItem(
                     class_id=m.class_id,
@@ -234,10 +268,12 @@ class AuthService:
             raise ValidationError(detail=f"未知视角: {unknown}")
         if "platform" in unique and not is_super_admin(actor):
             raise AuthError("无权创建平台账号", status_code=403)
-        grantable = set(getattr(actor, "_permissions_cache", None) or ())
+        granted = set(grantable_personas(actor))
         for key in unique:
-            exceeded = sorted(set(PERSONAS[key].permissions) - grantable)
-            if exceeded:
+            if key not in granted:
+                exceeded = sorted(
+                    set(PERSONAS[key].permissions) - set(getattr(actor, "_permissions_cache", None) or ())
+                )
                 raise AuthError(f"无权授予视角 {key}：包含你没有的权限 {exceeded}", status_code=403)
         return unique
 
@@ -280,8 +316,11 @@ class AuthService:
         with unit_of_work(self.db, conflict_detail="用户名已存在"):
             self.db.add(user)
             self.db.flush()
-            for key in personas:
-                self.db.add(UserPersona(user_id=user.id, persona=key))
+            if school_id is not None:
+                for key in personas:
+                    self.db.add(UserSchoolPersona(user_id=user.id, school_id=school_id, persona=key))
+                if "student" in personas and student_id:
+                    self.db.add(UserSchoolProfile(user_id=user.id, school_id=school_id, student_id=student_id))
             if req.class_id is not None:
                 member_role = MEMBER_ROLE_TEACHER if "teacher" in personas else MEMBER_ROLE_STUDENT
                 self.db.add(ClassMembership(user_id=user.id, class_id=req.class_id, member_role=member_role))
@@ -329,7 +368,9 @@ class AuthService:
                 active, _resolved = resolve_view_persona(self.db, current_user)
         brief.permissions = sorted(perms)
         brief.active_persona = active
-        brief.personas = sorted(load_user_personas(self.db, current_user))
+        brief.personas = sorted(
+            load_user_personas(self.db, current_user, getattr(current_user, "active_school_id", None))
+        )
         return brief
 
     def update_me(self, req: UserProfileUpdateRequest, current_user: User) -> UserBrief:

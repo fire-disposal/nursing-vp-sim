@@ -10,6 +10,7 @@ import { queryKeys } from "@/api/query-keys";
 import type { UserListFilterParams } from "@/api/query-params";
 import ClassFilter, { type ClassFilterParams } from "@/components/admin/ClassFilter";
 import UserQuotaModal from "@/components/admin/UserQuotaModal";
+import SchoolPersonasModal from "@/components/admin/users/SchoolPersonasModal";
 import UserCard from "@/components/admin/users/UserCard";
 import ExportButton from "@/components/ExportButton";
 import { useToast } from "@/components/Toast";
@@ -390,6 +391,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	};
 
 	const [quotaUser, setQuotaUser] = useState<UserBrief | null>(null);
+	const [schoolPersonasUser, setSchoolPersonasUser] = useState<UserBrief | null>(null);
 
 	const handleBatchImport = (usersToImport: BatchUser[]) =>
 		batchImportMutation.mutateAsync(usersToImport);
@@ -525,6 +527,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 									onDelete={handleDeleteUser}
 									onToggleActive={handleToggleActive}
 									onQuota={setQuotaUser}
+									onSchoolPersonas={isPlatform ? setSchoolPersonasUser : undefined}
 								/>
 							))}
 						</SimpleGrid>
@@ -764,6 +767,11 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				</Modal>
 			)}
 			<UserQuotaModal user={quotaUser} opened={quotaUser != null} onClose={() => setQuotaUser(null)} />
+			<SchoolPersonasModal
+				user={schoolPersonasUser}
+				opened={schoolPersonasUser != null}
+				onClose={() => setSchoolPersonasUser(null)}
+			/>
 		</>
 	);
 }

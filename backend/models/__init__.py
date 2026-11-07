@@ -13,7 +13,7 @@ from models.audit import (
     AUDIT_OUTCOMES,
     AuditLog,
 )
-from models.auth import User, UserPersona
+from models.auth import User, UserSchoolPersona, UserSchoolProfile
 from models.budget import SchoolBudget, UserBudget
 from models.case import (
     CASE_STATUS_ARCHIVED,
@@ -139,7 +139,8 @@ __all__ = [
     "TrainingSessionState",
     "User",
     "UserBudget",
-    "UserPersona",
+    "UserSchoolPersona",
+    "UserSchoolProfile",
     "VoiceCallLog",
     "VoiceConfig",
     "_now_utc",

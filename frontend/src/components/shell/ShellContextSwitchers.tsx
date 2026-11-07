@@ -50,29 +50,55 @@ export default function ShellContextSwitchers({ variant = "card" }: { variant?: 
 	const canManageSchools = permissions.includes("school_manage");
 	const available = usePersonaStore((s) => s.available);
 	const activePersona = usePersonaStore((s) => s.active);
-	const { data: schools = [] } = useSchoolsQuery({ enabled: canManageSchools });
+	// 平台账号在任意视角都需要院校清单；普通多校账号用 /auth/me 返回的授予列表。
+	const { data: schools = [] } = useSchoolsQuery({ enabled: isPlatform || canManageSchools });
 	const scoped = useSchoolScopeStore((s) => s.school);
 	const setSchool = useSchoolScopeStore((s) => s.setSchool);
 	const queryClient = useQueryClient();
 	const location = useLocation();
 	const navigate = useNavigate();
 
-	const hasMultiSchool = canManageSchools && schools.length > 1;
-	// 平台账号在非平台视角下仍可能带着院校工作视图（后端仍按 X-School-Scope 收窄）：
-	// 显示实际作用域而不是“平台/—”，否则用户会以为在看全局。
-	const schoolName = isPlatform ? (scoped?.name ?? "全部院校") : (user?.school_name ?? "未绑定院校");
-	const schoolHint = canManageSchools
-		? schools.length <= 1
-			? "当前只有一所院校，无需切换"
-			: "切换当前院校：列表、统计与新建都会跟随"
-		: "账号固定在本院校（院校边界不可切换）";
+	const grantSchools: ScopedSchool[] = (user?.school_personas ?? []).map((grant) => ({
+		id: grant.school_id,
+		name: grant.school_name,
+		// 附加院校的完整品牌不在授予响应里；家院校沿用 /auth/me 的品牌字段。
+		themeColor: grant.school_id === user?.school_id ? (user?.school_theme_color ?? null) : null,
+		hasLogo: grant.school_id === user?.school_id ? !!user?.school_has_logo : false,
+		logoUpdatedAt: grant.school_id === user?.school_id ? (user?.school_logo_updated_at ?? null) : null,
+	}));
+	const optionSchools = isPlatform ? schools.map(toScoped) : grantSchools;
+	const homeSchool = !isPlatform && user?.school_id != null
+		? (grantSchools.find((school) => school.id === user.school_id) ?? {
+				id: user.school_id,
+				name: user.school_name ?? "本院校",
+				themeColor: user.school_theme_color ?? null,
+				hasLogo: !!user.school_has_logo,
+				logoUpdatedAt: user.school_logo_updated_at ?? null,
+			})
+		: null;
+	const scopedSchool = scoped && optionSchools.some((school) => school.id === scoped.id) ? scoped : null;
+	const activeSchool = scopedSchool ?? homeSchool;
+	const canPickSchool = isPlatform ? optionSchools.length > 0 : optionSchools.length > 1;
+	const schoolName = isPlatform ? (scopedSchool?.name ?? "全部院校") : (activeSchool?.name ?? "未绑定院校");
+	const schoolHint = isPlatform
+		? "切换当前院校：列表、统计与新建都会跟随"
+		: canPickSchool
+			? "切换当前院校：你被授予了多所院校的视角"
+			: "账号固定在本院校（院校边界不可切换）";
 	const personaLabelText = personaLabel(activePersona) ?? "—";
 	const personaHint = available.length <= 1 ? "账号只有这一个视角" : "当前视角（权限按视角生效）";
 
 	// 院校改名/换院徽/被删除时同步本地快照：快照供顶栏与主题使用，不能一直停在旧值。
 	// 列表为空（请求失败）时不动，避免网络抖动把当前作用域清掉。
 	useEffect(() => {
-		if (!canManageSchools || !scoped || schools.length === 0) return;
+		if (!isPlatform) {
+			if (scoped && optionSchools.length > 0 && !optionSchools.some((school) => school.id === scoped.id)) {
+				setSchool(null);
+				queryClient.clear();
+			}
+			return;
+		}
+		if (!scoped || schools.length === 0) return;
 		const current = schools.find((school) => school.id === scoped.id);
 		if (!current) {
 			setSchool(null);
@@ -88,10 +114,25 @@ export default function ShellContextSwitchers({ variant = "card" }: { variant?: 
 		) {
 			setSchool(next);
 		}
-	}, [canManageSchools, schools, scoped, setSchool, queryClient]);
+	}, [isPlatform, optionSchools, schools, scoped, setSchool, queryClient]);
 
-	const changeSchool = (next: ScopedSchool | null) => {
+	const changeSchool = async (next: ScopedSchool | null) => {
 		setSchool(next);
+		// 换校可能换掉该账号在该校的授予集合：先把“目标视角”对齐，再让 /auth/me
+		// 带着新 school+persona 解析；否则旧 persona 在目标校未授予会 403，
+		// authStore 会把刚选的学校又清掉。
+		const personaState = usePersonaStore.getState();
+		if (isPlatform) {
+			if (next == null && personaState.active !== "platform") {
+				personaState.setAvailable(personaState.available, "platform");
+			}
+		} else if (next != null) {
+			const target = user?.school_personas?.find((grant) => grant.school_id === next.id);
+			const targetPersonas = target?.personas ?? [];
+			if (targetPersonas.length > 0 && !targetPersonas.includes(personaState.active ?? "")) {
+				personaState.setAvailable(targetPersonas, targetPersonas[0]);
+			}
+		}
 		const query = new URLSearchParams(location.search);
 		const stale = ["class_id", "cohort_label", "school_id", "assignment_id"].filter((key) => query.has(key));
 		for (const key of stale) query.delete(key);
@@ -101,13 +142,17 @@ export default function ShellContextSwitchers({ variant = "card" }: { variant?: 
 		const pathname = detail ? `/admin/${detail[1]}` : location.pathname;
 		if (pathname !== location.pathname || stale.length > 0) {
 			navigate({ pathname, search: query.toString() }, { replace: true });
+		} else if (!isPlatform) {
+			// 普通账号换校可能改变该账号在该校的授予/视角；回首页由权限门重新决定落点。
+			navigate("/home", { replace: true });
 		}
 		// 与换视角同一口径：院校维度的缓存不再成立。`clear` 而不是 `invalidate`——
 		// 旧院校的详情/列表缓存不能在新作用域下先闪一下再重取。
 		queryClient.clear();
+		await useAuthStore.getState().refreshUser();
 	};
 
-	const schoolControl = hasMultiSchool ? (
+	const schoolControl = canPickSchool ? (
 		<Menu position="bottom-start" width={240} withinPortal>
 			<Menu.Target>
 				<UnstyledButton
@@ -116,7 +161,7 @@ export default function ShellContextSwitchers({ variant = "card" }: { variant?: 
 					style={{ minWidth: 0, maxWidth: 180 }}
 				>
 					<Group gap={5} wrap="nowrap">
-						<SchoolLogo school={scoped} size={14} />
+						<SchoolLogo school={activeSchool} size={14} />
 						<Text size="xs" fw={600} truncate>
 							{schoolName}
 						</Text>
@@ -126,21 +171,22 @@ export default function ShellContextSwitchers({ variant = "card" }: { variant?: 
 			</Menu.Target>
 			<Menu.Dropdown>
 				<Menu.Label>院校作用域</Menu.Label>
-				<Menu.Item
-					onClick={() => changeSchool(null)}
-					leftSection={scoped ? <span style={{ width: 14 }} /> : <IconCheck size={14} />}
-				>
-					全部院校
-				</Menu.Item>
-				{schools.map((school) => {
-					const item = toScoped(school);
-					const selected = scoped?.id === school.id;
+				{isPlatform && (
+					<Menu.Item
+						onClick={() => changeSchool(null)}
+						leftSection={scopedSchool ? <span style={{ width: 14 }} /> : <IconCheck size={14} />}
+					>
+						全部院校
+					</Menu.Item>
+				)}
+				{(isPlatform ? schools.map(toScoped) : grantSchools).map((school) => {
+					const selected = activeSchool?.id === school.id;
 					return (
 						<Menu.Item
 							key={school.id}
-							onClick={() => changeSchool(item)}
+							onClick={() => changeSchool(school)}
 							leftSection={selected ? <IconCheck size={14} /> : <span style={{ width: 14 }} />}
-							rightSection={<SchoolLogo school={item} size={14} />}
+							rightSection={<SchoolLogo school={school} size={14} />}
 						>
 							{school.name}
 						</Menu.Item>

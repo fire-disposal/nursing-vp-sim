@@ -11,6 +11,13 @@ from sqlalchemy import and_, or_
 from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session, defer, joinedload, selectinload
 
+from core.access import (
+    accessible_school_ids,
+    set_student_profile,
+)
+from core.access import (
+    replace_personas as replace_school_personas,
+)
 from core.audit import (
     ACTION_USER_ACTIVATED,
     ACTION_USER_BULK_ASSIGNED,
@@ -33,7 +40,12 @@ from core.identity import (
 )
 from core.pagination import paginate
 from core.personas import PERSONA_KEYS, PERSONAS, is_super_admin, persona_permissions
-from core.security import hash_password, require_permission, resolve_view_persona
+from core.security import (
+    hash_password,
+    load_user_personas,
+    require_permission,
+    resolve_view_persona,
+)
 from core.tenant import Scope, TenantScope, scope_query, visible_class, writable_school_id
 from core.unit_of_work import unit_of_work
 from infra.exporter import ColumnDef, ExportAudit, export_response
@@ -48,7 +60,7 @@ from models import (
     Score,
     TrainingRecord,
     User,
-    UserPersona,
+    UserSchoolPersona,
 )
 from modules.admin.class_memberships import upsert_members
 from modules.training.scoring.grade_scope import grade_conditions, grade_expr
@@ -198,27 +210,18 @@ class UserService:
         # 视角缓存：列表页一次查齐，避免逐用户一次
         self._persona_cache: dict[int, list[str]] = {}
 
-    def _prime_personas(self, users: list[User]) -> None:
-        ids = [u.id for u in users if not is_super_admin(u) and u.id not in self._persona_cache]
-        if not ids:
-            return
-        for uid, persona in self.db.query(UserPersona.user_id, UserPersona.persona).filter(
-            UserPersona.user_id.in_(ids)
-        ):
-            self._persona_cache.setdefault(uid, []).append(persona)
-
     def personas_of(self, user: User) -> list[str]:
         """公开读：授予的视角（列表/导出共用）。"""
         return self._personas_of(user)
 
+    def _persona_school(self, user: User) -> int | None:
+        """列表/展示只看当前作用域学校；平台全局看用户家院校。"""
+        return self.scope.school_id if self.scope.school_id is not None else user.school_id
+
     def _personas_of(self, user: User) -> list[str]:
         if is_super_admin(user):
             return list(PERSONA_KEYS)
-        if user.id not in self._persona_cache:
-            self._persona_cache[user.id] = [
-                row[0] for row in self.db.query(UserPersona.persona).filter(UserPersona.user_id == user.id)
-            ]
-        return sorted(self._persona_cache[user.id])
+        return sorted(load_user_personas(self.db, user, self._persona_school(user)))
 
     def _brief(self, user: User) -> UserBriefView:
         return UserBriefView(
@@ -331,10 +334,10 @@ class UserService:
                 above = sorted(set(PERSONAS[key].permissions) - actor_perms)
                 if above:
                     raise AuthError(f"无权授予视角 {key}：包含你没有的权限 {above}", status_code=403)
+        if target.school_id is None:
+            raise ValidationError("该账号没有院校归属，不能授予院校视角")
         before = self._personas_of(target)
-        self.db.query(UserPersona).filter(UserPersona.user_id == target.id).delete(synchronize_session="fetch")
-        for key in unique:
-            self.db.add(UserPersona(user_id=target.id, persona=key))
+        replace_school_personas(self.db, target.id, target.school_id, unique)
         self.db.flush()
         self._persona_cache.pop(target.id, None)
         return unique
@@ -447,6 +450,8 @@ class UserService:
                     student_id=user.student_id,
                     exclude_user_id=user.id,
                 )
+                if user.school_id is not None:
+                    set_student_profile(self.db, user.id, user.school_id, user.student_id)
             # 同事务落审计：没提交的变更不留痕；每次变更按"方面"各一行
             for action, payload in audit_events:
                 record(
@@ -466,16 +471,16 @@ class UserService:
         if member_role not in _MEMBER_ROLES:
             raise ValidationError(f"无效的成员角色：{member_role}")
 
-    @staticmethod
-    def _assert_single_school(user: User, class_schools: dict[int, int]) -> None:
+    def _assert_single_school(self, user: User, class_schools: dict[int, int]) -> None:
         """单校不变量：一个用户的班级必须全在其所属院校（NULL = 平台账号，不能进班）。"""
         if not class_schools:
             return
-        if user.school_id is None:
-            raise ValidationError("该账号没有院校归属（平台角色），不能加入班级")
-        foreign = sorted(cid for cid, school_id in class_schools.items() if school_id != user.school_id)
+        # 班级是校内业务分组；账号可在家院校之外加入班级，但必须已在该校获得视角授予，
+        # 否则成员关系不会带来任何可见性，只会制造“名单里有人但看不到”的脏数据。
+        allowed = set(accessible_school_ids(self.db, user))
+        foreign = sorted(cid for cid, school_id in class_schools.items() if school_id not in allowed)
         if foreign:
-            raise ValidationError(f"班级 {foreign} 不属于该账号所属院校")
+            raise ValidationError(f"班级 {foreign} 所属院校尚未授予该账号视角")
 
     def _change_school(self, user: User, school_id: int, audit_events: list[tuple[str, dict]]) -> None:
         """调整账号的院校归属（编辑用户的唯一写入点）。
@@ -829,7 +834,9 @@ class UserService:
                     self.db.add(user)
                     self.db.flush()
                     for persona in row.personas:
-                        self.db.add(UserPersona(user_id=user.id, persona=persona))
+                        self.db.add(UserSchoolPersona(user_id=user.id, school_id=user.school_id, persona=persona))
+                    if STUDENT_PERSONA in row.personas and user.school_id is not None:
+                        set_student_profile(self.db, user.id, user.school_id, user.student_id)
                     class_id = self._ensure_import_class(row)
                     if class_id:
                         self.db.add(
@@ -841,6 +848,8 @@ class UserService:
                     # 旧账号漏填学号时补齐身份，之后同号名单都能命中它
                     if row.student_id and not user.student_id:
                         user.student_id = row.student_id
+                        if user.school_id is not None:
+                            set_student_profile(self.db, user.id, user.school_id, row.student_id)
                     class_id = self._ensure_import_class(row)
                     if class_id:
                         member = (
@@ -1022,7 +1031,9 @@ class UserService:
         self.db.add(user)
         self.db.flush()
         for persona in dict.fromkeys(personas):
-            self.db.add(UserPersona(user_id=user.id, persona=persona))
+            self.db.add(UserSchoolPersona(user_id=user.id, school_id=user.school_id, persona=persona))
+        if STUDENT_PERSONA in personas and user.school_id is not None:
+            set_student_profile(self.db, user.id, user.school_id, user.student_id)
         self.db.flush()
         return user
 
@@ -1052,9 +1063,12 @@ class UserService:
             )
         if filters.persona == "none":
             # 无视角账号：能登录但没有权限，需要管理员补授（视角管理页置顶清单的数据来源）
-            q = q.filter(~User.id.in_(self.db.query(UserPersona.user_id)))
+            q = q.filter(~User.id.in_(self.db.query(UserSchoolPersona.user_id)))
         elif filters.persona:
-            q = q.filter(User.id.in_(self.db.query(UserPersona.user_id).filter(UserPersona.persona == filters.persona)))
+            sub = self.db.query(UserSchoolPersona.user_id).filter(UserSchoolPersona.persona == filters.persona)
+            if self.scope.school_id is not None:
+                sub = sub.filter(UserSchoolPersona.school_id == self.scope.school_id)
+            q = q.filter(User.id.in_(sub))
         return q
 
     def list_filtered(self, filters: UserFilters, *, offset: int, limit: int) -> tuple[int, list[User]]:
@@ -1064,7 +1078,6 @@ class UserService:
             .order_by(User.created_at.desc())
         )
         users, total = paginate(q, offset, limit)
-        self._prime_personas(users)
         return total, users
 
     def record_count(self, user_id: int) -> int:

@@ -12,7 +12,15 @@ from core.deps import DbSession
 from core.pagination import paginate
 from core.security import get_current_user, require_permission
 from core.tenant import Scope, TenantScope, scope_query, visible_class
-from models import MEMBER_ROLE_STUDENT, Class, ClassMembership, Score, TrainingRecord, User, UserPersona
+from models import (
+    MEMBER_ROLE_STUDENT,
+    Class,
+    ClassMembership,
+    Score,
+    TrainingRecord,
+    User,
+    UserSchoolPersona,
+)
 from modules.training.scoring.grade_scope import grade_conditions, grade_expr
 from schemas import (
     ClassSummaryItemSchema,
@@ -137,7 +145,7 @@ class StatsService:
         limit: int = 50,
         class_id: int | None = None,
     ) -> PaginatedResponse[TeacherSummaryItem]:
-        student_ids = self.db.query(UserPersona.user_id).filter(UserPersona.persona == "student")
+        student_ids = self.db.query(UserSchoolPersona.user_id).filter(UserSchoolPersona.persona == "student")
 
         base = (
             self.db.query(

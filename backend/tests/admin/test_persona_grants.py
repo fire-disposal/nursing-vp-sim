@@ -21,10 +21,10 @@ from core.database import engine as pg_engine
 from core.exceptions import AuthError, NotFoundError, ValidationError
 from core.personas import PERSONAS
 from core.tenant import TenantScope
-from models import AuditLog, School, User, UserPersona
+from models import AuditLog, School, User, UserSchoolPersona
 from modules.admin.personas import PersonaService
 
-_TABLES = [School.__table__, User.__table__, UserPersona.__table__, AuditLog.__table__]
+_TABLES = [School.__table__, User.__table__, UserSchoolPersona.__table__, AuditLog.__table__]
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -120,7 +120,9 @@ def test_replace_grants_writes_rows_and_audit(pg_session):
     granted = service.replace(target.id, ["teacher", "student", "teacher"], actor=actor)
 
     assert granted == ["teacher", "student"]
-    rows = {row.persona for row in pg_session.query(UserPersona).filter(UserPersona.user_id == target.id).all()}
+    rows = {
+        row.persona for row in pg_session.query(UserSchoolPersona).filter(UserSchoolPersona.user_id == target.id).all()
+    }
     assert rows == {"teacher", "student"}
     audit = (
         pg_session.query(AuditLog)

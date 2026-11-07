@@ -95,6 +95,8 @@ const useAuthStore = create<ExtendedAuthState>()(
 					// 视角身份：登录响应已带上授予集合与默认生效视角，`/auth/me` 再补齐一次
 					personas: data.personas ?? [],
 					active_persona: data.active_persona ?? null,
+					active_school_id: null,
+					school_personas: [],
 					is_platform: data.is_platform ?? false,
 				};
 				set({ user, token: data.access_token, permissions: data.permissions });
@@ -112,6 +114,8 @@ const useAuthStore = create<ExtendedAuthState>()(
 								...current,
 								personas: me.personas ?? current.personas ?? [],
 								active_persona: me.active_persona ?? current.active_persona ?? null,
+								active_school_id: me.active_school_id ?? null,
+								school_personas: me.school_personas ?? [],
 								memberships: me.memberships ?? [],
 								// 院校归属只存在于 /auth/me（登录响应没有）：漏合并会让院校管理员
 								// 在壳里被显示成「平台」，等于告诉他"你是跨校的"
@@ -174,6 +178,8 @@ const useAuthStore = create<ExtendedAuthState>()(
 						// 视角身份：授予集合 + 当前生效视角（`/auth/me` 现取，权威口径）
 						personas: data.personas ?? [],
 						active_persona: data.active_persona ?? null,
+						active_school_id: data.active_school_id ?? null,
+						school_personas: data.school_personas ?? [],
 						is_platform: data.is_platform ?? false,
 						school_id: data.school_id ?? null,
 						school_name: data.school_name ?? null,
@@ -188,14 +194,31 @@ const useAuthStore = create<ExtendedAuthState>()(
 							? data.permissions
 							: get().permissions,
 					});
+					// 非家院校被服务端选为默认（家院校没有任何授予）时，同步顶栏快照，
+					// 否则顶栏会显示家院校、请求头却已指向另一所。
+					if (data.active_school_id != null && data.active_school_id !== data.school_id) {
+						const grant = (data.school_personas ?? []).find(
+							(item) => item.school_id === data.active_school_id,
+						);
+						if (grant) {
+							useSchoolScopeStore.getState().setSchool({
+								id: grant.school_id,
+								name: grant.school_name,
+								themeColor: null,
+								hasLogo: false,
+								logoUpdatedAt: null,
+							});
+						}
+					}
 				} catch (err: unknown) {
 					const status = httpStatusOf(err);
 					// 视角被撤销（或换了账号后残留）→ 服务端 403「视角不可用」。
 					// 清掉本地选择后重试一次：下一次请求不带 header，服务端回落默认视角。
 					// 递归有界：clear 后 active 为空，不进这个分支。
-					if (status === 403 && usePersonaStore.getState().active) {
-						console.warn("[authStore] /auth/me 403 — 清除失效视角后重试");
+					if (status === 403) {
+						console.warn("[authStore] /auth/me 403 — 清除失效视角/院校后重试");
 						usePersonaStore.getState().clear();
+						useSchoolScopeStore.getState().setSchool(null);
 						return get().refreshUser();
 					}
 					// 仅 401 视为会话失效；网络抖动/服务端瞬时错误保留会话（与 refreshAuth 一致）

@@ -431,6 +431,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/users/{user_id}/personas/schools/{school_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get User School Personas */
+        get: operations["get_user_school_personas_api_admin_users__user_id__personas_schools__school_id__get"];
+        /**
+         * Set User School Personas
+         * @description 给用户在**指定院校**授予视角（家院校的授予仍走上面的默认端点）。
+         */
+        put: operations["set_user_school_personas_api_admin_users__user_id__personas_schools__school_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/schools": {
         parameters: {
             query?: never;
@@ -4807,7 +4828,7 @@ export interface components {
              * Scope
              * @enum {string}
              */
-            scope: "platform" | "tenant" | "class" | "self";
+            scope: "platform" | "tenant" | "self";
             /**
              * Permissions
              * @default []
@@ -7728,6 +7749,10 @@ export interface components {
             permissions?: string[];
             /** Active Persona */
             active_persona?: string | null;
+            /** Active School Id */
+            active_school_id?: number | null;
+            /** School Personas */
+            school_personas?: components["schemas"]["UserSchoolGrant"][];
         };
         /** UserBudgetItem */
         UserBudgetItem: {
@@ -7856,6 +7881,15 @@ export interface components {
             gender?: string | null;
             /** Avatar */
             avatar?: string | null;
+        };
+        /** UserSchoolGrant */
+        UserSchoolGrant: {
+            /** School Id */
+            school_id: number;
+            /** School Name */
+            school_name: string;
+            /** Personas */
+            personas?: string[];
         };
         /** UserUpdateRequest */
         UserUpdateRequest: {
@@ -9084,6 +9118,78 @@ export interface operations {
             };
             path: {
                 user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserPersonasUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPersonasResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_user_school_personas_api_admin_users__user_id__personas_schools__school_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path: {
+                user_id: number;
+                school_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPersonasResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_user_school_personas_api_admin_users__user_id__personas_schools__school_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path: {
+                user_id: number;
+                school_id: number;
             };
             cookie?: never;
         };
@@ -13214,6 +13320,8 @@ export interface operations {
             query?: {
                 /** @description 窗口起点 ISO 格式（含），如 2026-09-24T00:00:00+08:00；不传 = 不限 */
                 date_from?: string | null;
+                /** @description 班级筛选；只能指向作用域内的班级，否则 404 */
+                class_id?: number | null;
             };
             header?: {
                 "X-School-Scope"?: string | null;

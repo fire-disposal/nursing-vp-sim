@@ -21,7 +21,7 @@ from models import (
     Case,
     School,
     User,
-    UserPersona,
+    UserSchoolPersona,
     VoiceConfig,
 )
 from modules.cases.builtin_sync import is_locally_edited, with_seed_bookmark
@@ -73,8 +73,9 @@ def _seed_user(
     )
     db.add(user)
     db.flush()
-    for persona in personas:
-        db.add(UserPersona(user_id=user.id, persona=persona))
+    if school_id is not None:
+        for persona in personas:
+            db.add(UserSchoolPersona(user_id=user.id, school_id=school_id, persona=persona))
     db.commit()
     log.debug("%s 已创建 (%s)", default_display, username)
 
@@ -150,7 +151,7 @@ def _seed_data() -> None:
             )
             db.add(user)
             db.flush()
-            db.add(UserPersona(user_id=user.id, persona="student"))
+            db.add(UserSchoolPersona(user_id=user.id, school_id=school.id, persona="student"))
         db.commit()
         log.debug("测试学生已创建 (student1-5 / 123456)")
 

@@ -1,5 +1,5 @@
 import { ActionIcon, Badge, Checkbox, Group, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
-import { IconBan, IconCheck, IconCoin, IconPencil, IconTrash, IconUserSearch } from "@tabler/icons-react";
+import { IconBan, IconCheck, IconCoin, IconPencil, IconTrash, IconUserSearch, IconWorld } from "@tabler/icons-react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { PersonaBadges } from "@/components/ui/persona-badges";
@@ -16,6 +16,7 @@ interface UserCardProps {
 	onDelete: (user: UserBrief) => void;
 	onToggleActive: (user: UserBrief) => void;
 	onQuota?: (user: UserBrief) => void;
+	onSchoolPersonas?: (user: UserBrief) => void;
 	/** 平台视角（跨院校）才需要院校名：院校管理员看到的都是本校，多一行是噪音。 */
 	showSchool?: boolean;
 }
@@ -35,6 +36,7 @@ export default function UserCard({
 	onDelete,
 	onToggleActive,
 	onQuota,
+	onSchoolPersonas,
 	showSchool = false,
 }: UserCardProps) {
 	const inactive = user.is_active === false;
@@ -131,6 +133,19 @@ export default function UserCard({
 										<IconUserSearch size={15} />
 									</ActionIcon>
 								</Tooltip>
+								{onSchoolPersonas && !user.is_platform && (
+									<Tooltip label="多校视角">
+										<ActionIcon
+											variant="subtle"
+											color="gray"
+											size="md"
+											onClick={() => onSchoolPersonas(user)}
+											aria-label={`设置 ${user.display_name} 的多校视角`}
+										>
+											<IconWorld size={15} />
+										</ActionIcon>
+									</Tooltip>
+								)}
 								{onQuota && !user.is_platform && (
 									<Tooltip label="额度">
 										<ActionIcon

@@ -15,7 +15,7 @@ from core.exceptions import NotFoundError, ValidationError
 from core.personas import persona_permissions
 from core.security import clear_permission_cache
 from core.tenant import apply_school_scope, platform_scope, resolve_scope, school_name_map
-from models import Case, Class, ClassMembership, School, TrainingRecord, User, UserPersona
+from models import Case, Class, ClassMembership, School, TrainingRecord, User, UserSchoolPersona
 from modules.admin.class_memberships import upsert_members
 from modules.admin.classes import ClassService
 from modules.admin.exports import RecordService
@@ -50,8 +50,8 @@ def _user(db, username: str, persona: str, school_id: int | None) -> User:
     )
     db.add(user)
     db.flush()
-    if not is_platform:
-        db.add(UserPersona(user_id=user.id, persona=persona))
+    if not is_platform and school_id is not None:
+        db.add(UserSchoolPersona(user_id=user.id, school_id=school_id, persona=persona))
         db.flush()
     user.set_active_persona(persona)
     user.set_permissions_cache(set(persona_permissions(persona)))

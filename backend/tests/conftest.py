@@ -90,19 +90,26 @@ def make_user(
 
 
 def grant_personas(db, user, *personas: str) -> None:
-    from models import UserPersona
+    from models import UserSchoolPersona
 
-    existing = {row.persona for row in db.query(UserPersona).filter(UserPersona.user_id == user.id)}
+    if user.school_id is None:
+        return
+    existing = {
+        row.persona
+        for row in db.query(UserSchoolPersona).filter(
+            UserSchoolPersona.user_id == user.id, UserSchoolPersona.school_id == user.school_id
+        )
+    }
     for persona in personas:
         if persona not in existing:
-            db.add(UserPersona(user_id=user.id, persona=persona))
+            db.add(UserSchoolPersona(user_id=user.id, school_id=user.school_id, persona=persona))
     db.flush()
 
 
 def clear_personas(db, user) -> None:
-    from models import UserPersona
+    from models import UserSchoolPersona
 
-    db.query(UserPersona).filter(UserPersona.user_id == user.id).delete(synchronize_session="fetch")
+    db.query(UserSchoolPersona).filter(UserSchoolPersona.user_id == user.id).delete(synchronize_session="fetch")
     db.flush()
 
 

@@ -36,7 +36,7 @@ from core.personas import (
     persona_permissions,
 )
 from core.security import clear_permission_cache, load_user_personas, resolve_view_persona
-from models import AuditLog, User, UserPersona
+from models import AuditLog, School, User, UserSchoolPersona
 
 # ── 预设快照 ────────────────────────────────────────────────────────────────
 
@@ -140,7 +140,7 @@ def test_default_persona_is_none_for_school_account():
 
 # ── 视角解析（真实 PG：`user_personas` 的行决定能选什么）───────────────────────
 
-_TABLES = [User.__table__, UserPersona.__table__, AuditLog.__table__]
+_TABLES = [School.__table__, User.__table__, UserSchoolPersona.__table__, AuditLog.__table__]
 
 
 #: 授予行的写入需要跨用例可见（`pg_session` 是 savepoint 隔离，同一 session 内可见即可），
@@ -152,11 +152,17 @@ def _schema():
 
 def _user(db, *, platform: bool = False) -> User:
     """账号替身：院校账号没有任何视角授予，平台账号派生全部视角。"""
+    school = db.query(School).first()
+    if school is None:
+        school = School(name=f"school-{uuid.uuid4().hex[:8]}")
+        db.add(school)
+        db.flush()
     user = User(
         username=f"persona-{uuid.uuid4().hex[:10]}",
         password_hash="x",
         display_name="视角用例",
         is_platform=platform,
+        school_id=None if platform else school.id,
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )
@@ -167,8 +173,10 @@ def _user(db, *, platform: bool = False) -> User:
 
 
 def _grant(db, user: User, *personas: str) -> None:
+    if user.school_id is None:
+        return
     for persona in personas:
-        db.add(UserPersona(user_id=user.id, persona=persona))
+        db.add(UserSchoolPersona(user_id=user.id, school_id=user.school_id, persona=persona))
     db.flush()
     clear_permission_cache()
 
@@ -221,12 +229,13 @@ def test_platform_account_grants_all_personas_without_rows(pg_session):
     """平台账号派生：`user_personas` 没有任何行也能选任意视角。"""
     user = _user(pg_session, platform=True)
 
-    assert pg_session.query(UserPersona).filter(UserPersona.user_id == user.id).count() == 0
+    assert pg_session.query(UserSchoolPersona).filter(UserSchoolPersona.user_id == user.id).count() == 0
     assert load_user_personas(pg_session, user) == frozenset(PERSONA_KEYS)
 
-    persona, perms = resolve_view_persona(pg_session, user, "ops")
-    assert persona == "ops"
-    assert perms == frozenset(_OPS)
+    # 非 platform 视角必须有选校；平台账号不再默认拿到“所有学校”的教师/运维面
+    with pytest.raises(HTTPException) as exc:
+        resolve_view_persona(pg_session, user, "ops")
+    assert exc.value.status_code == 403
 
     # 无 header → 默认平台视角（跨院校的平台级功能）
     persona, perms = resolve_view_persona(pg_session, user, None)
@@ -329,3 +338,62 @@ def test_record_leaves_actor_persona_null_without_view_persona(pg_session):
     row = pg_session.query(AuditLog).filter(AuditLog.actor_id == actor.id).one()
     assert row.actor_persona is None
     assert row.actor_role is None
+
+
+def test_multi_school_grants_are_school_scoped(pg_session):
+    """同一账号在不同院校的授予互不串用；A 校管理员不能拿 B 校教师身份。"""
+    from core.access import accessible_school_ids, resolve_access
+    from core.tenant import resolve_scope
+    from models import School, UserSchoolPersona
+
+    school_a = School(name=f"甲-{uuid.uuid4().hex[:6]}")
+    school_b = School(name=f"乙-{uuid.uuid4().hex[:6]}")
+    pg_session.add_all([school_a, school_b])
+    pg_session.flush()
+    user = User(
+        username=f"multi-{uuid.uuid4().hex[:8]}",
+        password_hash="x",
+        display_name="多校账号",
+        school_id=school_a.id,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    pg_session.add(user)
+    pg_session.flush()
+    pg_session.add(UserSchoolPersona(user_id=user.id, school_id=school_a.id, persona="admin"))
+    pg_session.add(UserSchoolPersona(user_id=user.id, school_id=school_b.id, persona="teacher"))
+    pg_session.flush()
+    clear_permission_cache()
+
+    assert accessible_school_ids(pg_session, user) == frozenset({school_a.id, school_b.id})
+    ctx_b = resolve_access(pg_session, user, str(school_b.id), "teacher")
+    assert (ctx_b.school_id, ctx_b.persona) == (school_b.id, "teacher")
+    with pytest.raises(HTTPException) as exc:
+        resolve_access(pg_session, user, str(school_a.id), "teacher")
+    assert exc.value.status_code == 403
+
+    user.set_active_school(school_b.id)
+    user.set_active_persona("teacher")
+    user.set_permissions_cache(set(ctx_b.permissions))
+    assert resolve_scope(pg_session, user).school_id == school_b.id
+
+
+def test_platform_non_platform_persona_requires_selected_school(pg_session):
+    """超管的教师/学生面不再默认拥有“所有学校”的数据范围。"""
+    from core.access import resolve_access
+    from core.tenant import resolve_scope
+    from models import School
+
+    platform = _user(pg_session, platform=True)
+    with pytest.raises(HTTPException) as exc:
+        resolve_access(pg_session, platform, None, "student")
+    assert exc.value.status_code == 403
+
+    school = School(name=f"平台选校-{uuid.uuid4().hex[:6]}")
+    pg_session.add(school)
+    pg_session.flush()
+    ctx = resolve_access(pg_session, platform, str(school.id), "student")
+    assert (ctx.school_id, ctx.persona) == (school.id, "student")
+    platform.set_active_school(school.id)
+    platform.set_active_persona("student")
+    assert resolve_scope(pg_session, platform).school_id == school.id

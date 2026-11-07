@@ -46,7 +46,10 @@ class _UserQuery:
     def options(self, *_args):
         return self
 
-    def filter(self, _criteria):
+    def filter(self, *_criteria):
+        return self
+
+    def distinct(self):
         return self
 
     def first(self):
@@ -56,6 +59,9 @@ class _UserQuery:
         # load_user_personas may run inside get_current_user via _set_user_permissions
         return []
 
+    def __iter__(self):
+        return iter(())
+
 
 class _PersonaQuery:
     """视角授予查询：默认"无任何 persona 行"（可登录、无权限）。"""
@@ -64,21 +70,53 @@ class _PersonaQuery:
         self._personas = personas or []
         self.queries = 0
 
-    def filter(self, _criteria):
+    def filter(self, *_criteria):
         return self
 
     def all(self):
         self.queries += 1
-        return [SimpleNamespace(persona=p) for p in self._personas]
+        return [(p,) for p in self._personas]
+
+
+class _NameQuery:
+    def filter(self, *_args):
+        return self
+
+    def distinct(self):
+        return self
+
+    def first(self):
+        return ("测试学校", None, None, False)
+
+    def all(self):
+        return [(1, "测试学校", None, False)]
+
+
+class _SchoolQuery:
+    def __init__(self, school_id: int = 1):
+        self._school_id = school_id
+
+    def filter(self, _criteria):
+        return self
+
+    def distinct(self):
+        return self
+
+    def all(self):
+        return [(self._school_id,)]
 
 
 class _PermDb:
     def __init__(self, personas: list[str] | None = None):
         self.persona_query = _PersonaQuery(personas)
 
-    def query(self, model):
-        # load_user_personas 查询的是 `UserPersona.persona`（列表达式，不是类）
-        if "UserPersona" in str(model):
+    def query(self, model, *args):
+        text = f"{model} {args}"
+        if "School.id" in text or "School.name" in text:
+            return _NameQuery()
+        if "UserSchoolPersona.school_id" in text:
+            return _SchoolQuery()
+        if "UserSchoolPersona.persona" in text or "persona" in text:
             return self.persona_query
         raise AssertionError(f"unexpected query: {model}")
 
@@ -97,12 +135,15 @@ def _user(**kw):
         is_active=True,
         token_version=0,
         is_platform=False,
+        school_id=1,
         _permissions_cache=None,
     )
     defaults.update(kw)
     u = SimpleNamespace(**defaults)
     u.set_permissions_cache = lambda perms: setattr(u, "_permissions_cache", perms)
     u.set_active_persona = lambda persona: setattr(u, "_active_persona", persona)
+    u.set_active_school = lambda school_id: setattr(u, "_active_school_id", school_id)
+    u.set_access_context = lambda context: setattr(u, "_access_context", context)
     u.has_permission = lambda perm: perm in (u._permissions_cache or set())
     return u
 
@@ -270,7 +311,7 @@ class TestPermissionCacheWindow:
         """RB-3：缓存是**进程内** dict，而生产跑 `--workers 2` —— 改权限只在写入方失效，
         另一个 worker 只能等 TTL。TTL 回到分钟级 = "降权后另一个 worker 仍按旧权限放行"，
         所以这里把上限钉住（数值可调小，不得调大回分钟级）。"""
-        from core.security import _PERM_CACHE_TTL
+        from core.access import _PERM_CACHE_TTL
 
         assert _PERM_CACHE_TTL <= 5, f"权限缓存 TTL 过大：{_PERM_CACHE_TTL}s（跨 worker 陈旧窗口）"
 

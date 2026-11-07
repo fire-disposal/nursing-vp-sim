@@ -29,6 +29,12 @@ class UserMembershipUpdate(BaseModel):
     member_role: MemberRole = "student"
 
 
+class UserSchoolGrant(BaseModel):
+    school_id: int
+    school_name: str
+    personas: list[str] = Field(default_factory=list)
+
+
 class UserBrief(BaseModel):
     model_config = _RESP_CFG
     id: int
@@ -56,6 +62,10 @@ class UserBrief(BaseModel):
     permissions: list[str] = Field(default_factory=list)
     #: 当前请求生效的视角（`X-View-Persona`）；已授予集合看上面的 `personas`
     active_persona: str | None = None
+    #: 当前请求生效的院校（多校账号由 `X-School-Scope` 选择；平台 None=全局）
+    active_school_id: int | None = None
+    #: 该账号在各院校的视角授予（家院校 + 附加院校）；平台账号为空（派生全视角）
+    school_personas: list[UserSchoolGrant] = Field(default_factory=list)
 
 
 class UserProfileUpdateRequest(BaseModel):

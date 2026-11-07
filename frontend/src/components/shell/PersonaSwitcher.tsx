@@ -2,6 +2,7 @@ import { Badge, Menu, SegmentedControl, Text, UnstyledButton } from "@mantine/co
 import { IconCheck, IconUserShield } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/components/Toast";
 import useAuthStore from "@/stores/authStore";
 import { usePersonaStore } from "@/stores/personaStore";
 import { useSchoolScopeStore } from "@/stores/schoolScopeStore";
@@ -22,11 +23,17 @@ export function PersonaSwitcher({ variant = "auto" }: { variant?: "auto" | "comp
 	// 宿主必须是带 `QueryClientProvider` 的应用外壳（App.tsx 里恒有）。
 	const queryClient = useQueryClient();
 	const navigate = useNavigate();
+	const toast = useToast();
 
 	if (available.length <= 1 || !active) return null;
 
 	const onChange = async (next: string) => {
 		if (next === active) return;
+		// 平台账号的非 platform 视角必须有具体学校：不允许对“全部院校”行使教师/学生/管理数据面。
+		if (useAuthStore.getState().user?.is_platform && next !== "platform" && !useSchoolScopeStore.getState().school) {
+			toast.warning("请先选择一所院校，再切换到该视角");
+			return;
+		}
 		setActive(next);
 		// 换视角 = 换了权限口径：所有查询结果都不再成立
 		queryClient.clear();

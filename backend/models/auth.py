@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, text
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.database import Base
@@ -14,19 +14,34 @@ if TYPE_CHECKING:
     from models.training import TrainingRecord
 
 
-class UserPersona(Base):
-    """用户被授予的视角（多对多，复合主键）。
+class UserSchoolPersona(Base):
+    """用户在某所院校被授予的附加视角（家院校的授予仍在 ``user_personas``）。
 
-    视角预设由代码拥有（`core/personas.py`），本表只记"谁能以哪些视角操作"。
-    超级管理员**派生**拥有全部视角，因此没有行；迁移前的老用户也没有行 →
-    走 legacy `role_permissions`（见 `core.security.resolve_view_persona`）。
+    一个账号可以属于多所院校：``users.school_id`` 是家/默认院校，``user_personas``
+    是家院校的授予；本表补其他院校的授予（如 A 校管理员 + B 校教师）。
+    安全判定只认 ``(user_id, school_id, persona)``；班级只是校内业务分组。
     """
 
-    __tablename__ = "user_personas"
-    __table_args__ = (Index("ix_user_personas_persona", "persona"),)
+    __tablename__ = "user_school_personas"
+    __table_args__ = (Index("ix_user_school_personas_persona", "persona"),)
 
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    school_id: Mapped[int] = mapped_column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), primary_key=True)
     persona: Mapped[str] = mapped_column(String(20), primary_key=True)
+
+
+class UserSchoolProfile(Base):
+    """学生在某校的学号（多校学生按校独立；非学生不落行）。
+
+    ``users.student_id`` 仅保留为家院校/兼容展示，唯一性以本表 ``(school_id, student_id)`` 为准。
+    """
+
+    __tablename__ = "user_school_profiles"
+    __table_args__ = (UniqueConstraint("school_id", "student_id", name="uq_user_school_profiles_school_student"),)
+
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    school_id: Mapped[int] = mapped_column(Integer, ForeignKey("schools.id", ondelete="CASCADE"), primary_key=True)
+    student_id: Mapped[str | None] = mapped_column(String(30), nullable=True)
 
 
 class User(Base, TimestampMixin):
@@ -71,6 +86,8 @@ class User(Base, TimestampMixin):
     __allow_unmapped__ = True
     _permissions_cache: set[str] | None
     _active_persona: str | None
+    _active_school_id: int | None
+    _access_context: object | None
 
     def set_permissions_cache(self, permissions: set[str]) -> None:
         self._permissions_cache = permissions
@@ -82,3 +99,18 @@ class User(Base, TimestampMixin):
     def active_persona(self) -> str | None:
         """当前请求生效的视角（由 `core.security.get_current_user` 写入）。"""
         return getattr(self, "_active_persona", None)
+
+    def set_active_school(self, school_id: int | None) -> None:
+        self._active_school_id = school_id
+
+    def set_access_context(self, context: object | None) -> None:
+        self._access_context = context
+
+    @property
+    def access_context(self) -> object | None:
+        return getattr(self, "_access_context", None)
+
+    @property
+    def active_school_id(self) -> int | None:
+        """当前请求生效的院校（多校账号按请求头选择；平台可为 None=全局）。"""
+        return getattr(self, "_active_school_id", None)

@@ -20,7 +20,7 @@ from core.exceptions import AuthError, NotFoundError, ValidationError
 from core.personas import permissions_for_role_name
 from core.security import clear_permission_cache
 from core.tenant import TenantScope, platform_scope
-from models import Class, ClassMembership, School, User, UserPersona
+from models import Class, ClassMembership, School, User, UserSchoolPersona
 from modules.admin.users import UserService
 from schemas import UserMembershipUpdate, UserUpdateRequest
 from tests.conftest import ensure_school
@@ -33,7 +33,7 @@ _TABLES = [
     Class.__table__,
     ClassMembership.__table__,
     User.__table__,
-    UserPersona.__table__,
+    UserSchoolPersona.__table__,
 ]
 
 
@@ -72,7 +72,7 @@ def _make_user(db: Session, username: str, persona: str = "student", *, platform
     db.commit()
     db.refresh(user)
     if not is_platform:
-        db.add(UserPersona(user_id=user.id, persona=persona))
+        db.add(UserSchoolPersona(user_id=user.id, school_id=user.school_id, persona=persona))
         db.commit()
     # 模拟 get_current_user：生效视角 → 权限集合
     user.set_active_persona(persona)
@@ -81,7 +81,7 @@ def _make_user(db: Session, username: str, persona: str = "student", *, platform
 
 
 def _granted(db: Session, user: User) -> set[str]:
-    return {row[0] for row in db.query(UserPersona.persona).filter(UserPersona.user_id == user.id)}
+    return {row[0] for row in db.query(UserSchoolPersona.persona).filter(UserSchoolPersona.user_id == user.id)}
 
 
 class TestPersonaEscalation:

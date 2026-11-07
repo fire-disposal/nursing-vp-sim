@@ -2341,6 +2341,161 @@
         }
       }
     },
+    "/api/admin/users/{user_id}/personas/schools/{school_id}": {
+      "get": {
+        "tags": [
+          "管理",
+          "视角授权"
+        ],
+        "summary": "Get User School Personas",
+        "operationId": "get_user_school_personas_api_admin_users__user_id__personas_schools__school_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "school_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "School Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPersonasResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "管理",
+          "视角授权"
+        ],
+        "summary": "Set User School Personas",
+        "description": "给用户在**指定院校**授予视角（家院校的授予仍走上面的默认端点）。",
+        "operationId": "set_user_school_personas_api_admin_users__user_id__personas_schools__school_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "school_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "School Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserPersonasUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPersonasResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/schools": {
       "get": {
         "tags": [
@@ -10053,6 +10208,24 @@
             "description": "窗口起点 ISO 格式（含），如 2026-09-24T00:00:00+08:00；不传 = 不限"
           },
           {
+            "name": "class_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "班级筛选；只能指向作用域内的班级，否则 404",
+              "title": "Class Id"
+            },
+            "description": "班级筛选；只能指向作用域内的班级，否则 404"
+          },
+          {
             "name": "X-School-Scope",
             "in": "header",
             "required": false,
@@ -16427,7 +16600,6 @@
             "enum": [
               "platform",
               "tenant",
-              "class",
               "self"
             ],
             "title": "Scope"
@@ -23397,6 +23569,24 @@
               }
             ],
             "title": "Active Persona"
+          },
+          "active_school_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active School Id"
+          },
+          "school_personas": {
+            "items": {
+              "$ref": "#/components/schemas/UserSchoolGrant"
+            },
+            "type": "array",
+            "title": "School Personas"
           }
         },
         "type": "object",
@@ -23677,6 +23867,31 @@
         "additionalProperties": false,
         "type": "object",
         "title": "UserProfileUpdateRequest"
+      },
+      "UserSchoolGrant": {
+        "properties": {
+          "school_id": {
+            "type": "integer",
+            "title": "School Id"
+          },
+          "school_name": {
+            "type": "string",
+            "title": "School Name"
+          },
+          "personas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Personas"
+          }
+        },
+        "type": "object",
+        "required": [
+          "school_id",
+          "school_name"
+        ],
+        "title": "UserSchoolGrant"
       },
       "UserUpdateRequest": {
         "properties": {

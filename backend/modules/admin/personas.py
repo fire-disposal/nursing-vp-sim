@@ -20,14 +20,16 @@ from typing import TYPE_CHECKING, Annotated
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import func
 
+from core.access import grantable_personas
+from core.access import replace_personas as replace_school_personas
 from core.audit import ACTION_USER_PERSONAS_UPDATED, TARGET_TYPE_USER, record
 from core.deps import DbSession
 from core.exceptions import AuthError, NotFoundError, ValidationError
 from core.personas import PERSONA_KEYS, PERSONAS, is_super_admin
-from core.security import clear_permission_cache, require_permission, resolve_view_persona
+from core.security import clear_permission_cache, load_user_personas, require_permission
 from core.tenant import Scope, TenantScope, scope_query
 from core.unit_of_work import unit_of_work
-from models import User, UserPersona
+from models import School, User, UserSchoolPersona
 from schemas import (
     PersonaCatalogItem,
     UserPersonasResponse,
@@ -69,13 +71,10 @@ class PersonaService:
         超管派生拥有全部视角但没有 ``user_personas`` 行 —— 它单独计入每个视角的
         ``user_count``（否则"全视角持有者"在目录里显示为 0 人，误导授权人）。
         """
-        rows = (
-            self._scoped_user_query()
-            .join(UserPersona, UserPersona.user_id == User.id)
-            .with_entities(UserPersona.persona, func.count(User.id))
-            .group_by(UserPersona.persona)
-            .all()
-        )
+        q = self.db.query(UserSchoolPersona.persona, func.count(func.distinct(UserSchoolPersona.user_id)))
+        if self.scope.school_id is not None:
+            q = q.filter(UserSchoolPersona.school_id == self.scope.school_id)
+        rows = q.group_by(UserSchoolPersona.persona).all()
         counts: dict[str, int] = {persona: cnt for persona, cnt in rows if persona in PERSONAS}
         super_admin_count = (
             self._scoped_user_query().filter(User.is_platform.is_(True)).with_entities(func.count(User.id)).scalar()
@@ -97,19 +96,25 @@ class PersonaService:
             raise NotFoundError("用户不存在")
         return user
 
-    def granted(self, user: User) -> list[str]:
-        """目标当前生效的视角：超管 = 全部（派生），否则读 ``user_personas``。"""
+    def granted(self, user: User, school_id: int | None = None) -> list[str]:
+        """目标在某校的视角：超管 = 全部（派生），否则读家院校 + 附加院校授予。"""
         if is_super_admin(user):
             return list(PERSONA_KEYS)
-        rows = (
-            self.db.query(UserPersona.persona)
-            .filter(UserPersona.user_id == user.id)
-            .order_by(UserPersona.persona)
-            .all()
-        )
-        return [r[0] for r in rows if r[0] in PERSONAS]
+        active_school = school_id if school_id is not None else user.school_id
+        return sorted(load_user_personas(self.db, user, active_school))
 
     # ── 写入 ──
+
+    def _grant_target_school(self, target: User, school_id: int | None, actor: User) -> int | None:
+        """授予动作落在哪所学校：家院校，或作用域内真实存在的附加院校。"""
+        if school_id is None or school_id == target.school_id:
+            return target.school_id
+        # 平台账号可以跨校授予；院校管理员只能本校。
+        if not is_super_admin(actor) and self.scope.school_id is not None and school_id != self.scope.school_id:
+            raise NotFoundError("院校不存在")
+        if self.db.get(School, school_id) is None:
+            raise NotFoundError("院校不存在")
+        return school_id
 
     def _grantable(self, actor: User) -> set[str] | None:
         """调用者可授予的视角集合；``None`` = 超管不限。
@@ -119,10 +124,17 @@ class PersonaService:
         """
         if is_super_admin(actor):
             return None
-        actor_perms = _actor_permissions(self.db, actor)
-        return {key for key in PERSONA_KEYS if set(PERSONAS[key].permissions) <= actor_perms}
+        return set(grantable_personas(actor))
 
-    def replace(self, user_id: int, personas: list[str], *, actor: User, request: Request | None = None) -> list[str]:
+    def replace(
+        self,
+        user_id: int,
+        personas: list[str],
+        *,
+        actor: User,
+        request: Request | None = None,
+        school_id: int | None = None,
+    ) -> list[str]:
         target = self.target(user_id, actor=actor)
         if is_super_admin(target):
             raise ValidationError("超级管理员的视角不可编辑（派生拥有全部视角）")
@@ -134,18 +146,20 @@ class PersonaService:
         # 平台级视角跨院校：只属于平台账号，绝不能被授予普通院校账号
         if "platform" in unique and not is_super_admin(target):
             raise ValidationError("平台视角只能授予平台账号")
-
+        active_school = self._grant_target_school(target, school_id, actor)
         grantable = self._grantable(actor)
         if grantable is not None:
             escalated = sorted(set(unique) - grantable)
             if escalated:
                 raise AuthError(f"无权授予以下视角: {escalated}", status_code=403)
 
-        before = self.granted(target)
+        if active_school is None:
+            raise ValidationError("该账号没有院校归属，不能授予院校视角")
+        if "student" in unique and active_school != target.school_id:
+            raise ValidationError("学生视角暂只支持家院校（跨校学号/名单口径尚未开放）")
+        before = self.granted(target, active_school)
         with unit_of_work(self.db, conflict_detail="视角授予冲突"):
-            self.db.query(UserPersona).filter(UserPersona.user_id == target.id).delete(synchronize_session="fetch")
-            for key in unique:
-                self.db.add(UserPersona(user_id=target.id, persona=key))
+            replace_school_personas(self.db, target.id, active_school, unique)
             record(
                 self.db,
                 action=ACTION_USER_PERSONAS_UPDATED,
@@ -156,7 +170,7 @@ class PersonaService:
                 payload={
                     "before": before,
                     "after": unique,
-                    "school_id": target.school_id,
+                    "school_id": active_school,
                     "actor_is_super_admin": is_super_admin(actor),
                 },
             )
@@ -164,20 +178,6 @@ class PersonaService:
         # 缓存是进程内的：改授予就必须失效，否则旧权限最多再放行一个 TTL
         clear_permission_cache(target.id)
         return unique
-
-
-def _actor_permissions(db: Session, actor: User) -> frozenset[str]:
-    """调用者当前生效权限。
-
-    正常路径上 ``get_current_user`` 已按请求头视角写好 ``_permissions_cache``；
-    缓存缺失（内部直接调用 / WebSocket 等）时回落到 ``resolve_view_persona``，
-    绝不把"没解析到"当成"没有权限"而让授权端点静默全 403。
-    """
-    cached = getattr(actor, "_permissions_cache", None)
-    if cached is not None:
-        return frozenset(cached)
-    _persona, perms = resolve_view_persona(db, actor)
-    return frozenset(perms)
 
 
 router = APIRouter(tags=["视角授权"])
@@ -208,4 +208,29 @@ def set_user_personas(
 ) -> UserPersonasResponse:
     service = PersonaService(db, scope)
     granted = service.replace(user_id, req.personas, actor=current_user, request=request)
+    return UserPersonasResponse(user_id=user_id, personas=granted)
+
+
+@router.get("/users/{user_id}/personas/schools/{school_id}", response_model=UserPersonasResponse)
+def get_user_school_personas(
+    user_id: int, school_id: int, current_user: _Grantor, db: DbSession, scope: Scope
+) -> UserPersonasResponse:
+    service = PersonaService(db, scope)
+    target = service.target(user_id, actor=current_user)
+    return UserPersonasResponse(user_id=target.id, personas=service.granted(target, school_id))
+
+
+@router.put("/users/{user_id}/personas/schools/{school_id}", response_model=UserPersonasResponse)
+def set_user_school_personas(
+    user_id: int,
+    school_id: int,
+    req: UserPersonasUpdateRequest,
+    current_user: _Grantor,
+    db: DbSession,
+    scope: Scope,
+    request: Request,
+) -> UserPersonasResponse:
+    """给用户在**指定院校**授予视角（家院校的授予仍走上面的默认端点）。"""
+    service = PersonaService(db, scope)
+    granted = service.replace(user_id, req.personas, actor=current_user, request=request, school_id=school_id)
     return UserPersonasResponse(user_id=user_id, personas=granted)
