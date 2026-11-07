@@ -14,6 +14,11 @@ from schemas.admin.classes import (
     ClassUpdate,
 )
 from schemas.admin.llm import LLMCallLogItem, LLMStatsResponse
+from schemas.admin.persona import (
+    PersonaCatalogItem,
+    UserPersonasResponse,
+    UserPersonasUpdateRequest,
+)
 from schemas.admin.roles import RoleCreateRequest, RoleResponse, RoleUpdateRequest
 from schemas.admin.stats import (
     ClassStudentItem,
@@ -40,9 +45,12 @@ __all__ = [
     "DurationStats",
     "LLMCallLogItem",
     "LLMStatsResponse",
+    "PersonaCatalogItem",
     "RoleCreateRequest",
     "RoleResponse",
     "RoleUpdateRequest",
     "TeacherSummaryItem",
     "TrendStats",
+    "UserPersonasResponse",
+    "UserPersonasUpdateRequest",
 ]

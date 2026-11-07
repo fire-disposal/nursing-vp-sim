@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from core.permissions import PERMISSION_KEYS
 
@@ -23,6 +23,12 @@ if TYPE_CHECKING:
     from models import User
 
 SUPER_ADMIN_ROLE = "super_admin"
+
+#: 视角的数据作用域（`core/tenant.py::resolve_scope` 据此生成 `TenantScope`）：
+#: - ``tenant``：本校全部（无班级收窄）；
+#: - ``class``：本校 + 本人任教的班级；
+#: - ``self``：本校 + 空班级集合（端点自身再按 ``user_id`` 收窄到"我"）。
+PersonaScope = Literal["tenant", "class", "self"]
 
 #: 系统内置角色名 → 默认视角（自定义角色的默认视角 = legacy role_permissions）
 DEFAULT_PERSONA_BY_ROLE: dict[str, str] = {
@@ -40,6 +46,8 @@ class PersonaDef:
     key: str
     label: str
     permissions: tuple[str, ...]
+    #: 该视角的数据可见范围（见 `PersonaScope`）。
+    scope: PersonaScope
 
 
 #: 视角预设。**只在这里加权限**，不要在别处枚举角色权限。
@@ -47,6 +55,7 @@ PERSONAS: dict[str, PersonaDef] = {
     "student": PersonaDef(
         key="student",
         label="学生视角",
+        scope="self",
         permissions=(
             "training_access",
             "scenario_training",
@@ -56,6 +65,7 @@ PERSONAS: dict[str, PersonaDef] = {
     "teacher": PersonaDef(
         key="teacher",
         label="教师视角",
+        scope="class",
         permissions=(
             "grade_class_manage",
             "case_manage",
@@ -73,6 +83,7 @@ PERSONAS: dict[str, PersonaDef] = {
     "admin": PersonaDef(
         key="admin",
         label="管理员视角",
+        scope="tenant",
         permissions=(
             "user_manage",
             "role_manage",
@@ -94,6 +105,7 @@ PERSONAS: dict[str, PersonaDef] = {
     "ops": PersonaDef(
         key="ops",
         label="运维视角",
+        scope="tenant",
         permissions=(
             "llm_monitor",
             "api_manage",
@@ -120,8 +132,25 @@ def persona_permissions(key: str) -> frozenset[str]:
     return frozenset(definition.permissions)
 
 
+def persona_scope(key: str | None) -> PersonaScope | None:
+    """视角的数据作用域；未知视角 / 无视角（legacy）→ ``None``。
+
+    ``None`` 是**兼容信号**：调用方（`core/tenant.py::resolve_scope`）据此回落到
+    迁移前的 `role_permissions` 推断，而不是静默当成某种作用域。
+    """
+    definition = PERSONAS.get(key) if key else None
+    if definition is None:
+        return None
+    return definition.scope
+
+
 def grants_all_personas(user: User) -> bool:
     """超级管理员派生拥有全部视角（不落 `user_personas` 行）。"""
+    return is_super_admin(user)
+
+
+def is_super_admin(user: User) -> bool:
+    """唯一的超管判定点。别处不要再写 ``role.name == "super_admin"``。"""
     role = getattr(user, "role", None)
     return bool(role is not None and role.name == SUPER_ADMIN_ROLE)
 

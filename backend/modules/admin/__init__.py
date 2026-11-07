@@ -13,6 +13,7 @@ from .classes import router as _classes
 from .costs import router as _costs
 from .llm_monitor import router as _llm_monitor
 from .ops import router as _ops
+from .personas import router as _personas
 from .roles import router as _roles
 from .schools import router as _schools
 from .secrets import router as _secrets
@@ -28,6 +29,7 @@ for r in (
     _costs,
     _llm_monitor,
     _ops,
+    _personas,
     _roles,
     _schools,
     _secrets,

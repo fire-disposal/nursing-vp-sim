@@ -44,7 +44,7 @@ const Profile = lazy(() => import("@/pages/Profile"));
 const Admin = lazy(() => import("@/pages/Admin"));
 const AdminUsers = lazy(() => import("@/pages/admin/UsersPage"));
 const AdminUserDetail = lazy(() => import("@/pages/admin/UserDetailPage"));
-const AdminRoles = lazy(() => import("@/pages/admin/RolesPage"));
+const AdminPersonas = lazy(() => import("@/pages/admin/PersonasPage"));
 const AdminClasses = lazy(
 	() => import("@/pages/admin/ClassesPage"),
 );
@@ -241,11 +241,11 @@ export const APP_ROUTES: AppRoute[] = [
 		activity: "manage",
 	},
 	{
-		path: "/admin/roles",
-		element: <AdminRoles />,
+		path: "/admin/personas",
+		element: <AdminPersonas />,
 		permission: "role_manage",
 		activity: "manage",
-		nav: { label: "角色管理", icon: IconShield, section: "admin", group: "people" },
+		nav: { label: "视角管理", icon: IconShield, section: "admin", group: "people" },
 	},
 	{
 		path: "/admin/schools",

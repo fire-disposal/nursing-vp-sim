@@ -1674,6 +1674,201 @@
         ]
       }
     },
+    "/api/admin/personas": {
+      "get": {
+        "tags": [
+          "管理",
+          "视角授权"
+        ],
+        "summary": "List Personas",
+        "operationId": "list_personas_api_admin_personas_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PersonaCatalogItem"
+                  },
+                  "title": "Response List Personas Api Admin Personas Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users/{user_id}/personas": {
+      "get": {
+        "tags": [
+          "管理",
+          "视角授权"
+        ],
+        "summary": "Get User Personas",
+        "operationId": "get_user_personas_api_admin_users__user_id__personas_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPersonasResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "管理",
+          "视角授权"
+        ],
+        "summary": "Set User Personas",
+        "operationId": "set_user_personas_api_admin_users__user_id__personas_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserPersonasUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPersonasResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/roles": {
       "get": {
         "tags": [
@@ -15925,6 +16120,48 @@
         "type": "object",
         "title": "PatientPublicInfo"
       },
+      "PersonaCatalogItem": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "tenant",
+              "class",
+              "self"
+            ],
+            "title": "Scope"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Permissions",
+            "default": []
+          },
+          "user_count": {
+            "type": "integer",
+            "title": "User Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "scope"
+        ],
+        "title": "PersonaCatalogItem",
+        "description": "视角目录项：预设 + 作用域 + **调用者作用域内**持有该视角的人数。\n\n``user_count`` 按调用者的 ``TenantScope`` 统计（平台全局 / 院校本校），\n超管派生拥有的视角也计入（它没有 ``user_personas`` 行）。"
+      },
       "QAAskResponse": {
         "properties": {
           "session_id": {
@@ -22967,6 +23204,43 @@
         ],
         "title": "UserMembershipUpdate",
         "description": "用户编辑里的成员关系项 —— 提供 ``memberships`` 即为全量替换。"
+      },
+      "UserPersonasResponse": {
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "personas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Personas"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id"
+        ],
+        "title": "UserPersonasResponse",
+        "description": "某账号**当前持有**的视角 key 集合（超管 = 全部，派生）。"
+      },
+      "UserPersonasUpdateRequest": {
+        "properties": {
+          "personas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Personas",
+            "description": "要授予的视角 key；全量替换"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "UserPersonasUpdateRequest",
+        "description": "全量替换授予：去重后写入，未知 key → 400，无权授予 → 403。"
       },
       "UserProfileUpdateRequest": {
         "properties": {

@@ -40,6 +40,7 @@ ACTION_USER_DELETED = "user.deleted"
 ACTION_USER_PASSWORD_RESET = "user.password_reset"
 ACTION_USER_BULK_IMPORTED = "user.bulk_imported"
 ACTION_USER_BULK_ASSIGNED = "user.bulk_assigned"
+ACTION_USER_PERSONAS_UPDATED = "user.personas_updated"
 ACTION_SECRET_CREATED = "secret.created"
 ACTION_SECRET_UPDATED = "secret.updated"
 ACTION_SECRET_DELETED = "secret.deleted"
@@ -259,6 +260,7 @@ __all__ = [
     "ACTION_USER_DEACTIVATED",
     "ACTION_USER_DELETED",
     "ACTION_USER_PASSWORD_RESET",
+    "ACTION_USER_PERSONAS_UPDATED",
     "ACTION_USER_UPDATED",
     "AUDIT_OUTCOME_DENIED",
     "AUDIT_OUTCOME_FAILURE",

@@ -79,6 +79,13 @@ export const queryKeys = {
 				["admin", "users", "studentDetail", userId] as const,
 		},
 		roles: ["admin", "roles"] as const,
+		personas: ["admin", "personas"] as const,
+		/** 授视角弹窗：某用户当前的视角集合 */
+		personasUser: (userId: number | string) =>
+			[...queryKeys.admin.personas, "user", userId] as const,
+		/** 授视角弹窗：按关键词检索的账号（与授予结果无关，独立缓存） */
+		personasUsers: (search: string) =>
+			[...queryKeys.admin.personas, "users", search] as const,
 		feedback: {
 			all: ["admin", "feedback"] as const,
 			list: (params: Record<string, unknown>) =>

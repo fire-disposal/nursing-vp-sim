@@ -300,6 +300,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/personas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Personas */
+        get: operations["list_personas_api_admin_personas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/{user_id}/personas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get User Personas */
+        get: operations["get_user_personas_api_admin_users__user_id__personas_get"];
+        /** Set User Personas */
+        put: operations["set_user_personas_api_admin_users__user_id__personas_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/roles": {
         parameters: {
             query?: never;
@@ -4662,6 +4697,34 @@ export interface components {
                 [key: string]: string;
             } | null;
         };
+        /**
+         * PersonaCatalogItem
+         * @description 视角目录项：预设 + 作用域 + **调用者作用域内**持有该视角的人数。
+         *
+         *     ``user_count`` 按调用者的 ``TenantScope`` 统计（平台全局 / 院校本校），
+         *     超管派生拥有的视角也计入（它没有 ``user_personas`` 行）。
+         */
+        PersonaCatalogItem: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "tenant" | "class" | "self";
+            /**
+             * Permissions
+             * @default []
+             */
+            permissions: string[];
+            /**
+             * User Count
+             * @default 0
+             */
+            user_count: number;
+        };
         /** QAAskResponse */
         QAAskResponse: {
             /** Session Id */
@@ -7596,6 +7659,27 @@ export interface components {
              */
             member_role: "student" | "teacher";
         };
+        /**
+         * UserPersonasResponse
+         * @description 某账号**当前持有**的视角 key 集合（超管 = 全部，派生）。
+         */
+        UserPersonasResponse: {
+            /** User Id */
+            user_id: number;
+            /** Personas */
+            personas?: string[];
+        };
+        /**
+         * UserPersonasUpdateRequest
+         * @description 全量替换授予：去重后写入，未知 key → 400，无权授予 → 403。
+         */
+        UserPersonasUpdateRequest: {
+            /**
+             * Personas
+             * @description 要授予的视角 key；全量替换
+             */
+            personas?: string[];
+        };
         /** UserProfileUpdateRequest */
         UserProfileUpdateRequest: {
             /** Display Name */
@@ -8528,6 +8612,107 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    list_personas_api_admin_personas_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonaCatalogItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_user_personas_api_admin_users__user_id__personas_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPersonasResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_user_personas_api_admin_users__user_id__personas_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserPersonasUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPersonasResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
