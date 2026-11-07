@@ -1,9 +1,11 @@
-import { Button, Group, SegmentedControl, Select, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Button, Group, Select, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
-import { IconDownload, IconFileSpreadsheet, IconJson, IconSearch } from "@tabler/icons-react";
+import { IconDownload, IconFileSpreadsheet, IconSearch } from "@tabler/icons-react";
 import { useState } from "react";
-import { fetchCostExport } from "@/api/admin/voice-cost";
+import { downloadCostExport, fetchCostExport } from "@/api/admin/voice-cost";
+import { downloadBlobResponse } from "@/api/download";
 import { queryKeys } from "@/api/query-keys";
+import { toast } from "@/components/Toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import EmptyState from "@/components/ui/empty-state";
 import TableScroll from "@/components/ui/table-scroll";
@@ -18,17 +20,16 @@ export default function CostExportTab() {
 	const [endDate, setEndDate] = useState("");
 	const [service, setService] = useState<string | null>(null);
 	const [granularity, setGranularity] = useState("daily");
-	const [format, setFormat] = useState("json");
 
 	const { data, isLoading, isFetching, refetch } = useQuery({
-		queryKey: queryKeys.cost.costExport(startDate, endDate, service, granularity, format),
+		queryKey: queryKeys.cost.costExport(startDate, endDate, service, granularity, "json"),
 		queryFn: () =>
 			fetchCostExport({
 				start_date: startDate || undefined,
 				end_date: endDate || undefined,
 				service,
 				granularity,
-				format,
+				format: "json",
 			}).then((r) => r.data),
 		enabled: false,
 	});
@@ -37,20 +38,16 @@ export default function CostExportTab() {
 		refetch();
 	};
 
-	const downloadCSV = () => {
-		if (!data?.length) return;
-		const headers = Object.keys(data[0]);
-		const rows = data.map((item) =>
-			headers.map((h) => String(item[h] ?? "")).join(","),
-		);
-		const csv = [headers.join(","), ...rows].join("\n");
-		const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement("a");
-		a.href = url;
-		a.download = `cost-export-${startDate || "all"}-${endDate || "all"}.csv`;
-		a.click();
-		URL.revokeObjectURL(url);
+	const download = async (fmt: "csv" | "xlsx") => {
+		try {
+			const resp = await downloadCostExport(
+				{ start_date: startDate, end_date: endDate, service: service ?? "", granularity },
+				fmt,
+			);
+			downloadBlobResponse(resp, `成本明细.${fmt}`);
+		} catch (e) {
+			toast.apiError(e, "导出失败");
+		}
 	};
 
 	const items = data ?? [];
@@ -115,32 +112,7 @@ export default function CostExportTab() {
 
 						<Divider />
 
-						<Group justify="space-between" wrap="wrap" gap="sm">
-							<SegmentedControl
-								value={format}
-								onChange={(v) => setFormat(v)}
-								data={[
-									{
-										value: "json",
-										label: (
-											<span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-												<IconJson size={14} />
-												JSON
-											</span>
-										),
-									},
-									{
-										value: "csv",
-										label: (
-											<span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-												<IconFileSpreadsheet size={14} />
-												CSV
-											</span>
-										),
-									},
-								]}
-							/>
-
+						<Group justify="flex-end" wrap="wrap" gap="sm">
 							<Button onClick={handleFetch} disabled={isFetching} leftSection={<IconSearch size={16} />}>
 								查询
 							</Button>
@@ -156,9 +128,14 @@ export default function CostExportTab() {
 					<CardHeader>
 						<Group justify="space-between" align="center" wrap="wrap">
 							<CardTitle>导出结果</CardTitle>
-							<Button variant="outline" size="sm" onClick={downloadCSV} leftSection={<IconDownload size={14} />}>
-								下载 CSV
-							</Button>
+							<Group gap="xs">
+								<Button variant="outline" size="sm" onClick={() => download("csv")} leftSection={<IconDownload size={14} />}>
+									下载 CSV
+								</Button>
+								<Button variant="outline" size="sm" onClick={() => download("xlsx")} leftSection={<IconFileSpreadsheet size={14} />}>
+									下载 XLSX
+								</Button>
+							</Group>
 						</Group>
 					</CardHeader>
 					<CardContent>

@@ -131,6 +131,54 @@ def test_export_is_audited_with_rows_and_filters():
         _cleanup([actor_id])
 
 
+def test_cost_export_csv_is_a_download_but_json_preview_is_not(monkeypatch):
+    """成本明细：csv 走统一导出器（BOM + 留痕）；json 只是表格预览，不该记成"已导出"。"""
+    from core.tenant import platform_scope
+    from modules.admin.costs import export_costs
+
+    actor_id = _mk_actor("student")
+    rows = [{"date": "2026-11-01", "service": "llm", "cost": 1.23, "calls": 4, "success": 3, "error": 1}]
+    monkeypatch.setattr("modules.admin.costs.CostService.export_data", lambda self, *a, **k: rows)
+    try:
+        request = _stub_request(actor_id, f"cost-{uuid.uuid4().hex[:6]}")
+        with SessionLocal() as db:
+            before = len([r for r in _rows(ACTION_EXPORT_DOWNLOADED) if r.target_label == "成本明细"])
+            response = export_costs(
+                current_user=SimpleNamespace(id=actor_id),
+                db=db,
+                scope=platform_scope(actor_id),
+                request=request,
+                start_date="",
+                end_date="",
+                service="",
+                granularity="daily",
+                export_format="csv",
+            )
+            body = response.body
+            assert response.media_type == "text/csv; charset=utf-8-sig"
+            assert body.startswith(b"\xef\xbb\xbf")  # Excel 打开中文别乱码
+            assert "2026-11-01" in body.decode("utf-8-sig")
+
+            preview = export_costs(
+                current_user=SimpleNamespace(id=actor_id),
+                db=db,
+                scope=platform_scope(actor_id),
+                request=request,
+                start_date="",
+                end_date="",
+                service="",
+                granularity="daily",
+                export_format="json",
+            )
+            assert preview == rows
+
+        after = [r for r in _rows(ACTION_EXPORT_DOWNLOADED) if r.target_label == "成本明细"]
+        assert len(after) == before + 1
+        assert after[-1].payload["format"] == "csv"
+    finally:
+        _cleanup([actor_id])
+
+
 def test_over_limit_export_is_rejected_and_leaves_no_export_audit():
     """超限导出被 400 拒掉 → **不该**留下"已导出"的记录（只在判定通过后才记）。"""
     actor_id = _mk_actor("student")

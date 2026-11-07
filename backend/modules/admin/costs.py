@@ -1,12 +1,9 @@
 """Admin cost dashboard — router + service."""
 
-import csv
-import io
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import StreamingResponse
 from sqlalchemy import Integer, case, func
 from sqlalchemy.orm import Session
 
@@ -14,6 +11,7 @@ from core.deps import DbSession
 from core.security import require_permission
 from core.statuses import LLMCallStatus
 from core.tenant import Scope, TenantScope
+from infra.exporter import ColumnDef, ExportAudit, export_response
 from infra.ops_queries import (
     cn_day_start,
     cn_month_start,
@@ -448,38 +446,30 @@ def export_costs(
     end_date: str = Query(default=""),
     service: str = Query(default=""),
     granularity: str = Query(default="daily"),
-    export_format: str = Query(default="json", alias="format"),
+    export_format: str = Query(default="json", alias="format", pattern="^(csv|xlsx|json)$"),
 ):
+    """成本明细：``json`` 只做表格预览（不记导出留痕）；``csv``/``xlsx`` 走统一导出器（带留痕）。"""
     svc = CostService(db, scope)
     rows = svc.export_data(start_date, end_date, service, granularity)
-    # 自建响应（不经 infra.exporter）→ 直接写一条导出留痕
-    from core.audit import ACTION_EXPORT_DOWNLOADED, TARGET_TYPE_EXPORT, record_detached
+    if export_format == "json":
+        return rows
 
-    record_detached(
-        request,
-        action=ACTION_EXPORT_DOWNLOADED,
-        target_type=TARGET_TYPE_EXPORT,
+    columns = [
+        ColumnDef("日期", value=lambda r: r.get("date")),
+        ColumnDef("服务", value=lambda r: r.get("service")),
+        ColumnDef("费用", value=lambda r: r.get("cost")),
+        ColumnDef("调用次数", value=lambda r: r.get("calls")),
+        ColumnDef("成功", value=lambda r: r.get("success")),
+        ColumnDef("失败", value=lambda r: r.get("error")),
+    ]
+    audit = ExportAudit(
+        request=request,
         target_label="成本明细",
-        payload={
-            "rows": len(rows),
-            "format": export_format,
-            "filters": {
-                "start_date": start_date,
-                "end_date": end_date,
-                "service": service,
-                "granularity": granularity,
-            },
+        filters={
+            "start_date": start_date,
+            "end_date": end_date,
+            "service": service,
+            "granularity": granularity,
         },
     )
-    if export_format == "csv":
-        output = io.StringIO()
-        writer = csv.DictWriter(output, fieldnames=["date", "service", "cost", "calls", "success", "error"])
-        writer.writeheader()
-        writer.writerows(rows)
-        csv_bytes = output.getvalue().encode("utf-8-sig")
-        return StreamingResponse(
-            iter([csv_bytes]),
-            media_type="text/csv",
-            headers={"Content-Disposition": "attachment; filename=cost_export.csv"},
-        )
-    return rows
+    return export_response(rows, columns, "成本明细", "成本明细", export_format, audit=audit)

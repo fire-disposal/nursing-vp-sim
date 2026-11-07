@@ -97,6 +97,13 @@ export const fetchCostDashboard = () =>
 export const fetchCostExport = (params: CostExportParams) =>
 	api.get<CostExportResponse>("/admin/costs/export", { params });
 
+/** 下载成本明细：CSV/XLSX 由服务端统一导出器生成（BOM、转义、留痕都在那里）。 */
+export const downloadCostExport = (params: CostExportParams, format: "csv" | "xlsx") =>
+	api.get<Blob>("/admin/costs/export", {
+		params: { ...params, format },
+		responseType: "blob",
+	});
+
 export const fetchUserCostBreakdown = () =>
 	api.get<{ items: UserCostItem[] }>("/admin/costs/users");
 

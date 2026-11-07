@@ -925,3 +925,19 @@ skipped=17`，被丢的 16 行整块排在文件前部，看起来像"导进去�
 **验证**：`ruff format/check`、`ty`、`pnpm run check` 干净；pytest 1663 passed；
 前端 `tsc --noEmit`、Vitest 109 文件 829 passed / 1 skipped、`pnpm build` 成功；
 浏览器实测 `/lab`（保留）与 `/share` 正常。
+
+### 导出/导入基本功 · 第一步
+
+**一个导出实现** 成本明细不再自建 CSV：此前前端把 JSON 拼成 CSV（缺 BOM，Excel 打开中文乱码、
+字段未转义），后端另有一份 `StreamingResponse` 手写实现。现在 `csv` / `xlsx` 都走
+`infra/exporter`（BOM、CSV 注入防护、行数上限、导出留痕都在同一处），`json` 只做表格预览。
+
+**留痕只记真下载** 成本导出的 `json` 预览此前也会写一条 `export.downloaded`——"看了一眼表格"
+被记成"导出过一次"。现在只有真正返回文件的 `csv`/`xlsx` 才留痕。
+
+**前端下载统一** 导出按钮改走 `downloadBlobResponse`：优先采用服务端 `Content-Disposition`
+里的文件名（RFC 5987 中文文件名），失败（超限 400 / 无权限 403 / 网络）会显式提示，
+不再"点了没反应、只能猜"。
+
+**验证**：新增成本导出契约用例（CSV 带 BOM、留痕只在 csv、json 预览不留痕）；pytest 全绿、
+vitest 832 passed、`tsc --noEmit` 与 biome 干净。

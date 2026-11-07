@@ -2,14 +2,19 @@ import { ActionIcon, Button, Group, Loader, Menu } from "@mantine/core";
 import { IconChevronDown, IconDownload } from "@tabler/icons-react";
 import { useCallback, useState } from "react";
 import { api } from "@/api/client";
+import { downloadBlobResponse } from "@/api/download";
+import { toast } from "@/components/Toast";
 
 interface ExportButtonProps {
 	endpoint: string;
+	/** 服务端未给文件名时的兜底名（扩展名按所选格式补） */
 	filename: string;
 	params?: Record<string, unknown>;
+	/** 导出端点的方法：默认 POST（与列表筛选一致）；成本等只读端点是 GET */
+	method?: "post" | "get";
 }
 
-export default function ExportButton({ endpoint, filename, params }: ExportButtonProps) {
+export default function ExportButton({ endpoint, filename, params, method = "post" }: ExportButtonProps) {
 	const [format, setFormat] = useState<"csv" | "xlsx">("csv");
 	const [exporting, setExporting] = useState(false);
 
@@ -20,24 +25,21 @@ export default function ExportButton({ endpoint, filename, params }: ExportButto
 				const sp = new URLSearchParams();
 				if (params) for (const [k, v] of Object.entries(params)) sp.set(k, String(v));
 				sp.set("format", fmt);
-				const resp = await api.post<Blob>(endpoint, null, { params: sp, responseType: "blob" });
-				const contentType = resp.headers["content-type"];
-				const blob = new Blob([resp.data], {
-					type: typeof contentType === "string" ? contentType : "application/octet-stream",
-				});
-				const url = URL.createObjectURL(blob);
-				const a = document.createElement("a");
-				a.href = url;
-				a.download = `${filename}.${fmt}`;
-				document.body.appendChild(a);
-				a.click();
-				document.body.removeChild(a);
-				URL.revokeObjectURL(url);
+				const config = { params: sp, responseType: "blob" as const };
+				const resp =
+					method === "get"
+						? await api.get<Blob>(endpoint, config)
+						: await api.post<Blob>(endpoint, null, config);
+				downloadBlobResponse(resp, `${filename}.${fmt}`);
+			} catch (e) {
+				// 超限（400）、无权限（403）、网络错误都必须让用户看见；
+				// 静默失败会让"导出没反应"变成无法自查的问题。
+				toast.apiError(e, "导出失败");
 			} finally {
 				setExporting(false);
 			}
 		},
-		[endpoint, filename, params],
+		[endpoint, filename, params, method],
 	);
 
 	return (

@@ -185,7 +185,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Export Costs */
+        /**
+         * Export Costs
+         * @description 成本明细：``json`` 只做表格预览（不记导出留痕）；``csv``/``xlsx`` 走统一导出器（带留痕）。
+         */
         get: operations["export_costs_api_admin_costs_export_get"];
         put?: never;
         post?: never;
