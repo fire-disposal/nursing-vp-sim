@@ -1,5 +1,6 @@
 import axios from "axios";
 import useAuthStore, { isRefreshing, setRefreshing } from "@/stores/authStore";
+import { usePersonaStore } from "@/stores/personaStore";
 import { useSchoolScopeStore } from "@/stores/schoolScopeStore";
 
 export const api = axios.create({
@@ -30,6 +31,14 @@ api.interceptors.request.use((config) => {
 	const scopedSchool = useSchoolScopeStore.getState().school;
 	if (scopedSchool) {
 		config.headers["X-School-Scope"] = String(scopedSchool.id);
+	}
+	// 当前生效视角：权限口径由它决定（服务端按视角预设算 `permissions`）。
+	// 未选择（未登录 / 旧后端没有 personas）时不带，服务端回落到默认视角。
+	if (token) {
+		const activePersona = usePersonaStore.getState().active;
+		if (activePersona) {
+			config.headers["X-View-Persona"] = activePersona;
+		}
 	}
 	return config;
 });

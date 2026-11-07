@@ -12700,6 +12700,17 @@
             ],
             "title": "Actor Role"
           },
+          "actor_persona": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Persona"
+          },
           "action": {
             "type": "string",
             "title": "Action"
@@ -21808,6 +21819,25 @@
             "title": "Permissions",
             "default": []
           },
+          "personas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Personas",
+            "default": []
+          },
+          "active_persona": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Persona"
+          },
           "gender": {
             "anyOf": [
               {
@@ -22824,6 +22854,24 @@
             },
             "type": "array",
             "title": "Permissions"
+          },
+          "personas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Personas"
+          },
+          "active_persona": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Persona"
           }
         },
         "type": "object",

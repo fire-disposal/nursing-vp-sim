@@ -33,6 +33,10 @@ class TokenResponse(BaseModel):
     display_name: str
     user_id: int
     permissions: list[str] = []
+    #: 该账号被授予的视角（超管 = 全部）；前端据此渲染视角切换器
+    personas: list[str] = []
+    #: 登录后默认生效的视角（自定义角色为 role.name，无视角为 null）
+    active_persona: str | None = None
     gender: str | None = None
     avatar: str | None = None
 

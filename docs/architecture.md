@@ -91,7 +91,7 @@ React/Mantine/懒加载 chunk 执行。新增依赖若引入新的内置 API（�
 3. **两层扩展协约**：Workflow 负责过程与生命周期，Activity 负责能力与产物；前端由 manifest 驱动（纯 RendererMap），后端训练流程走中间件链（`modules/training/pipeline/builder.py` 按 `PipelineStage` 装配）。新增能力必须满足准入质量门槛：可用性与能否结束一律由服务端声明，不在前端另建能力真相源
 4. **管道架构 (Pipeline)**：每轮对话按固定阶（`pipeline/stages.py` 的 `PipelineStage`）执行：`guard → transition → analysis → prompt → llm → persist → side_effects`。当前已装配 `emotion_analysis` / `prompt_builder` / `llm_caller` / `persister` / `side_effects`；`guard`、`transition` 是已声明、待用的扩展点（阶段定义与装配的唯一事实源见 `pipeline/__init__.py`）
 5. **JWT无状态认证**：登录颁发Token，前端存储到localStorage，每次请求携带。支持 token_version 强制过期
-6. **角色权限控制 (RBAC)**：Role → RolePermission 模型，API层和前端路由层双重守卫
+6. **视角即权限预设**：`core/personas.py` 定义 `student / teacher / admin / ops` 四组预设权限（代码拥有，前端由 `permissions.gen.ts` 同源派生）；用户可被授予多个视角（`user_personas`），请求头 `X-View-Persona` 选择**当前生效**的那一个，未授予 → 403。超级管理员（`role.name = super_admin`）派生拥有全部视角且不落库。`role_permissions` 只保留给未迁移的自定义角色（legacy 回落）。API 层与前端路由层仍双重守卫，但都读“当前视角”的权限集合。
 7. **后端分层纪律**：thin router → service（业务规则 + 事务），service 直持 `db: Session`（无 repository 层）；跨切面使用 `core/exceptions` (AuthError/NotFoundError/ConflictError/ValidationError) + `core/unit_of_work` (commit/rollback) + `core/deps` (DbSession/CurrentUser DI)。analytics/流式/导出路由保持胖路由
 8. **LLM服务封装**：统一通过 `infra/llm/` 进行调用，支持多Provider优先级加权路由、熔断、健康检查
 9. **Practice/Scenario 分离**：Practice 从 Case 中独立出来，支持训练(training)、考核(assessment)、自由练习(free_play)三种模式

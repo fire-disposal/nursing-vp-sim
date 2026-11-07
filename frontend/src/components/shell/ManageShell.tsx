@@ -14,9 +14,11 @@ import { useShortViewport } from "@/hooks/useShortViewport";
 import { useActiveSchoolBrand } from "@/hooks/useActiveSchoolBrand";
 import { useUiPrefsStore } from "@/stores/uiPrefsStore";
 import useAuthStore from "@/stores/authStore";
+import { usePersonaStore } from "@/stores/personaStore";
 import { isAdminPermissions } from "@/utils/permissions";
 import SidebarNav from "./SidebarNav";
 import { BottomTabBar } from "./BottomTabBar";
+import PersonaSwitcher from "./PersonaSwitcher";
 import { SchoolLogo, SchoolScopeSwitcher } from "./SchoolScopeSwitcher";
 import ShellTransition from "./ShellTransition";
 import type { NavItem } from "./navigation";
@@ -54,6 +56,19 @@ export default function ManageShell({
 		: null;
 	const canManageSchools = permissions.includes("school_manage");
 	const isAdmin = isAdminPermissions(permissions);
+	/**
+	 * 移动端轨由**当前视角**派生：student → 学生轨，其余 → 教工轨。
+	 * 不能再用 `isAdminPermissions`：学生被授予 admin 视角后，在 admin 视角下看学生的底部
+	 * Tab 更符合"我在用哪个身份"，而权限推断只会把他永远钉在教工轨。
+	 * 没有视角（旧后端 / 未落定）才回落到旧口径。
+	 */
+	const persona = usePersonaStore((s) => s.active);
+	const personaCount = usePersonaStore((s) => s.available.length);
+	/** 多视角才需要切换器（单视角用户看到选择器只是噪声） */
+	const hasMultiPersona = personaCount > 1;
+	const mobileTier: "student" | "staff" = persona ? (persona === "student" ? "student" : "staff") : isAdmin ? "staff" : "student";
+	/** 教工轨要给「更多」（管理端条目放不进底栏）；学生轨不给。 */
+	const staffTier = mobileTier === "staff";
 	const isOnline = useNetworkStatus();
 	const { openFeedback } = useFeedback();
 	const { pathname } = useLocation();
@@ -106,7 +121,7 @@ export default function ManageShell({
 	// 路由表 → 页面标题（浏览器标签页/历史记录别再全是「虚拟患者训练系统」）
 	allNavItems.current = allLinks;
 	// 底部 Tab 由路由表派生：本轨有 Tab 才渲染底栏（学生 5 项、教师 3 项 + 更多）
-	const hasTabs = allLinks.some((l) => l.mobile?.tier === (isAdmin ? "staff" : "student"));
+	const hasTabs = allLinks.some((l) => l.mobile?.tier === mobileTier);
 	// 「管理后台建议用桌面端」只对**管理页**有意义，而且必须留在内容流里——
 	// 它曾挂在壳之外，在 100dvh 的沉浸训练页上把内容顶出视口 27px。
 	const showMobileHint = isAdmin && !mobileHintDismissed && pathname.startsWith("/admin");
@@ -137,7 +152,7 @@ export default function ManageShell({
 			</a>
 			<AppShell.Header>
 				<Group h="100%" px="md" gap="sm" wrap="nowrap">
-					{isAdmin && (
+					{staffTier && (
 						<Burger opened={mobileOpened} onClick={toggleMobile} hiddenFrom="sm" size="sm" aria-label="切换菜单" />
 					)}
 					<Burger
@@ -247,6 +262,18 @@ export default function ManageShell({
 						<SchoolScopeSwitcher width="100%" />
 					</Box>
 				)}
+				{/* 视角切换器：侧栏顶部（桌面常驻可见，移动端随抽屉打开）。
+				    放这里而不是顶栏：顶栏在 `sm` 以下已被院校切换器/汉堡挤满，
+				    两个"当前语境"控件并排会互相抢焦点。
+				    只在真有多视角时渲染整块（含标题），否则会留下一个孤立的「当前视角」标签。 */}
+				{hasMultiPersona && (
+					<Box mb="sm">
+						<Text size="xs" c="dimmed" mb={4}>
+							当前视角
+						</Text>
+						<PersonaSwitcher variant="segmented" />
+					</Box>
+				)}
 				<SidebarNav
 					userLinks={userLinks}
 					adminLinks={adminLinks}
@@ -294,7 +321,8 @@ export default function ManageShell({
 				<AppShell.Footer>
 					<BottomTabBar
 						links={allLinks}
-						onOpenNav={isAdmin ? toggleMobile : undefined}
+						onOpenNav={staffTier ? toggleMobile : undefined}
+						tier={mobileTier}
 					/>
 				</AppShell.Footer>
 			)}

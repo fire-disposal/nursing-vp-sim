@@ -58,11 +58,27 @@ class _UserQuery:
         return []
 
 
+class _PersonaQuery:
+    """视角授予查询：默认"无任何 persona 行"（走 legacy role_permissions 分支）。"""
+
+    def __init__(self, personas: list[str] | None = None):
+        self._personas = personas or []
+
+    def filter(self, _criteria):
+        return self
+
+    def all(self):
+        return [SimpleNamespace(persona=p) for p in self._personas]
+
+
 class _PermDb:
     def __init__(self, permissions: list[str]):
         self.query_obj = _PermQuery(permissions)
 
-    def query(self, _model):
+    def query(self, model):
+        # load_user_personas 查询的是 `UserPersona.persona`（列表达式，不是类）
+        if "UserPersona" in str(model):
+            return _PersonaQuery()
         return self.query_obj
 
 
@@ -85,6 +101,7 @@ def _user(**kw):
     defaults.update(kw)
     u = SimpleNamespace(**defaults)
     u.set_permissions_cache = lambda perms: setattr(u, "_permissions_cache", perms)
+    u.set_active_persona = lambda persona: setattr(u, "_active_persona", persona)
     u.has_permission = lambda perm: perm in (u._permissions_cache or set())
     return u
 

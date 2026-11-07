@@ -33,6 +33,21 @@ class RolePermission(Base):
     permission: Mapped[str] = mapped_column(String(40))
 
 
+class UserPersona(Base):
+    """用户被授予的视角（多对多，复合主键）。
+
+    视角预设由代码拥有（`core/personas.py`），本表只记"谁能以哪些视角操作"。
+    超级管理员**派生**拥有全部视角，因此没有行；迁移前的老用户也没有行 →
+    走 legacy `role_permissions`（见 `core.security.resolve_view_persona`）。
+    """
+
+    __tablename__ = "user_personas"
+    __table_args__ = (Index("ix_user_personas_persona", "persona"),)
+
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    persona: Mapped[str] = mapped_column(String(20), primary_key=True)
+
+
 class User(Base, TimestampMixin):
     __tablename__ = "users"
     __table_args__ = (Index("ix_users_student_id", "student_id"),)
@@ -68,5 +83,20 @@ class User(Base, TimestampMixin):
             return False
         return permission in cache
 
+    # 请求级快照（非持久化、非映射列）：生效权限集合与当前视角，由
+    # core.security.get_current_user 每次请求解析后写入实例，随会话对象消亡。
+    # 普通注解 + `__allow_unmapped__`：既不会被 ORM 当成待映射列，也允许实例赋值。
+    __allow_unmapped__ = True
+    _permissions_cache: set[str] | None
+    _active_persona: str | None
+
     def set_permissions_cache(self, permissions: set[str]) -> None:
         self._permissions_cache = permissions
+
+    def set_active_persona(self, persona: str | None) -> None:
+        self._active_persona = persona
+
+    @property
+    def active_persona(self) -> str | None:
+        """当前请求生效的视角（由 `core.security.get_current_user` 写入）。"""
+        return getattr(self, "_active_persona", None)

@@ -53,6 +53,9 @@ class UserBrief(BaseModel):
     # 仅 /auth/me 填充（其它列表接口不查权限表，留空）：前端据此在每次加载时刷新侧栏门禁，
     # 否则降权/升权后前端最长 24h 仍按旧权限渲染（2026-09-26 审计 RB-4）。
     permissions: list[str] = Field(default_factory=list)
+    #: 已授予的视角（超管 = 全部视角）与当前请求生效的视角（`X-View-Persona`）
+    personas: list[str] = Field(default_factory=list)
+    active_persona: str | None = None
 
 
 class UserProfileUpdateRequest(BaseModel):

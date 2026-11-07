@@ -18,6 +18,8 @@ class AuditLogItem(BaseModel):
     actor_username: str | None
     actor_display_name: str | None
     actor_role: str | None
+    #: 操作时生效的视角（`X-View-Persona`）；老数据/无视角为空
+    actor_persona: str | None = None
     action: str
     target_type: str
     target_id: str | None

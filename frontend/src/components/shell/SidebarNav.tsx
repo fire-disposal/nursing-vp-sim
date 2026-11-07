@@ -103,7 +103,13 @@ export default function SidebarNav({
 					{groupUserLinks ? (
 						userLinks.length > 0 && (
 							<SideNavGroup
-								group={{ key: "personal", label: "我的训练", icon: IconStethoscope, defaultOpen: false }}
+								group={{
+									key: "personal",
+									label: "我的训练",
+									icon: IconStethoscope,
+									defaultOpen: false,
+									personas: ["student", "teacher", "admin", "ops"],
+								}}
 								links={userLinks}
 								onNavigate={onNavigate}
 							/>

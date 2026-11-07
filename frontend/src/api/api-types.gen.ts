@@ -3250,6 +3250,8 @@ export interface components {
             actor_display_name: string | null;
             /** Actor Role */
             actor_role: string | null;
+            /** Actor Persona */
+            actor_persona?: string | null;
             /** Action */
             action: string;
             /** Target Type */
@@ -7112,6 +7114,13 @@ export interface components {
              * @default []
              */
             permissions: string[];
+            /**
+             * Personas
+             * @default []
+             */
+            personas: string[];
+            /** Active Persona */
+            active_persona?: string | null;
             /** Gender */
             gender?: string | null;
             /** Avatar */
@@ -7549,6 +7558,10 @@ export interface components {
             is_active: boolean;
             /** Permissions */
             permissions?: string[];
+            /** Personas */
+            personas?: string[];
+            /** Active Persona */
+            active_persona?: string | null;
         };
         /**
          * UserMembershipItem

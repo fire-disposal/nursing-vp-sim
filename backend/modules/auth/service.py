@@ -20,7 +20,14 @@ from core.audit import (
 from core.config import LOGIN_LOCK_SECONDS, LOGIN_LOCKOUT_ENABLED, LOGIN_MAX_FAILED_ATTEMPTS
 from core.exceptions import AuthError, ConflictError, ValidationError
 from core.identity import STUDENT_ROLE_NAME, assert_student_identity_free, normalize_student_id
-from core.security import create_access_token, hash_password, load_role_permissions, verify_password
+from core.security import (
+    create_access_token,
+    hash_password,
+    load_role_permissions,
+    load_user_personas,
+    resolve_view_persona,
+    verify_password,
+)
 from core.tenant import resolve_scope, visible_class, writable_school_id
 from core.unit_of_work import unit_of_work
 from models import MEMBER_ROLE_STUDENT, MEMBER_ROLE_TEACHER, ClassMembership, Role, School, User
@@ -50,13 +57,16 @@ class AuthService:
                 "tv": user.token_version,
             }
         )
-        permissions = list(load_role_permissions(self.db, user.role_id))
+        # 登录/刷新不带 X-View-Persona → 解析出的是**默认**视角
+        active, perms = resolve_view_persona(self.db, user)
         return TokenResponse(
             access_token=token,
             role=user.role.name if user.role else "",
             display_name=user.display_name,
             user_id=user.id,
-            permissions=permissions,
+            permissions=sorted(perms),
+            personas=sorted(load_user_personas(self.db, user)),
+            active_persona=active,
             gender=user.gender,
             avatar=user.avatar,
         )
@@ -308,9 +318,20 @@ class AuthService:
 
     def get_me(self, current_user: User) -> UserBrief:
         brief = self._user_to_brief(current_user)
-        # 权限集合由角色决定且可能刚被改动 → 每次 /auth/me 现取（load_role_permissions 自身有 2s 缓存）
-        if current_user.role_id is not None:
-            brief.permissions = sorted(load_role_permissions(self.db, current_user.role_id))
+        # 权限集合由**当前视角**决定且可能刚被改动 → 每次 /auth/me 现取。
+        # `get_current_user` 已按 X-View-Persona 解析并把结果挂到 `_permissions_cache`
+        # （缺失时这里按默认视角解析，refresh/直调路径同样成立）。
+        cached = getattr(current_user, "_permissions_cache", None)
+        if cached is None:
+            active, perms = resolve_view_persona(self.db, current_user)
+        else:
+            perms = frozenset(cached)
+            active = current_user.active_persona
+            if active is None:
+                active, _resolved = resolve_view_persona(self.db, current_user)
+        brief.permissions = sorted(perms)
+        brief.active_persona = active
+        brief.personas = sorted(load_user_personas(self.db, current_user))
         return brief
 
     def update_me(self, req: UserProfileUpdateRequest, current_user: User) -> UserBrief:

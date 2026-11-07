@@ -7,8 +7,23 @@ import {
 	getMe,
 } from "@/api";
 import { dispatchForceLogout } from "@/events";
+import { usePersonaStore } from "@/stores/personaStore";
 import { useSchoolScopeStore } from "@/stores/schoolScopeStore";
 import type { AuthState, User } from "../types/store";
+
+/** 把服务端回话里的视角写进 personaStore（登录 / 刷新 / `/auth/me` 三处共用）。 */
+function syncPersonas(data: { personas?: string[]; active_persona?: string | null }): void {
+	if (!Array.isArray(data.personas)) return;
+	usePersonaStore.getState().setAvailable(data.personas, data.active_persona ?? null);
+}
+
+/** 取 HTTP 状态码（axios 错误的形状）；不是 axios 错误就返回 undefined。 */
+function httpStatusOf(err: unknown): number | undefined {
+	if (typeof err !== "object" || err === null || !("response" in err)) return undefined;
+	const response = err.response;
+	if (typeof response !== "object" || response === null || !("status" in response)) return undefined;
+	return typeof response.status === "number" ? response.status : undefined;
+}
 
 interface ExtendedAuthState extends AuthState {
 	permissions: string[];
@@ -77,11 +92,13 @@ const useAuthStore = create<ExtendedAuthState>()(
 					school_has_logo: false,
 				};
 				set({ user, token: data.access_token, permissions: data.permissions });
+				syncPersonas(data);
 
 				startRefreshTimer();
 
 				try {
 					const { data: me } = await getMe();
+					syncPersonas(me);
 					const current = get().user;
 					if (current) {
 						set({
@@ -112,6 +129,7 @@ const useAuthStore = create<ExtendedAuthState>()(
 				try {
 					const { data } = await apiRefreshToken();
 					set({ token: data.access_token, permissions: data.permissions });
+					syncPersonas(data);
 					return true;
 			} catch (err: unknown) {
 				const is401 = (
@@ -124,6 +142,7 @@ const useAuthStore = create<ExtendedAuthState>()(
 					console.warn("[authStore] refreshAuth 401 — 清除会话");
 					stopRefreshTimer();
 					set({ user: null, token: null, permissions: [] });
+					usePersonaStore.getState().clear();
 				} else {
 					console.warn("[authStore] refreshAuth 网络/服务端错误 — 保持现有会话", err);
 				}
@@ -134,6 +153,7 @@ const useAuthStore = create<ExtendedAuthState>()(
 			refreshUser: async (): Promise<void> => {
 				try {
 					const { data } = await getMe();
+					syncPersonas(data);
 					const current = get().user;
 					const user: User = {
 						id: data.id,
@@ -160,13 +180,17 @@ const useAuthStore = create<ExtendedAuthState>()(
 							: get().permissions,
 					});
 				} catch (err: unknown) {
+					const status = httpStatusOf(err);
+					// 视角被撤销（或换了账号后残留）→ 服务端 403「视角不可用」。
+					// 清掉本地选择后重试一次：下一次请求不带 header，服务端回落默认视角。
+					// 递归有界：clear 后 active 为空，不进这个分支。
+					if (status === 403 && usePersonaStore.getState().active) {
+						console.warn("[authStore] /auth/me 403 — 清除失效视角后重试");
+						usePersonaStore.getState().clear();
+						return get().refreshUser();
+					}
 					// 仅 401 视为会话失效；网络抖动/服务端瞬时错误保留会话（与 refreshAuth 一致）
-					const is401 = (
-						err != null &&
-						typeof err === "object" &&
-						"response" in err &&
-						(err as { response?: { status?: number } }).response?.status === 401
-					);
+					const is401 = status === 401;
 					if (is401) {
 						console.warn("[authStore] refreshUser 401 — 清除会话");
 						get().logout();
@@ -209,6 +233,8 @@ const useAuthStore = create<ExtendedAuthState>()(
 				set({ user: null, token: null, permissions: [] });
 				// 「当前院校」是上一个平台的偏好，换人登录不能带走（换账号后作用域必须回到全部院校）
 				useSchoolScopeStore.getState().setSchool(null);
+				// 视角同理：上一个账号的视角选择对下一个人没有意义，且可能不在其授予集合里
+				usePersonaStore.getState().clear();
 				dispatchForceLogout();
 			},
 		}),
