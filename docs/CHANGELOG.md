@@ -895,3 +895,33 @@ skipped=17`，被丢的 16 行整块排在文件前部，看起来像"导进去�
 
 **验证**：前端 `tsc --noEmit`、变更文件 Biome、Vitest 109 文件 840 passed / 1 skipped；浏览器实测大眼图、72px 小图、
 儿童/青年/老人轮廓、眨眼中间帧，以及两位患者 `PatientPresenter` 的连续独立动画与说话口型。
+
+## 2026.11 — 结构整理：删零消费者代码，收敛重复实现
+
+**删掉没人用的代码** 后端 8 个零引用函数（含 33 行的 `validate_dimensions`，以及 `timeline_of`、`device_refs`、
+`group_rows`、`get_semaphore` 等死路径）；前端 16 个零消费者导出、1 个死组件（`BatchActionBar`）、
+1 个仅被自身测试引用的 schema 文件（`schemas/llm-config.ts`，连测试块一起删）。
+判据是全仓符号引用计数（含测试与脚本），不按"看起来像遗留"下结论；FastAPI 路由与 pytest 夹具不计入。
+
+**一个概念一处实现** 本次收敛的重复：训练启动的「同一用户只能有一局在途」守卫 4 份 → 1 份
+（作业入口原本还带自己的条件与变量遮蔽）；场景资源的上传与替换 2 → 1；记录的删除/放弃 2 → 1
+（学生历史页与教师记录管理页原为逐行复制的 mutation + 确认框）；回合结果拼装（正常 / 求提示 / 澄清）
+3 → 1；记录归属校验 4 → 1；建记录调用 3 → 1；教学看板两张图的轴骨架 2 → 1；反馈标签词表与配色
+原为 4 份（且管理页与学生页文案不一致）→ 1。病例编辑器的「隐藏背景」与「查体锚点」是两个
+58 行、逐行几乎相同的组件，合并为 `KeyValueEditor`（`multiline` 一个开关）。
+
+**行级重复度**（去注释空行、6 行滑窗）：`modules/training/router/session.py` 4.4% → 0%，
+`modules/scenario_training/router.py` 2.4% → 1.0%（仅剩一处调用点）。
+
+**行为变化（有意，非逐字等价）** 键值编辑器新增项的 value 会 `trim()`；反馈标签下拉改用与徽章同名的
+完整文案（学生页「BUG/功能」→「BUG反馈/功能建议」，管理页「全部回复」→「全部」）；资源上传与替换
+共用同一条「归一化 → 校验 → 存字节 → 装包」路径。
+
+**没有做的** 除本次新增的 `useRecordActions` 外，仍有 12 处页面级 `useMutation` 手写「失效 + 提示」
+（`useApiMutation` 覆盖 4 处）——该封装不提供 `onMutate`/`onSettled`，且部分站点原本对失败静默，
+统一接入会改变提示行为，属产品判断。`docs/architecture.md` 原本把 `useApiMutation` 写成强制约定，
+已按事实改成「常见形态，不是强制」。
+
+**验证**：`ruff format/check`、`ty`、`pnpm run check` 干净；pytest 1663 passed；
+前端 `tsc --noEmit`、Vitest 109 文件 829 passed / 1 skipped、`pnpm build` 成功；
+浏览器实测 `/lab`（保留）与 `/share` 正常。

@@ -1,6 +1,6 @@
 # 01 — 系统架构
 
-> 适用版本: current | 最后更新: 2026-09-14
+> 适用版本: current | 最后更新: 2026-11-07
 
 ## 技术栈
 
@@ -86,7 +86,7 @@ React/Mantine/懒加载 chunk 执行。新增依赖若引入新的内置 API（�
 
 ## 架构设计原则
 
-1. **前后端分离**：React SPA通过HTTP API与FastAPI后端通信，使用标准HTTP状态码 + JSON。查询走 TanStack Query（`frontend/src/hooks/`），写操作用 `useApiMutation`（统一 toast + 缓存失效），401 由 axios 拦截器单飞刷新并排队重放
+1. **前后端分离**：React SPA通过HTTP API与FastAPI后端通信，使用标准HTTP状态码 + JSON。查询走 TanStack Query（`frontend/src/hooks/`）；写操作常见形态是 `useApiMutation`（统一 toast + 缓存失效），但**带乐观更新（`onMutate`/`onSettled`）的站点直接用 `useMutation`**——该封装不提供这两个钩子，所以它不是强制约定。401 由 axios 拦截器单飞刷新并排队重放
 2. **可导航单体（后端）**：业务按产品领域划分 `modules/`，普通模块 router/service 直持 Session，训练域为唯一复杂领域岛；不做有界上下文/repository 分层
 3. **两层扩展协约**：Workflow 负责过程与生命周期，Activity 负责能力与产物；前端由 manifest 驱动（纯 RendererMap），后端训练流程走中间件链（`modules/training/pipeline/builder.py` 按 `PipelineStage` 装配）。新增能力必须满足准入质量门槛：可用性与能否结束一律由服务端声明，不在前端另建能力真相源
 4. **管道架构 (Pipeline)**：每轮对话按固定阶（`pipeline/stages.py` 的 `PipelineStage`）执行：`guard → transition → analysis → prompt → llm → persist → side_effects`。当前已装配 `emotion_analysis` / `prompt_builder` / `llm_caller` / `persister` / `side_effects`；`guard`、`transition` 是已声明、待用的扩展点（阶段定义与装配的唯一事实源见 `pipeline/__init__.py`）
