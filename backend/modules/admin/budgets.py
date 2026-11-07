@@ -10,7 +10,8 @@ from sqlalchemy import or_
 
 from core.budget import effective_user_limit, school_monthly_spend, user_daily_spend
 from core.deps import DbSession
-from core.exceptions import NotFoundError
+from core.exceptions import NotFoundError, ValidationError
+from core.personas import is_super_admin
 from core.security import get_current_user, require_permission
 from core.tenant import Scope, TenantScope, scope_query
 from infra.ops_queries import cn_day_start, cn_month_start
@@ -201,6 +202,8 @@ def set_user_budget(
     user = scope_query(db.query(User), User.school_id, scope).filter(User.id == user_id).first()
     if user is None:
         raise NotFoundError("用户不存在")
+    if is_super_admin(user):
+        raise ValidationError("平台账号不适用个人额度")
     row = db.query(UserBudget).filter(UserBudget.user_id == user_id).first()
     if row is None:
         row = UserBudget(user_id=user_id)

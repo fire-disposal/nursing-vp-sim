@@ -131,7 +131,7 @@ export default function UserCard({
 										<IconUserSearch size={15} />
 									</ActionIcon>
 								</Tooltip>
-								{onQuota && (
+								{onQuota && !user.is_platform && (
 									<Tooltip label="额度">
 										<ActionIcon
 											variant="subtle"
