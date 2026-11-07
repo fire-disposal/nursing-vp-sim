@@ -243,3 +243,28 @@ def test_school_scope_header_invalid_values_fall_back_to_global(world):
 def test_school_name_map_is_batched_lookup(world):
     names = school_name_map(world["db"], [world["school_a"].id, world["school_b"].id, None, 999_999])
     assert names == {world["school_a"].id: "甲大学", world["school_b"].id: "乙学院"}
+
+
+def test_non_platform_account_without_school_fails_closed(pg_session):
+    """非平台账号丢了院校归属时不能退化成跨院校：脏数据也不能拿到全局视野。"""
+    db = pg_session
+    orphan = _user(db, "orphan-admin", "admin", None)
+    scope = resolve_scope(db, orphan)
+    assert not scope.is_global
+    assert scope.school_id == 0
+    assert scope.class_ids == frozenset()
+
+
+def test_teacher_scope_ignores_classes_of_other_schools(world):
+    """教师视角的班级边界必须落在他所属院校；历史跨校成员关系不得扩大范围。
+
+    对应边界：账号 A 校、却有一条 B 校班级的教师成员关系（正常写入会拒绝，
+    这里直接造脏数据）。切到教师视角后只能是 A 校班级，不出现 B 校 class_id。
+    """
+    db = world["db"]
+    teacher = _user(db, "teacher-a", "teacher", world["school_a"].id)
+    _join(db, teacher, world["class_a"], "teacher")
+    _join(db, teacher, world["class_b"], "teacher")
+    scope = resolve_scope(db, teacher)
+    assert scope.school_id == world["school_a"].id
+    assert scope.class_ids == frozenset({world["class_a"].id})

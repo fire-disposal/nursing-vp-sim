@@ -1,6 +1,7 @@
 import { Box, Divider, Group, Menu, Paper, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { IconCheck, IconChevronDown, IconLock, IconUserShield } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useSchoolsQuery } from "@/hooks/useSchools";
 import useAuthStore from "@/stores/authStore";
@@ -45,6 +46,7 @@ function LockedInline({ value, hint, icon }: { value: string; hint: string; icon
 export default function ShellContextSwitchers({ variant = "card" }: { variant?: "card" | "header" }) {
 	const permissions = useAuthStore((s) => s.permissions);
 	const user = useAuthStore((s) => s.user);
+	const isPlatform = user?.is_platform === true;
 	const canManageSchools = permissions.includes("school_manage");
 	const available = usePersonaStore((s) => s.available);
 	const activePersona = usePersonaStore((s) => s.active);
@@ -56,9 +58,9 @@ export default function ShellContextSwitchers({ variant = "card" }: { variant?: 
 	const navigate = useNavigate();
 
 	const hasMultiSchool = canManageSchools && schools.length > 1;
-	const schoolName = canManageSchools
-		? (scoped?.name ?? "全部院校")
-		: (user?.school_name ?? (user?.is_platform ? "平台" : "未绑定院校"));
+	// 平台账号在非平台视角下仍可能带着院校工作视图（后端仍按 X-School-Scope 收窄）：
+	// 显示实际作用域而不是“平台/—”，否则用户会以为在看全局。
+	const schoolName = isPlatform ? (scoped?.name ?? "全部院校") : (user?.school_name ?? "未绑定院校");
 	const schoolHint = canManageSchools
 		? schools.length <= 1
 			? "当前只有一所院校，无需切换"
@@ -67,15 +69,42 @@ export default function ShellContextSwitchers({ variant = "card" }: { variant?: 
 	const personaLabelText = personaLabel(activePersona) ?? "—";
 	const personaHint = available.length <= 1 ? "账号只有这一个视角" : "当前视角（权限按视角生效）";
 
+	// 院校改名/换院徽/被删除时同步本地快照：快照供顶栏与主题使用，不能一直停在旧值。
+	// 列表为空（请求失败）时不动，避免网络抖动把当前作用域清掉。
+	useEffect(() => {
+		if (!canManageSchools || !scoped || schools.length === 0) return;
+		const current = schools.find((school) => school.id === scoped.id);
+		if (!current) {
+			setSchool(null);
+			queryClient.clear();
+			return;
+		}
+		const next = toScoped(current);
+		if (
+			next.name !== scoped.name ||
+			next.themeColor !== scoped.themeColor ||
+			next.hasLogo !== scoped.hasLogo ||
+			next.logoUpdatedAt !== scoped.logoUpdatedAt
+		) {
+			setSchool(next);
+		}
+	}, [canManageSchools, schools, scoped, setSchool, queryClient]);
+
 	const changeSchool = (next: ScopedSchool | null) => {
 		setSchool(next);
 		const query = new URLSearchParams(location.search);
-		const stale = ["class_id", "cohort_label", "school_id"].filter((key) => query.has(key));
-		if (stale.length > 0) {
-			for (const key of stale) query.delete(key);
-			navigate({ pathname: location.pathname, search: query.toString() }, { replace: true });
+		const stale = ["class_id", "cohort_label", "school_id", "assignment_id"].filter((key) => query.has(key));
+		for (const key of stale) query.delete(key);
+		// 详情页（/admin/users/12 等）属于切换前的院校：留在原地会 404 或显示旧实体。
+		// 回到同一模块的列表根，列表用新作用域重取。
+		const detail = location.pathname.match(/^\/admin\/(users|assignments|classes|records)\/\d+(?:\/|$)/);
+		const pathname = detail ? `/admin/${detail[1]}` : location.pathname;
+		if (pathname !== location.pathname || stale.length > 0) {
+			navigate({ pathname, search: query.toString() }, { replace: true });
 		}
-		void queryClient.invalidateQueries();
+		// 与换视角同一口径：院校维度的缓存不再成立。`clear` 而不是 `invalidate`——
+		// 旧院校的详情/列表缓存不能在新作用域下先闪一下再重取。
+		queryClient.clear();
 	};
 
 	const schoolControl = hasMultiSchool ? (

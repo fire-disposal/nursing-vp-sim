@@ -247,6 +247,10 @@ class AuthService:
             raise ConflictError(detail="用户名已存在")
 
         personas = self._validate_new_personas(req.personas, current_user)
+        # 平台账号不属于任何院校/班级。班级优先级曾排在平台判定之前，带 class_id 的
+        # 请求会让平台号落进某校班级（从花名册/统计里冒出来），这里直接拒绝。
+        if "platform" in personas and req.class_id is not None:
+            raise ValidationError("平台账号不能加入班级")
 
         # 院校归属：班级优先（班级自带院校），否则取显式 school_id。
         # 平台账号不属于任何院校；其余账号必须落在有院校的范围内。

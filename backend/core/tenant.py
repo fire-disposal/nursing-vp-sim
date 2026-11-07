@@ -60,17 +60,23 @@ def platform_scope(user_id: int = 0) -> TenantScope:
     return TenantScope(school_id=None, class_ids=None, user_id=user_id)
 
 
-def taught_class_ids(db: Session, user_id: int) -> frozenset[int]:
-    """本人以 teacher 身份加入的班级（``class`` 视角的边界）。"""
-    rows = (
+def taught_class_ids(db: Session, user_id: int, school_id: int | None = None) -> frozenset[int]:
+    """本人以 teacher 身份加入的班级（``class`` 视角的边界）。
+
+    ``school_id`` 给定时只取该校班级：账号只有**一个**院校归属，历史脏数据里
+    跨校的教师成员关系不能扩大教师视角（否则会与院校边界组合出空结果/越界判断）。
+    """
+    q = (
         db.query(ClassMembership.class_id)
+        .join(Class, Class.id == ClassMembership.class_id)
         .filter(
             ClassMembership.user_id == user_id,
             ClassMembership.member_role == MEMBER_ROLE_TEACHER,
-            ClassMembership.class_id.isnot(None),
         )
-        .all()
     )
+    if school_id is not None:
+        q = q.filter(Class.school_id == school_id)
+    rows = q.all()
     return frozenset(r[0] for r in rows if r[0] is not None)
 
 
@@ -78,14 +84,16 @@ def resolve_scope(db: Session, user: User) -> TenantScope:
     """当前请求的可见范围。
 
     - 超管：永远全局（``school_id`` 即使数据里意外非空也不认）；
-    - 无 ``school_id`` 的账号：平台全局；
+    - 其余无 ``school_id`` 的账号：**失败关闭**（空院校作用域）——注册要求非平台账号
+      必须有院校；数据里出现“非平台 + 无院校”只可能是脏数据，不能因此获得跨校权限；
     - 其余按**当前生效视角**（``user.active_persona``）的 ``scope`` 生成院校边界；
     - 没有视角（未授予任何视角）→ 院校边界保留、class_ids 为空：能登录，但看不到数据。
     """
     if is_super_admin(user):
         return TenantScope(school_id=None, class_ids=None, user_id=user.id)
     if user.school_id is None:
-        return TenantScope(school_id=None, class_ids=None, user_id=user.id)
+        # 非平台账号没有院校：不能退化成全局。0 不匹配任何真实院校，读为空、写 404。
+        return TenantScope(school_id=0, class_ids=frozenset(), user_id=user.id)
 
     scope = persona_scope(user.active_persona)
     if scope is None:
@@ -96,7 +104,9 @@ def resolve_scope(db: Session, user: User) -> TenantScope:
     if scope == "tenant":
         return TenantScope(school_id=user.school_id, class_ids=None, user_id=user.id)
     if scope == "class":
-        return TenantScope(school_id=user.school_id, class_ids=taught_class_ids(db, user.id), user_id=user.id)
+        return TenantScope(
+            school_id=user.school_id, class_ids=taught_class_ids(db, user.id, user.school_id), user_id=user.id
+        )
     # self：院校边界仍生效，但看不到任何他人班级；端点用 user_id 收窄到"我"
     return TenantScope(school_id=user.school_id, class_ids=frozenset(), user_id=user.id)
 

@@ -76,6 +76,10 @@ const useAuthStore = create<ExtendedAuthState>()(
 
 			login: async (username: string, password: string): Promise<User> => {
 				const { data } = await apiLogin(username, password);
+				// 换人登录不能带走上一账号的院校作用域/视角偏好（与 logout 对齐；
+				// 覆盖“会话过期后直接登录另一个账号、没走 logout”的路径）。
+				useSchoolScopeStore.getState().setSchool(null);
+				usePersonaStore.getState().clear();
 				const user: User = {
 					id: data.user_id,
 					username: data.display_name || username,

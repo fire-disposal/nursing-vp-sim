@@ -1,9 +1,10 @@
 import { Badge, Menu, SegmentedControl, Text, UnstyledButton } from "@mantine/core";
-import { useQueryClient } from "@tanstack/react-query";
 import { IconCheck, IconUserShield } from "@tabler/icons-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import useAuthStore from "@/stores/authStore";
 import { usePersonaStore } from "@/stores/personaStore";
+import { useSchoolScopeStore } from "@/stores/schoolScopeStore";
 import { isPersonaId, personaLabel, sortPersonas } from "@/utils/personas";
 
 /**
@@ -24,15 +25,23 @@ export function PersonaSwitcher({ variant = "auto" }: { variant?: "auto" | "comp
 
 	if (available.length <= 1 || !active) return null;
 
-	const onChange = (next: string) => {
+	const onChange = async (next: string) => {
 		if (next === active) return;
 		setActive(next);
 		// 换视角 = 换了权限口径：所有查询结果都不再成立
 		queryClient.clear();
-		// 权限集合是**按视角算的**：不重取 `/auth/me` 的话，路由门禁仍在用旧视角的
-		// `permissions`（从 admin 切到 student 后 `user_manage` 还挂着，或反过来被挡）。
-		// 失败不动会话（refreshUser 内部只在 401 时清会话）。
-		void useAuthStore.getState().refreshUser();
+		// 权限集合是**按视角算的**：必须等 `/auth/me` 回话再决定落地页，
+		// 否则 `/home` 仍按旧视角重定向（从平台切到管理会落到学生训练页）。
+		// refreshUser 内部只清 401 会话，网络错误保留现有会话。
+		await useAuthStore.getState().refreshUser();
+		// 平台工作视图只在具备 `school_manage` 的视角里成立。切到院校视角后若继续带
+		// `X-School-Scope`，会被后端静默收窄到某校，但顶栏已不再显示院校切换器——
+		// 用户会以为在看全局。这里清掉，作用域与新视角的口径保持一致。
+		// 平台账号的院校工作视图跨视角保留（A 校管理员 → B 校教师靠“先选校、再换视角”
+		// 模拟）；普通账号只有一个院校，作用域本就不该存在。
+		if (!useAuthStore.getState().user?.is_platform) {
+			useSchoolScopeStore.getState().setSchool(null);
+		}
 		// 当前页可能在新视角下没有权限（如从 admin 切到 student 还停在 /admin/users）：
 		// 回到首页，让路由门禁/导航从新口径重新决定去哪。
 		navigate("/home", { replace: true });
