@@ -30,6 +30,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from core.budget import assert_within_budget
 from core.database import db_session, get_db
 from core.exceptions import ValidationError
 from core.rate_limits import check_chat_limit
@@ -341,6 +342,7 @@ async def send_message(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
+    assert_within_budget(db, current_user, "llm")
     ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=False)
 
     replay = _resolve_turn_replay(ctx)
@@ -378,6 +380,8 @@ async def send_message_stream(
     stack = AsyncExitStack()
     db = await stack.enter_async_context(db_session())
     try:
+        # 花钱入口：先查用户日额度 / 院校月额度（超限 429，不会开始 LLM）
+        assert_within_budget(db, current_user, "llm")
         ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=True)
         # 幂等回放：命中既有回合 → 直接回放，不重复开始 LLM（也不新建 SSE 任务）
         replay = _resolve_turn_replay(ctx)
@@ -433,6 +437,7 @@ async def correct_last_message_stream(
     stack = AsyncExitStack()
     db = await stack.enter_async_context(db_session())
     try:
+        assert_within_budget(db, current_user, "llm")
         ctx = await _build_correction_context(record_id, req, current_user, db, request)
         collector = build_note_collector(workflow_for_record(ctx.record))
         ctx.note_collector = collector

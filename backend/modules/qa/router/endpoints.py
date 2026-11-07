@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from core.budget import assert_within_budget
 from core.database import SessionLocal, db_session, get_db
 from core.rate_limits import check_qa_limit
 from core.security import require_permission
@@ -158,6 +159,7 @@ async def ask_in_session(
     session = db.query(QASession).filter(QASession.id == session_id, QASession.user_id == current_user.id).first()
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
+    assert_within_budget(db, current_user, "llm")
     await check_qa_limit(current_user.id, request)
     llm_messages = build_qa_history(session_id, db)
     qa_system = render_template(QA_SYSTEM, **_qa_user_context(current_user))
@@ -212,6 +214,7 @@ async def ask_stream(
         if not session:
             raise HTTPException(status_code=404, detail="会话不存在")
         await check_qa_limit(current_user.id, request)
+        assert_within_budget(db, current_user, "llm")
         qa_system = render_template(QA_SYSTEM, **_qa_user_context(current_user))
         llm_messages = build_qa_history(session_id, db)
         llm_messages.insert(0, {"role": "system", "content": qa_system})

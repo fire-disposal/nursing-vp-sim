@@ -59,6 +59,7 @@ class AuthService:
             permissions=sorted(perms),
             personas=sorted(load_user_personas(self.db, user)),
             active_persona=active,
+            is_platform=is_super_admin(user),
             gender=user.gender,
             avatar=user.avatar,
         )
@@ -87,6 +88,7 @@ class AuthService:
             id=user.id,
             username=user.username,
             personas=sorted(load_user_personas(self.db, user)),
+            is_platform=is_super_admin(user),
             school_id=getattr(user, "school_id", None),
             school_name=brand[0] if brand else None,
             school_theme_color=brand[1] if brand else None,

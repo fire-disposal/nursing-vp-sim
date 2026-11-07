@@ -36,6 +36,7 @@ class TokenResponse(BaseModel):
     personas: list[str] = []
     #: 登录后默认生效的视角（平台账号 = platform；其余由授予集合决定）
     active_persona: str | None = None
+    is_platform: bool = False
     gender: str | None = None
     avatar: str | None = None
 

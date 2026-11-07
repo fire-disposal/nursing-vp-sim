@@ -38,9 +38,12 @@ REFRESH_MAX_AGE_HOURS = int(os.getenv("REFRESH_MAX_AGE_HOURS", "336"))  # 14 day
 # **默认关闭**（维护者 2026-09-27 决定）：该特性带负向副作用（用错密码即可把别人的号锁住），
 # 当前阶段不启用；模型列/迁移/审计动作/判据**全部保留**，需要时置 `LOGIN_LOCKOUT_ENABLED=true` 即生效，
 # 无需改代码。开启后提示明确（"账号已锁定，请 N 分钟后再试"），不隐藏状态。
+LOGIN_LOCK_SECONDS = int(os.getenv("LOGIN_LOCK_SECONDS", "900"))  # 15 分钟
 LOGIN_LOCKOUT_ENABLED = os.getenv("LOGIN_LOCKOUT_ENABLED", "false").lower() == "true"
 LOGIN_MAX_FAILED_ATTEMPTS = int(os.getenv("LOGIN_MAX_FAILED_ATTEMPTS", "5"))
-LOGIN_LOCK_SECONDS = int(os.getenv("LOGIN_LOCK_SECONDS", "900"))  # 15 分钟
+# 用户级每日额度默认值（人民币；"较为充裕"，防单人刷爆；0 = 不限）。日刷新。
+USER_DAILY_LLM_LIMIT_CNY = float(os.getenv("USER_DAILY_LLM_LIMIT_CNY", "2"))
+USER_DAILY_TTS_LIMIT_CNY = float(os.getenv("USER_DAILY_TTS_LIMIT_CNY", "0.2"))
 
 # 情境训练（正式特性，docs/scenario.md）：与正式训练**资源隔离**、不替代老系统；本变量是它的**运行时开关
 # （kill switch）**——生产由 `deploy/.env`（服务器 `/opt/nursing-vp-sim/.env`）置 `true` 开启，

@@ -1,5 +1,5 @@
 import { ActionIcon, Badge, Checkbox, Group, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
-import { IconBan, IconCheck, IconPencil, IconTrash, IconUserSearch } from "@tabler/icons-react";
+import { IconBan, IconCheck, IconCoin, IconPencil, IconTrash, IconUserSearch } from "@tabler/icons-react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { PersonaBadges } from "@/components/ui/persona-badges";
@@ -15,6 +15,7 @@ interface UserCardProps {
 	onEdit: (user: UserBrief) => void;
 	onDelete: (user: UserBrief) => void;
 	onToggleActive: (user: UserBrief) => void;
+	onQuota?: (user: UserBrief) => void;
 	/** 平台视角（跨院校）才需要院校名：院校管理员看到的都是本校，多一行是噪音。 */
 	showSchool?: boolean;
 }
@@ -33,6 +34,7 @@ export default function UserCard({
 	onEdit,
 	onDelete,
 	onToggleActive,
+	onQuota,
 	showSchool = false,
 }: UserCardProps) {
 	const inactive = user.is_active === false;
@@ -129,6 +131,19 @@ export default function UserCard({
 										<IconUserSearch size={15} />
 									</ActionIcon>
 								</Tooltip>
+								{onQuota && (
+									<Tooltip label="额度">
+										<ActionIcon
+											variant="subtle"
+											color="gray"
+											size="md"
+											onClick={() => onQuota(user)}
+											aria-label={`设置 ${user.display_name} 的额度`}
+										>
+											<IconCoin size={15} />
+										</ActionIcon>
+									</Tooltip>
+								)}
 								<Tooltip label="编辑">
 									<ActionIcon
 										variant="subtle"

@@ -96,6 +96,7 @@ class UserBriefView:
     id: int
     username: str
     personas: list[str]
+    is_platform: bool
     #: 院校归属。None = 平台账号（跨院校可见）。
     school_id: int | None
     school_name: str | None
@@ -224,6 +225,7 @@ class UserService:
             id=user.id,
             username=user.username,
             personas=self._personas_of(user),
+            is_platform=is_super_admin(user),
             school_id=user.school_id,
             school_name=self._school_name(user.school_id),
             display_name=user.display_name,
@@ -1048,7 +1050,10 @@ class UserService:
                     User.student_id.ilike(term),
                 )
             )
-        if filters.persona:
+        if filters.persona == "none":
+            # 无视角账号：能登录但没有权限，需要管理员补授（视角管理页置顶清单的数据来源）
+            q = q.filter(~User.id.in_(self.db.query(UserPersona.user_id)))
+        elif filters.persona:
             q = q.filter(User.id.in_(self.db.query(UserPersona.user_id).filter(UserPersona.persona == filters.persona)))
         return q
 
@@ -1141,6 +1146,7 @@ def _brief(v: UserBriefView) -> UserBrief:
         id=v.id,
         username=v.username,
         personas=v.personas,
+        is_platform=v.is_platform,
         school_id=v.school_id,
         school_name=v.school_name,
         display_name=v.display_name,

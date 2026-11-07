@@ -12,6 +12,7 @@ from core.audit import (
     TARGET_TYPE_TRAINING_RECORD,
     record,
 )
+from core.budget import assert_within_budget
 from core.config import SCORING_RETRY_GRACE_SECONDS
 from core.database import db_session, get_db
 from core.datetime_utils import ensure_utc
@@ -245,6 +246,7 @@ async def retry_scoring(
             raise HTTPException(status_code=403, detail="无权操作此记录")
         if training_record.status != TrainingStatus.COMPLETED:
             raise HTTPException(status_code=400, detail="训练尚未结束")
+        assert_within_budget(db, current_user, "llm")
 
         if student_message_count(db, record_id) == 0:
             mark_discarded(db, training_record)

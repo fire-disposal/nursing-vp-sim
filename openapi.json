@@ -713,6 +713,478 @@
         }
       }
     },
+    "/api/admin/costs/budgets/me": {
+      "get": {
+        "tags": [
+          "管理",
+          "成本限额"
+        ],
+        "summary": "My Quota",
+        "description": "当前用户的可用额度：个人日额度 + 院校月额度与重置时间。",
+        "operationId": "my_quota_api_admin_costs_budgets_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyQuotaResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/costs/budgets/schools": {
+      "get": {
+        "tags": [
+          "管理",
+          "成本限额"
+        ],
+        "summary": "List School Budgets",
+        "operationId": "list_school_budgets_api_admin_costs_budgets_schools_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SchoolBudgetItem"
+                  },
+                  "title": "Response List School Budgets Api Admin Costs Budgets Schools Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/costs/budgets/schools/{school_id}": {
+      "put": {
+        "tags": [
+          "管理",
+          "成本限额"
+        ],
+        "summary": "Set School Budget",
+        "operationId": "set_school_budget_api_admin_costs_budgets_schools__school_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "school_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "School Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SchoolBudgetUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchoolBudgetItem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "管理",
+          "成本限额"
+        ],
+        "summary": "Clear School Budget",
+        "description": "清除院校额度设置：月度重新不限，用户默认日额度回到平台默认。",
+        "operationId": "clear_school_budget_api_admin_costs_budgets_schools__school_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "school_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "School Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Clear School Budget Api Admin Costs Budgets Schools  School Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/costs/budgets/users": {
+      "get": {
+        "tags": [
+          "管理",
+          "成本限额"
+        ],
+        "summary": "List User Budgets",
+        "operationId": "list_user_budgets_api_admin_costs_budgets_users_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "school_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "School Id"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserBudgetItem"
+                  },
+                  "title": "Response List User Budgets Api Admin Costs Budgets Users Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/costs/budgets/users/{user_id}": {
+      "put": {
+        "tags": [
+          "管理",
+          "成本限额"
+        ],
+        "summary": "Set User Budget",
+        "operationId": "set_user_budget_api_admin_costs_budgets_users__user_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BudgetUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserBudgetItem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "管理",
+          "成本限额"
+        ],
+        "summary": "Clear User Budget",
+        "description": "清除用户个人额度：回到院校默认 → 平台默认。",
+        "operationId": "clear_user_budget_api_admin_costs_budgets_users__user_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Clear User Budget Api Admin Costs Budgets Users  User Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/classes/{class_id}/members": {
       "get": {
         "tags": [
@@ -13150,6 +13622,22 @@
         ],
         "title": "Body_upload_school_logo_api_admin_schools__school_id__logo_post"
       },
+      "BudgetUpdateRequest": {
+        "properties": {
+          "llm_limit": {
+            "type": "number",
+            "title": "Llm Limit",
+            "default": 0.0
+          },
+          "tts_limit": {
+            "type": "number",
+            "title": "Tts Limit",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "title": "BudgetUpdateRequest"
+      },
       "BulkAssignClassRequest": {
         "properties": {
           "user_ids": {
@@ -15383,6 +15871,86 @@
         "type": "object",
         "title": "ModelCalls",
         "description": "本回合花掉的模型调用数（工具循环的轮数，**一个循环、一个计数**）。"
+      },
+      "MyQuotaBucket": {
+        "properties": {
+          "limit": {
+            "type": "number",
+            "title": "Limit"
+          },
+          "used": {
+            "type": "number",
+            "title": "Used"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "default": "platform"
+          }
+        },
+        "type": "object",
+        "required": [
+          "limit",
+          "used"
+        ],
+        "title": "MyQuotaBucket"
+      },
+      "MyQuotaResponse": {
+        "properties": {
+          "llm": {
+            "$ref": "#/components/schemas/MyQuotaBucket"
+          },
+          "tts": {
+            "$ref": "#/components/schemas/MyQuotaBucket"
+          },
+          "school_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Name"
+          },
+          "school_llm_limit": {
+            "type": "number",
+            "title": "School Llm Limit",
+            "default": 0.0
+          },
+          "school_tts_limit": {
+            "type": "number",
+            "title": "School Tts Limit",
+            "default": 0.0
+          },
+          "school_llm_used": {
+            "type": "number",
+            "title": "School Llm Used",
+            "default": 0.0
+          },
+          "school_tts_used": {
+            "type": "number",
+            "title": "School Tts Used",
+            "default": 0.0
+          },
+          "day_reset_at": {
+            "type": "string",
+            "title": "Day Reset At"
+          },
+          "month_reset_at": {
+            "type": "string",
+            "title": "Month Reset At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "llm",
+          "tts",
+          "day_reset_at",
+          "month_reset_at"
+        ],
+        "title": "MyQuotaResponse"
       },
       "OkResponse": {
         "properties": {
@@ -19623,6 +20191,104 @@
         "title": "SceneDelivery",
         "description": "本回合的最终交付（学生看到的话）。由模型循环产出，平台逐条校验后收下。"
       },
+      "SchoolBudgetItem": {
+        "properties": {
+          "school_id": {
+            "type": "integer",
+            "title": "School Id"
+          },
+          "school_name": {
+            "type": "string",
+            "title": "School Name"
+          },
+          "llm_monthly_limit": {
+            "type": "number",
+            "title": "Llm Monthly Limit",
+            "default": 0.0
+          },
+          "tts_monthly_limit": {
+            "type": "number",
+            "title": "Tts Monthly Limit",
+            "default": 0.0
+          },
+          "default_daily_llm_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Daily Llm Limit"
+          },
+          "default_daily_tts_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Daily Tts Limit"
+          },
+          "llm_used": {
+            "type": "number",
+            "title": "Llm Used",
+            "default": 0.0
+          },
+          "tts_used": {
+            "type": "number",
+            "title": "Tts Used",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "school_id",
+          "school_name"
+        ],
+        "title": "SchoolBudgetItem"
+      },
+      "SchoolBudgetUpdateRequest": {
+        "properties": {
+          "llm_monthly_limit": {
+            "type": "number",
+            "title": "Llm Monthly Limit",
+            "default": 0.0
+          },
+          "tts_monthly_limit": {
+            "type": "number",
+            "title": "Tts Monthly Limit",
+            "default": 0.0
+          },
+          "default_daily_llm_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Daily Llm Limit"
+          },
+          "default_daily_tts_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Daily Tts Limit"
+          }
+        },
+        "type": "object",
+        "title": "SchoolBudgetUpdateRequest"
+      },
       "SchoolCostItem": {
         "properties": {
           "school_id": {
@@ -21696,6 +22362,11 @@
             ],
             "title": "Active Persona"
           },
+          "is_platform": {
+            "type": "boolean",
+            "title": "Is Platform",
+            "default": false
+          },
           "gender": {
             "anyOf": [
               {
@@ -22600,6 +23271,11 @@
             "type": "array",
             "title": "Personas"
           },
+          "is_platform": {
+            "type": "boolean",
+            "title": "Is Platform",
+            "default": false
+          },
           "school_id": {
             "anyOf": [
               {
@@ -22732,6 +23408,101 @@
           "created_at"
         ],
         "title": "UserBrief"
+      },
+      "UserBudgetItem": {
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "school_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Id"
+          },
+          "daily_llm_limit": {
+            "type": "number",
+            "title": "Daily Llm Limit",
+            "default": 0.0
+          },
+          "daily_tts_limit": {
+            "type": "number",
+            "title": "Daily Tts Limit",
+            "default": 0.0
+          },
+          "is_default": {
+            "type": "boolean",
+            "title": "Is Default",
+            "default": true
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "default": "platform"
+          },
+          "llm_used_today": {
+            "type": "number",
+            "title": "Llm Used Today",
+            "default": 0.0
+          },
+          "tts_used_today": {
+            "type": "number",
+            "title": "Tts Used Today",
+            "default": 0.0
+          },
+          "school_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Name"
+          },
+          "school_llm_limit": {
+            "type": "number",
+            "title": "School Llm Limit",
+            "default": 0.0
+          },
+          "school_tts_limit": {
+            "type": "number",
+            "title": "School Tts Limit",
+            "default": 0.0
+          },
+          "school_llm_used": {
+            "type": "number",
+            "title": "School Llm Used",
+            "default": 0.0
+          },
+          "school_tts_used": {
+            "type": "number",
+            "title": "School Tts Used",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "username",
+          "display_name"
+        ],
+        "title": "UserBudgetItem"
       },
       "UserMembershipItem": {
         "properties": {

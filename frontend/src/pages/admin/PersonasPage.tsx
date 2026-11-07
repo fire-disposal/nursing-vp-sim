@@ -22,6 +22,7 @@ import {
 	IconUsers,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import useAuthStore from "@/stores/authStore";
 import {
 	getPersonas,
 	getUserPersonas,
@@ -83,6 +84,9 @@ export default function PersonasPage() {
 		staleTime: 30_000,
 	});
 	const presets = presetsQuery.data ?? [];
+	// 平台视角只能授予平台账号：非平台操作者不展示它（后端同样拒绝）
+	const isPlatformActor = useAuthStore((s) => s.user?.is_platform ?? false);
+	const visiblePresets = isPlatformActor ? presets : presets.filter((p) => p.key !== "platform");
 
 	// ── 用户搜索 ──
 	const [searchInput, setSearchInput] = useState("");
@@ -316,7 +320,7 @@ export default function PersonasPage() {
 							勾选后保存即**替换**该账号的全部视角。用户可以同时持有多个视角，并在顶部切换当前生效的那一个。
 						</Text>
 
-						{presets.length === 0 ? (
+						{visiblePresets.length === 0 ? (
 							<EmptyState
 								icon={IconShield}
 								title="没有可授予的视角"
@@ -324,7 +328,7 @@ export default function PersonasPage() {
 							/>
 						) : (
 							<Stack gap="xs">
-								{presets.map((preset) => {
+								{visiblePresets.map((preset) => {
 									const hint =
 										SCOPE_HINT[preset.scope as PersonaScope] ?? UNKNOWN_SCOPE;
 									const checked = draft.includes(preset.key);

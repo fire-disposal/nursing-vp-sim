@@ -1,27 +1,25 @@
-import { ActionIcon, AppShell, Badge, Box, Burger, Button, Group, Text, Tooltip, UnstyledButton } from "@mantine/core";
+import { ActionIcon, AppShell, Box, Burger, Button, Group, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { IconLogout, IconMessageCirclePlus, IconStethoscope, IconX } from "@tabler/icons-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, matchPath, useLocation } from "react-router-dom";
-import { SHELL } from "@/config/layout-scale";
-import { APP_VERSION } from "@/version";
 import { useFeedback } from "@/components/FeedbackProvider";
 import { NetworkBanner } from "@/components/NetworkBanner";
 import NotificationBell from "@/components/NotificationBell";
 import { ModeToggle } from "@/components/ui/mode-toggle";
+import { SHELL } from "@/config/layout-scale";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useShortViewport } from "@/hooks/useShortViewport";
-import { useActiveSchoolBrand } from "@/hooks/useActiveSchoolBrand";
-import { useUiPrefsStore } from "@/stores/uiPrefsStore";
 import useAuthStore from "@/stores/authStore";
 import { usePersonaStore } from "@/stores/personaStore";
+import { useUiPrefsStore } from "@/stores/uiPrefsStore";
 import { isAdminPermissions } from "@/utils/permissions";
-import SidebarNav from "./SidebarNav";
+import { APP_VERSION } from "@/version";
 import { BottomTabBar } from "./BottomTabBar";
-import { SchoolLogo } from "./SchoolScopeSwitcher";
+import type { NavItem } from "./navigation";
 import ShellContextSwitchers from "./ShellContextSwitchers";
 import ShellTransition from "./ShellTransition";
-import type { NavItem } from "./navigation";
+import SidebarNav from "./SidebarNav";
 
 /**
  * ManageShell — 统一 Mantine AppShell 布局
@@ -33,7 +31,6 @@ import type { NavItem } from "./navigation";
 export default function ManageShell({
 	userLinks,
 	adminLinks,
-	groupUserLinks = false,
 	onLogout,
 	onAbout,
 	children,
@@ -41,19 +38,12 @@ export default function ManageShell({
 	userLinks: NavItem[];
 	adminLinks: NavItem[];
 	/** 教师/管理端把学生向条目收进独立分组（学生端不受影响） */
-	groupUserLinks?: boolean;
 	onLogout: () => void;
 	onAbout: () => void;
 	children: ReactNode;
 }) {
 	const permissions = useAuthStore((s) => s.permissions);
 	const authUser = useAuthStore((s) => s.user);
-	// 当前院校：院校管理员/教师/学生看到自己的学校；平台角色（school_id 为空）用切换器选
-	// 「当前院校」（默认全部院校）。名称/主题色/院徽同源：`useActiveSchoolBrand`。
-	const { school: activeSchool } = useActiveSchoolBrand();
-	const schoolLabel = authUser
-		? (authUser.school_name ?? (authUser.school_id == null ? "平台" : `院校 #${authUser.school_id}`))
-		: null;
 	const canManageSchools = permissions.includes("school_manage");
 	const isAdmin = isAdminPermissions(permissions);
 	/**
@@ -185,18 +175,6 @@ export default function ManageShell({
 						<Text fw={700} size="sm" visibleFrom="xs">
 							虚拟患者系统
 						</Text>
-						{!canManageSchools && schoolLabel && (
-							<Badge
-								variant="light"
-								color="gray"
-								size="sm"
-								visibleFrom="sm"
-								leftSection={activeSchool ? <SchoolLogo school={activeSchool} size={14} /> : undefined}
-								style={{ flexShrink: 0, textTransform: "none" }}
-							>
-								{schoolLabel}
-							</Badge>
-						)}
 						<UnstyledButton
 							onClick={onAbout}
 							title="关于系统"
@@ -223,6 +201,10 @@ export default function ManageShell({
 						</UnstyledButton>
 					</Group>
 
+					<Box visibleFrom="md" ml={4}>
+						<ShellContextSwitchers variant="header" />
+					</Box>
+
 					<Group gap={4} ml="auto" wrap="nowrap">
 						<ModeToggle />
 						<NotificationBell />
@@ -245,13 +227,13 @@ export default function ManageShell({
 			</AppShell.Header>
 
 			<AppShell.Navbar p="sm">
-				{/* 「当前语境」二合一：视角（功能权限）+ 院校（数据作用域）。
-				    分开摆会让人在两个控件间来回找；合并后在桌面侧栏与移动抽屉里都是同一块。 */}
-				<ShellContextSwitchers />
+				{/* 小屏顶栏放不下语境控件：抽屉里保留同一套入口（桌面见顶栏内联胶囊）。 */}
+				<Box hiddenFrom="md">
+					<ShellContextSwitchers />
+				</Box>
 				<SidebarNav
 					userLinks={userLinks}
 					adminLinks={adminLinks}
-					groupUserLinks={groupUserLinks}
 					onNavigate={() => mobileOpened && toggleMobile()}
 				/>
 			</AppShell.Navbar>

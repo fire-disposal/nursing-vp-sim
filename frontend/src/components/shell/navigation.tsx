@@ -1,10 +1,10 @@
 import {
 	IconActivity,
 	IconBook2,
+	IconBuildingCommunity,
 	IconChartBar,
 	IconClipboardCheck,
 	IconClipboardList,
-	IconBuildingCommunity,
 	IconCoins,
 	IconFileSearch,
 	IconFileText,
@@ -450,9 +450,8 @@ export const NAV_ITEMS: NavItem[] = APP_ROUTES.filter(
  * 2. 否则看所在分组 `NAV_GROUPS[].personas`；
  * 3. 无分组（`section: "user"` 的散条目）且无覆盖 → 对所有视角可见。
  *
- * 纯裁剪：不新增、不重排、不改写条目（返回的是输入里那些对象本身）。教工端侧栏把
- * 学生向散条目折叠成「我的训练」分组是**渲染层**的事（`SidebarNav` 的 `groupUserLinks`），
- * 不在这里给条目补 `group`。
+ * 纯裁剪：不新增、不重排、不改写条目（返回的是输入里那些对象本身）。侧栏按
+ * `group` 做分隔线分区，却不在这里给条目补 `group`。
  *
  * `persona` 为空（旧后端没有 personas 字段 / 会话未落定）时**原样返回**：不能因为不认识
  * 视角就把整个侧栏清空。未知取值（legacy 自定义角色名会被后端当作 persona 回传）同理——

@@ -1,5 +1,4 @@
-import { APP_TIME_ZONE, shanghaiDateKey, shanghaiHour } from "@/utils/date";
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Badge, Box, Button, Group, Modal, Paper, SegmentedControl, SimpleGrid, Stack, Text, ThemeIcon, Title, UnstyledButton } from "@mantine/core";
 import {
 	IconAlertTriangle,
 	IconAward,
@@ -18,9 +17,9 @@ import {
 	IconTrendingUp,
 	IconX,
 } from "@tabler/icons-react";
-import { Badge, Box, Button, Group, Modal, Paper, SegmentedControl, SimpleGrid, Stack, Text, ThemeIcon, Title, UnstyledButton } from "@mantine/core";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
-import { useMemo, useState, type ReactNode } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { abandonRecord, getCases, getNotifications, getRecords, markNotificationRead, startBlindBox, startTraining } from "@/api";
 import type { components } from "@/api/api-types.gen";
@@ -33,12 +32,14 @@ import EmptyState from "@/components/ui/empty-state";
 import ErrorState from "@/components/ui/error-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import Pagination from "@/components/ui/pagination";
-import { SearchInput } from "@/components/ui/search-input";
 import ScoreSourceBadge from "@/components/ui/score-source-badge";
+import { SearchInput } from "@/components/ui/search-input";
 import StatCard from "@/components/ui/stat-card";
 import { ACTIVITY_LABELS } from "@/config/activity-display";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
+import { useMyQuota } from "@/hooks/useMyQuota";
 import useAuthStore from "@/stores/authStore";
+import { APP_TIME_ZONE, shanghaiDateKey, shanghaiHour } from "@/utils/date";
 import { goTraining, openNotification } from "@/utils/training-nav";
 
 type CaseBrief = components["schemas"]["CaseBrief"];
@@ -141,6 +142,7 @@ export default function TrainingSelect() {
 	};
 	const [difficultyFilter, setDifficultyFilter] = useState(0);
 	const { searchInput, debouncedValue: search, handleSearchChange } = useDebouncedSearch("", 300);
+	const { data: quota } = useMyQuota();
 	const [offset, setOffset] = useState(0);
 	const navigate = useNavigate();
 	const location = useLocation();
@@ -480,6 +482,13 @@ export default function TrainingSelect() {
 						</ThemeIcon>
 
 						<Box style={{ position: "relative", maxWidth: 640 }}>
+							{quota && (quota.llm.limit > 0 || quota.tts.limit > 0) && (
+								<Text size="xs" c={quota.llm.limit > 0 && quota.llm.used / quota.llm.limit >= 0.8 ? "orange" : "dimmed"} mb={6}>
+									今日额度剩余：对话 ¥{Math.max(0, quota.llm.limit - quota.llm.used).toFixed(2)}
+									{quota.tts.limit > 0 ? ` · 语音 ¥${Math.max(0, quota.tts.limit - quota.tts.used).toFixed(2)}` : ""}
+									{quota.llm.limit > 0 && quota.llm.used / quota.llm.limit >= 0.8 ? "（接近上限）" : ""}
+								</Text>
+							)}
 							<Text size="sm" fw={600} c="brand">
 								{greeting}，{user?.display_name || "同学"}
 							</Text>

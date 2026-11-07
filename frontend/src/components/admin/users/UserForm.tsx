@@ -85,6 +85,8 @@ export default function UserForm({
   const isEdit = user !== null;
   // 单位下拉的数据形式只需要 id/name：调用方传院校列表，这里只做一次形状转换
   const schoolOptions = schools.map((s) => ({ value: String(s.id), label: s.name }));
+  // 非平台操作者不能授予平台视角（后端 403）；UI 不展示不可选项
+  const grantablePersonas = isPlatform ? personas : personas.filter((p) => p.value !== PLATFORM_PERSONA);
   // 平台账号已收窄到某一所院校时，新建账号默认落在该校（表单里锁住，避免两个答案）
   const scopedSchool = useSchoolScopeStore((s) => s.school);
 
@@ -249,7 +251,7 @@ export default function UserForm({
                 label="视角" withAsterisk
                 description="账号可被授予多个视角：登录后按当前生效视角决定权限与可见范围"
                 {...editForm.getInputProps("personas")}
-                data={personas}
+                data={grantablePersonas}
                 placeholder={personasPlaceholder(personas, personasFailed)}
                 searchable
                 clearable
@@ -359,7 +361,7 @@ export default function UserForm({
                   label="视角" withAsterisk
                   description="可多选；默认学生"
                   {...regForm.getInputProps("personas")}
-                  data={personas}
+                  data={grantablePersonas}
                   placeholder={personasPlaceholder(personas, personasFailed)}
                   searchable
                   clearable

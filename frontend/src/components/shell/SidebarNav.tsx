@@ -1,13 +1,4 @@
-import {
-	Avatar,
-	Box,
-	Divider,
-	Group,
-	NavLink as MantineNavLink,
-	ScrollArea,
-	Text,
-} from "@mantine/core";
-import { IconStethoscope } from "@tabler/icons-react";
+import { Avatar, Box, Divider, Group, NavLink as MantineNavLink, ScrollArea, Text } from "@mantine/core";
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import useAuthStore from "@/stores/authStore";
@@ -36,110 +27,63 @@ function SideNavLink({ link, onNavigate }: { link: NavItem; onNavigate: () => vo
 	);
 }
 
-function SideNavGroup({
-	group,
-	links,
-	onNavigate,
-}: {
-	group: (typeof NAV_GROUPS)[number];
-	links: NavItem[];
-	onNavigate: () => void;
-}) {
-	const { pathname } = useLocation();
-	const GroupIcon = group.icon;
-	const hasActive = links.some((l) => isActive(pathname, l.to, l.end));
-	return (
-		<MantineNavLink
-			label={group.label}
-			leftSection={<GroupIcon size={18} stroke={1.75} />}
-			defaultOpened={group.defaultOpen || hasActive}
-			childrenOffset={14}
-		>
-			{links.map((link) => (
-				<SideNavLink key={link.to} link={link} onNavigate={onNavigate} />
-			))}
-		</MantineNavLink>
-	);
-}
-
 /**
- * AdminSidebarNav — 管理端侧边导航（Mantine NavLink 可折叠分组）
+ * 侧栏导航：**平铺 + 分隔线**，不再做二级折叠。
+ *
+ * 分组标题折叠在此前的信息密度下有必要，但语境移入顶栏后侧栏本身已很短；
+ * 再折叠会让常用入口多一次点击，且分组标题与图标重复表达同一件事。现在只保留
+ * 分隔线区分「我的训练 / 管理分组」，所有条目一眼可见。
  */
 export default function SidebarNav({
 	userLinks,
 	adminLinks,
 	onNavigate,
-	groupUserLinks = false,
 }: {
 	userLinks: NavItem[];
 	adminLinks: NavItem[];
 	onNavigate: () => void;
-	/**
-	 * 教师/管理端：把学生向条目（训练/记录/问答/我的）收进"我的训练"分组，
-	 * 避免它们与管理分组混在一起平铺。学生端传 false → 渲染保持不变。
-	 */
-	groupUserLinks?: boolean;
 }) {
 	const user = useAuthStore((s) => s.user);
 	const avatar = getUserAvatar(user?.gender);
 
-	const { grouped, ungrouped } = useMemo(() => {
-		const g = new Map<NavGroupKey, NavItem[]>();
-		const u: NavItem[] = [];
+	const blocks = useMemo(() => {
+		const grouped = new Map<NavGroupKey, NavItem[]>();
+		const ungrouped: NavItem[] = [];
 		for (const link of adminLinks) {
 			if (link.group) {
-				if (!g.has(link.group)) g.set(link.group, []);
-				g.get(link.group)!.push(link);
+				if (!grouped.has(link.group)) grouped.set(link.group, []);
+				grouped.get(link.group)!.push(link);
 			} else {
-				u.push(link);
+				ungrouped.push(link);
 			}
 		}
-		return { grouped: g, ungrouped: u };
-	}, [adminLinks]);
+		const result: NavItem[][] = [];
+		if (userLinks.length > 0) result.push(userLinks);
+		if (ungrouped.length > 0) result.push(ungrouped);
+		for (const group of NAV_GROUPS) {
+			const links = grouped.get(group.key);
+			if (links && links.length > 0) result.push(links);
+		}
+		return result;
+	}, [userLinks, adminLinks]);
 
 	return (
 		<Box style={{ display: "flex", flexDirection: "column", height: "100%" }}>
 			<ScrollArea style={{ flex: 1 }}>
 				<Box px="xs" py="xs">
-					{groupUserLinks ? (
-						userLinks.length > 0 && (
-							<SideNavGroup
-								group={{
-									key: "personal",
-									label: "我的训练",
-									icon: IconStethoscope,
-									defaultOpen: false,
-									personas: ["student", "teacher", "admin", "ops"],
-								}}
-								links={userLinks}
-								onNavigate={onNavigate}
-							/>
-						)
-					) : (
-						userLinks.map((link) => <SideNavLink key={link.to} link={link} onNavigate={onNavigate} />)
-					)}
-
-					{ungrouped.length > 0 && (
-						<>
-							<Divider my="sm" />
-							{ungrouped.map((link) => (
+					{blocks.map((links, index) => (
+						<Box key={links[0]?.to ?? index}>
+							{index > 0 && <Divider my="xs" />}
+							{links.map((link) => (
 								<SideNavLink key={link.to} link={link} onNavigate={onNavigate} />
 							))}
-						</>
-					)}
-
-					{NAV_GROUPS.map((group) => {
-						const links = grouped.get(group.key);
-						if (!links || links.length === 0) return null;
-						return <SideNavGroup key={group.key} group={group} links={links} onNavigate={onNavigate} />;
-					})}
+						</Box>
+					))}
 				</Box>
 			</ScrollArea>
 
 			<Divider />
-			{/* 底部只显示"我是谁"：全局操作（模式/通知/反馈/退出）在顶栏，
-			    个人中心入口是导航里的「我的」——此前这里也链到 /profile，
-			    同一个目的地两个入口，容易让人以为它们不一样。 */}
+			{/* 底部只显示"我是谁"：全局操作在顶栏，个人中心入口是导航里的「我的」。 */}
 			<Box p="sm">
 				<Group gap="sm" wrap="nowrap" px="xs">
 					<Avatar src={avatar} size={32} radius="xl" />

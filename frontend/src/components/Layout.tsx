@@ -1,4 +1,4 @@
-import { Box, Button, Modal, Skeleton, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import { Box, Button, Modal, SimpleGrid, Skeleton, Stack, Text, Title } from "@mantine/core";
 import { IconAlertTriangle, IconMessageCircle, IconStethoscope } from "@tabler/icons-react";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
@@ -147,7 +147,6 @@ export default function Layout() {
 			<AdaptiveShell
 				userLinks={userLinks}
 				adminLinks={adminLinks}
-				groupUserLinks={hasAdminPerm}
 				onLogout={handleLogout}
 				onAbout={() => setAboutOpen(true)}
 			>

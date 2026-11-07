@@ -34,6 +34,8 @@ class UserBrief(BaseModel):
     id: int
     username: str
     personas: list[str] = Field(default_factory=list)
+    #: 平台账号（跨院校 × 全视角）
+    is_platform: bool = False
     #: 院校归属。None = 平台角色（跨院校可见，例如 super_admin）。
     school_id: int | None = None
     school_name: str | None = None

@@ -14,6 +14,7 @@ from models.audit import (
     AuditLog,
 )
 from models.auth import User, UserPersona
+from models.budget import SchoolBudget, UserBudget
 from models.case import (
     CASE_STATUS_ARCHIVED,
     CASE_STATUS_DRAFT,
@@ -121,6 +122,7 @@ __all__ = [
     "QuestionnaireTemplate",
     "RateLimitEntry",
     "School",
+    "SchoolBudget",
     "Score",
     "ScoreReview",
     "StAsset",
@@ -136,6 +138,7 @@ __all__ = [
     "TrainingSessionEmotionState",
     "TrainingSessionState",
     "User",
+    "UserBudget",
     "UserPersona",
     "VoiceCallLog",
     "VoiceConfig",

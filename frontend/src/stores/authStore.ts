@@ -91,6 +91,7 @@ const useAuthStore = create<ExtendedAuthState>()(
 					// 视角身份：登录响应已带上授予集合与默认生效视角，`/auth/me` 再补齐一次
 					personas: data.personas ?? [],
 					active_persona: data.active_persona ?? null,
+					is_platform: data.is_platform ?? false,
 				};
 				set({ user, token: data.access_token, permissions: data.permissions });
 				syncPersonas(data);
@@ -169,6 +170,7 @@ const useAuthStore = create<ExtendedAuthState>()(
 						// 视角身份：授予集合 + 当前生效视角（`/auth/me` 现取，权威口径）
 						personas: data.personas ?? [],
 						active_persona: data.active_persona ?? null,
+						is_platform: data.is_platform ?? false,
 						school_id: data.school_id ?? null,
 						school_name: data.school_name ?? null,
 						school_theme_color: data.school_theme_color ?? null,

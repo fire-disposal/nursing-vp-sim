@@ -22,6 +22,7 @@ from core.audit import (
     TARGET_TYPE_TRAINING_RECORD,
     record,
 )
+from core.budget import assert_within_budget
 from core.database import get_db
 from core.security import get_current_user, require_permission
 from models import Score, ScoreReview, TrainingRecord, User
@@ -93,6 +94,7 @@ def get_score_review(
     if record.user_id != current_user.id and not current_user.has_permission("score_review"):
         raise HTTPException(status_code=403, detail="无权查看该评分")
 
+    assert_within_budget(db, current_user, "llm")
     score = db.query(Score).filter(Score.record_id == record_id).first()
     if not score:
         raise HTTPException(status_code=404, detail="该记录暂无评分")

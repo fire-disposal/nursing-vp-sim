@@ -9,6 +9,7 @@ import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import type { UserListFilterParams } from "@/api/query-params";
 import ClassFilter, { type ClassFilterParams } from "@/components/admin/ClassFilter";
+import UserQuotaModal from "@/components/admin/UserQuotaModal";
 import UserCard from "@/components/admin/users/UserCard";
 import ExportButton from "@/components/ExportButton";
 import { useToast } from "@/components/Toast";
@@ -148,8 +149,9 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	// 院校维度只对平台账号有意义：院校管理员本来就只看本校，多一个下拉只是噪音。
 	// 用 `school_manage` 判，而不是 `school_id == null` —— 权限是服务端权威口径，
 	// `/auth/me` 的院校字段缺失时不会把院校管理员误判成平台账号。
-	const permissions = useAuthStore((s) => s.permissions);
-	const isPlatform = permissions.includes("school_manage");
+	// 平台账号判定用显式标记（`users.is_platform`），不再用"有没有 school_manage"——
+	// 平台账号切到学校视角时没有该权限，但仍可跨院校建号。
+	const isPlatform = useAuthStore((s) => s.user?.is_platform ?? false);
 	const { data: schools = [] } = useSchoolsQuery({ enabled: isPlatform });
 	const registerMutation = useRegisterMutation();
 	const updateMutation = useUpdateUserMutation();
@@ -387,6 +389,8 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 		});
 	};
 
+	const [quotaUser, setQuotaUser] = useState<UserBrief | null>(null);
+
 	const handleBatchImport = (usersToImport: BatchUser[]) =>
 		batchImportMutation.mutateAsync(usersToImport);
 
@@ -465,7 +469,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 							<Select
 								value={list.values.persona || null}
 								onChange={(v) => list.setFilter("persona", v ?? "")}
-								data={personaOptions}
+								data={[{ value: "none", label: "无视角" }, ...personaOptions]}
 								placeholder={personasFailed ? "视角目录不可用" : "全部视角"}
 								aria-label="视角筛选"
 								size="sm"
@@ -520,6 +524,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 									onEdit={openEditUser}
 									onDelete={handleDeleteUser}
 									onToggleActive={handleToggleActive}
+									onQuota={setQuotaUser}
 								/>
 							))}
 						</SimpleGrid>
@@ -758,6 +763,7 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 						</Group>
 				</Modal>
 			)}
+			<UserQuotaModal user={quotaUser} opened={quotaUser != null} onClose={() => setQuotaUser(null)} />
 		</>
 	);
 }

@@ -23,7 +23,7 @@ from infra.ops_queries import (
     scope_by_school,
     voice_window,
 )
-from models import ApiSecret, LLMCallLog, User, VoiceCallLog, VoiceConfig
+from models import ApiSecret, LLMCallLog, SchoolBudget, User, VoiceCallLog, VoiceConfig
 from schemas.voice import (
     CostBreakdown,
     CostDashboardResponse,
@@ -77,10 +77,9 @@ class CostService:
         now = datetime.now(UTC)
         today_start = cn_day_start(now)
         month_start = cn_month_start(now)
-        # 预算只有一个来源（VoiceConfig，平台级）。院校级预算还没有表，所以院校视图报 0
-        # 而不是把平台预算当成“本校预算”展示（待定项：谁来定院校预算）。
-        vc = self.db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
-        monthly_budget = (vc.monthly_budget if vc else 0.0) if self.scope.is_global else 0.0
+        # 预算来源：院校月额度（school_budgets）。平台视图不展示聚合预算（0）。
+        budget_row = self._school_budget()
+        monthly_budget = budget_row.tts_monthly_limit if budget_row else 0.0
         month_tts = self._voice_usage("tts", month_start)
         return VoiceUsageResponse(
             tts_today=self._voice_usage("tts", today_start),
@@ -88,6 +87,11 @@ class CostService:
             monthly_budget=monthly_budget,
             monthly_used=round(month_tts.cost_estimated, 6),
         )
+
+    def _school_budget(self) -> SchoolBudget | None:
+        if self.scope.school_id is None:
+            return None
+        return self.db.query(SchoolBudget).filter(SchoolBudget.school_id == self.scope.school_id).first()
 
     def _build_breakdown(
         self, total: int, success: int, error_count: int, avg_latency: float, total_cost: float

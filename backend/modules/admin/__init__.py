@@ -8,6 +8,7 @@ from fastapi import APIRouter
 router = APIRouter(prefix="/api/admin", tags=["管理"])
 
 from .audit_logs import router as _audit_logs
+from .budgets import router as _budgets
 from .class_memberships import router as _class_memberships
 from .classes import router as _classes
 from .costs import router as _costs
@@ -24,6 +25,7 @@ from .voice import router as _voice
 for r in (
     _audit_logs,
     _classes,
+    _budgets,
     _class_memberships,
     _costs,
     _llm_monitor,

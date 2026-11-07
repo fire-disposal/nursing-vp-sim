@@ -75,6 +75,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/costs/budgets/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Quota
+         * @description 当前用户的可用额度：个人日额度 + 院校月额度与重置时间。
+         */
+        get: operations["my_quota_api_admin_costs_budgets_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/costs/budgets/schools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List School Budgets */
+        get: operations["list_school_budgets_api_admin_costs_budgets_schools_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/costs/budgets/schools/{school_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set School Budget */
+        put: operations["set_school_budget_api_admin_costs_budgets_schools__school_id__put"];
+        post?: never;
+        /**
+         * Clear School Budget
+         * @description 清除院校额度设置：月度重新不限，用户默认日额度回到平台默认。
+         */
+        delete: operations["clear_school_budget_api_admin_costs_budgets_schools__school_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/costs/budgets/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List User Budgets */
+        get: operations["list_user_budgets_api_admin_costs_budgets_users_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/costs/budgets/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set User Budget */
+        put: operations["set_user_budget_api_admin_costs_budgets_users__user_id__put"];
+        post?: never;
+        /**
+         * Clear User Budget
+         * @description 清除用户个人额度：回到院校默认 → 平台默认。
+         */
+        delete: operations["clear_user_budget_api_admin_costs_budgets_users__user_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/classes/{class_id}/members": {
         parameters: {
             query?: never;
@@ -3414,6 +3510,19 @@ export interface components {
             /** File */
             file: string;
         };
+        /** BudgetUpdateRequest */
+        BudgetUpdateRequest: {
+            /**
+             * Llm Limit
+             * @default 0
+             */
+            llm_limit: number;
+            /**
+             * Tts Limit
+             * @default 0
+             */
+            tts_limit: number;
+        };
         /** BulkAssignClassRequest */
         BulkAssignClassRequest: {
             /** User Ids */
@@ -4463,6 +4572,49 @@ export interface components {
              * @default 0
              */
             calls: number;
+        };
+        /** MyQuotaBucket */
+        MyQuotaBucket: {
+            /** Limit */
+            limit: number;
+            /** Used */
+            used: number;
+            /**
+             * Source
+             * @default platform
+             */
+            source: string;
+        };
+        /** MyQuotaResponse */
+        MyQuotaResponse: {
+            llm: components["schemas"]["MyQuotaBucket"];
+            tts: components["schemas"]["MyQuotaBucket"];
+            /** School Name */
+            school_name?: string | null;
+            /**
+             * School Llm Limit
+             * @default 0
+             */
+            school_llm_limit: number;
+            /**
+             * School Tts Limit
+             * @default 0
+             */
+            school_tts_limit: number;
+            /**
+             * School Llm Used
+             * @default 0
+             */
+            school_llm_used: number;
+            /**
+             * School Tts Used
+             * @default 0
+             */
+            school_tts_used: number;
+            /** Day Reset At */
+            day_reset_at: string;
+            /** Month Reset At */
+            month_reset_at: string;
         };
         /** OkResponse */
         OkResponse: {
@@ -6294,6 +6446,54 @@ export interface components {
             /** Messages */
             messages?: components["schemas"]["DeliveryMessage"][];
         };
+        /** SchoolBudgetItem */
+        SchoolBudgetItem: {
+            /** School Id */
+            school_id: number;
+            /** School Name */
+            school_name: string;
+            /**
+             * Llm Monthly Limit
+             * @default 0
+             */
+            llm_monthly_limit: number;
+            /**
+             * Tts Monthly Limit
+             * @default 0
+             */
+            tts_monthly_limit: number;
+            /** Default Daily Llm Limit */
+            default_daily_llm_limit?: number | null;
+            /** Default Daily Tts Limit */
+            default_daily_tts_limit?: number | null;
+            /**
+             * Llm Used
+             * @default 0
+             */
+            llm_used: number;
+            /**
+             * Tts Used
+             * @default 0
+             */
+            tts_used: number;
+        };
+        /** SchoolBudgetUpdateRequest */
+        SchoolBudgetUpdateRequest: {
+            /**
+             * Llm Monthly Limit
+             * @default 0
+             */
+            llm_monthly_limit: number;
+            /**
+             * Tts Monthly Limit
+             * @default 0
+             */
+            tts_monthly_limit: number;
+            /** Default Daily Llm Limit */
+            default_daily_llm_limit?: number | null;
+            /** Default Daily Tts Limit */
+            default_daily_tts_limit?: number | null;
+        };
         /**
          * SchoolCostItem
          * @description 院校维度的成本行。``school_id=None`` 是归因不到院校的“未归属”桶（不会丢）。
@@ -7081,6 +7281,11 @@ export interface components {
             personas: string[];
             /** Active Persona */
             active_persona?: string | null;
+            /**
+             * Is Platform
+             * @default false
+             */
+            is_platform: boolean;
             /** Gender */
             gender?: string | null;
             /** Avatar */
@@ -7481,6 +7686,11 @@ export interface components {
             username: string;
             /** Personas */
             personas?: string[];
+            /**
+             * Is Platform
+             * @default false
+             */
+            is_platform: boolean;
             /** School Id */
             school_id?: number | null;
             /** School Name */
@@ -7518,6 +7728,69 @@ export interface components {
             permissions?: string[];
             /** Active Persona */
             active_persona?: string | null;
+        };
+        /** UserBudgetItem */
+        UserBudgetItem: {
+            /** User Id */
+            user_id: number;
+            /** Username */
+            username: string;
+            /** Display Name */
+            display_name: string;
+            /** School Id */
+            school_id?: number | null;
+            /**
+             * Daily Llm Limit
+             * @default 0
+             */
+            daily_llm_limit: number;
+            /**
+             * Daily Tts Limit
+             * @default 0
+             */
+            daily_tts_limit: number;
+            /**
+             * Is Default
+             * @default true
+             */
+            is_default: boolean;
+            /**
+             * Source
+             * @default platform
+             */
+            source: string;
+            /**
+             * Llm Used Today
+             * @default 0
+             */
+            llm_used_today: number;
+            /**
+             * Tts Used Today
+             * @default 0
+             */
+            tts_used_today: number;
+            /** School Name */
+            school_name?: string | null;
+            /**
+             * School Llm Limit
+             * @default 0
+             */
+            school_llm_limit: number;
+            /**
+             * School Tts Limit
+             * @default 0
+             */
+            school_tts_limit: number;
+            /**
+             * School Llm Used
+             * @default 0
+             */
+            school_llm_used: number;
+            /**
+             * School Tts Used
+             * @default 0
+             */
+            school_tts_used: number;
         };
         /**
          * UserMembershipItem
@@ -8056,6 +8329,236 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeleteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_quota_api_admin_costs_budgets_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyQuotaResponse"];
+                };
+            };
+        };
+    };
+    list_school_budgets_api_admin_costs_budgets_schools_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolBudgetItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_school_budget_api_admin_costs_budgets_schools__school_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path: {
+                school_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SchoolBudgetUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolBudgetItem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_school_budget_api_admin_costs_budgets_schools__school_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path: {
+                school_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_user_budgets_api_admin_costs_budgets_users_get: {
+        parameters: {
+            query?: {
+                school_id?: number | null;
+                search?: string | null;
+                limit?: number;
+            };
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserBudgetItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_user_budget_api_admin_costs_budgets_users__user_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BudgetUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserBudgetItem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_user_budget_api_admin_costs_budgets_users__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
                 };
             };
             /** @description Validation Error */
