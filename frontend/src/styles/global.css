@@ -292,3 +292,8 @@ h1, h2, h3 {
 	animation: patient-live-nod 2.6s ease-in-out infinite;
 	will-change: transform;
 }
+
+/* 侧栏底部头像 = 个人中心入口 */
+.sidebar-profile-entry:hover {
+	background: var(--mantine-color-default-hover);
+}

@@ -1,4 +1,4 @@
-import { Avatar, Box, Divider, Group, NavLink as MantineNavLink, ScrollArea, Text } from "@mantine/core";
+import { Avatar, Box, Divider, Group, NavLink as MantineNavLink, ScrollArea, Text, UnstyledButton } from "@mantine/core";
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import useAuthStore from "@/stores/authStore";
@@ -49,7 +49,7 @@ export default function SidebarNav({
 	const blocks = useMemo(() => {
 		const grouped = new Map<NavGroupKey, NavItem[]>();
 		const ungrouped: NavItem[] = [];
-		for (const link of adminLinks) {
+		for (const link of adminLinks.filter((item) => !item.hideInSidebar)) {
 			if (link.group) {
 				if (!grouped.has(link.group)) grouped.set(link.group, []);
 				grouped.get(link.group)!.push(link);
@@ -58,7 +58,8 @@ export default function SidebarNav({
 			}
 		}
 		const result: NavItem[][] = [];
-		if (userLinks.length > 0) result.push(userLinks);
+		const visibleUserLinks = userLinks.filter((item) => !item.hideInSidebar);
+		if (visibleUserLinks.length > 0) result.push(visibleUserLinks);
 		if (ungrouped.length > 0) result.push(ungrouped);
 		for (const group of NAV_GROUPS) {
 			const links = grouped.get(group.key);
@@ -85,17 +86,27 @@ export default function SidebarNav({
 			<Divider />
 			{/* 底部只显示"我是谁"：全局操作在顶栏，个人中心入口是导航里的「我的」。 */}
 			<Box p="sm">
-				<Group gap="sm" wrap="nowrap" px="xs">
-					<Avatar src={avatar} size={32} radius="xl" />
-					<Box style={{ minWidth: 0 }}>
-						<Text size="sm" fw={500} truncate>
-							{user?.display_name ?? "用户"}
-						</Text>
-						<Text size="xs" c="dimmed" truncate>
-							{personaLabel(user?.active_persona ?? null) ?? "用户"}
-						</Text>
-					</Box>
-				</Group>
+				<UnstyledButton
+					component={Link}
+					to="/profile"
+					title="个人中心"
+					aria-label="打开个人中心"
+					onClick={onNavigate}
+					style={{ width: "100%", borderRadius: "var(--mantine-radius-md)" }}
+					className="sidebar-profile-entry"
+				>
+					<Group gap="sm" wrap="nowrap" px="xs" py={4}>
+						<Avatar src={avatar} size={32} radius="xl" />
+						<Box style={{ minWidth: 0, flex: 1 }}>
+							<Text size="sm" fw={500} truncate>
+								{user?.display_name ?? "用户"}
+							</Text>
+							<Text size="xs" c="dimmed" truncate>
+								{personaLabel(user?.active_persona ?? null) ?? "用户"}
+							</Text>
+						</Box>
+					</Group>
+				</UnstyledButton>
 			</Box>
 		</Box>
 	);

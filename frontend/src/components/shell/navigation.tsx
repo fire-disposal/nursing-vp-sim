@@ -148,6 +148,8 @@ export interface NavMeta {
 	/** 条目级视角覆盖：给出时**取代**所在分组的视角集合（用于分组口径之外的单点例外，
 	 *  如「系统反馈」运维/教学/管理都该看到，而不是只有运维）。不给则跟随分组。 */
 	personas?: PersonaId[];
+	/** 只在路由/移动端 Tab 中出现，不占桌面侧栏（如「我的」从头像进入）。 */
+	hideInSidebar?: boolean;
 }
 
 
@@ -222,6 +224,7 @@ export const APP_ROUTES: AppRoute[] = [
 			label: "我的",
 			icon: IconUser,
 			section: "user",
+			hideInSidebar: true,
 			// 通知与「我的反馈」都从「我的」进入（三者同一子 tab 栏），底部 Tab 高亮跟着走
 			mobile: { order: 50, tier: "student", activeOn: ["/notifications", "/my-feedback"] },
 		},

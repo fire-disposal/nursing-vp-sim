@@ -1,5 +1,6 @@
 import {
 	Avatar,
+	Badge,
 	Box,
 	Button,
 	Container,
@@ -7,6 +8,7 @@ import {
 	Group,
 	Modal,PasswordInput, 
 	Stack,
+	Table,
 	Text,TextInput, 
 	ThemeIcon,
 	useComputedColorScheme,
@@ -21,6 +23,7 @@ import {
 	IconMessageCircle,
 	IconMoon,
 	IconPencil,
+	IconShieldCheck,
 	IconStethoscope,
 	IconSun,
 	IconUser,
@@ -45,6 +48,7 @@ import {
 import useAuthStore from "@/stores/authStore";
 import { getUserAvatar } from "@/utils/avatar";
 import { getApiErrorMessage } from "@/utils/error";
+import { personaLabel } from "@/utils/personas";
 import { APP_VERSION } from "@/version";
 
 export default function Profile() {
@@ -157,6 +161,104 @@ export default function Profile() {
 							编辑
 						</Button>
 					</Group>
+				</Card>
+
+				{/* ── 权限范围：学校 × 视角 ── */}
+				<Card>
+					<Group gap={10} mb="sm" wrap="nowrap" align="flex-start">
+						<ThemeIcon size={36} radius="md" variant="light" color="brand">
+							<IconShieldCheck size={18} />
+						</ThemeIcon>
+						<Box style={{ minWidth: 0 }}>
+							<Text size="sm" fw={600}>
+								权限范围
+							</Text>
+							<Text size="xs" c="dimmed">
+								账号在各院校被授予的视角；班级只是校内分组，不改变这里的权限。
+							</Text>
+						</Box>
+					</Group>
+					<Table.ScrollContainer minWidth={420}>
+						<Table verticalSpacing="xs" highlightOnHover>
+							<Table.Thead>
+								<Table.Tr>
+									<Table.Th>院校</Table.Th>
+									<Table.Th>可用视角</Table.Th>
+									<Table.Th w={84}>当前</Table.Th>
+								</Table.Tr>
+							</Table.Thead>
+							<Table.Tbody>
+								{storeUser?.is_platform ? (
+									<Table.Tr>
+										<Table.Td>
+											<Text size="sm" fw={500}>
+												全部院校
+											</Text>
+											<Text size="xs" c="dimmed">
+												平台账号
+											</Text>
+										</Table.Td>
+										<Table.Td>
+											<Badge variant="light" color="grape">
+												全视角（跨院校）
+											</Badge>
+										</Table.Td>
+										<Table.Td>
+											<Badge variant="light" color="brand">
+												{personaLabel(storeUser.active_persona ?? null) ?? "平台"}
+											</Badge>
+										</Table.Td>
+									</Table.Tr>
+								) : (storeUser?.school_personas ?? []).length > 0 ? (
+									(storeUser?.school_personas ?? []).map((grant) => {
+										const isCurrentSchool = grant.school_id === storeUser?.active_school_id;
+										const personas = grant.personas ?? [];
+										return (
+											<Table.Tr key={grant.school_id}>
+												<Table.Td>
+													<Text size="sm" fw={500}>
+														{grant.school_name}
+													</Text>
+												</Table.Td>
+												<Table.Td>
+													<Group gap={4}>
+														{personas.map((persona) => (
+															<Badge
+																key={persona}
+																variant={isCurrentSchool && persona === storeUser?.active_persona ? "filled" : "light"}
+																color={isCurrentSchool && persona === storeUser?.active_persona ? "brand" : "gray"}
+															>
+																{personaLabel(persona) ?? persona}
+															</Badge>
+														))}
+													</Group>
+												</Table.Td>
+												<Table.Td>
+													{isCurrentSchool ? (
+														<Badge variant="light" color="brand">
+															当前
+														</Badge>
+													) : (
+														<Text size="xs" c="dimmed">
+															—
+														</Text>
+													)}
+												</Table.Td>
+											</Table.Tr>
+										);
+									})
+								) : (
+									<Table.Tr>
+										<Table.Td colSpan={3}>
+											<Text size="sm" c="dimmed">
+												暂无院校视角授予，请联系平台或院校管理员。
+											</Text>
+										</Table.Td>
+									</Table.Tr>
+								)}
+							</Table.Tbody>
+						</Table>
+					</Table.ScrollContainer>
 				</Card>
 
 				{/* ── Actions ── */}
