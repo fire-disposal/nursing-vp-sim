@@ -1,9 +1,12 @@
 import { useEffect, useMemo } from "react";
 import { type ManifestActivity, type ManifestArtifact, availableActivities } from "@/engine/manifest";
 import { useRecordMeta, useSessionManifest, useTrainingData } from "@/engine/TrainingDataContext";
-import { INQUIRY_PANEL_ID, QUIZ_PANEL_ID, useWorkspaceStore } from "@/stores/workspaceStore";
+import { INQUIRY_PANEL_ID, useWorkspaceStore } from "@/stores/workspaceStore";
 import { parseGuidedHints } from "@/components/training/tools/inquiryProgress";
-import { WIDE_ACTIVITY_RENDERERS } from "./renderers";
+const WIDE_ACTIVITY_IDS: Record<string, true> = {
+	physical_exam: true,
+	nursing_record: true,
+};
 
 /**
  * 工作区面板清单 —— manifest 驱动的唯一来源。
@@ -32,7 +35,7 @@ export function useWorkspacePanes(): WorkspacePane[] {
 		const panes: WorkspacePane[] = availableActivities(manifest).map((activity) => ({
 			id: activity.id,
 			label: activity.label,
-			wide: WIDE_ACTIVITY_RENDERERS[activity.ui.renderer] === true,
+			wide: WIDE_ACTIVITY_IDS[activity.id] === true,
 			activity,
 		}));
 		// 引导视图：蓝图给了「领域 + 意义」就按引导提示命名，
@@ -60,18 +63,16 @@ export function useDockPanes(): WorkspacePane[] {
 }
 
 /**
- * 首次进入若病例挂载了随堂测验，默认展开测验面板（保持原有到达性）。
- *
- * 只生效一次：学生手动收起后不再重开（状态在 workspaceStore 里，两个断点的
- * 工作区实例共用同一个标记）。
+ * 桌面首次进入优先展开问诊清单/引导提示；没有引导内容时保持工作区收起。
+ * 移动端不调用此钩子，避免 Bottomsheet 首屏盖住患者对话。
  */
 export function useInitialActivityPanel() {
 	const panes = useWorkspacePanes();
 	const applyInitialPanel = useWorkspaceStore((state) => state.applyInitialPanel);
-	const hasQuiz = panes.some((pane) => pane.id === QUIZ_PANEL_ID);
+	const hasInquiry = panes.some((pane) => pane.id === INQUIRY_PANEL_ID);
 	useEffect(() => {
-		if (hasQuiz) applyInitialPanel(QUIZ_PANEL_ID);
-	}, [hasQuiz, applyInitialPanel]);
+		if (hasInquiry) applyInitialPanel(INQUIRY_PANEL_ID);
+	}, [hasInquiry, applyInitialPanel]);
 }
 
 /** 该 activity 的产物状态（`manifest.artifacts[artifact_kind]`）；无产物/未下发 → undefined。 */

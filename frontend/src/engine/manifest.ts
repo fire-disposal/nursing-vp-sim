@@ -5,7 +5,7 @@
  * 前端**不得**重新推导「这个病例有没有某能力」「能不能结束训练」。
  *
  * 本模块是纯函数 + 类型：没有 React、没有网络、没有面板注册表。
- * renderer key → 组件 的映射见 `components/training/workspace/renderers.ts`。
+ * Activity id → 组件 的分派见 `components/training/workspace/ActivityPanelHost.tsx`。
  */
 
 export const ACTIVITY_STATE_AVAILABLE = "available";
@@ -23,8 +23,6 @@ export interface ManifestActivityAvailability {
 }
 
 export interface ManifestActivityUI {
-	/** 渲染组件 key（RendererMap 的键） */
-	renderer: string;
 	/** 形态：side_panel / …（当前只有侧栏/底部面板） */
 	placement: string;
 	/** 面板顺序（越小越靠前） */
@@ -131,7 +129,6 @@ function parseActivity(raw: unknown): ManifestActivity | null {
 		},
 		commands: strList(item.commands),
 		ui: {
-			renderer: text(ui.renderer),
 			placement: text(ui.placement) || "side_panel",
 			order: optionalNumber(ui.order) ?? 0,
 		},

@@ -14,8 +14,8 @@ describe("parseSessionManifest", () => {
 		const manifest = parseSessionManifest(
 			makeManifest({
 				activities: [
-					makeActivity("physical_exam", { ui: { renderer: "physical_exam", placement: "side_panel", order: 20 } }),
-					makeActivity("nursing_record", { ui: { renderer: "nursing_record", placement: "side_panel", order: 10 } }),
+					makeActivity("physical_exam", { ui: { placement: "side_panel", order: 20 } }),
+					makeActivity("nursing_record", { ui: { placement: "side_panel", order: 10 } }),
 				],
 			}),
 		);
@@ -88,7 +88,7 @@ describe("parseSessionManifest", () => {
 				label: "quiz",
 				availability: { state: "unavailable", reason_code: "case_not_configured" },
 				commands: [],
-				ui: { renderer: "quiz", placement: "side_panel", order: 10 },
+				ui: { placement: "side_panel", order: 10 },
 				evidence_kind: null,
 				artifact_kind: null,
 			},
@@ -103,7 +103,7 @@ describe("读取器", () => {
 				makeActivity("nursing_record", {
 					label: "护理记录",
 					artifact_kind: "nursing_record",
-					ui: { renderer: "nursing_record", placement: "side_panel", order: 10 },
+					ui: { placement: "side_panel", order: 10 },
 				}),
 				makeActivity("quiz", { availability: { state: "unavailable", reason_code: "case_not_configured" } }),
 			],

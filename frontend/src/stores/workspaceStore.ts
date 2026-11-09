@@ -10,9 +10,6 @@ import { create } from "zustand";
 /** 内置面板 id：问诊清单（非 Activity，见 workspace/contract.ts） */
 export const INQUIRY_PANEL_ID = "inquiry";
 
-/** 病例挂了随堂测验时默认展开的面板 id */
-export const QUIZ_PANEL_ID = "quiz";
-
 interface WorkspaceState {
 	/** 展开的面板 id：manifest activity id 或内置面板 id */
 	openPanelId: string | null;

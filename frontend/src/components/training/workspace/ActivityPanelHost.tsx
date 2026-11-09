@@ -1,11 +1,14 @@
-import { Suspense } from "react";
+import { lazy, Suspense } from "react";
 import { ActionIcon, Box, Group, Loader, Stack, Text } from "@mantine/core";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useTrainingStore } from "@/stores/trainingStore";
 import InquiryTool from "../tools/InquiryTool";
 import { ActivityStatusBadge } from "./ActivityStatusBadge";
-import { ACTIVITY_RENDERERS } from "./renderers";
+
+const PhysicalExamTool = lazy(() => import("../tools/PhysicalExamTool"));
+const NursingRecordTool = lazy(() => import("../tools/NursingRecordTool"));
+const QuizTool = lazy(() => import("../tools/QuizTool"));
 import { type WorkspacePane, useActivityArtifact } from "./useWorkspacePanes";
 
 /**
@@ -29,7 +32,28 @@ export function ActivityPanelHost({
 	const artifact = useActivityArtifact(pane.activity);
 	if (!bus) return null;
 
-	const Renderer = pane.activity ? ACTIVITY_RENDERERS[pane.activity.ui.renderer] ?? null : null;
+	const renderActivity = () => {
+		if (!pane.activity) return <InquiryTool />;
+		const props = { activity: pane.activity, bus, recordId };
+		switch (pane.activity.id) {
+			case "physical_exam":
+				return <PhysicalExamTool {...props} />;
+			case "nursing_record":
+				return <NursingRecordTool {...props} />;
+			case "quiz":
+				return <QuizTool {...props} />;
+			default:
+				return (
+					<Stack align="center" gap={6} p="lg" c="dimmed" ta="center">
+						<IconAlertTriangle size={18} />
+						<Text size="sm" fw={500}>
+							{pane.label}暂无可用的界面组件
+						</Text>
+						<Text size="xs">未知 Activity “{pane.activity.id}”，请联系管理员</Text>
+					</Stack>
+				);
+		}
+	};
 
 	return (
 		<>
@@ -82,27 +106,7 @@ export function ActivityPanelHost({
 							</Group>
 						}
 					>
-						{pane.activity ? (
-							Renderer ? (
-								<Renderer
-									activity={pane.activity}
-									bus={bus}
-									recordId={recordId}
-								/>
-							) : (
-								<Stack align="center" gap={6} p="lg" c="dimmed" ta="center">
-									<IconAlertTriangle size={18} />
-									<Text size="sm" fw={500}>
-										{pane.label}暂无可用的界面组件
-									</Text>
-									<Text size="xs">
-										渲染器 “{pane.activity.ui.renderer}” 未注册，请联系管理员
-									</Text>
-								</Stack>
-							)
-						) : (
-							<InquiryTool />
-						)}
+						{renderActivity()}
 					</Suspense>
 				</ErrorBoundary>
 			</Box>

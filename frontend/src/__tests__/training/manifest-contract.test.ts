@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { ACTIVITY_RENDERERS } from "@/components/training/workspace/renderers";
 import { availableActivities, blockerActivity, parseSessionManifest, requiredArtifacts } from "@/engine/manifest";
 import case1Payload from "@/__tests__/fixtures/session-manifest.case1.json";
 import quizPayload from "@/__tests__/fixtures/session-manifest.quiz.json";
@@ -9,20 +8,9 @@ import coverage from "@/__tests__/fixtures/case-manifest-coverage.json";
  * 前端与**真实后端载荷**的形状对齐。
  *
  * 夹具不是手写的：由后端解析器 `backend/modules/training/manifest.py`
- * 对 `data/cases/*.json` 逐个 `build_session_manifest(...)` 生成，
- * 因此这里同时验证「服务端下发的 renderer 在前端都有组件」。
+ * 对 `data/cases/*.json` 逐个 `build_session_manifest(...)` 生成，验证前后端的工作区与完成条件一致。
  */
 describe("manifest 契约对齐（真实后端载荷）", () => {
-	it("所有病例声明的 ui.renderer 都在前端 RendererMap 中（不存在「配了但不可达」）", () => {
-		const missing: string[] = [];
-		for (const [caseName, entry] of Object.entries(coverage)) {
-			for (const renderer of (entry as { renderers: string[] }).renderers) {
-				if (!ACTIVITY_RENDERERS[renderer]) missing.push(`${caseName}:${renderer}`);
-			}
-		}
-		expect(missing).toEqual([]);
-	});
-
 	it("每个病例的工作区 = manifest.workflow.id 且必交产物与服务端一致", () => {
 		for (const entry of Object.values(coverage)) {
 			const item = entry as { workflow: string; available: string[]; requiredArtifacts: string[] };
@@ -36,13 +24,13 @@ describe("manifest 契约对齐（真实后端载荷）", () => {
 		const manifest = parseSessionManifest(case1Payload);
 		expect(manifest?.workflow).toEqual({ id: "history_taking", label: "病史采集", ui: { workspace: "patient_interaction", primary_surface: "conversation" } });
 		expect(availableActivities(manifest).map((activity) => activity.id)).toEqual([
-			"nursing_record",
 			"physical_exam",
+			"nursing_record",
 		]);
 		// 读取层把 activities 规范成 ui.order 顺序（服务端下发的原始顺序不承诺有序）
 		expect(manifest?.activities.map((activity) => activity.id)).toEqual([
-			"nursing_record",
 			"physical_exam",
+			"nursing_record",
 			"quiz",
 		]);
 	});

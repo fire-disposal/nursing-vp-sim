@@ -87,9 +87,9 @@ React/Mantine/懒加载 chunk 执行。新增依赖若引入新的内置 API（�
 训练能力以 **Workflow / Activity 两层协约**承载：
 后端 `modules/training/activities.py` 是唯一登记表，`modules/training/manifest.py` 解析出会话 manifest
 （`activities[].availability`、`artifacts`、`completion.eligible/conditions/blockers`、`actions[].enabled`）；
-前端只消费 manifest，`components/training/workspace/renderers.ts` 是一张**纯映射**（`ui.renderer → 组件`），
-**不判断**某个病例有没有某能力——可用性与能否结束一律由服务端决定。旧的 `tools/registry.ts` 与
-`engine/capabilities.gen.ts` 已删除。
+前端只消费 manifest，`components/training/workspace/ActivityPanelHost.tsx` 按 Activity id 直接分派三个工具；
+**不判断**某个病例有没有某能力——可用性与能否结束一律由服务端决定。旧的 `tools/registry.ts`、
+`engine/capabilities.gen.ts` 与 `workspace/renderers.ts` 已删除。
 
 两条训练产品线按 Workflow 做**领域隔离**：`history_taking` 保留老流式患者管线与 LLM 评分；
 `clinical_reasoning`（V2）拥有独立的结构化患者回合、证据状态、工作区和确定性评分。

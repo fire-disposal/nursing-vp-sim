@@ -143,7 +143,6 @@ class ActivityDefinition:
     outputs_schema: type[BaseModel]
     availability: Availability
     handler: ToolHandler
-    ui_renderer: str
     evidence_kind: str | None = None
     artifact_kind: str | None = None
     context_contribution: tuple[ContextContribution, ...] = ()
@@ -179,7 +178,6 @@ ACTIVITY_BINDINGS: dict[str, ActivityDefinition] = {
             outputs_schema=ClinicalJudgmentOutput,
             availability=Availability(requires_case_config=False),
             handler=ClinicalJudgmentHandler(),
-            ui_renderer="clinical_judgment",
             evidence_kind="clinical_evidence",
             artifact_kind=None,
             ui_order=10,
@@ -192,7 +190,6 @@ ACTIVITY_BINDINGS: dict[str, ActivityDefinition] = {
             outputs_schema=PhysicalExamOutput,
             availability=Availability(),
             handler=PhysicalExamHandler(),
-            ui_renderer="physical_exam",
             evidence_kind="exam_results",
             artifact_kind=None,
             context_contribution=(
@@ -212,7 +209,6 @@ ACTIVITY_BINDINGS: dict[str, ActivityDefinition] = {
             outputs_schema=NursingRecordOutput,
             availability=Availability(),
             handler=NursingRecordHandler(),
-            ui_renderer="nursing_record",
             evidence_kind="nursing_record",
             artifact_kind="nursing_record",
             context_contribution=(
@@ -228,7 +224,7 @@ ACTIVITY_BINDINGS: dict[str, ActivityDefinition] = {
                 ),
             ),
             requires_submission_for_completion=True,
-            ui_order=10,
+            ui_order=30,
         ),
         ActivityDefinition(
             id="quiz",
@@ -238,11 +234,10 @@ ACTIVITY_BINDINGS: dict[str, ActivityDefinition] = {
             outputs_schema=QuizOutput,
             availability=Availability(),
             handler=QuizHandler(),
-            ui_renderer="quiz",
             evidence_kind=None,
             artifact_kind=None,
             context_contribution=(),
-            ui_order=30,
+            ui_order=40,
         ),
     )
 }

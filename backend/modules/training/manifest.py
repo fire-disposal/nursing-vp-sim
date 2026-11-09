@@ -150,7 +150,6 @@ def build_session_manifest(
                 },
                 "commands": sorted(resolved.definition.commands),
                 "ui": {
-                    "renderer": resolved.definition.ui_renderer,
                     "placement": resolved.definition.ui_placement,
                     "order": resolved.definition.ui_order,
                 },

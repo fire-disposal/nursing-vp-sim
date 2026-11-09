@@ -49,7 +49,7 @@ export function ActivityRail() {
 	useInitialActivityPanel();
 
 	const headerOffset = isShort || isMobile ? TRAINING_HEADER_HEIGHT.short : TRAINING_HEADER_HEIGHT.wide;
-	if (host !== "rail" || dockPanes.length === 0) return null;
+	if (host !== "rail" || panes.length === 0) return null;
 
 	const active = panes.find((pane) => pane.id === openPanelId) ?? null;
 	const panelWidth = active ? (active.wide && wideViewport ? PANEL_WIDTH.wide : PANEL_WIDTH.narrow) : 0;

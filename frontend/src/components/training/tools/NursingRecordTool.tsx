@@ -21,6 +21,7 @@ import {
 	Textarea,
 } from "@mantine/core";
 import { subscribeWSConnection } from "@/hooks/useTrainingWS";
+import { useSessionManifest } from "@/engine/TrainingDataContext";
 import { formatShortDateTime } from "@/utils/date";
 import type { ActivityPanelProps } from "@/components/training/workspace/contract";
 import {
@@ -65,6 +66,8 @@ const LOAD_TIMEOUT_MS = 8000;
 export default function NursingRecordTool({ activity, recordId, bus }: ActivityPanelProps) {
 	/** 命令命名空间来自 manifest 的 activity 定义（渲染器不自己命名能力） */
 	const command = activity.id;
+	const manifest = useSessionManifest();
+	const submissionRequired = manifest?.artifacts.nursing_record?.required === true;
 	const rid = Number(recordId);
 	const sheet = useTrainingStore((s) => s.nursingRecordDraft) ?? {};
 	const dirty = useTrainingStore((s) => s.nursingRecordDirty);
@@ -344,7 +347,7 @@ export default function NursingRecordTool({ activity, recordId, bus }: ActivityP
 									<Text size="sm" fw={500}>{label}</Text>
 									{empty && (
 										<Text size="xs" c="orange">
-											未填写
+											建议补充
 										</Text>
 									)}
 								</Group>
@@ -394,7 +397,7 @@ export default function NursingRecordTool({ activity, recordId, bus }: ActivityP
 
 					{!readOnly && missingFields.length > 0 && (
 						<Text size="xs" c="dimmed">
-							未填写：{missingFields.map((k) => fieldLabels[k] || k).join("、")}
+							至少填写 1 项即可提交；建议补充：{missingFields.map((k) => fieldLabels[k] || k).join("、")}
 						</Text>
 					)}
 
@@ -436,7 +439,7 @@ export default function NursingRecordTool({ activity, recordId, bus }: ActivityP
 
 					{!readOnly && (
 						<Text size="xs" c="dimmed">
-							提交后内容将被冻结并作为评分依据；结束训练前必须已提交。
+							提交后内容将被冻结并作为评分依据；{submissionRequired ? "本病例结束训练前必须提交。" : "本病例可选提交，提交后纳入评分。"}
 						</Text>
 					)}
 				</Stack>
@@ -455,7 +458,7 @@ export default function NursingRecordTool({ activity, recordId, bus }: ActivityP
 					{missingFields.length > 0 && (
 						<Alert variant="light" color="orange" p="xs">
 							<Text size="xs" c="orange">
-								以下字段尚未填写，可能影响完整性与评分：
+								以下字段尚未填写，补充后能让记录与反馈更完整：
 							</Text>
 							<Text size="xs" c="dimmed" mt={4}>
 								{missingFields.map((k) => fieldLabels[k] || k).join("、")}

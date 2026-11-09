@@ -4,7 +4,7 @@ import { Box, Group, Stack, Text } from "@mantine/core";
 import { IconCloudOff, IconPlugConnectedX } from "@tabler/icons-react";
 import type { ChatMessage } from "@/engine/types";
 import { useInitialMessages, useExamResults, usePatientData } from "@/engine/TrainingDataContext";
-import { useTrainingStore } from "@/stores/trainingStore";
+import { useTrainingStore, getTrainingState } from "@/stores/trainingStore";
 
 import { ChatDisplay } from "./ChatDisplay";
 import { ConversationComposer } from "./ConversationComposer";
@@ -96,7 +96,8 @@ export function ChatArea({
     const MAX_INITIATIVE = 200;
     const unsub = bus.on(
       "initiative:triggered",
-      (data: { content: string }) => {
+      (data: { id?: number; content: string }) => {
+        getTrainingState().mergeHistory([{ id: data.id, role: "patient", content: data.content }]);
         setInitiativeMsgs((prev) => {
           const next = new Set(prev).add(data.content);
           if (next.size <= MAX_INITIATIVE) return next;

@@ -54,7 +54,7 @@
    "ui": {
     "renderer": "nursing_record",
     "placement": "side_panel",
-    "order": 10
+    "order": 30
    },
    "evidence_kind": "nursing_record",
    "artifact_kind": "nursing_record"
@@ -73,7 +73,7 @@
    "ui": {
     "renderer": "quiz",
     "placement": "side_panel",
-    "order": 30
+    "order": 40
    },
    "evidence_kind": null,
    "artifact_kind": null

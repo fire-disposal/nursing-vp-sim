@@ -115,7 +115,7 @@ export function EmotionIndicator({ bus, features, recordId, compact, trailing }:
 		try {
 			const res = await triggerInitiative(recordId);
 			if (res.data.triggered && res.data.message) {
-				bus.emit("initiative:triggered", { content: res.data.message });
+				bus.emit("initiative:triggered", { id: res.data.id, content: res.data.message });
 				if (res.data.emotion) {
 					bus.emit("emotion:changed", res.data.emotion as { trust: number; anxiety: number; irritation: number; cooperation: number; dominant_state?: string });
 				}

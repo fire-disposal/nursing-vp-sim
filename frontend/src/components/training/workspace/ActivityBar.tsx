@@ -9,7 +9,6 @@ import {
 	type WorkspacePane,
 	useActivityArtifact,
 	useDockPanes,
-	useInitialActivityPanel,
 	useWorkspacePanes,
 } from "./useWorkspacePanes";
 
@@ -27,10 +26,9 @@ export default function ActivityBar() {
 	const togglePanel = useWorkspaceStore((state) => state.togglePanel);
 	const closePanel = useWorkspaceStore((state) => state.closePanel);
 	const host = useWorkspaceHost();
-	useInitialActivityPanel();
 
 	// 只有竖屏（手机版）用底部抽屉；横屏改为右侧栏，避免把本就不高的视口再切一半
-	if (host !== "sheet" || dockPanes.length === 0) return null;
+	if (host !== "sheet" || panes.length === 0) return null;
 	const active = panes.find((pane) => pane.id === openPanelId) ?? null;
 
 	return (

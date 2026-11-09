@@ -10,7 +10,7 @@ export function makeActivity(id: string, overrides: Partial<ManifestActivity> = 
 		label: id,
 		availability: { state: "available", reason_code: null },
 		commands: [],
-		ui: { renderer: id, placement: "side_panel", order: 10 },
+		ui: { placement: "side_panel", order: 10 },
 		evidence_kind: null,
 		artifact_kind: null,
 		...overrides,

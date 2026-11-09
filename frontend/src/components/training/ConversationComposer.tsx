@@ -246,6 +246,7 @@ export function ConversationComposer({
 			</Box>
 			<Group align="flex-end" gap={8} px="md" py="sm" wrap="nowrap" style={{ maxWidth: 768, margin: "0 auto", width: "100%" }}>
 				<Textarea
+					maxLength={2000}
 					ref={inputRef}
 					flex={1}
 					miw={0}
