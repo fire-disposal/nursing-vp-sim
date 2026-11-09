@@ -29,7 +29,7 @@ class TaskQueue:
 
     Worker count determines scoring throughput.  Each worker processes one
     scoring task at a time (2 parallel LLM calls: scoring + feedback).  The
-    LLM semaphore (per llm_profile.py, scoring=10, feedback=10) is the
+    LLM semaphore (per infra/llm/profile.py, scoring=10, feedback=10) is the
     hard upper bound — workers beyond 10 will simply block on the semaphore.
 
     Default 8 workers ≈ 80% semaphore utilisation, leaving headroom for
@@ -43,7 +43,7 @@ class TaskQueue:
     def __init__(self, max_workers: int | None = None, max_size: int = 100):
         if max_workers is None:
             max_workers = SCORING_WORKERS
-        _practical_max = 10  # bounded by scoring semaphore (llm_profile.py)
+        _practical_max = 10  # bounded by scoring semaphore (infra/llm/profile.py)
         if max_workers > _practical_max:
             log.warning(
                 "SCORING_WORKERS=%d exceeds practical max %d (LLM semaphore bottleneck); throughput unchanged",

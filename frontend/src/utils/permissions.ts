@@ -5,7 +5,6 @@ export { PERMISSION_KEYS };
 
 export const STUDENT_TIER_PERMISSIONS = new Set<Permission>([
 	"training_access",
-	"scenario_training",
 	"qa_access",
 	"stats_view",
 ]);

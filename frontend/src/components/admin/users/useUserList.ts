@@ -26,7 +26,7 @@ export function usePersonasQuery() {
 		queryKey: queryKeys.admin.personas,
 		queryFn: () =>
 			getPersonas().then((r) =>
-				r.data.map((p): PersonaOption => ({ value: p.key, label: p.label })),
+				r.data.map((p): PersonaOption => ({ value: p.key, label: p.label, grantable: p.grantable })),
 			),
 		staleTime: 5 * 60 * 1000,
 	});

@@ -16,7 +16,6 @@
 	--stu-ink-dim: #6b7472;
 	--stu-line: rgba(24, 32, 30, 0.09);
 	--stu-line-strong: rgba(24, 32, 30, 0.16);
-	--stu-accent-soft: rgba(20, 122, 110, 0.08);
 	--stu-radius: 14px;
 	--stu-radius-sm: 10px;
 	--stu-gap: 12px;
@@ -32,7 +31,6 @@
 	--stu-ink-dim: #939c99;
 	--stu-line: rgba(232, 236, 234, 0.10);
 	--stu-line-strong: rgba(232, 236, 234, 0.18);
-	--stu-accent-soft: rgba(78, 200, 178, 0.12);
 }
 
 /* ── 顶栏：从"工具栏"变成"状态条" ─────────────────────────────
@@ -66,13 +64,15 @@
 	background: rgba(192, 67, 47, 0.06);
 }
 
-/* ── 开场任务卡：从"说明书卡片"变成"一行进度 + 一句话" ───────── */
+/* ── 开场任务卡：从"说明书卡片"变成"一行进度 + 一句话" ─────────
+   Mantine 的 Card/Paper 颜色写在 `@layer mantine` 里，本文件未分层 —— 未分层规则的
+   级联层优先级更高，普通声明就够压过它，无需提权。 */
 .stu-welcome .mantine-Card-root,
 .stu-welcome .mantine-Paper-root {
-	background: var(--stu-panel) !important;
-	border: 1px solid var(--stu-line) !important;
-	border-radius: var(--stu-radius) !important;
-	box-shadow: none !important;
+	background: var(--stu-panel);
+	border: 1px solid var(--stu-line);
+	border-radius: var(--stu-radius);
+	box-shadow: none;
 }
 
 /* ── 对话气泡：描边取代阴影，学生侧用浅色强调（不是实心深绿） ──
@@ -82,16 +82,15 @@
 }
 
 .stu-chat [data-role="patient"] > div:first-child {
-	box-shadow: none !important;
-	border-width: 1px !important;
-	border-color: var(--stu-line) !important;
+	box-shadow: none;
+	border-width: 1px;
+	border-color: var(--stu-line);
 }
 
-
-
-/* ── 输入区：一行提示 + 单个圆角输入框 ───────────────────────── */
+/* ── 输入区：一行提示 + 单个圆角输入框 ─────────────────────────
+   边框色由组件内联给（`borderColor`），这里只补底色与分隔线。 */
 .stu-composer {
-	border-top: 1px solid var(--stu-line) !important;
+	border-top: 1px solid var(--stu-line);
 	background: color-mix(in srgb, var(--stu-bg) 92%, transparent);
 }
 
@@ -101,21 +100,11 @@
 	letter-spacing: 0.01em;
 }
 
-/* ── 能力条：状态用圆点，不用徽标堆文字 ──────────────────────── */
+/* ── 能力条：状态用圆点，不用徽标堆文字 ────────────────────────
+   排布与按钮胶囊外形都在组件内联里（`ActivityBar`），这里只给"条"本身的底色与节奏。 */
 .stu-activity {
-	border-top: 1px solid var(--stu-line) !important;
-	background: var(--stu-panel) !important;
-	padding: 8px 10px !important;
-	gap: 8px !important;
-}
-
-.stu-activity button {
-	border-radius: 999px !important;
-	border: 1px solid var(--stu-line) !important;
-	background: transparent !important;
-}
-
-.stu-activity button[data-active="true"] {
-	border-color: color-mix(in srgb, var(--mantine-color-brand-6) 40%, transparent) !important;
-	background: var(--stu-accent-soft) !important;
+	border-top: 1px solid var(--stu-line);
+	background: var(--stu-panel);
+	padding: 6px 8px;
+	gap: 6px;
 }

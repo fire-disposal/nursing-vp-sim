@@ -161,6 +161,20 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 
 	const users = userData?.items ?? [];
 	const total = userData?.total ?? 0;
+	const pageIds = users.map((u) => u.id);
+	const selectedOnPage = pageIds.filter((id) => selectedIds.has(id)).length;
+	const allPageSelected = users.length > 0 && selectedOnPage === users.length;
+	const somePageSelected = selectedOnPage > 0 && !allPageSelected;
+	const toggleAllOnPage = (checked: boolean) => {
+		setSelectedIds((prev) => {
+			const next = new Set(prev);
+			for (const id of pageIds) {
+				if (checked) next.add(id);
+				else next.delete(id);
+			}
+			return next;
+		});
+	};
 
 	const resetToFirstPage = () => list.setOffset(0);
 
@@ -487,6 +501,14 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 								label="显示已停用"
 								checked={list.values.include_inactive}
 								onChange={(e) => list.setFilter("include_inactive", e.currentTarget.checked)}
+							/>
+							<Checkbox
+								size="sm"
+								label="全选本页"
+								disabled={users.length === 0}
+								checked={allPageSelected}
+								indeterminate={somePageSelected}
+								onChange={(e) => toggleAllOnPage(e.currentTarget.checked)}
 							/>
 						</>
 					}

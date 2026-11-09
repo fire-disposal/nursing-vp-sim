@@ -17,6 +17,25 @@ function syncPersonas(data: { personas?: string[]; active_persona?: string | nul
 	usePersonaStore.getState().setAvailable(data.personas, data.active_persona ?? null);
 }
 
+/** 把服务端的「当前生效院校」同步到本地快照（顶栏/主题/院校组件都读它）。 */
+function syncSchoolScope(data: {
+	active_school_id?: number | null;
+	school_id?: number | null;
+	school_personas?: { school_id: number; school_name: string }[];
+}): void {
+	const active = data.active_school_id;
+	if (active == null || active === data.school_id) return;
+	const grant = (data.school_personas ?? []).find((item) => item.school_id === active);
+	if (!grant) return;
+	useSchoolScopeStore.getState().setSchool({
+		id: grant.school_id,
+		name: grant.school_name,
+		themeColor: null,
+		hasLogo: false,
+		logoUpdatedAt: null,
+	});
+}
+
 /** 取 HTTP 状态码（axios 错误的形状）；不是 axios 错误就返回 undefined。 */
 function httpStatusOf(err: unknown): number | undefined {
 	if (typeof err !== "object" || err === null || !("response" in err)) return undefined;
@@ -82,7 +101,9 @@ const useAuthStore = create<ExtendedAuthState>()(
 				usePersonaStore.getState().clear();
 				const user: User = {
 					id: data.user_id,
-					username: data.display_name || username,
+					// 登录响应只有 display_name：用户名先用输入值，避免 /auth/me 失败时
+					// 把「@显示名」当成账号名（随后 getMe 会用服务端权威值覆盖）。
+					username: username,
 					display_name: data.display_name,
 					student_id: null,
 					gender: data.gender ?? null,
@@ -112,6 +133,16 @@ const useAuthStore = create<ExtendedAuthState>()(
 						set({
 							user: {
 								...current,
+								// 登录响应只有 display_name，没有登录名/学号/院校品牌：不在这里补齐，
+								// 用户会把「@显示名」当成账号名，院校管理员也看不到本校品牌。
+								id: me.id ?? current.id,
+								username: me.username || current.username,
+								display_name: me.display_name || current.display_name,
+								student_id: me.student_id ?? current.student_id ?? null,
+								gender: me.gender ?? current.gender ?? null,
+								avatar: me.avatar ?? current.avatar ?? null,
+								is_active: me.is_active ?? current.is_active,
+								is_platform: me.is_platform ?? current.is_platform,
 								personas: me.personas ?? current.personas ?? [],
 								active_persona: me.active_persona ?? current.active_persona ?? null,
 								active_school_id: me.active_school_id ?? null,
@@ -121,6 +152,9 @@ const useAuthStore = create<ExtendedAuthState>()(
 								// 在壳里被显示成「平台」，等于告诉他"你是跨校的"
 								school_id: me.school_id ?? null,
 								school_name: me.school_name ?? null,
+								school_theme_color: me.school_theme_color ?? null,
+								school_has_logo: me.school_has_logo ?? false,
+								school_logo_updated_at: me.school_logo_updated_at ?? null,
 							},
 							// 权限以 /auth/me 现取为准（返回数组即覆盖，空数组 = 真的没权限）；
 							// 字段缺失才留用登录响应里的值。
@@ -128,6 +162,9 @@ const useAuthStore = create<ExtendedAuthState>()(
 								? me.permissions
 								: get().permissions,
 						});
+						// 服务端可能把默认院校定在附加院校（家院校没有授予）：顶栏必须跟着走，
+						// 否则显示家院校、数据却来自另一所（X-School-Scope 为空时由服务端决定）。
+						syncSchoolScope(me);
 					}
 				} catch {
 					// ignore — 视角/院校字段由登录响应兜底，权限留给下一次 revalidateSession
@@ -196,30 +233,24 @@ const useAuthStore = create<ExtendedAuthState>()(
 					});
 					// 非家院校被服务端选为默认（家院校没有任何授予）时，同步顶栏快照，
 					// 否则顶栏会显示家院校、请求头却已指向另一所。
-					if (data.active_school_id != null && data.active_school_id !== data.school_id) {
-						const grant = (data.school_personas ?? []).find(
-							(item) => item.school_id === data.active_school_id,
-						);
-						if (grant) {
-							useSchoolScopeStore.getState().setSchool({
-								id: grant.school_id,
-								name: grant.school_name,
-								themeColor: null,
-								hasLogo: false,
-								logoUpdatedAt: null,
-							});
-						}
-					}
+					syncSchoolScope(data);
 				} catch (err: unknown) {
 					const status = httpStatusOf(err);
 					// 视角被撤销（或换了账号后残留）→ 服务端 403「视角不可用」。
 					// 清掉本地选择后重试一次：下一次请求不带 header，服务端回落默认视角。
 					// 递归有界：clear 后 active 为空，不进这个分支。
 					if (status === 403) {
-						console.warn("[authStore] /auth/me 403 — 清除失效视角/院校后重试");
-						usePersonaStore.getState().clear();
-						useSchoolScopeStore.getState().setSchool(null);
-						return get().refreshUser();
+						// 只有"确实清掉了本地选择"才重试；否则 403 来自别的约束，递归只会刷请求。
+						const hadPersona = usePersonaStore.getState().active != null;
+						const hadSchool = useSchoolScopeStore.getState().school != null;
+						if (hadPersona || hadSchool) {
+							console.warn("[authStore] /auth/me 403 — 清除失效视角/院校后重试");
+							usePersonaStore.getState().clear();
+							useSchoolScopeStore.getState().setSchool(null);
+							return get().refreshUser();
+						}
+						console.warn("[authStore] /auth/me 403 — 无本地选择可清，保持现有会话");
+						return;
 					}
 					// 仅 401 视为会话失效；网络抖动/服务端瞬时错误保留会话（与 refreshAuth 一致）
 					const is401 = status === 401;
@@ -236,7 +267,7 @@ const useAuthStore = create<ExtendedAuthState>()(
 			 * 冷启动会话恢复时的权限 revalidation：拉一次 `/auth/me`，用现取结果覆盖持久化快照。
 			 *
 			 * 为什么必须有：`localStorage` 里的 `permissions` 是上次会话的快照，可能早于部署后的
-			 * 授权变更（生产实例：学生被授予 `scenario_training` 后仍被旧快照挡在 403 页）。
+			 * 授权变更（新授予的权限被旧快照挡在 403 页）。
 			 * 期间 `sessionReady=false`，`ProtectedRoute` 先显示加载态 —— 门禁不会拿旧快照判定。
 			 *
 			 * 与 `refreshUser()` 同口径：401 → 清会话；网络/5xx → 保留会话，不把用户踢下线。
@@ -290,15 +321,22 @@ const useAuthStore = create<ExtendedAuthState>()(
 			onRehydrateStorage: () => {
 				return (state, error) => {
 					if (error || !state?.token) return;
+					// 冷启动先用持久化的授予集合把视角选择器点亮：`available` 不持久化，
+					// 若 `/auth/me` 此刻网络失败，切换器会误显示"账号只有这一个视角"并锁死。
+					// 服务端仍会按真实授予拒绝越权视角，这里只是让 UI 在落定前不撒谎。
+					const cached = state.user?.personas;
+					if (Array.isArray(cached) && cached.length > 0) {
+						usePersonaStore.getState().setAvailable(cached, state.user?.active_persona ?? null);
+					}
 					// 冷启动恢复会话：立刻 revalidate 权限，别让路由门禁沿用持久化快照。
-					// `revalidateSession` 同步置 sessionReady=false，因此这里不是 fire-and-forget：
-					// 结果（成功或失败）落地前 ProtectedRoute 一直显示加载态。
-					//
-					// 注意：本回调由 persist 在 store 创建时**同步**触发，此刻模块常量 `useAuthStore`
-					// 还在 TDZ —— 以前这里直接调 `startRefreshTimer()`（内部读该常量）会抛 ReferenceError，
-					// 被 persist 静默吞掉，于是整个冷启动钩子从未生效。所以刷新定时器改由
-					// `revalidateSession()` 在结果落地后启动（那次已是异步上下文）。
-					void state.revalidateSession();
+					// **必须异步**：persist 的 rehydrate 回调在 store 创建期间同步触发，此刻模块常量
+					// `useAuthStore` 还在 TDZ；axios 请求拦截器一读 `useAuthStore.getState()` 就抛
+					// ReferenceError，被 refreshUser 当成网络错误吞掉 —— 冷启动 revalidation 实际
+					// 从未生效（权限/视角停留在旧快照）。queueMicrotask 让回调在本轮同步执行之后
+					// （模块常量已初始化）再跑。
+					queueMicrotask(() => {
+						void state.revalidateSession();
+					});
 				};
 			},
 		},

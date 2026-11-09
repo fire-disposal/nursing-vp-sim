@@ -2,22 +2,21 @@ import { api } from "../client";
 
 /**
  * 视角（Persona）——权限预设包。与旧「角色」的区别：角色是自建的一组权限，
- * 视角是**固定的四档预设 + 数据作用域（tenant/class/self）**，账号可被授予多个视角，
+ * 视角是**固定的五档预设 + 数据作用域（platform/tenant/self）**，账号可被授予多个视角，
  * 请求头 `X-View-Persona` 选择当前生效的那一个。
- *
- * 类型暂写在这里（后端契约先于 openapi 生成落地）：`api-types.gen.ts` 是生成文件，
- * 不在本次改动范围内；接口稳定后可换成 `components["schemas"][...]`。
  */
 export type PersonaScope = "platform" | "tenant" | "self";
 
 export interface PersonaPreset {
 	key: string;
 	label: string;
-	/** 数据作用域：全校 / 本人班级 / 仅本人 */
+	/** 数据作用域：平台跨校 / 全校 / 仅本人 */
 	scope: PersonaScope;
 	permissions: string[];
 	/** 已授予人数——按调用者作用域统计（平台全局 / 院校本校） */
 	user_count: number;
+	/** 调用者当前能否授予这一档（后端按预设 ⊆ 当前权限算；平台账号恒为 true） */
+	grantable: boolean;
 }
 
 export interface UserPersonas {

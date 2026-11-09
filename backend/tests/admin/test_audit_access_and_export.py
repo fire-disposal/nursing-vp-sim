@@ -14,11 +14,12 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
+from core.access import clear_access_cache
 from core.audit import ACTION_ACCESS_DENIED, ACTION_EXPORT_DOWNLOADED
 from core.config import MAX_EXPORT_ROWS
 from core.database import Base, SessionLocal
 from core.database import engine as pg_engine
-from core.security import clear_permission_cache, require_permission
+from core.security import require_permission
 from infra.exporter import ExportAudit, export_response
 from models import AuditLog, User
 
@@ -77,7 +78,7 @@ def _cleanup(actor_ids: list[int]) -> None:
 def test_denied_permission_is_audited_even_though_request_fails():
     """403 必须留下 access.denied（含要求的权限键与 actor）。"""
     actor_id = _mk_actor("student")  # student 视角没有 role_manage
-    clear_permission_cache()
+    clear_access_cache()
     try:
         checker = require_permission("role_manage")
         request = _stub_request(actor_id, f"deny-{uuid.uuid4().hex[:6]}")
@@ -100,7 +101,7 @@ def test_denied_permission_is_audited_even_though_request_fails():
         assert rows[0].target_id == "role_manage"
     finally:
         _cleanup([actor_id])
-        clear_permission_cache()
+        clear_access_cache()
 
 
 def test_export_is_audited_with_rows_and_filters():

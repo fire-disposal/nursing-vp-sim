@@ -13,7 +13,6 @@ import {
 	IconRobot, // lucide `Bot` 无同名 tabler icon，语义等价为机器人
 	IconSchool,
 	IconShield,
-	IconSitemap,
 	IconSpeakerphone,
 	IconStethoscope,
 	IconTrophy,
@@ -27,61 +26,55 @@ import { Navigate } from "react-router-dom";
 import type { Permission } from "@/utils/permissions";
 import { isPersonaId, type PersonaId } from "@/utils/personas";
 
-const DashboardHome = lazy(() => import("@/pages/DashboardHome"));
+const DashboardHome = lazy(() => import("@/pages/share/DashboardHome"));
 
-const TrainingSelect = lazy(() => import("@/pages/TrainingSelect"));
-const TrainingEntry = lazy(() => import("@/pages/TrainingEntry"));
-const History = lazy(() => import("@/pages/History"));
-const VersionsPage = lazy(() => import("@/pages/admin/VersionsPage"));
-const TeacherRecordDetail = lazy(() => import("@/pages/admin/TeacherRecordDetail"));
-const ReviewWorkbench = lazy(() => import("@/pages/admin/ReviewWorkbench"));
-const RecordDetail = lazy(() => import("@/pages/RecordDetail"));
-const QA = lazy(() => import("@/pages/QA"));
-const AdminSecrets = lazy(() => import("@/pages/admin/SecretsPage"));
-const MyFeedbackPage = lazy(() => import("@/pages/MyFeedback"));
-const NotificationInboxPage = lazy(() => import("@/pages/NotificationInboxPage"));
-const Profile = lazy(() => import("@/pages/Profile"));
-const Admin = lazy(() => import("@/pages/Admin"));
-const AdminUsers = lazy(() => import("@/pages/admin/UsersPage"));
-const AdminUserDetail = lazy(() => import("@/pages/admin/UserDetailPage"));
-const AdminPersonas = lazy(() => import("@/pages/admin/PersonasPage"));
+const TrainingSelect = lazy(() => import("@/pages/practice/TrainingSelect"));
+const TrainingEntry = lazy(() => import("@/pages/practice/TrainingEntry"));
+const History = lazy(() => import("@/pages/practice/History"));
+const VersionsPage = lazy(() => import("@/pages/ops/VersionsPage"));
+const TeacherRecordDetail = lazy(() => import("@/pages/teaching/TeacherRecordDetail"));
+const ReviewWorkbench = lazy(() => import("@/pages/teaching/ReviewWorkbench"));
+const RecordDetail = lazy(() => import("@/pages/practice/RecordDetail"));
+const QA = lazy(() => import("@/pages/practice/QA"));
+const AdminSecrets = lazy(() => import("@/pages/ops/SecretsPage"));
+const MyFeedbackPage = lazy(() => import("@/pages/share/MyFeedback"));
+const NotificationInboxPage = lazy(() => import("@/pages/share/NotificationInboxPage"));
+const Profile = lazy(() => import("@/pages/share/Profile"));
+const Admin = lazy(() => import("@/pages/teaching/home/Home"));
+const AdminUsers = lazy(() => import("@/pages/people/UsersPage"));
+const AdminUserDetail = lazy(() => import("@/pages/people/UserDetailPage"));
+const AdminPersonas = lazy(() => import("@/pages/people/PersonasPage"));
 const AdminClasses = lazy(
-	() => import("@/pages/admin/ClassesPage"),
+	() => import("@/pages/people/ClassesPage"),
 );
-const AdminSchools = lazy(() => import("@/pages/admin/SchoolsPage"));
-const AdminCases = lazy(() => import("@/pages/admin/CasesPage"));
+const AdminSchools = lazy(() => import("@/pages/people/SchoolsPage"));
+const AdminCases = lazy(() => import("@/pages/content/CasesPage"));
 const AssignmentsPage = lazy(
-	() => import("@/pages/admin/AssignmentsPage"),
+	() => import("@/pages/teaching/AssignmentsPage"),
 );
 const AssignmentDetailPage = lazy(
-	() => import("@/pages/admin/AssignmentDetailPage"),
+	() => import("@/pages/teaching/AssignmentDetailPage"),
 );
-const ScoreboardPage = lazy(() => import("@/pages/admin/ScoreboardPage"));
-const CostManagement = lazy(() => import("@/pages/admin/CostManagementPage"));
-const AdminFeedback = lazy(() => import("@/pages/admin/FeedbackPage"));
-const ClassDetailPage = lazy(() => import("@/pages/admin/ClassDetailPage"));
-const SystemOpsPage = lazy(() => import("@/pages/admin/SystemOpsPage"));
+const ScoreboardPage = lazy(() => import("@/pages/teaching/ScoreboardPage"));
+const CostManagement = lazy(() => import("@/pages/ops/CostManagementPage"));
+const AdminFeedback = lazy(() => import("@/pages/ops/FeedbackPage"));
+const ClassDetailPage = lazy(() => import("@/pages/people/ClassDetailPage"));
+const SystemOpsPage = lazy(() => import("@/pages/ops/SystemOpsPage"));
 const SystemNotificationsPage = lazy(
-	() => import("@/pages/admin/SystemNotificationsPage"),
+	() => import("@/pages/ops/SystemNotificationsPage"),
 );
-const AuditLogsPage = lazy(() => import("@/pages/admin/AuditLogsPage"));
+const AuditLogsPage = lazy(() => import("@/pages/ops/AuditLogsPage"));
 const TeacherRecordsPage = lazy(
-	() => import("@/pages/admin/TeacherRecordsPage"),
+	() => import("@/pages/teaching/TeacherRecordsPage"),
 );
-const RubricPage = lazy(() => import("@/pages/admin/RubricPage"));
+const RubricPage = lazy(() => import("@/pages/content/RubricPage"));
 const AdminQuestionnaires = lazy(
-	() => import("@/pages/admin/AdminQuestionnaires"),
+	() => import("@/pages/content/AdminQuestionnaires"),
 );
-// 情境训练：深色场景控制台，学生侧入口 /scenario（2026-09-27 转正式特性后进导航）
-const ScenarioConsole = lazy(() => import("@/scenario/ScenarioConsole"));
-// 情境训练 · 管理侧：入口 /scenario-admin（导航条目要 case_manage；权限在页面内按块判：
-// 内容 case_manage / 数据 stats_view）
-const ScenarioAdminPage = lazy(() => import("@/scenario/admin/ScenarioAdminPage"));
-
 /**
  * 当前的「活动」——决定**外壳形态**（`AdaptiveShell` 按它选壳）。
  *
- * 只有两个值，因为只有两种壳：沉浸会话（练习/情境）与常规应用壳（浏览、配置、审阅都在其中）。
+ * 只有两个值，因为只有两种壳：沉浸会话（练习）与常规应用壳（浏览、配置、审阅都在其中）。
  * 2026-09-30 审计删掉了从没有生产者的 `"review"`：声明了三态却 31 条路由都是 `manage`，
  * 唯一的分支只有 `practice`——留着它只会让人以为存在第三种壳。
  */
@@ -110,7 +103,7 @@ export interface NavGroupDef {
 
 export const NAV_GROUPS: NavGroupDef[] = [
 	// 我的训练：所有视角都保留自己的训练入口（管理/运维也要能练，训练档案是自己的）
-	{ key: "personal", label: "我的训练", icon: IconStethoscope, defaultOpen: false, personas: ["student", "teacher", "admin", "ops"] },
+	{ key: "personal", label: "我的训练", icon: IconStethoscope, defaultOpen: false, personas: ["student"] },
 	// 教学 = 日常查看与操作（看板/作业/成绩/记录）；教学资源 = 低频配置（病例/问卷/标准）
 	{ key: "teaching", label: "教学", icon: IconSchool, defaultOpen: true, personas: ["teacher", "admin"] },
 	{ key: "content", label: "教学资源", icon: IconBook2, defaultOpen: false, personas: ["teacher", "admin", "platform"] },
@@ -141,10 +134,6 @@ export interface NavMeta {
 	group?: NavGroupKey;
 	end?: boolean;
 	mobile?: MobileTab;
-	/** 条目级权限门：用于"路由级不能判权限、但导航要有门"的页面（如 `/scenario-admin`
-	 *  需要 `case_manage` 与 `stats_view` 两个键，路由级只判一个会误挡另一半人）。
-	 *  与路由级 `permission` 二选一；两者都给时**条目级优先**。 */
-	permission?: Permission;
 	/** 条目级视角覆盖：给出时**取代**所在分组的视角集合（用于分组口径之外的单点例外，
 	 *  如「系统反馈」运维/教学/管理都该看到，而不是只有运维）。不给则跟随分组。 */
 	personas?: PersonaId[];
@@ -174,6 +163,7 @@ export const APP_ROUTES: AppRoute[] = [
 			label: "训练",
 			icon: IconStethoscope,
 			section: "user",
+			group: "personal",
 			mobile: { order: 10, tier: "student" },
 		},
 	},
@@ -183,26 +173,43 @@ export const APP_ROUTES: AppRoute[] = [
 		permission: "training_access",
 		activity: "practice",
 	},
-	// 情境训练（docs/scenario.md）：与正式训练资源隔离的实验轨，转公开测试后给学生可见入口——
-	// 持有 `scenario_training` 的学生在侧栏/底部 Tab 看到「情境」；后端开关关闭时后端 404、入口照旧存在。
 	{
-		path: "/scenario",
-		element: <ScenarioConsole />,
-		permission: "scenario_training",
-		// **App 导航壳照常**（桌面侧栏 + 移动端底部 Tab 的「情境」）：沉浸只体现在**场景内部**
-		// （舞台 / 对话 / 输入这一块），不是把全站导航拿掉——2026-09-28 反馈：手机上没了底部 Tab，
-		// 学生既切不回训练/记录，观感也格格不入。控制台因此不再自带返回，出口交给 App 导航。
+		path: "/cases",
+		element: <TrainingSelect tab="self" />,
+		permission: "training_access",
 		activity: "manage",
-		nav: { label: "情境", icon: IconSitemap, section: "user", mobile: { order: 20, tier: "student" } },
+		nav: {
+			label: "病例",
+			icon: IconBook2,
+			section: "user",
+			group: "personal",
+		},
+	},
+	{
+		path: "/assignments",
+		element: <TrainingSelect tab="assignments" />,
+		permission: "training_access",
+		activity: "manage",
+		nav: {
+			label: "作业",
+			icon: IconClipboardList,
+			section: "user",
+			group: "personal",
+			mobile: { order: 20, tier: "student" },
+		},
 	},
 	{
 		path: "/history",
 		element: <History />,
+		// 记录是"我的训练档案"：没有训练权限的视角（平台/运维）不该在侧栏看到它，
+		// 否则入口存在、点进去只有空档案，还会成为落地页候选。
+		permission: "training_access",
 		activity: "manage",
 		nav: {
 			label: "记录",
 			icon: IconClipboardList,
 			section: "user",
+			group: "personal",
 			mobile: { order: 30, tier: "student", activeOn: ["/record"] },
 		},
 	},
@@ -215,7 +222,7 @@ export const APP_ROUTES: AppRoute[] = [
 	{ path: "/my-feedback", element: <MyFeedbackPage />, activity: "manage" },
 	{ path: "/notifications", element: <NotificationInboxPage />, activity: "manage" },
 	// QA — AI 护理导师，学生端独立 Tab。
-	{ path: "/qa", element: <QA />, permission: "qa_access", activity: "manage", nav: { label: "问答", icon: IconRobot, section: "user", mobile: { order: 40, tier: "student" } } },
+	{ path: "/qa", element: <QA />, permission: "qa_access", activity: "manage", nav: { label: "问答", icon: IconRobot, section: "user", group: "personal", mobile: { order: 40, tier: "student" } } },
 	{
 		path: "/profile",
 		element: <Profile />,
@@ -271,21 +278,6 @@ export const APP_ROUTES: AppRoute[] = [
 		activity: "manage",
 		nav: { label: "病例库", icon: IconUserSearch, section: "admin", group: "content" },
 	},
-	// 情境训练管理侧：**路由级不判权限**（本页需要两个键：内容 case_manage / 数据 stats_view，
-	// 路由级只判一个会让另一半权限的人被误挡；页面内按块判并渲染 403）。
-	// 导航条目用**条目级** `nav.permission`（内容管理者可见），不动路由级口径。
-	{
-		path: "/scenario-admin",
-		element: <ScenarioAdminPage />,
-		activity: "manage",
-		nav: {
-			label: "情境管理",
-			icon: IconSitemap,
-			section: "admin",
-			group: "content",
-			permission: "case_manage",
-		},
-	},
 	{
 		path: "/admin/assignments",
 		element: <AssignmentsPage />,
@@ -326,6 +318,13 @@ export const APP_ROUTES: AppRoute[] = [
 		permission: "stats_view",
 		activity: "manage",
 		nav: { label: "教学看板", icon: IconChartBar, section: "admin", group: "teaching", end: true, mobile: { order: 10, tier: "staff" } },
+	},
+	{
+		path: "/admin/system-ops",
+		element: <SystemOpsPage />,
+		permission: "api_manage",
+		activity: "manage",
+		nav: { label: "运维仪表盘", icon: IconActivity, section: "admin", group: "system" },
 	},
 	{
 		path: "/admin/versions",
@@ -388,13 +387,6 @@ export const APP_ROUTES: AppRoute[] = [
 		nav: { label: "成本管理", icon: IconCoins, section: "admin", group: "system" },
 	},
 	{
-		path: "/admin/system-ops",
-		element: <SystemOpsPage />,
-		permission: "api_manage",
-		activity: "manage",
-		nav: { label: "运维仪表盘", icon: IconActivity, section: "admin", group: "system" },
-	},
-	{
 		path: "/admin/system-notifications",
 		element: <SystemNotificationsPage />,
 		permission: "api_manage",
@@ -441,9 +433,55 @@ export interface NavItem extends NavMeta {
 	permission?: Permission;
 }
 
+/**
+ * 侧栏/落地页的**工作流顺序**（组内）。
+ *
+ * 路由声明顺序是代码组织顺序，不该直接变成操作顺序：教师的日常是"看板 → 待批阅 →
+ * 批改 → 作业/成绩"，管理员的日常是"用户/班级 → 授予"，配置类（病例/问卷/标准）与
+ * 运维类（密钥/版本）靠后。分组本身仍由 `NAV_GROUPS` 决定。
+ */
+const WORKFLOW_ORDER: Record<string, number> = {
+	// 教学：先看当天，再处理待批阅，然后才是发布与成绩
+	"/admin": 10,
+	"/admin/records": 20,
+	"/admin/review": 30,
+	"/admin/assignments": 40,
+	"/admin/scoreboard": 50,
+	// 教学资源：内容 > 低频配置
+	"/admin/cases": 10,
+	"/admin/questionnaires": 30,
+	"/admin/rubric": 40,
+	// 人员：账号与班级是日常，授予与院校是管理动作
+	"/admin/users": 10,
+	"/admin/classes": 20,
+	"/admin/personas": 30,
+	"/admin/schools": 40,
+	// 运维：仪表盘 > 成本 > 审计 > 通知 > 密钥 > 版本 > 反馈
+	"/admin/system-ops": 10,
+	"/admin/costs": 20,
+	"/admin/audit-logs": 30,
+	"/admin/system-notifications": 40,
+	"/admin/secrets": 50,
+	"/admin/versions": 60,
+	"/admin/feedback": 70,
+};
+
+const GROUP_RANK = new Map<string, number>(
+	NAV_GROUPS.map((group, index) => [group.key, index]),
+);
+
+function navWorkflowRank(item: NavItem): number {
+	if (item.section === "user") return 0;
+	const group = GROUP_RANK.get(item.group ?? "") ?? 99;
+	return 1000 + group * 100 + (WORKFLOW_ORDER[item.to] ?? 99);
+}
+
 export const NAV_ITEMS: NavItem[] = APP_ROUTES.filter(
 	(r): r is AppRoute & { nav: NavMeta } => !!r.nav,
-).map((r) => ({ to: r.path, ...r.nav, permission: r.nav.permission ?? r.permission }));
+)
+	.map((r) => ({ to: r.path, ...r.nav, permission: r.permission }))
+	// 稳定排序：个人区保持声明顺序，管理区分组内按工作流顺序。
+	.sort((a, b) => navWorkflowRank(a) - navWorkflowRank(b));
 
 /**
  * 按**当前视角**过滤导航条目（只管"这一档视角该不该看到这个入口"，不判权限）。
@@ -468,4 +506,30 @@ export function filterNavByPersona(items: NavItem[], persona: string | null | un
 		if (!allowed) return true;
 		return allowed.includes(persona);
 	});
+}
+
+/**
+ * 当前会话的落地页：**第一个真正进得去的入口**。
+ *
+ * `/admin` 要 `stats_view`，而平台/运维视角没有这个键 —— 旧逻辑按"有非学生权限就是管理员"
+ * 直接跳 `/admin`，这两类账号一登录就是 403。顺序口径：
+ * 1. 有 `stats_view` → 教学看板（管理员/教师的日常首页）；
+ * 2. 否则取导航里第一个有权限的管理条目（平台 → 院校管理，运维 → 运维仪表盘）；
+ * 3. 没有管理条目 → 第一个个人条目（学生 → 训练）；
+ * 4. 什么都没有 → 个人中心（永远可达，不制造 403 循环）。
+ */
+export function resolveLandingPath(
+	permissions: readonly string[],
+	persona: string | null | undefined,
+): string {
+	const allowed = filterNavByPersona(NAV_ITEMS, persona).filter(
+		(item) => !item.permission || permissions.includes(item.permission),
+	);
+	if (permissions.includes("stats_view") && allowed.some((item) => item.to === "/admin")) {
+		return "/admin";
+	}
+	const adminLanding = allowed.find((item) => item.section === "admin");
+	if (adminLanding) return adminLanding.to;
+	const userLanding = allowed.find((item) => item.section === "user" && item.to !== "/profile");
+	return userLanding?.to ?? "/profile";
 }

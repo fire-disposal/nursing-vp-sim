@@ -68,9 +68,7 @@ ACTION_QUESTIONNAIRE_TEMPLATE_CREATED = "questionnaire_template.created"
 ACTION_QUESTIONNAIRE_TEMPLATE_UPDATED = "questionnaire_template.updated"
 ACTION_QUESTIONNAIRE_TEMPLATE_DELETED = "questionnaire_template.deleted"
 ACTION_AUTH_LOGIN_BLOCKED = "auth.login_blocked"
-# 情境训练限流命中（学生侧动作/开局超限）——运维面按它统计"限流命中次数"，
-# 也是滥用证据；见 core/rate_limits.check_scenario_*。
-ACTION_SCENARIO_RATE_LIMITED = "scenario.rate_limited"
+ACTION_SETTINGS_UPDATED = "settings.updated"
 
 TARGET_TYPE_USER = "user"
 TARGET_TYPE_SECRET = "secret"
@@ -82,6 +80,7 @@ TARGET_TYPE_CLASS = "class"
 TARGET_TYPE_SCHOOL = "school"
 TARGET_TYPE_NOTIFICATION = "notification"
 TARGET_TYPE_QUESTIONNAIRE_TEMPLATE = "questionnaire_template"
+TARGET_TYPE_SETTINGS = "settings"
 
 
 def _actor_fields(actor: User | None, persona: str | None = None) -> dict[str, Any]:
@@ -244,6 +243,7 @@ __all__ = [
     "ACTION_SECRET_CREATED",
     "ACTION_SECRET_DELETED",
     "ACTION_SECRET_UPDATED",
+    "ACTION_SETTINGS_UPDATED",
     "ACTION_USER_ACTIVATED",
     "ACTION_USER_BULK_ASSIGNED",
     "ACTION_USER_BULK_IMPORTED",
@@ -264,6 +264,7 @@ __all__ = [
     "TARGET_TYPE_QUESTIONNAIRE_TEMPLATE",
     "TARGET_TYPE_SCHOOL",
     "TARGET_TYPE_SECRET",
+    "TARGET_TYPE_SETTINGS",
     "TARGET_TYPE_TRAINING_RECORD",
     "TARGET_TYPE_USER",
     "record",

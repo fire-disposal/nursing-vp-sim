@@ -1,6 +1,6 @@
 // LLM 用途标签用于日志显示等引用场景。
 // 密钥→用途绑定层已移除；用途由路由层按优先级自动选择密钥。
-// 与后端 backend/core/llm_profile.py 的 PROFILES 保持一致。
+// 与后端 backend/infra/llm/profile.py 的 PROFILES 保持一致。
 export interface LlmPurpose {
 	value: string;
 	label: string;

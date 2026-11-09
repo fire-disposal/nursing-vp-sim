@@ -1,5 +1,13 @@
-import { ActionIcon, Badge, Checkbox, Group, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
-import { IconBan, IconCheck, IconCoin, IconPencil, IconTrash, IconUserSearch, IconWorld } from "@tabler/icons-react";
+import { ActionIcon, Badge, Checkbox, Group, Menu, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
+import {
+	IconBan,
+	IconCheck,
+	IconCoin,
+	IconDots,
+	IconPencil,
+	IconTrash,
+	IconWorld,
+} from "@tabler/icons-react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { PersonaBadges } from "@/components/ui/persona-badges";
@@ -120,45 +128,7 @@ export default function UserCard({
 							<Text size="xs" c="dimmed">
 								{new Date(user.created_at).toLocaleDateString("zh-CN", { timeZone: APP_TIME_ZONE })}
 							</Text>
-							<Group gap={4} wrap="nowrap">
-								<Tooltip label="查看详情">
-									<ActionIcon
-										component={Link}
-										to={`/admin/users/${user.id}`}
-										variant="subtle"
-										color="gray"
-										size="md"
-										aria-label={`查看 ${user.display_name} 的详情`}
-									>
-										<IconUserSearch size={15} />
-									</ActionIcon>
-								</Tooltip>
-								{onSchoolPersonas && !user.is_platform && (
-									<Tooltip label="多校视角">
-										<ActionIcon
-											variant="subtle"
-											color="gray"
-											size="md"
-											onClick={() => onSchoolPersonas(user)}
-											aria-label={`设置 ${user.display_name} 的多校视角`}
-										>
-											<IconWorld size={15} />
-										</ActionIcon>
-									</Tooltip>
-								)}
-								{onQuota && !user.is_platform && (
-									<Tooltip label="额度">
-										<ActionIcon
-											variant="subtle"
-											color="gray"
-											size="md"
-											onClick={() => onQuota(user)}
-											aria-label={`设置 ${user.display_name} 的额度`}
-										>
-											<IconCoin size={15} />
-										</ActionIcon>
-									</Tooltip>
-								)}
+							<Group gap={2} wrap="nowrap">
 								<Tooltip label="编辑">
 									<ActionIcon
 										variant="subtle"
@@ -170,32 +140,51 @@ export default function UserCard({
 										<IconPencil size={15} />
 									</ActionIcon>
 								</Tooltip>
-								<Tooltip label={inactive ? "启用账号（恢复登录）" : "停用账号（无法登录，数据保留）"}>
-									<ActionIcon
-										variant="subtle"
-										color={inactive ? "green" : "orange"}
-										size="md"
-										onClick={() => onToggleActive(user)}
-										aria-label={
-											inactive
-												? `启用 ${user.display_name} 的账号`
-												: `停用 ${user.display_name} 的账号`
-										}
-									>
-										{inactive ? <IconCheck size={15} /> : <IconBan size={15} />}
-									</ActionIcon>
-								</Tooltip>
-								<Tooltip label="删除用户">
-									<ActionIcon
-										variant="subtle"
-										color="red"
-										size="md"
-										onClick={() => onDelete(user)}
-										aria-label={`删除 ${user.display_name}`}
-									>
-										<IconTrash size={15} />
-									</ActionIcon>
-								</Tooltip>
+								<Menu position="bottom-end" withinPortal>
+									<Menu.Target>
+										<ActionIcon
+											variant="subtle"
+											color="gray"
+											size="md"
+											aria-label={`更多操作：${user.display_name}`}
+										>
+											<IconDots size={16} />
+										</ActionIcon>
+									</Menu.Target>
+									<Menu.Dropdown>
+										{onSchoolPersonas && !user.is_platform && (
+											<Menu.Item
+												leftSection={<IconWorld size={15} />}
+												onClick={() => onSchoolPersonas(user)}
+											>
+												多校视角
+											</Menu.Item>
+										)}
+										{onQuota && !user.is_platform && (
+											<Menu.Item
+												leftSection={<IconCoin size={15} />}
+												onClick={() => onQuota(user)}
+											>
+												额度
+											</Menu.Item>
+										)}
+										{(onSchoolPersonas || onQuota) && !user.is_platform && <Menu.Divider />}
+										<Menu.Item
+											color={inactive ? "green" : "orange"}
+											leftSection={inactive ? <IconCheck size={15} /> : <IconBan size={15} />}
+											onClick={() => onToggleActive(user)}
+										>
+											{inactive ? "启用账号" : "停用账号"}
+										</Menu.Item>
+										<Menu.Item
+											color="red"
+											leftSection={<IconTrash size={15} />}
+											onClick={() => onDelete(user)}
+										>
+											删除用户
+										</Menu.Item>
+									</Menu.Dropdown>
+								</Menu>
 							</Group>
 						</Group>
 					</Stack>

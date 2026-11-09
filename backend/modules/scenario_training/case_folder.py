@@ -7,12 +7,11 @@
     img/<file>  图片字节，`asset.file` 指向它
 
 规矩：
-- **TOML 只装机制与 meta，MD 只装散文**：同一份事实一处落点（`test_case_folder.py` 逐字段断言）。
+- **TOML 只装机制与 meta，MD 只装散文**：同一份事实一处落点（`test_scenario_assets.py` 逐字段断言）。
 - **解析只按标题切块**，不做行内语法（`风格：…` 这种写法不认），因此往返无损：
   `folders → pack → folders` 文本逐字节相同、`pack → folders → pack` 模型深相等。
-- **图片不重编码**：`img/` 里的字节原样进出；`mime` 由文件名后缀还原（`assets.SUFFIX_MIME`）。
-- 不属于"内容"、**不参与往返**的：`st_packs.version/published/published_at`（运行期事实，
-  不在 `ScenarioPack` 里）与 `st_assets` 行主键（库内身份，由 `(pack_key, asset_id)` 定位）。
+- **图片不重编码**：`img/` 里的字节原样进出；`mime` 由文件名后缀还原。
+- 概念包**不落库**：没有版本号、没有发布状态、没有行主键，文件夹就是唯一事实来源。
 
 TOML 里的表名与模型字段名**不是**一一对应（按作者读的顺序排版）：`setting.cues` → 顶层
 `[[cue]]`、`presentation.devices` → 顶层 `[[device]]`、`Device.channels` → `[[device.channel]]`、
@@ -51,7 +50,7 @@ class CaseFolderError(RuntimeError):
 
 @dataclass(frozen=True)
 class ParsedCase:
-    """一次解析的结果：内容 dict（与 `st_packs.content` 同形状）+ 图片字节 + 宽容导入的提示。"""
+    """一次解析的结果：病例内容 dict（`ScenarioPack` 的输入形状）+ 图片字节 + 宽容导入的提示。"""
 
     content: dict[str, Any]
     images: dict[str, bytes] = field(default_factory=dict)

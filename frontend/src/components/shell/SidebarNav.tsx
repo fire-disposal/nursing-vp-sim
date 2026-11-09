@@ -2,6 +2,7 @@ import { Avatar, Box, Divider, Group, NavLink as MantineNavLink, ScrollArea, Tex
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import useAuthStore from "@/stores/authStore";
+import { usePersonaStore } from "@/stores/personaStore";
 import { getUserAvatar } from "@/utils/avatar";
 import { personaLabel } from "@/utils/personas";
 import type { NavGroupKey, NavItem } from "./navigation";
@@ -44,7 +45,11 @@ export default function SidebarNav({
 	onNavigate: () => void;
 }) {
 	const user = useAuthStore((s) => s.user);
+	const persona = usePersonaStore((s) => s.active);
 	const avatar = getUserAvatar(user?.gender);
+	// 学生：自己的训练就是日常，放最前；教工：管理/教学职责在前，"我的训练"收在最后。
+	// 这与移动端的分轨口径一致（学生轨 vs 教工轨），不是两套导航。
+	const personalFirst = !persona || persona === "student";
 
 	const blocks = useMemo(() => {
 		const grouped = new Map<NavGroupKey, NavItem[]>();
@@ -59,14 +64,15 @@ export default function SidebarNav({
 		}
 		const result: NavItem[][] = [];
 		const visibleUserLinks = userLinks.filter((item) => !item.hideInSidebar);
-		if (visibleUserLinks.length > 0) result.push(visibleUserLinks);
+		if (personalFirst && visibleUserLinks.length > 0) result.push(visibleUserLinks);
 		if (ungrouped.length > 0) result.push(ungrouped);
 		for (const group of NAV_GROUPS) {
 			const links = grouped.get(group.key);
 			if (links && links.length > 0) result.push(links);
 		}
+		if (!personalFirst && visibleUserLinks.length > 0) result.push(visibleUserLinks);
 		return result;
-	}, [userLinks, adminLinks]);
+	}, [userLinks, adminLinks, personalFirst]);
 
 	return (
 		<Box style={{ display: "flex", flexDirection: "column", height: "100%" }}>

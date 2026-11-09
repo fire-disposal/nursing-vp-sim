@@ -197,13 +197,19 @@ class ClinicalMustNotice(BaseModel):
 
 
 class ClinicalMustAct(BaseModel):
-    """必须完成的行动（``action`` 是学生要做的关键动作，非空）。"""
+    """必须完成的行动（``action`` 是学生要做的关键动作，非空）。
+
+    ``requires_findings`` 是行动的**前置证据**（引用 findings[].id）：学生没有先拿到
+    这些证据就无法完成该行动（运行时由 ``clinical_judgment.act`` 拒绝并点名缺哪几条）。
+    空数组 = 该行动无需额外证据（例如协助体位）。引用完整性与可用性由发布门禁校验。
+    """
 
     model_config = _CLINICAL_CFG
 
     id: str = Field(min_length=1, pattern=_ID_PATTERN)
     label: str = Field(min_length=1, max_length=300)
     action: str = Field(min_length=1, max_length=300)
+    requires_findings: list[str] = []
 
 
 class ClinicalMustCommunicate(BaseModel):
@@ -378,9 +384,8 @@ class CaseDataSchema(JsonbModel):
 
     #: Activity 声明：``activities.<id>.config``；结构规则见 modules/cases/validator
     activities: dict[str, Any] = {}
-    #: 该病例内容所属 workflow：训练入口按它冻结到训练记录，请求体无法选择。
-    #: 只有一条**可开始**的 workflow 时可省略（= history_taking）；登记第二条可开始的
-    #: workflow 后病例门禁要求必填。``clinical_reasoning`` 病例必须显式声明自己。
+    #: 未声明永远按最早的 history_taking 内容格式解析，保护旧病例与不可变历史 revision。
+    #: 新 workflow 必须显式声明；训练开始后冻结到 TrainingRecord，请求体无法选择。
     workflow: str = ""
     scene: dict[str, Any] = {}
     hidden_info: list[str] = []

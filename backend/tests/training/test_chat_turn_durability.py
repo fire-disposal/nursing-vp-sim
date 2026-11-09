@@ -30,6 +30,7 @@ from modules.training.pipeline.turn import (
     TURN_KIND,
     TurnClaim,
     TurnStatus,
+    complete_turn,
     finalize_pending_turn,
 )
 
@@ -574,3 +575,30 @@ class TestTurnSafetyNet:
         assert session.rows(Message) == []
         assert session.rows(TrainingAction) == []
         assert ctx.error_code == "chat.turn_claim_missing"
+
+
+def test_complete_turn_hook_sees_patient_id_before_atomic_commit():
+    """独立训练核心可在同一提交中写入引用患者消息的证据。"""
+    session = _StubSession()
+    row = TrainingAction(record_id=5, request_id="atomic-turn", kind=TURN_KIND, input={"content": "你好"}, result={})
+    session.seed(row)
+    claim = TurnClaim(
+        turn_id=row.id,
+        record_id=5,
+        request_id=row.request_id,
+        status=TurnStatus.PENDING,
+        student_message_id=123,
+    )
+    observed: list[tuple[int, int]] = []
+
+    patient = complete_turn(
+        session,
+        claim=claim,
+        patient_content="我现在很喘",
+        before_commit=lambda message: observed.append((message.id, session.commits)),
+    )
+
+    assert observed == [(patient.id, 0)]
+    assert session.commits == 1
+    assert row.result["patient_message_id"] == patient.id
+    assert row.result["status"] == TurnStatus.COMPLETED

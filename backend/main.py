@@ -355,13 +355,12 @@ from modules.cases.router import router as _cases
 from modules.feedback.router import router as _feedback
 from modules.qa import router as _qa
 from modules.questionnaires.router import router as _questionnaires
-from modules.scenario_training.router import router as _scenario
 from modules.scoreboard import router as _scoreboard
 from modules.training.router import router as _training
 from modules.training.router.chat import router as _chat
 from modules.voice.router import router as _tts
 
-_exports, _rubrics, _schools_public, _stats = get_top_level_routers()
+_exports, _rubrics, _schools_public, _stats, _settings_public = get_top_level_routers()
 for r in (
     _admin,
     _assignments,
@@ -375,10 +374,10 @@ for r in (
     _qa,
     _questionnaires,
     _rubrics,
-    _scenario,
     _schools_public,
     _scoreboard,
     _stats,
+    _settings_public,
     _telemetry,
     _training,
     _tts,

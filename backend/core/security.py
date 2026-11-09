@@ -8,11 +8,7 @@ import jwt
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from core.access import (
-    clear_access_cache,
-    granted_personas,
-    resolve_access,
-)
+from core.access import resolve_access
 from core.config import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, JWT_SECRET_KEY, REFRESH_MAX_AGE_HOURS
 from core.database import get_db
 from models import User
@@ -22,29 +18,8 @@ if TYPE_CHECKING:
 
 security = HTTPBearer()
 
-#: 请求头：当前生效视角。只能选"已授予"的视角，见 resolve_view_persona。
+#: 请求头：当前生效视角。只能选"已授予"的视角，见 ``core.access.resolve_access``。
 VIEW_PERSONA_HEADER = "X-View-Persona"
-
-
-def load_user_personas(db: Session, user: User, school_id: int | None = None) -> frozenset[str]:
-    """兼容包装：某校授予集合（唯一来源见 ``core.access``）。"""
-    return granted_personas(db, user, school_id)
-
-
-def resolve_view_persona(
-    db: Session,
-    user: User,
-    requested: str | None = None,
-    school_id: int | None = None,
-) -> tuple[str | None, frozenset[str]]:
-    """兼容包装：解析一次访问上下文，返回 (persona, permissions)。"""
-    ctx = resolve_access(db, user, str(school_id) if school_id is not None else None, requested)
-    return ctx.persona, ctx.permissions
-
-
-def clear_permission_cache(user_id: int | None = None) -> None:
-    """清授予缓存（唯一实现转交 access 模块）。"""
-    clear_access_cache(user_id)
 
 
 def _set_user_permissions(user: User, db: Session, persona: str | None = None) -> None:
@@ -56,11 +31,11 @@ def _set_user_permissions(user: User, db: Session, persona: str | None = None) -
     if getattr(user, "_permissions_cache", None) is not None:
         return
     try:
-        _active, perms = resolve_view_persona(db, user, persona)
+        context = resolve_access(db, user, None, persona)
     except HTTPException:
         user.set_permissions_cache(set())
         return
-    user.set_permissions_cache(set(perms))
+    user.set_permissions_cache(set(context.permissions))
 
 
 def hash_password(password: str) -> str:

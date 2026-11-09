@@ -4,7 +4,7 @@
 此前 ``PUT /api/admin/users/{id}`` 只守卫"不能改自己"，于是普通管理员可以把任意账号
 变成平台账号（或在同一请求里顺手重置其密码）——权限闸门被整体绕过。
 
-角色退场后"这个人是什么"不再由角色表承载：权限只来自视角授予（``user_personas``），
+角色退场后"这个人是什么"不再由角色表承载：权限只来自视角授予（``user_school_personas``），
 平台账号由 ``users.is_platform`` 标记。断言的是"权限闸门的可观测结果"
 （403 + 库中视角授予/密码/启用位不变 / 合法操作仍然成功）。
 """
@@ -14,11 +14,11 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy.orm import Session
 
+from core.access import clear_access_cache
 from core.database import Base
 from core.database import engine as pg_engine
 from core.exceptions import AuthError, NotFoundError, ValidationError
-from core.personas import permissions_for_role_name
-from core.security import clear_permission_cache
+from core.personas import persona_permissions
 from core.tenant import TenantScope, platform_scope
 from models import Class, ClassMembership, School, User, UserSchoolPersona
 from modules.admin.users import UserService
@@ -45,9 +45,9 @@ def _schema():
 
 @pytest.fixture
 def db(pg_session):
-    clear_permission_cache()
+    clear_access_cache()
     yield pg_session
-    clear_permission_cache()
+    clear_access_cache()
 
 
 def _make_user(db: Session, username: str, persona: str = "student", *, platform: bool = False) -> User:
@@ -76,7 +76,7 @@ def _make_user(db: Session, username: str, persona: str = "student", *, platform
         db.commit()
     # 模拟 get_current_user：生效视角 → 权限集合
     user.set_active_persona(persona)
-    user.set_permissions_cache(set(permissions_for_role_name(persona)))
+    user.set_permissions_cache(set(persona_permissions(persona)))
     return user
 
 

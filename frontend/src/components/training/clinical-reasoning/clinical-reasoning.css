@@ -1,0 +1,786 @@
+/**
+ * 临床判断训练 V2 —— 夜间急诊现场的样式（`nightshift.ts` 定义词汇，这里给形状）。
+ *
+ * 层级：
+ *   顶栏（刻度/计时/交卷） → 主舞台（患者说话 + 现场） → 证据链 ↔ 对话记分板 → 床旁操作坞
+ *
+ * 反模式（本次重构刻意避开）：Mantine 卡片堆叠、居中一片空白的聊天列、右侧表单栏、
+ * 装饰渐变、持续漂浮/闪烁、积分奖励动画。所有信息在静止时都可读，动画只做"刚发生"的强调。
+ *
+ * 配色：深青夜景；暖琥珀只用于新证据与关键动作；冷白文字保证对比度 ≥ 4.5:1。
+ * 亮色模式给一套等效的暖纸底（不做"深色专属"），使白天值班也不刺眼。
+ */
+
+.cr-workspace {
+	/* 夜景底 */
+	--ns-void: #0a1416;
+	--ns-stage: #0e1c1f;
+	--ns-plate: #122427;
+	--ns-plate-hi: #16302f;
+	--ns-line: rgba(150, 200, 190, 0.16);
+	--ns-line-soft: rgba(150, 200, 190, 0.09);
+	--ns-ink: #e6f0ec;
+	--ns-ink-soft: #b6cac4;
+	--ns-ink-dim: #93aba6;
+	--ns-ink-faint: #7c948f;
+	--ns-line-strong: rgba(150, 200, 190, 0.3);
+	/* 暖色只给"证据/关键" */
+	--ns-amber: #e8b25c;
+	/* 暖色用于**文字**时要更亮：琥珀在深青底上做正文对比度不足，这个变体专给文本/数字。 */
+	--ns-amber-text: #f2cd86;
+	--ns-amber-soft: rgba(232, 178, 92, 0.13);
+	--ns-amber-line: rgba(232, 178, 92, 0.45);
+	--ns-care: #7ab6b0;
+	--ns-care-soft: rgba(122, 182, 176, 0.13);
+	--ns-danger: #e0715c;
+	--ns-danger-soft: rgba(224, 113, 92, 0.12);
+
+	background: var(--ns-void);
+	color: var(--ns-ink);
+	min-height: 100dvh;
+	font-variant-numeric: tabular-nums;
+}
+
+/* 亮色（白天值班）：暖纸底 + 深墨，结构完全一致，只是明度翻转。 */
+.cr-workspace[data-scheme="light"] {
+	--ns-void: #f2efe7;
+	--ns-stage: #fbf9f3;
+	--ns-plate: #ffffff;
+	--ns-plate-hi: #f4f1e8;
+	--ns-line: rgba(40, 56, 52, 0.18);
+	--ns-line-soft: rgba(40, 56, 52, 0.09);
+	--ns-ink: #17221f;
+	--ns-ink-soft: #33463f;
+	--ns-ink-dim: #4e625d;
+	--ns-ink-faint: #6d817b;
+	--ns-line-strong: rgba(40, 56, 52, 0.34);
+	--ns-amber: #9a6414;
+	--ns-amber-text: #7d5010;
+	--ns-amber-soft: rgba(154, 100, 20, 0.1);
+	--ns-amber-line: rgba(154, 100, 20, 0.4);
+	--ns-care: #1d6b63;
+	--ns-care-soft: rgba(29, 107, 99, 0.09);
+	--ns-danger: #a83a28;
+	--ns-danger-soft: rgba(168, 58, 40, 0.09);
+}
+
+/* 舞台画面始终是夜间病区；即使外层使用暖纸主题，台词与 HUD 也保留冷白前景。 */
+.cr-stage {
+	--ns-ink: #e6f0ec;
+	--ns-ink-soft: #b6cac4;
+	--ns-ink-dim: #93aba6;
+	--ns-ink-faint: #9ab2ac;
+	--ns-line: rgba(150, 200, 190, 0.22);
+	--ns-line-strong: rgba(150, 200, 190, 0.38);
+	--ns-amber: #e8b25c;
+	--ns-amber-text: #f2cd86;
+}
+
+/* ── 通用原语 ─────────────────────────────────────────────────────── */
+
+.cr-kicker {
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--ns-ink-faint);
+}
+
+.cr-hair {
+	height: 1px;
+	background: var(--ns-line-soft);
+	border: 0;
+	margin: 0;
+}
+
+/* 焦点：键盘可见，鼠标不显示（:focus-visible 由浏览器决定） */
+.cr-workspace :is(a, button, [tabindex]):focus-visible {
+	outline: 2px solid var(--ns-amber);
+	outline-offset: 2px;
+	border-radius: 3px;
+}
+
+/* ── 主舞台（视觉小说构图）────────────────────────────────────────
+   画面（背景 + 立绘）占据主要面积；对话框覆盖在画面下部；完整历史可按需展开。
+   全部为静态图层叠加，没有任何循环动画。 */
+.cr-stage {
+	position: relative;
+	background: var(--ns-stage);
+	overflow: hidden;
+	/* 舞台在 flex 列里吸收剩余高度；对话框靠 margin-top:auto 贴底，
+	   画面图层绝对定位缩放，因此任何高度下都完整可见。 */
+	flex: 1 1 auto;
+	min-height: 220px;
+}
+
+/* 画面层：撑满舞台，背景 cover，人物站在画幅下沿 */
+.cr-stage-art {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	overflow: hidden;
+}
+
+.cr-stage-bg {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	object-position: 50% 50%;
+	filter: saturate(0.92) brightness(0.98);
+}
+
+/* 背景加载失败：不出现空白框，退回夜色底 + 一道冷光（仍是"现场"） */
+.cr-stage-bg[data-broken="true"] {
+	display: none;
+}
+
+.cr-stage-art::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background:
+		radial-gradient(120% 85% at 30% 8%, rgba(122, 182, 176, 0.16), transparent 60%),
+		linear-gradient(180deg, rgba(6, 14, 15, 0.15), rgba(6, 14, 15, 0.55));
+}
+
+/* 立绘：右下偏中，站在地面线上；高度收在 80% 左右，给监护仪与床头留出视野，
+   也避免人物顶到抬头。窄屏时居中。 */
+.cr-stage-figure {
+	position: absolute;
+	right: 4%;
+	bottom: 0;
+	height: 80%;
+	display: flex;
+	align-items: flex-end;
+	justify-content: center;
+}
+
+.cr-stage-char {
+	height: 100%;
+	width: auto;
+	max-width: none;
+	filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.45));
+}
+
+.cr-stage-ground {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: -6%;
+	height: 26%;
+	background: radial-gradient(60% 100% at 50% 0%, rgba(0, 0, 0, 0.4), transparent 70%);
+}
+
+/* 立绘加载失败的文字兜底：一个描边的人形轮廓 + 一句描述，不是空框 */
+.cr-figure-fallback {
+	position: absolute;
+	right: 12%;
+	bottom: 8%;
+	width: min(240px, 46%);
+	padding: 12px;
+	border: 1px dashed var(--ns-line);
+	border-radius: 4px;
+	background: color-mix(in srgb, var(--ns-void) 78%, transparent);
+	color: var(--ns-ink-dim);
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.cr-figure-fallback[hidden] {
+	display: none;
+}
+
+.cr-figure-fallback-mark {
+	width: 46px;
+	height: 62px;
+	border: 2px solid var(--ns-ink-faint);
+	border-radius: 40% 40% 34% 34% / 52% 52% 30% 30%;
+	position: relative;
+	opacity: 0.6;
+}
+
+.cr-figure-fallback-mark::after {
+	content: "";
+	position: absolute;
+	left: 50%;
+	top: -18px;
+	transform: translateX(-50%);
+	width: 26px;
+	height: 26px;
+	border: 2px solid var(--ns-ink-faint);
+	border-radius: 50%;
+}
+
+/* 抬头：压在画面顶部，带一条下缘暗渐变以便读数 */
+.cr-stage-hud {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	padding-top: 10px;
+	padding-bottom: 14px;
+	background: linear-gradient(180deg, rgba(5, 12, 13, 0.78), rgba(5, 12, 13, 0));
+	color: var(--ns-ink);
+	z-index: 2;
+}
+
+.cr-stage-hud-dim {
+	color: var(--ns-ink-soft);
+}
+
+/* 对话框：覆盖画面下部，最多占 46% 高度；内容过长时内部滚动 */
+.cr-dialogue-wrap {
+	position: relative;
+	margin-top: auto;
+	z-index: 3;
+	padding: 0 16px 12px;
+}
+
+.cr-dialogue {
+	padding: 14px 16px 12px;
+	background: color-mix(in srgb, #071214 86%, transparent);
+	border: 1px solid rgba(150, 200, 190, 0.22);
+	border-left: 3px solid var(--ns-care);
+	border-radius: 4px;
+	backdrop-filter: blur(2px);
+	box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
+/* 新证据与本句同源时，方框亮一下（与证据卡同一轮） */
+.cr-dialogue[data-linked="true"] {
+	border-left-color: var(--ns-amber);
+}
+
+.cr-dialogue-name {
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--ns-care);
+}
+
+.cr-dialogue[data-linked="true"] .cr-dialogue-name {
+	color: var(--ns-amber-text);
+}
+
+.cr-dialogue-toggle {
+	border: 1px solid var(--ns-line);
+	background: transparent;
+	color: var(--ns-ink-dim);
+	font-size: 11.5px;
+	padding: 2px 8px;
+	border-radius: 2px;
+	cursor: pointer;
+}
+
+.cr-dialogue-toggle:hover {
+	color: var(--ns-ink);
+	border-color: var(--ns-line-strong);
+}
+
+.cr-dialogue-text {
+	font-size: clamp(15px, 1.5vw, 18px);
+	line-height: 1.65;
+	color: var(--ns-ink);
+	white-space: pre-wrap;
+	word-break: break-word;
+	max-height: 26vh;
+	overflow-y: auto;
+}
+
+.cr-dialogue-hint {
+	margin-top: 6px;
+	font-size: 12px;
+	color: var(--ns-ink-faint);
+}
+
+/* 完整历史：对话框上方的可滚动实录（展开时） */
+.cr-history {
+	max-height: min(38vh, 320px);
+	overflow-y: auto;
+	margin-bottom: 8px;
+	padding: 10px 12px;
+	background: color-mix(in srgb, #071214 88%, transparent);
+	border: 1px solid var(--ns-line);
+	border-radius: 4px;
+}
+
+/* ── 对话记分板（不是聊天皮肤）───────────────────────────────────────
+   患者=现场实录：左侧脊线 + 大字号；学生=记录行：小字号、缩进、灰描边。
+   "轮到谁"只靠文字标签与脊线颜色表达，不靠气泡左右对齐的卡通感。 */
+.cr-ledger {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.cr-turn {
+	position: relative;
+	padding: 2px 0 2px 12px;
+	border-left: 2px solid var(--ns-line);
+}
+
+.cr-turn[data-role="patient"] {
+	border-left-color: var(--ns-care);
+}
+
+.cr-turn[data-role="student"] {
+	border-left-color: var(--ns-line-soft);
+	margin-left: 22px;
+}
+
+.cr-turn-who {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	margin-bottom: 3px;
+}
+
+.cr-turn-name {
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--ns-ink-faint);
+}
+
+.cr-turn-text {
+	font-size: 15px;
+	line-height: 1.65;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.cr-turn[data-role="patient"] .cr-turn-text {
+	font-size: 16.5px;
+	line-height: 1.6;
+	color: var(--ns-ink);
+}
+
+.cr-turn[data-role="student"] .cr-turn-text {
+	color: var(--ns-ink-dim);
+}
+
+.cr-turn[data-sending="true"] .cr-turn-text {
+	opacity: 0.62;
+}
+
+/* 「联结」：新证据 ← 产出它的那句话。等时长的左缘强调（2.4s），无位移。 */
+.cr-turn[data-linked="true"] {
+	animation: cr-turn-link 2.4s ease-out 1 both;
+}
+
+@keyframes cr-turn-link {
+	0%,
+	100% {
+		box-shadow: inset 3px 0 0 transparent;
+	}
+	14%,
+	60% {
+		box-shadow: inset 3px 0 0 var(--ns-amber);
+	}
+}
+
+/* ── 证据链 ─────────────────────────────────────────────────────────
+   已确认 = 实心脊线卡（可点，右侧留出定位到对话的把手）；待求证 = 虚线空位（不可点，
+   不透露内容）。两者共用同一网格，形成"链条在长"的直观结构。 */
+.cr-chain {
+	display: grid;
+	gap: 6px;
+}
+
+.cr-chip {
+	position: relative;
+	display: grid;
+	grid-template-columns: 3px 1fr auto;
+	gap: 0 10px;
+	align-items: start;
+	padding: 9px 10px 9px 0;
+	background: var(--ns-plate);
+	border: 1px solid var(--ns-line-soft);
+	border-radius: 3px;
+	text-align: left;
+	width: 100%;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+	transition: border-color 140ms ease, background 140ms ease;
+}
+
+.cr-chip:hover {
+	border-color: var(--ns-line);
+	background: var(--ns-plate-hi);
+}
+
+.cr-chip-rail {
+	grid-row: 1 / span 2;
+	align-self: stretch;
+	background: var(--accent, var(--ns-line));
+	border-radius: 2px 0 0 2px;
+	opacity: 0.9;
+}
+
+.cr-chip-kind {
+	font-size: 10.5px;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	/* 途径名不直接用途径色：部分途径色在深底上做 10.5px 正文对比度不足。
+	   途径由左脊线 + 图标色承担，文字保持可读的中性色。 */
+	color: var(--ns-ink-dim);
+	font-weight: 700;
+}
+
+.cr-chip-label {
+	font-size: 14px;
+	line-height: 1.45;
+	font-weight: 550;
+}
+
+.cr-chip-note {
+	grid-column: 2;
+	font-size: 12.5px;
+	line-height: 1.5;
+	color: var(--ns-ink-dim);
+	margin-top: 2px;
+}
+
+.cr-chip-side {
+	grid-row: 1 / span 2;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 4px;
+	min-width: 0;
+}
+
+/* 新证据「浮现」：一次性入场 + 脊线亮起 + "新"印记。 */
+.cr-chip[data-fresh="true"] {
+	border-color: var(--ns-amber-line);
+	background: linear-gradient(180deg, var(--ns-amber-soft), var(--ns-plate) 72%);
+	animation: cr-chip-rise 340ms cubic-bezier(0.2, 0.7, 0.2, 1) 1 both;
+}
+
+.cr-chip[data-fresh="true"] .cr-chip-rail {
+	background: var(--ns-amber);
+	animation: cr-rail-settle 1.6s ease-out 1 both;
+}
+
+.cr-fresh-mark {
+	font-size: 10px;
+	font-weight: 800;
+	letter-spacing: 0.1em;
+	color: var(--ns-amber-text);
+	border: 1px solid var(--ns-amber-line);
+	border-radius: 2px;
+	padding: 0 4px;
+	white-space: nowrap;
+}
+
+@keyframes cr-chip-rise {
+	from {
+		opacity: 0;
+		transform: translateY(5px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+@keyframes cr-rail-settle {
+	from {
+		box-shadow: 0 0 0 0 var(--ns-amber-soft);
+	}
+	50% {
+		box-shadow: 0 0 0 4px var(--ns-amber-soft);
+	}
+	to {
+		box-shadow: 0 0 0 0 transparent;
+	}
+}
+
+/* 待求证：虚线空位。不透露数量以外的事实，也永远不可点。 */
+.cr-pending {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 10px;
+	border: 1px dashed var(--ns-line);
+	border-radius: 3px;
+	color: var(--ns-ink-faint);
+	font-size: 12.5px;
+}
+
+.cr-pending-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	border: 1px dashed var(--ns-ink-faint);
+	flex-shrink: 0;
+}
+
+/* ── 床旁操作坞（动作带）────────────────────────────────────────────
+   查体/行动/沟通收在一处，按"你现在能做的"排列：虚线位 = 还没获取，实线位 = 可执行。
+   完成状态用左侧实心对勾 + 文字，不靠颜色单独承担。 */
+.cr-dock {
+	background: var(--ns-plate);
+	border-top: 1px solid var(--ns-line);
+}
+
+.cr-bay {
+	display: grid;
+	grid-template-columns: 18px 1fr auto;
+	gap: 8px;
+	align-items: start;
+	padding: 8px 10px;
+	border: 1px solid var(--ns-line-soft);
+	border-radius: 3px;
+	background: var(--ns-stage);
+}
+
+.cr-bay[data-state="available"] {
+	border-style: dashed;
+}
+
+.cr-bay[data-state="done"] {
+	border-color: var(--ns-line-soft);
+	background: transparent;
+	opacity: 0.78;
+}
+
+/* 前置证据未齐：与"已完成"区分开 —— 虚线边框（还在等）+ 静止的琥珀左缘（待办而非成绩）。
+   不用 opacity 压暗：压暗会让文字降级成"不可读"，而这里恰恰要读"还缺什么"。 */
+.cr-bay[data-state="locked"] {
+	border-style: dashed;
+	border-color: var(--ns-amber-line);
+	box-shadow: inset 2px 0 0 var(--ns-amber-soft);
+}
+
+.cr-bay-title {
+	font-size: 13.5px;
+	line-height: 1.4;
+	font-weight: 550;
+}
+
+.cr-bay-hint {
+	font-size: 12px;
+	line-height: 1.45;
+	color: var(--ns-ink-dim);
+}
+
+.cr-bay-mark {
+	width: 16px;
+	height: 16px;
+	display: grid;
+	place-items: center;
+	color: var(--ns-ink-faint);
+}
+
+.cr-bay[data-state="done"] .cr-bay-mark {
+	color: var(--ns-care);
+}
+
+/* 未齐证据的行动：图标与"还需证据"说明都用琥珀 —— 待办色，不是"已完成"的青绿。 */
+.cr-bay[data-state="locked"] .cr-bay-mark {
+	color: var(--ns-amber);
+}
+
+.cr-bay-hint[data-tone="locked"] {
+	color: var(--ns-amber-text);
+}
+
+/* 刚刚完成：一次左缘确认（1.8s），之后回到静息。 */
+.cr-bay[data-just-completed="true"] {
+	animation: cr-bay-complete 1.8s ease-out 1 both;
+}
+
+@keyframes cr-bay-complete {
+	0% {
+		box-shadow: inset 3px 0 0 var(--ns-amber);
+	}
+	100% {
+		box-shadow: inset 3px 0 0 transparent;
+	}
+}
+
+/* 沟通目标：横排条目，方框 = 已传达，空心 = 待传达。 */
+.cr-cue {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	font-size: 13px;
+	line-height: 1.5;
+	color: var(--ns-ink-dim);
+}
+
+.cr-cue[data-done="true"] {
+	color: var(--ns-ink);
+}
+
+.cr-cue-box {
+	width: 13px;
+	height: 13px;
+	margin-top: 3px;
+	flex-shrink: 0;
+	border: 1px solid var(--ns-ink-faint);
+	border-radius: 2px;
+	display: grid;
+	place-items: center;
+}
+
+.cr-cue[data-done="true"] .cr-cue-box {
+	background: var(--ns-care);
+	border-color: var(--ns-care);
+	color: var(--ns-void);
+}
+
+/* ── 刻度 ──────────────────────────────────────────────────────────
+   唯一进度：关键线索 N/M。细线 + 段点（每段 = 一条线索），比百分比条更能读"还差几条"。 */
+.cr-gauge {
+	display: flex;
+	gap: 3px;
+	align-items: center;
+}
+
+.cr-gauge-seg {
+	width: 14px;
+	height: 3px;
+	border-radius: 1px;
+	background: var(--ns-line);
+}
+
+.cr-gauge-seg[data-on="true"] {
+	background: var(--ns-amber);
+}
+
+/* ── 输入带 ────────────────────────────────────────────────────────
+   与对话同处一屏，紧贴记分板底部；回车发送，Shift+Enter 换行。 */
+.cr-compose {
+	background: var(--ns-plate);
+	border-top: 1px solid var(--ns-line);
+}
+
+.cr-compose textarea,
+.cr-compose input {
+	background: var(--ns-stage);
+	color: var(--ns-ink);
+	border-color: var(--ns-line);
+}
+
+.cr-compose textarea::placeholder {
+	color: var(--ns-ink-faint);
+}
+
+/* ── 状态/错误条：贴着发生的位置，不弹浮层 ───────────────────────── */
+.cr-notice {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	padding: 8px 12px;
+	border-left: 3px solid var(--ns-amber);
+	background: var(--ns-amber-soft);
+	font-size: 12.5px;
+	line-height: 1.5;
+}
+
+.cr-notice[data-tone="danger"] {
+	border-left-color: var(--ns-danger);
+	background: var(--ns-danger-soft);
+}
+
+/* ── 滚动条：夜间细条，不抢注意力 ────────────────────────────────── */
+.cr-workspace * {
+	scrollbar-width: thin;
+	scrollbar-color: var(--ns-line) transparent;
+}
+
+.cr-scroll {
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+/* ── 加载指示：旋转只表达"正在进行"，不是装饰。 ─────────────────── */
+.cr-spin {
+	animation: cr-spin 900ms linear infinite;
+}
+
+@keyframes cr-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+/* ── 可访问性：减弱动态时关闭全部动画，信息改由静态标记承担 ───────── */
+@media (prefers-reduced-motion: reduce) {
+	.cr-workspace,
+	.cr-workspace *,
+	.cr-workspace *::before,
+	.cr-workspace *::after {
+		animation: none;
+		transition: none;
+	}
+
+	.cr-chip[data-fresh="true"] {
+		border-color: var(--ns-amber-line);
+	}
+}
+
+/* ── 舞台比例：移动端 / 矮视口 ───────────────────────────────────────
+   手机上立绘不能被裁成半截，也不能挤掉对话框与输入：
+   - 立绘改成居中偏右、高度略降，脚部始终在画幅内；
+   - 对话框文本行高收紧、最大高度降低，保证输入带仍在首屏可达。 */
+@media (max-width: 1199px) {
+	.cr-stage-figure {
+		right: 2%;
+		height: 78%;
+	}
+	.cr-stage-char {
+		max-height: 100%;
+	}
+	.cr-dialogue-wrap {
+		padding: 0 10px 10px;
+	}
+	.cr-dialogue {
+		padding: 10px 12px 9px;
+	}
+	.cr-dialogue-text {
+		max-height: 22vh;
+	}
+	.cr-history {
+		max-height: 30vh;
+	}
+}
+
+@media (max-width: 639px) {
+	.cr-controlbar {
+		padding-inline: 8px;
+	}
+	.cr-controlbar-meta,
+	.cr-controlbar .cr-gauge {
+		display: none;
+	}
+	.cr-stage-figure {
+		right: 50%;
+		transform: translateX(50%);
+		height: 76%;
+	}
+	.cr-stage-bg {
+		object-position: 48% 52%;
+	}
+	.cr-dialogue-text {
+		font-size: 15px;
+		max-height: 20vh;
+	}
+}
+
+@media (max-height: 500px) {
+	.cr-stage-figure {
+		height: 72%;
+	}
+	.cr-dialogue-text {
+		max-height: 30vh;
+	}
+}

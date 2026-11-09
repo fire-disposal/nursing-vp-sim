@@ -1,6 +1,6 @@
 """视角（persona）= 权限预设的判据。
 
-视角是**代码拥有**的权限包，`user_personas` 只记"谁被授予了哪些"。这块的失败模式
+视角是**代码拥有**的权限包，`user_school_personas` 只记"谁被授予了哪些"。这块的失败模式
 不是崩溃而是**静默放宽**（预设多写一个键 = 整档人越权）与**静默失权**（迁移前的老用户
 因为新表为空而变什么都干不了），所以：
 
@@ -24,6 +24,7 @@ from fastapi import HTTPException
 
 os.environ["JWT_SECRET_KEY"] = "test-secret-key-for-testing-only"
 
+from core.access import clear_access_cache, granted_personas, resolve_access
 from core.audit import ACTION_USER_PERSONAS_UPDATED, ACTION_USER_UPDATED, TARGET_TYPE_USER, record
 from core.database import Base
 from core.database import engine as pg_engine
@@ -35,18 +36,14 @@ from core.personas import (
     grants_all_personas,
     persona_permissions,
 )
-from core.security import clear_permission_cache, load_user_personas, resolve_view_persona
 from models import AuditLog, School, User, UserSchoolPersona
 
 # ── 预设快照 ────────────────────────────────────────────────────────────────
 
-_STUDENT = {"training_access", "scenario_training", "qa_access"}
+_STUDENT = {"training_access", "qa_access"}
 _TEACHER = {
     "grade_class_manage",
     "case_manage",
-    "training_access",
-    "scenario_training",
-    "qa_access",
     "score_review",
     "stats_view",
     "assignment_manage",
@@ -59,11 +56,8 @@ _ADMIN = {
     "role_manage",
     "grade_class_manage",
     "case_manage",
-    "training_access",
-    "scenario_training",
     "score_review",
     "stats_view",
-    "qa_access",
     "llm_monitor",
     "assignment_manage",
     "feedback_review",
@@ -138,7 +132,7 @@ def test_default_persona_is_none_for_school_account():
     assert default_persona_for(_stub_user(platform=False)) is None
 
 
-# ── 视角解析（真实 PG：`user_personas` 的行决定能选什么）───────────────────────
+# ── 视角解析（真实 PG：`user_school_personas` 的行决定能选什么）───────────────────────
 
 _TABLES = [School.__table__, User.__table__, UserSchoolPersona.__table__, AuditLog.__table__]
 
@@ -168,7 +162,7 @@ def _user(db, *, platform: bool = False) -> User:
     )
     db.add(user)
     db.flush()
-    clear_permission_cache()
+    clear_access_cache()
     return user
 
 
@@ -178,22 +172,28 @@ def _grant(db, user: User, *personas: str) -> None:
     for persona in personas:
         db.add(UserSchoolPersona(user_id=user.id, school_id=user.school_id, persona=persona))
     db.flush()
-    clear_permission_cache()
+    clear_access_cache()
+
+
+def _access(db, user: User, persona: str | None) -> tuple[str | None, frozenset[str]]:
+    """解析一次访问上下文（无选校）→ ``(persona, permissions)``。"""
+    ctx = resolve_access(db, user, None, persona)
+    return ctx.persona, ctx.permissions
 
 
 @pytest.fixture(autouse=True)
 def _fresh_permission_cache():
     """进程级缓存在用例之间会串味（savepoint 回滚不清缓存）→ 前后各清一次。"""
-    clear_permission_cache()
+    clear_access_cache()
     yield
-    clear_permission_cache()
+    clear_access_cache()
 
 
 def test_no_header_uses_a_granted_persona(pg_session):
     user = _user(pg_session)
     _grant(pg_session, user, "ops", "teacher")
 
-    persona, perms = resolve_view_persona(pg_session, user, None)
+    persona, perms = _access(pg_session, user, None)
 
     # 无默认视角的院校账号：取已授予集合里排序最前的一个（确定性）
     assert persona == "ops"
@@ -204,12 +204,12 @@ def test_granted_header_persona_takes_effect(pg_session):
     user = _user(pg_session)
     _grant(pg_session, user, "teacher", "admin")
 
-    persona, perms = resolve_view_persona(pg_session, user, "admin")
+    persona, perms = _access(pg_session, user, "admin")
 
     assert persona == "admin"
     assert perms == frozenset(_ADMIN)
     # 换回教师视角 = 权限回收（生效权限只看当前视角，不取并集）
-    persona, perms = resolve_view_persona(pg_session, user, "teacher")
+    persona, perms = _access(pg_session, user, "teacher")
     assert persona == "teacher"
     assert "user_manage" not in perms
 
@@ -219,26 +219,26 @@ def test_ungranted_persona_is_rejected_with_contract_detail(pg_session):
     _grant(pg_session, user, "student")
 
     with pytest.raises(HTTPException) as exc:
-        resolve_view_persona(pg_session, user, "admin")
+        _access(pg_session, user, "admin")
 
     assert exc.value.status_code == 403
     assert exc.value.detail == "视角不可用"
 
 
 def test_platform_account_grants_all_personas_without_rows(pg_session):
-    """平台账号派生：`user_personas` 没有任何行也能选任意视角。"""
+    """平台账号派生：`user_school_personas` 没有任何行也能选任意视角。"""
     user = _user(pg_session, platform=True)
 
     assert pg_session.query(UserSchoolPersona).filter(UserSchoolPersona.user_id == user.id).count() == 0
-    assert load_user_personas(pg_session, user) == frozenset(PERSONA_KEYS)
+    assert granted_personas(pg_session, user) == frozenset(PERSONA_KEYS)
 
     # 非 platform 视角必须有选校；平台账号不再默认拿到“所有学校”的教师/运维面
     with pytest.raises(HTTPException) as exc:
-        resolve_view_persona(pg_session, user, "ops")
+        _access(pg_session, user, "ops")
     assert exc.value.status_code == 403
 
     # 无 header → 默认平台视角（跨院校的平台级功能）
-    persona, perms = resolve_view_persona(pg_session, user, None)
+    persona, perms = _access(pg_session, user, None)
     assert persona == "platform"
     assert perms == frozenset(_PLATFORM)
 
@@ -247,12 +247,12 @@ def test_user_without_grants_can_login_but_has_no_permissions(pg_session):
     """没有授予任何视角：允许解析（/auth/me 要能用），但权限为空、不能借用预设。"""
     user = _user(pg_session)
 
-    persona, perms = resolve_view_persona(pg_session, user, None)
+    persona, perms = _access(pg_session, user, None)
 
     assert persona is None, "没有任何视角可生效 → 不臆造一个身份"
     assert perms == frozenset()
     with pytest.raises(HTTPException) as exc:
-        resolve_view_persona(pg_session, user, "admin")
+        _access(pg_session, user, "admin")
     assert exc.value.status_code == 403
 
 
@@ -262,7 +262,7 @@ def test_grant_snapshot_do_not_leak_between_users(pg_session):
     _grant(pg_session, other, *PERSONA_KEYS)
 
     user = _user(pg_session)
-    _persona, perms = resolve_view_persona(pg_session, user, None)
+    _persona, perms = _access(pg_session, user, None)
 
     assert perms == frozenset()
 
@@ -270,11 +270,11 @@ def test_grant_snapshot_do_not_leak_between_users(pg_session):
 def test_granted_persona_is_selectable(pg_session):
     """授权了就必须能选：被授予 `ops` 后，带 header 选 `ops` 生效。"""
     user = _user(pg_session)
-    assert resolve_view_persona(pg_session, user, None) == (None, frozenset())
+    assert _access(pg_session, user, None) == (None, frozenset())
 
     _grant(pg_session, user, "ops")
 
-    persona, perms = resolve_view_persona(pg_session, user, "ops")
+    persona, perms = _access(pg_session, user, "ops")
     assert persona == "ops"
     assert perms == frozenset(_OPS)
     assert "case_manage" not in perms
@@ -285,7 +285,7 @@ def test_default_persona_must_be_within_granted_set(pg_session):
     user = _user(pg_session)
     _grant(pg_session, user, "student", "ops")
 
-    persona, perms = resolve_view_persona(pg_session, user, None)
+    persona, perms = _access(pg_session, user, None)
 
     assert persona in {"ops", "student"}
     assert perms == frozenset(_OPS if persona == "ops" else _STUDENT)
@@ -363,7 +363,7 @@ def test_multi_school_grants_are_school_scoped(pg_session):
     pg_session.add(UserSchoolPersona(user_id=user.id, school_id=school_a.id, persona="admin"))
     pg_session.add(UserSchoolPersona(user_id=user.id, school_id=school_b.id, persona="teacher"))
     pg_session.flush()
-    clear_permission_cache()
+    clear_access_cache()
 
     assert accessible_school_ids(pg_session, user) == frozenset({school_a.id, school_b.id})
     ctx_b = resolve_access(pg_session, user, str(school_b.id), "teacher")
@@ -376,6 +376,35 @@ def test_multi_school_grants_are_school_scoped(pg_session):
     user.set_active_persona("teacher")
     user.set_permissions_cache(set(ctx_b.permissions))
     assert resolve_scope(pg_session, user).school_id == school_b.id
+
+
+def test_default_school_falls_back_to_a_school_with_grants(pg_session):
+    """家院校授予被收回、只剩附加院校时，登录默认落到附加院校而不是空权限家院校。"""
+    from core.access import resolve_access
+    from models import School, UserSchoolPersona
+
+    school_home = School(name=f"家-{uuid.uuid4().hex[:6]}")
+    school_other = School(name=f"附加-{uuid.uuid4().hex[:6]}")
+    pg_session.add_all([school_home, school_other])
+    pg_session.flush()
+    user = User(
+        username=f"fallback-{uuid.uuid4().hex[:8]}",
+        password_hash="x",
+        display_name="多校账号",
+        school_id=school_home.id,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    pg_session.add(user)
+    pg_session.flush()
+    pg_session.add(UserSchoolPersona(user_id=user.id, school_id=school_other.id, persona="teacher"))
+    pg_session.flush()
+    clear_access_cache()
+
+    ctx = resolve_access(pg_session, user, None, None)
+
+    assert (ctx.school_id, ctx.persona) == (school_other.id, "teacher")
+    assert ctx.permissions == frozenset(_TEACHER)
 
 
 def test_platform_non_platform_persona_requires_selected_school(pg_session):

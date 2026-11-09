@@ -144,7 +144,7 @@ def export_response(
     - `audit` 非空时记录一行 `export.downloaded`（含行数/格式/筛选），且只在**判定通过之后**记
       —— 被 400 拒掉的超限导出不该留下"已导出"的记录。
     """
-    from core.audit import ACTION_EXPORT_DOWNLOADED, TARGET_TYPE_EXPORT, record_detached
+    from core.audit import ACTION_EXPORT_DOWNLOADED, AUDIT_OUTCOME_SUCCESS, TARGET_TYPE_EXPORT, record_detached
     from core.config import MAX_EXPORT_ROWS
 
     if len(items) > MAX_EXPORT_ROWS:
@@ -155,6 +155,7 @@ def export_response(
             action=ACTION_EXPORT_DOWNLOADED,
             target_type=TARGET_TYPE_EXPORT,
             target_label=audit.target_label,
+            outcome=AUDIT_OUTCOME_SUCCESS,
             payload={"rows": len(items), "format": format, "filters": audit.filters or {}},
         )
     ext = format

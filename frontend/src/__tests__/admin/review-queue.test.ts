@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nextPendingId } from "@/pages/admin/review-queue";
+import { nextPendingId } from "@/pages/teaching/review-queue";
 
 const pending = (id: number) => ({ id, score_reviewed: false });
 const reviewed = (id: number) => ({ id, score_reviewed: true });

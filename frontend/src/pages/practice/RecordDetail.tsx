@@ -1,0 +1,344 @@
+import { useQuery } from "@tanstack/react-query";
+import { Alert, Box, Button, Container, Grid, Stack, Text } from "@mantine/core";
+import { IconAlertTriangle, IconInfoCircle } from "@tabler/icons-react";
+import { type ReactNode, useEffect, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { getRecordDetail } from "@/api";
+import { queryKeys } from "@/api/query-keys";
+import { type PracticeKind, startPractice } from "@/api/training";
+import { QuestionnaireModal } from "@/components/QuestionnaireModal";
+import { useToast } from "@/components/Toast";
+import { useConfirm } from "@/components/ui/confirm";
+import LoadingSkeleton from "@/components/ui/loading-skeleton";
+import PageHeader from "@/components/ui/page-header";
+import { WIDTH } from "@/config/layout-scale";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useScoringRetry } from "@/hooks/useScoringRetry";
+import { useQuestionnaire } from "@/hooks/useQuestionnaire";
+import type { SessionDetailFields } from "@/engine/training-record-types";
+import { getExistingTrainingRecordId } from "@/utils/error";
+import { downloadRecordDetail } from "@/utils/export-record";
+import { getScoreDenominator, toScoreData } from "@/utils/score";
+import { goTraining } from "@/utils/training-nav";
+import type { MessageData } from "@/components/record-detail/MessagePlayback";
+import MessagePlayback from "@/components/record-detail/MessagePlayback";
+import PracticeSection from "@/components/record-detail/PracticeSection";
+import RecordStatsBar from "@/components/record-detail/RecordStatsBar";
+import ReviewFocusSection from "@/components/record-detail/ReviewFocusSection";
+import ScoreResultSection from "@/components/record-detail/ScoreResultSection";
+import { toPracticeMarker, toPracticeOptions, toReviewFocus } from "@/components/record-detail/record-view";
+import { EmotionTrajectory } from "@/components/record-detail/EmotionTrajectory";
+import NursingRecordSection from "@/components/record-detail/NursingRecordSection";
+import ScoreStatusBanner from "@/components/record-detail/ScoreStatusBanner";
+
+/** 评分未出终态时的自动轮询间隔（GET 记录详情，无自造进度） */
+const PENDING_POLL_INTERVAL_MS = 3000;
+
+/**
+ * 问卷非正常状态的常驻提示：可见 + 可重试。
+ * 两种文案语义不同（题目拿不到 / 状态查不到），但动作都是重新 check。
+ */
+function QuestionnaireIssueAlert({
+	color,
+	title,
+	icon,
+	retrying,
+	onRetry,
+	children,
+}: {
+	color: "red" | "yellow";
+	title: string;
+	icon: ReactNode;
+	retrying: boolean;
+	onRetry: () => void;
+	children: ReactNode;
+}) {
+	return (
+		<Alert mt="md" variant="light" color={color} icon={icon} title={title}>
+			<Stack gap="sm" align="flex-start">
+				<Text size="sm">{children}</Text>
+				<Button size="xs" variant="light" color={color} loading={retrying} onClick={onRetry}>
+					重试
+				</Button>
+			</Stack>
+		</Alert>
+	);
+}
+
+export default function RecordDetail() {
+	const { id } = useParams<{ id: string }>();
+	const navigate = useNavigate();
+	const location = useLocation();
+	// 进入训练页记来源页（本页 URL），训练壳出口据此回跳；再练习/冲突续练都走同一条口
+	const trainingFrom = location.pathname + location.search;
+	const toast = useToast();
+	const { confirm } = useConfirm();
+	const { retrying, refreshing, refresh, retry } = useScoringRetry(id);
+	const [startingPractice, setStartingPractice] = useState<PracticeKind | null>(null);
+	// 展开态初值按断点决定：与 recordSplit 语义一致（桌面默认展开，窄屏默认折叠）
+	const isDesktopRecord = useMediaQuery(`(min-width: ${WIDTH.recordSplit}px)`);
+	const [expanded, setExpanded] = useState<Record<string, boolean>>({
+		strengths: isDesktopRecord,
+		weaknesses: isDesktopRecord,
+		missed_content: isDesktopRecord,
+		suggestions: isDesktopRecord,
+	});
+	// 证据 → 对话气泡联动（工作台核心）：只按服务端解析出的 message id 定位
+	const [highlightMsgId, setHighlightMsgId] = useState<number | null>(null);
+
+	const { data: record, isError: recordError } = useQuery({
+		queryKey: queryKeys.training.detail(id),
+		queryFn: () => getRecordDetail(id!).then((r) => r.data),
+		enabled: !!id,
+		// 评分 pending/processing 期间自动轮询到终态：等待只有一个数据源（真实 GET），
+		// 页面不显示任何自造百分比；到达终态（completed/failed/其它）即停止轮询。
+		refetchInterval: (query) => {
+			const status = query.state.data?.scoring_status;
+			return status === "pending" || status === "processing" ? PENDING_POLL_INTERVAL_MS : false;
+		},
+	});
+
+	useEffect(() => {
+		if (recordError) {
+			toast.apiError(recordError, "加载失败");
+			// 与本页固定 backTo="/history" 同一语义：记录不存在/无权时回记录列表，
+			// 用 replace 而非 -1，避免返回键落回已失效的详情页反复报错。
+			navigate("/history", { replace: true });
+		}
+	}, [recordError, navigate, toast]);
+
+	const {
+		checkResponse: postCheckResponse,
+		status: postQStatus,
+		isLoading: postQLoading,
+		check: postQCheck,
+		submit: postQSubmit,
+		dismiss: postQDismiss,
+	} = useQuestionnaire({
+		caseId: record?.case_id ?? null,
+		recordId: id ? Number(id) : null,
+		trigger: "after_scoring",
+	});
+
+	useEffect(() => {
+		if (record?.scoring_status === "completed") {
+			void postQCheck();
+		}
+	}, [postQCheck, record?.scoring_status]);
+
+	if (!record) return <LoadingSkeleton />;
+
+	const duration = (record as { end_time?: string | null; start_time?: string }).end_time
+		? Math.round(
+				(new Date((record as { end_time: string }).end_time).getTime() -
+					new Date((record as { start_time: string }).start_time).getTime()) /
+					60000,
+			)
+		: null;
+	const recordScore = toScoreData(record.score);
+	const hasScore = !!recordScore;
+	const scoreMax = getScoreDenominator(recordScore);
+	const detailScores = recordScore?.detail_scores ?? {};
+	const categories = Object.entries(detailScores);
+	const hasDetailItems = categories.some(
+		([, v]) => !!v && Array.isArray(v.items) && v.items.length > 0,
+	);
+	// 逐项判定用原始层（0..raw_scale）；展示层只负责维度分母与进度条
+	const rawCategories = Object.entries(recordScore?.raw_detail_scores ?? {});
+	// 教师复核必须真的到达学生页：状态/复核人/时间/备注/分数全部来自 score 本身
+	const isReviewed = recordScore?.review_status === "reviewed";
+	const review = recordScore
+		? {
+				review_status: recordScore.review_status ?? null,
+				reviewed_by_name: recordScore.reviewed_by_name ?? null,
+				reviewed_at: recordScore.reviewed_at ?? null,
+				review_comment: recordScore.review_comment ?? null,
+			}
+		: null;
+	const practiceMarker = toPracticeMarker(record.practice);
+	const practiceOptions = toPracticeOptions(record.practice_options);
+	const reviewFocus = toReviewFocus(record.review_focus);
+	const reviewFocusNote =
+		typeof record.review_focus_note === "string" ? record.review_focus_note : "";
+
+	const messages = (record.messages as MessageData[] | undefined) ?? [];
+	// 生成类型尚未重生成（本次新增 nursing_record_submitted_at、terminal_reason）：
+	// 按会话字段视图读取，待 main 重生成后此处可退回直读。
+	const detail = record as typeof record & SessionDetailFields;
+	const sheet = detail.nursing_record_sheet as Record<string, string> | null | undefined;
+	const nursingSubmittedAt = detail.nursing_record_submitted_at ?? null;
+	const terminalReason = detail.terminal_reason ?? null;
+	// 系统终止 vs 学生主动完成：来源不同，复盘时的解读完全不同
+	const terminalNotice =
+		terminalReason === "timeout"
+			? "本次训练因超出时限由系统自动结束"
+			: terminalReason === "patient_walkout"
+				? "本次训练因患者主动中止访谈而结束"
+				: null;
+
+	const handleToggleExpand = (key: string) => {
+		setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+	};
+
+	const handleExport = async () => {
+		try {
+			await downloadRecordDetail(id!);
+		} catch {
+			toast.error("导出失败");
+		}
+	};
+
+	/** 证据定位：服务端已给出 message id，直接按 id 高亮（不再用原文子串去猜） */
+	const handleMessageClick = (messageId: number | string) => {
+		const target = messages.find((m) => String(m.id) === String(messageId));
+		setHighlightMsgId(target ? target.id : null);
+	};
+
+	/** 「重新评分」= POST retry-scoring（会覆盖本次结果），必须先确认 */
+	const handleRetryScoring = async () => {
+		const ok = await confirm({
+			title: "重新评分",
+			message: "重新评分会重新运行 AI 评分并覆盖当前结果，确定继续？",
+			confirmLabel: "重新评分",
+		});
+		if (!ok) return;
+		await retry();
+	};
+
+	const handleStartPractice = async (kind: PracticeKind) => {
+		if (!id) return;
+		setStartingPractice(kind);
+		try {
+			const { data } = await startPractice(id, kind);
+			goTraining(navigate, data.record_id, trainingFrom);
+		} catch (err: unknown) {
+			// 已有进行中训练时服务端回 409 + record_id：直接带去继续，不制造第二个入口
+			const conflictId = getExistingTrainingRecordId(err);
+			if (conflictId != null) {
+				goTraining(navigate, conflictId, trainingFrom);
+				return;
+			}
+			toast.apiError(err, "发起再练习失败");
+		} finally {
+			setStartingPractice(null);
+		}
+	};
+
+	return (
+		<>
+			<Container size="xl" py="md">
+			<PageHeader
+				title={[record.user_display_name, record.case_name].filter(Boolean).join(" · ")}
+				backTo="/history"
+			/>
+
+			<RecordStatsBar
+				record={record as { status?: string; start_time?: string; end_time?: string | null; time_limit?: number; messages?: unknown[]; user_display_name?: string; case_name?: string }}
+				duration={duration}
+				hasScore={hasScore}
+				recordScore={recordScore}
+				scoreMax={scoreMax}
+			/>
+
+			<ScoreStatusBanner
+				record={record as { status?: string; scoring_status?: string | null; scoring_error?: string | null }}
+				retrying={retrying}
+				refreshing={refreshing}
+				onRefresh={() => void refresh()}
+				onRetry={() => void handleRetryScoring()}
+			/>
+
+			{/*
+			 * 训练后问卷（研究主结局）的失败必须可见：模板拿不到时旧行为是静默消失，
+			 * 研究上会被误判成「学生跳过了问卷」。无待答（status = none）时这里什么都不渲染。
+			 */}
+			{postQStatus === "template_unavailable" && (
+				<QuestionnaireIssueAlert
+					color="red"
+					title="问卷加载失败"
+					icon={<IconAlertTriangle size={18} />}
+					retrying={postQLoading}
+					onRetry={() => void postQCheck()}
+				>
+					本次训练有需要你填写的问卷，但问卷题目没有加载成功，你的作答尚未被记录。
+					请重试；若持续失败请联系教师，不要当作已完成。
+				</QuestionnaireIssueAlert>
+			)}
+
+			{postQStatus === "check_failed" && (
+				<QuestionnaireIssueAlert
+					color="yellow"
+					title="问卷状态获取失败"
+					icon={<IconInfoCircle size={18} />}
+					retrying={postQLoading}
+					onRetry={() => void postQCheck()}
+				>
+					暂时无法确认本次训练是否需要填写问卷，这不影响你查看下面的成绩。
+				</QuestionnaireIssueAlert>
+			)}
+
+			{/* 复盘工作台：左对话回放（证据可定位）｜右评分明细/关键选择/再练习 */}
+			<Grid mt="md" align="stretch">
+				<Grid.Col span={{ base: 12, lg: 7 }} order={{ base: 2, lg: 1 }}>
+					<Box h="100%" style={{ maxHeight: "calc(100vh - 220px)" }}>
+						<MessagePlayback messages={messages} highlightId={highlightMsgId} />
+					</Box>
+				</Grid.Col>
+				<Grid.Col span={{ base: 12, lg: 5 }} order={{ base: 1, lg: 2 }}>
+					<Stack gap="md">
+						<ReviewFocusSection
+							focus={reviewFocus}
+							note={reviewFocusNote}
+							onMessageClick={handleMessageClick}
+						/>
+						{recordScore && (
+							<ScoreResultSection
+								recordScore={recordScore}
+								isReviewed={isReviewed}
+								review={review}
+								scoreReview={recordScore.review ?? null}
+								isTeacher={false}
+								expanded={expanded}
+								onToggleExpand={handleToggleExpand}
+								onExport={handleExport}
+								onMessageClick={handleMessageClick}
+								scoreMax={scoreMax}
+								categories={categories}
+								hasDetailItems={hasDetailItems}
+								rawCategories={rawCategories}
+							/>
+						)}
+						<PracticeSection
+							practice={practiceMarker}
+							options={practiceOptions}
+							starting={startingPractice}
+							onStart={(kind) => void handleStartPractice(kind)}
+						/>
+						{id && <EmotionTrajectory recordId={id} />}
+						{sheet && (
+							<NursingRecordSection sheet={sheet} submittedAt={nursingSubmittedAt} />
+						)}
+						{terminalNotice && (
+							<Alert variant="light" color="gray" p="xs" icon={<IconInfoCircle size={16} />}>
+								<Text size="xs" c="dimmed">{terminalNotice}</Text>
+							</Alert>
+						)}
+					</Stack>
+				</Grid.Col>
+			</Grid>
+			</Container>
+			{/* 只有「有待答 + 题目已就绪」才开弹窗；模板不可用走上面的常驻提示（不阻塞看成绩） */}
+			{postQStatus === "ready" && postCheckResponse && (
+				<QuestionnaireModal
+					open
+					key={postCheckResponse.template_id}
+					onComplete={() => { void postQCheck(); }}
+					onSkip={postQDismiss}
+					checkResponse={postCheckResponse}
+					loading={postQLoading}
+					onSubmit={postQSubmit}
+				/>
+			)}
+		</>
+	);
+}

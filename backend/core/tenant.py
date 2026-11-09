@@ -9,8 +9,8 @@
    授权边界。
 
 数据作用域来自**视角声明**（``core/personas.py`` 的 ``PersonaDef.scope``），不是
-从"有没有 ``user_manage``"反推。迁移前没有 ``user_personas`` 行的账号（legacy）
-仍按旧逻辑推断，见 ``_legacy_scope``。
+从"有没有 ``user_manage``"反推。没有视角（无 ``user_school_personas`` 授予、也非
+``users.is_platform``）的账号失败关闭：保留院校边界、看不到任何数据。
 
 用法：端点依赖 ``Scope``，所有取他人数据的查询经 ``scope_query`` 收窄；写操作先用
 ``require_school`` 校验目标行的院校。越权一律 404（不暴露存在性），缺权限才是 403。
@@ -85,7 +85,7 @@ def resolve_scope(db: Session, user: User) -> TenantScope:
     if scope is None:
         return TenantScope(school_id=school_id, class_ids=frozenset(), user_id=user.id)
     if scope == "platform":
-        # 平台级视角：院校轴无意义（只有平台账号能被授予它，校验在 resolve_view_persona）
+        # 平台级视角：院校轴无意义（只有平台账号能被授予它，校验在 ``core.access.resolve_access``）
         return TenantScope(school_id=None, class_ids=None, user_id=user.id)
     if scope == "tenant":
         return TenantScope(school_id=school_id, class_ids=None, user_id=user.id)

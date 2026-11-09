@@ -7,13 +7,14 @@ from fastapi import Request
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from core.access import accessible_school_ids, grantable_personas, resolve_access
+from core.access import accessible_school_ids, grantable_personas, granted_personas, resolve_access
 from core.audit import (
     ACTION_AUTH_LOGIN_BLOCKED,
     ACTION_AUTH_LOGIN_FAILED,
     ACTION_AUTH_LOGIN_SUCCEEDED,
     ACTION_USER_CREATED,
     AUDIT_OUTCOME_DENIED,
+    AUDIT_OUTCOME_SUCCESS,
     TARGET_TYPE_USER,
     record,
     record_detached,
@@ -22,13 +23,7 @@ from core.config import LOGIN_LOCK_SECONDS, LOGIN_LOCKOUT_ENABLED, LOGIN_MAX_FAI
 from core.exceptions import AuthError, ConflictError, ValidationError
 from core.identity import assert_student_identity_free, normalize_student_id
 from core.personas import PERSONAS, is_super_admin
-from core.security import (
-    create_access_token,
-    hash_password,
-    load_user_personas,
-    resolve_view_persona,
-    verify_password,
-)
+from core.security import create_access_token, hash_password, verify_password
 from core.tenant import resolve_scope, visible_class, writable_school_id
 from core.unit_of_work import unit_of_work
 from models import (
@@ -67,7 +62,7 @@ class AuthService:
             display_name=user.display_name,
             user_id=user.id,
             permissions=sorted(ctx.permissions),
-            personas=sorted(load_user_personas(self.db, user, ctx.school_id)),
+            personas=sorted(granted_personas(self.db, user, ctx.school_id)),
             active_persona=ctx.persona,
             is_platform=is_super_admin(user),
             gender=user.gender,
@@ -105,7 +100,7 @@ class AuthService:
             UserSchoolGrant(
                 school_id=sid,
                 school_name=names.get(sid, f"院校 #{sid}"),
-                personas=sorted(load_user_personas(self.db, user, sid)),
+                personas=sorted(granted_personas(self.db, user, sid)),
             )
             for sid in ordered
         ]
@@ -119,7 +114,7 @@ class AuthService:
         return UserBrief(
             id=user.id,
             username=user.username,
-            personas=sorted(load_user_personas(self.db, user, active_school)),
+            personas=sorted(granted_personas(self.db, user, active_school)),
             is_platform=is_super_admin(user),
             school_id=getattr(user, "school_id", None),
             school_name=brand[0] if brand else None,
@@ -257,6 +252,7 @@ class AuthService:
             target_id=user.id,
             target_label=user.username,
             actor=user,
+            outcome=AUDIT_OUTCOME_SUCCESS,
             payload={},
         )
         return user
@@ -360,16 +356,17 @@ class AuthService:
         # （缺失时这里按默认视角解析，refresh/直调路径同样成立）。
         cached = getattr(current_user, "_permissions_cache", None)
         if cached is None:
-            active, perms = resolve_view_persona(self.db, current_user)
+            ctx = resolve_access(self.db, current_user)
+            active, perms = ctx.persona, ctx.permissions
         else:
             perms = frozenset(cached)
             active = current_user.active_persona
             if active is None:
-                active, _resolved = resolve_view_persona(self.db, current_user)
+                active = resolve_access(self.db, current_user).persona
         brief.permissions = sorted(perms)
         brief.active_persona = active
         brief.personas = sorted(
-            load_user_personas(self.db, current_user, getattr(current_user, "active_school_id", None))
+            granted_personas(self.db, current_user, getattr(current_user, "active_school_id", None))
         )
         return brief
 

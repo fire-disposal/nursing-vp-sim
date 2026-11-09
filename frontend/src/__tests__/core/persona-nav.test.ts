@@ -142,12 +142,13 @@ describe("视角导航过滤", () => {
 		}
 	});
 
-	it("学生与管理是两条不相交的入口集合（学生不该出现在管理页）", () => {
+	it("学生与管理是两条不相交的入口集合（个人训练只属于学生视角）", () => {
 		const studentTo = new Set(itemsOf("student").map((item) => item.to));
 		const adminTo = new Set(itemsOf("admin").map((item) => item.to));
-		for (const to of studentTo) {
-			if (to.startsWith("/admin")) continue;
-			expect(adminTo.has(to), `${to} 在两侧都出现`).toBe(true); // 学生向入口所有视角都有
+		// 训练/记录/问答是学生视角的日常。
+		for (const to of ["/training", "/history", "/qa"]) {
+			expect(studentTo.has(to), `学生应看到 ${to}`).toBe(true);
+			expect(adminTo.has(to), `管理视角不该出现 ${to}`).toBe(false);
 		}
 		const adminOnly = [...adminTo].filter((to) => to.startsWith("/admin"));
 		expect(adminOnly.length).toBeGreaterThan(0);

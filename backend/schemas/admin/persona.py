@@ -8,7 +8,7 @@ class PersonaCatalogItem(BaseModel):
     """视角目录项：预设 + 作用域 + **调用者作用域内**持有该视角的人数。
 
     ``user_count`` 按调用者的 ``TenantScope`` 统计（平台全局 / 院校本校），
-    超管派生拥有的视角也计入（它没有 ``user_personas`` 行）。
+    超管派生拥有的视角也计入（它没有 ``user_school_personas`` 行）。
     """
 
     model_config = _RESP_CFG
@@ -17,6 +17,9 @@ class PersonaCatalogItem(BaseModel):
     scope: PersonaScope
     permissions: list[str] = []
     user_count: int = 0
+    #: 调用者当前能否授予这一档（预设权限 ⊆ 调用者当前视角权限；平台账号恒为 true）。
+    #: 前端据此禁用勾选，避免"能勾但保存必 403"。
+    grantable: bool = False
 
 
 class UserPersonasResponse(BaseModel):

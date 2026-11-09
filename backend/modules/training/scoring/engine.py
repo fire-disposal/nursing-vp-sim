@@ -782,6 +782,11 @@ async def evaluate_training(
     —    —同时发起 LLM 调用，约 50% 提速。
     """
     record, messages = await _load_record_and_messages(db, record_id, tracker, realtime_hub, user_id)
+    if workflow_for_record(record).id == "clinical_reasoning":
+        from modules.training.clinical_reasoning.scoring import evaluate_clinical_reasoning
+
+        return evaluate_clinical_reasoning(record=record, db=db)
+
     rubric = _resolve_rubric(db, record)
     conversation_text = _format_conversation(messages)
 

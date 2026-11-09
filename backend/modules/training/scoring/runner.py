@@ -165,21 +165,15 @@ def missing_snapshot_updates(record) -> dict:
     if record.prompt_snapshot and record.rubric_snapshot:
         return {}
 
-    from modules.training.scoring.rubric import build_final_rubric
-
     workflow = workflow_for_record(record)
     updates: dict = {}
     if not record.prompt_snapshot:
-        updates["prompt_snapshot"] = {
-            "schema_version": 2,
-            "segments": {
-                "system": workflow.prompts.system,
-                "dynamic": workflow.prompts.dynamic,
-            },
-        }
+        updates["prompt_snapshot"] = workflow.build_prompt_snapshot()
     if not record.rubric_snapshot:
-        features = (record.practice_snapshot or {}).get("features", {})
-        updates["rubric_snapshot"] = build_final_rubric(workflow.rubric, features)
+        updates["rubric_snapshot"] = workflow.build_rubric_snapshot(
+            record.case_snapshot or {},
+            overrides=(record.practice_snapshot or {}).get("features", {}),
+        )
     return updates
 
 

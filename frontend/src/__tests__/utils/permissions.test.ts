@@ -8,10 +8,9 @@ describe("STUDENT_TIER_PERMISSIONS", () => {
 		}
 	});
 
-	it("情境训练算学生层：只有它的学生不该被当成管理员", () => {
-		expect(STUDENT_TIER_PERMISSIONS.has("scenario_training")).toBe(true);
-		expect(isAdminPermissions(["scenario_training"])).toBe(false);
-		expect(isAdminPermissions(["training_access", "qa_access", "scenario_training"])).toBe(false);
+	it("学生层权限不该被当成管理员", () => {
+		expect(STUDENT_TIER_PERMISSIONS.has("training_access")).toBe(true);
+		expect(isAdminPermissions(["training_access"])).toBe(false);
 	});
 });
 

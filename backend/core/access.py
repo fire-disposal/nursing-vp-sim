@@ -100,11 +100,20 @@ def replace_personas(db: Session, user_id: int, school_id: int, personas: list[s
 
 
 def grantable_personas(actor: User) -> frozenset[str]:
-    """调用者可授予的视角集合：平台不限；其他按当前生效权限覆盖整档预设。"""
+    """调用者可授予的视角集合。
+
+    - 平台账号：不限；
+    - 其余：预设权限 ⊆ 当前生效权限（管理档不得越级授予）；
+    - **self 作用域的视角例外**：自限视角（学生）看不到他人数据，属于终端使用能力，
+      院校管理员即使自己不带训练权限也应能授予。否则新模型下管理员无法把学生视角
+      发给需要测试训练的教职工。
+    """
     if grants_all_personas(actor):
         return frozenset(PERSONA_KEYS)
     perms = frozenset(getattr(actor, "_permissions_cache", None) or ())
-    return frozenset(key for key in PERSONA_KEYS if set(PERSONAS[key].permissions) <= perms)
+    return frozenset(
+        key for key in PERSONA_KEYS if PERSONAS[key].scope == "self" or set(PERSONAS[key].permissions) <= perms
+    )
 
 
 def student_profile_student_id(db: Session, user_id: int, school_id: int | None) -> str | None:
@@ -180,7 +189,18 @@ def resolve_access(
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="院校不可用")
         active_school = requested_sid
     else:
-        active_school = getattr(user, "school_id", None) or (min(accessible) if accessible else None)
+        # 未选院校时优先家院校；家院校没有任何授予（多校账号把家院校授予收回后）就落到
+        # 第一所**确有授予**的院校 —— 否则登录后权限为空、壳里连视角都是空的，用户还
+        # 得自己猜该切到哪所学校。全部为空时仍保留家院校（失败关闭由权限层完成）。
+        home = getattr(user, "school_id", None)
+        candidates = sorted(accessible)
+        if home is not None and granted_personas(db, user, home):
+            active_school = home
+        else:
+            active_school = next(
+                (sid for sid in candidates if granted_personas(db, user, sid)),
+                home if home is not None else (candidates[0] if candidates else None),
+            )
 
     granted = granted_personas(db, user, active_school)
     desired = requested_persona.strip() if requested_persona else None

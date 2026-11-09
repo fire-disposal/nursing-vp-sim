@@ -37,7 +37,6 @@ from modules.training.workflows import (
     CASE_WORKFLOW_FIELD,
     declared_workflow_id,
     registered_workflow_ids,
-    startable_workflow_ids,
 )
 from schemas.case_schema import (
     BlueprintEditorialState,
@@ -512,21 +511,12 @@ def _check_workflow(c: dict, issues: list[CaseIssue]) -> None:
 
     病例只能声明**已登记**的 workflow：声明了内核不认识的工作区 = 发布出去也进不去，
     必须在发布前报错，而不是等学员开始训练时才解析失败（与 ``_check_activities`` 同策）。
-    只有一条**可开始**的 workflow 时允许省略声明；登记第二条可开始的 workflow 之后，
-    省略即 error —— 病例必须自己说明跑哪条闭包，否则解析会被拒绝（绝不猜成第一条）。
+    未声明永远表示最早的 ``history_taking`` 内容格式；新 workflow 必须显式声明。
+    这样第二条可开始闭包不会破坏旧病例与历史 revision。
     """
     known = registered_workflow_ids()
-    startable = startable_workflow_ids()
     allowed = ", ".join(known)
     if CASE_WORKFLOW_FIELD not in c:
-        if len(startable) > 1:
-            issues.append(
-                _e(
-                    "已登记多个可开始的 workflow，病例必须显式声明 workflow —— 否则解析时会被拒绝",
-                    CASE_WORKFLOW_FIELD,
-                    f'加 {{"workflow": "<id>"}}；允许的 id: {allowed}',
-                )
-            )
         return
 
     declared = declared_workflow_id(c)
@@ -700,6 +690,25 @@ def _obtainable_via(entry: dict) -> list[str]:
     return [v.strip() for v in raw if isinstance(v, str) and v.strip()]
 
 
+def _reachable_findings(c: dict, findings: dict[str, _ClinicalEntry]) -> set[str]:
+    """学生**真的拿得到**的证据 id：开场可见，或声明了非空获取途径。
+
+    「既不可见又无途径」的证据已由 :func:`_check_clinical_initial` 报为 error；这里复用
+    同一判定，让 ``requires_findings`` 的报错指向前置证据自身，而不是重复报一遍。
+    """
+    initial = c.get("initial")
+    visible: set[str] = set()
+    if isinstance(initial, dict):
+        raw = initial.get("visible_findings")
+        if isinstance(raw, list):
+            visible = {v.strip() for v in raw if isinstance(v, str) and v.strip()}
+    out = set(visible)
+    for fid, entry in findings.items():
+        if _obtainable_via(entry.value):
+            out.add(fid)
+    return out
+
+
 def _declared_list(entry: dict, key: str) -> bool:
     """该键是否**写了非空数组**（区分「没写」与「写了但引用不存在」——后者已由引用检查报出）。"""
     raw = entry.get(key)
@@ -808,6 +817,30 @@ def _check_clinical_initial(c: dict, content: _ClinicalContent, issues: list[Cas
         )
 
 
+def _check_action_evidence_requirements(
+    c: dict,
+    item: dict,
+    path: str,
+    findings: dict[str, _ClinicalEntry],
+    issues: list[CaseIssue],
+) -> None:
+    """行动前置证据必须存在且真实可达，否则运行时将永远无法完成。"""
+    refs = _checked_refs(item, "requires_findings", path, findings, issues, what=_FINDING_REF_LABEL)
+    reachable = _reachable_findings(c, findings)
+    for ref in refs:
+        if ref in reachable:
+            continue
+        entry = findings[ref]
+        issues.append(
+            _e(
+                f"{path}.requires_findings 引用的证据 '{ref}' 没有获取途径 —— 学生永远拿不到它，该行动将不可完成",
+                f"{entry.path}",
+                "在 initial 里登记它（可见 → visible_findings；需主动获取 → hidden_findings + obtainable_via），"
+                "或从 requires_findings 里移除",
+            )
+        )
+
+
 def _check_clinical_objectives(
     c: dict, findings: dict[str, _ClinicalEntry], issues: list[CaseIssue]
 ) -> tuple[dict[str, _ClinicalEntry], dict[str, str]]:
@@ -861,6 +894,7 @@ def _check_clinical_objectives(
                     )
             elif group == "must_act":
                 _non_empty_str(item, "action", path, issues, what="学生必须完成的动作 —— 空声明无法判定")
+                _check_action_evidence_requirements(c, item, path, findings, issues)
             else:
                 _non_empty_str(item, "cue", path, issues, what="必须传达的信息 —— 空声明无法判定")
     return index, groups

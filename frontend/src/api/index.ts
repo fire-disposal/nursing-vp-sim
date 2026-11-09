@@ -8,7 +8,6 @@ export * from "./export";
 export * from "./notifications";
 export * from "./qa";
 export * from "./questionnaires";
-export * from "./scenario";
 export * from "./scoreboard";
 export * from "./stats";
 export * from "./training";

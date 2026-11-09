@@ -15,10 +15,10 @@ if TYPE_CHECKING:
 
 
 class UserSchoolPersona(Base):
-    """用户在某所院校被授予的附加视角（家院校的授予仍在 ``user_personas``）。
+    """用户在某所院校被授予的视角（家院校与外校都用本表）。
 
-    一个账号可以属于多所院校：``users.school_id`` 是家/默认院校，``user_personas``
-    是家院校的授予；本表补其他院校的授予（如 A 校管理员 + B 校教师）。
+    一个账号可以属于多所院校：``users.school_id`` 是家/默认院校，本表按
+    ``(user_id, school_id, persona)`` 记授予（家院校同样落本表，无第二真相源）。
     安全判定只认 ``(user_id, school_id, persona)``；班级只是校内业务分组。
     """
 

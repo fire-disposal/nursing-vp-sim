@@ -15,15 +15,11 @@
 
 | id | 状态 | 允许 |
 |---|---|---|
-| ``history_taking`` | 运行期就绪 | 病例编写/发布/目录 + 学生训练（唯一可开始） |
-| ``clinical_reasoning`` | 仅作者面就绪 | 病例编写/发布/目录；**训练入口一律拒绝**（:func:`require_startable`） |
+| ``history_taking`` | 运行期就绪 | 老问诊病例、工作区与 LLM 评分 |
+| ``clinical_reasoning`` | 运行期就绪 | 独立证据工作台、结构化患者回合、确定性评分 |
 
-「声明随登记收紧」只按**可开始**的 workflow 计数（:func:`startable_workflow_ids`）：只有
-一条可开始的闭包时，病例省略声明仍然安全（回落无歧义）；登记第二条**可开始**的 workflow
-之后，省略即解析失败 —— 声明从「可选」收紧为「必填」，不会出现「新 workflow 的病例静默
-跑成问诊」。不可开始的闭包不能被省略选中（它不可能被开始），但它的病例必须自己声明
-（否则内容会被当成问诊病例解析）—— 这条由病例门禁
-（``modules.cases.validator``）在发布前强制。
+未声明的病例永久按最早的 ``history_taking`` 解析：这是旧病例与不可变历史 revision 的
+兼容语义。新格式必须显式声明 id，新增可开始 workflow 不回写旧内容、也不让旧病例失效。
 """
 
 from __future__ import annotations
@@ -108,10 +104,11 @@ def require_startable(workflow: WorkflowDefinition) -> WorkflowDefinition:
 
 
 def default_workflow() -> WorkflowDefinition:
-    """唯一**可开始**的现行 workflow。
+    """无记录上下文时使用的老格式默认值。
 
     只服务没有记录上下文的装配点（如 pipeline 构建的缺省值）——**不**是运行期分派：
     带记录/带 revision 的路径一律走 :func:`workflow_for_record` / :func:`workflow_for_case_revision`。
+    缺省固定为老格式，与未声明病例的兼容语义一致。
     """
     return REGISTRY[DEFAULT_WORKFLOW_ID]
 
@@ -141,16 +138,12 @@ def declared_workflow_id(case_data: Mapping[str, Any] | None) -> str | None:
 def workflow_for_case_data(case_data: Mapping[str, Any] | None) -> WorkflowDefinition:
     """病例载荷 → workflow（病例是数据，不是分派开关）。
 
-    未声明时：只有「唯一**可开始**的 workflow」才允许回落（判别列落地前发布的病例都没有
-    声明）。一旦登记了第二条可开始的 workflow，未声明即解析失败 —— 必须显式声明，绝不猜。
-    仅作者面就绪的闭包（``runtime_ready=False``）不参与回落：它不可能被开始，被省略选中
-    没有意义；它的病例必须自己声明（否则内容会被当成问诊病例 —— 病例门禁在发布前拦）。
+    未声明永远表示最早的 ``history_taking`` 内容格式。旧病例与不可变的历史 revision
+    都没有该字段；新增可开始 workflow 不能让它们失效。新格式必须显式声明自己的 id。
     """
     declared = declared_workflow_id(case_data)
     if declared is not None:
         return get_workflow(declared)
-    if len(startable_workflow_ids()) > 1:
-        raise UnknownWorkflowError(None, "病例未声明 workflow，且已登记多个可开始的 workflow")
     return REGISTRY[DEFAULT_WORKFLOW_ID]
 
 
@@ -176,13 +169,11 @@ def workflow_for_record(record: TrainingRecord) -> WorkflowDefinition:
     """训练记录**冻结**的 workflow —— 所有运行期读取的唯一入口。
 
     ``workflow_id`` 为空只可能来自未 flush 的瞬态对象（测试替身）；持久化行是 NOT NULL。
-    此时唯一**可开始**的 workflow 是唯一诚实答案，登记第二条可开始的 workflow 后空值一律拒绝。
+    与未声明病例相同，缺失值按最早格式解析；持久化新记录仍必须写入冻结值。
     """
     workflow_id = getattr(record, "workflow_id", None)
     if workflow_id:
         return get_workflow(workflow_id)
-    if len(startable_workflow_ids()) > 1:
-        raise UnknownWorkflowError(None, "训练记录缺少冻结的 workflow_id")
     return REGISTRY[DEFAULT_WORKFLOW_ID]
 
 

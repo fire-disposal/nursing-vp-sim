@@ -10,9 +10,8 @@
 | [database.md](database.md) | 迁移规则（`ddl/` 与 `data/` 目录约定）、备份 |
 | [llm.md](llm.md) | 模型档位与用途映射、成本与降级口径 |
 | [operations.md](operations.md) | 部署、备份、监控、应急预案 |
-| [scenario.md](scenario.md) | 情境训练：内容在库里、时间语义、DM 权限待定 |
+| [scenario.md](scenario.md) | 情境训练 V3 核心构想与保留的概念资产（无运行时） |
 | [curriculum-fit.md](curriculum-fit.md) | 《健康评估》教材版本、章节适配、病例覆盖与缺口 |
-| [cases/](cases/) | 五个病例的可读文本（由 `backend/scripts/render_cases.py` 生成的派生物） |
 | [ops/](ops/) | 排障与运维速查：诊断契约、院校隔离、前端 UI 约定、语音/LLM 排障、事故复盘 |
 | [ops/training-core-observation-20261107.md](ops/training-core-observation-20261107.md) | 训练区现状观察与待验证改善假设（历史快照，非运行期契约） |
 | [calibration/](calibration/) | 判例与校准资产（研究用） |

@@ -31,7 +31,15 @@ export default function SchoolPersonasModal({
 	useEffect(() => {
 		if (!opened) return;
 		getPersonas()
-			.then((r) => setPresets(r.data.map((p) => ({ value: p.key, label: p.label }))))
+			.then((r) =>
+				setPresets(
+					r.data
+						// 平台视角只属于平台账号（目标在这里必然不是）；超出调用者权限的档位
+						// 后端会 403，前端也不该给出可勾选项。
+						.filter((p) => p.key !== "platform" && p.grantable)
+						.map((p) => ({ value: p.key, label: p.label })),
+				),
+			)
 			.catch(() => toast.error("视角目录加载失败"));
 	}, [opened]);
 

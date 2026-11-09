@@ -72,4 +72,4 @@
 - 护理评估评分注入：`backend/modules/training/scoring/engine.py`
 - 评分复盘与再练习：`backend/modules/training/scoring/review_focus.py`、`backend/modules/training/practice.py`
 - 学生训练页与工具面板：`frontend/src/pages/TrainingEntry.tsx`、`frontend/src/components/training/workspace/`
-- 情境训练工具：`backend/modules/scenario_training/runtime/tools.py`
+- V3 概念资产：`backend/modules/scenario_training/{schema,validation,case_folder}.py`（运行期实现已于 2026-11 删除）

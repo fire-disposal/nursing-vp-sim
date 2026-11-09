@@ -37,6 +37,10 @@ export const queryKeys = {
 		unread: () => [...queryKeys.notifications.all, "unread"] as const,
 	},
 	diagnose: ["admin", "diagnose"] as const,
+	settings: {
+		public: ["settings", "public"] as const,
+		admin: ["admin", "settings"] as const,
+	},
 	voice: {
 		config: ["admin", "voice", "config"] as const,
 		usage: ["admin", "voice", "usage"] as const,
@@ -63,6 +67,8 @@ export const queryKeys = {
 			[...queryKeys.stats.all, "trends", dateFrom ?? null, classId ?? null] as const,
 		teacherSummary: (params: Record<string, unknown>) =>
 			[...queryKeys.stats.all, "teacherSummary", params] as const,
+		classSummary: (params: Record<string, unknown> = {}) =>
+			[...queryKeys.stats.all, "classSummary", params] as const,
 	},
 	admin: {
 		auditLogs: {
@@ -154,29 +160,5 @@ export const queryKeys = {
 	llmCallLogs: {
 		timeline: (recordId: number | null | undefined) => ["recordLogs", recordId] as const,
 		detail: (logId: number | null | undefined) => ["logDetail", logId] as const,
-	},
-	// 情境训练（正式特性：/scenario 学生侧、/scenario-admin 管理侧）。
-	scenario: {
-		all: ["scenario"] as const,
-		packs: () => [...queryKeys.scenario.all, "packs"] as const,
-		session: (sessionId: number | null | undefined) =>
-			[...queryKeys.scenario.all, "session", sessionId ?? null] as const,
-		/** 我的情境历史（学生侧）。 */
-		mySessions: () => [...queryKeys.scenario.all, "my-sessions"] as const,
-		admin: {
-			all: ["scenario", "admin"] as const,
-			packs: () => [...queryKeys.scenario.admin.all, "packs"] as const,
-			sessions: (params: Record<string, unknown>) =>
-				[...queryKeys.scenario.admin.all, "sessions", params] as const,
-			session: (sessionId: number | null | undefined) =>
-				[...queryKeys.scenario.admin.all, "session", sessionId ?? null] as const,
-			stats: () => [...queryKeys.scenario.admin.all, "stats"] as const,
-			/** 场景编辑器：这份病例的**当前内容**（一个病例一份，换病例即换 key）。 */
-			content: (packKey: string) =>
-				[...queryKeys.scenario.admin.all, "content", packKey] as const,
-			/** 编辑器「原始」页签：导出 zip 里解出来的 `case.toml` / `case.md` 原文。 */
-			source: (packKey: string) =>
-				[...queryKeys.scenario.admin.all, "source", packKey] as const,
-		},
 	},
 } as const;

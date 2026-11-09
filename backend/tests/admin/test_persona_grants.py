@@ -5,7 +5,7 @@
 - 目标是平台账号 → 400（派生全视角，不可编辑）；
 - 平台视角只能授予平台账号；
 - 调用者只能授予自己当前视角权限覆盖得到的视角（403）；
-- 成功替换后写 `user_personas` 并留下 `user.personas_updated`。
+- 成功替换后写 `user_school_personas` 并留下 `user.personas_updated`。
 """
 
 from __future__ import annotations
@@ -109,6 +109,20 @@ def test_actor_cannot_grant_persona_above_own_permissions(pg_session):
 
     with pytest.raises(AuthError):
         _service(pg_session, school, actor).replace(target.id, ["admin"], actor=actor)
+
+
+def test_catalog_marks_which_personas_actor_can_grant(pg_session):
+    """目录的 `grantable` 与保存时的提权校验同源：教师不能授予管理/运维/平台。"""
+    school = _school(pg_session, "A")
+    actor = _actor(pg_session, school=school, perms=set(PERSONAS["teacher"].permissions))
+
+    catalog = {item.key: item for item in _service(pg_session, school, actor).catalog(actor)}
+
+    assert catalog["student"].grantable is True
+    assert catalog["teacher"].grantable is True
+    assert catalog["admin"].grantable is False
+    assert catalog["ops"].grantable is False
+    assert catalog["platform"].grantable is False
 
 
 def test_replace_grants_writes_rows_and_audit(pg_session):

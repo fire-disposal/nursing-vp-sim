@@ -24,3 +24,9 @@ export const getTeacherSummary = (params: Record<string, unknown> = {}) =>
 		"/stats/teacher-summary" as ApiPath,
 		{ params },
 	);
+
+export const getSchoolClassSummary = (params: Record<string, unknown> = {}) =>
+	api.get<Schemas["ClassSummaryItemSchema"][]>(
+		"/stats/class-summary" as ApiPath,
+		{ params },
+	);

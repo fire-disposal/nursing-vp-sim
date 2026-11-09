@@ -1,7 +1,7 @@
 """视角授予 —— 谁能以哪些视角操作。
 
 视角预设由代码拥有（``core/personas.py``），这里只管理 **授予关系**
-（``user_personas`` 表）。三条规则：
+（``user_school_personas`` 表）。三条规则：
 
 1. **作用域**：目标用户必须落在调用者作用域内（跨校 → 404，不暴露存在性）；
    调用者是超管时跨校也允许，但目标必须真实存在。超管本身不可编辑（派生全视角）。
@@ -10,7 +10,7 @@
    所以按视角整体比对，不做逐权限裁剪。
 3. **留痕**：``ACTION_USER_PERSONAS_UPDATED``，payload 带 before/after 与 school_id。
 
-视角变更后必须 ``clear_permission_cache(user_id)``：授予集合是进程内缓存的。
+视角变更后必须 ``clear_access_cache(user_id)``：授予集合是进程内缓存的。
 """
 
 from __future__ import annotations
@@ -20,13 +20,13 @@ from typing import TYPE_CHECKING, Annotated
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import func
 
-from core.access import grantable_personas
+from core.access import clear_access_cache, grantable_personas, granted_personas
 from core.access import replace_personas as replace_school_personas
 from core.audit import ACTION_USER_PERSONAS_UPDATED, TARGET_TYPE_USER, record
 from core.deps import DbSession
 from core.exceptions import AuthError, NotFoundError, ValidationError
 from core.personas import PERSONA_KEYS, PERSONAS, is_super_admin
-from core.security import clear_permission_cache, load_user_personas, require_permission
+from core.security import require_permission
 from core.tenant import Scope, TenantScope, scope_query
 from core.unit_of_work import unit_of_work
 from models import School, User, UserSchoolPersona
@@ -47,9 +47,13 @@ class PersonaService:
 
     # ── 读取 ──
 
-    def catalog(self) -> list[PersonaCatalogItem]:
-        """全部视角 + 作用域内持有者数量（院校管理员只数本校）。"""
+    def catalog(self, actor: User) -> list[PersonaCatalogItem]:
+        """全部视角 + 作用域内持有者数量（院校管理员只数本校）。
+
+        ``grantable`` 按调用者**当前生效权限**判定：目录是同一份，能不能授予随视角变。
+        """
         counts = self._user_counts()
+        grantable = None if is_super_admin(actor) else grantable_personas(actor)
         return [
             PersonaCatalogItem(
                 key=definition.key,
@@ -57,6 +61,7 @@ class PersonaService:
                 scope=definition.scope,
                 permissions=list(definition.permissions),
                 user_count=counts.get(definition.key, 0),
+                grantable=grantable is None or definition.key in grantable,
             )
             for definition in PERSONAS.values()
         ]
@@ -68,7 +73,7 @@ class PersonaService:
     def _user_counts(self) -> dict[str, int]:
         """按作用域统计每个视角的持有者数量。
 
-        超管派生拥有全部视角但没有 ``user_personas`` 行 —— 它单独计入每个视角的
+        超管派生拥有全部视角但没有 ``user_school_personas`` 行 —— 它单独计入每个视角的
         ``user_count``（否则"全视角持有者"在目录里显示为 0 人，误导授权人）。
         """
         q = self.db.query(UserSchoolPersona.persona, func.count(func.distinct(UserSchoolPersona.user_id)))
@@ -101,7 +106,7 @@ class PersonaService:
         if is_super_admin(user):
             return list(PERSONA_KEYS)
         active_school = school_id if school_id is not None else user.school_id
-        return sorted(load_user_personas(self.db, user, active_school))
+        return sorted(granted_personas(self.db, user, active_school))
 
     # ── 写入 ──
 
@@ -176,7 +181,7 @@ class PersonaService:
             )
             self.db.flush()
         # 缓存是进程内的：改授予就必须失效，否则旧权限最多再放行一个 TTL
-        clear_permission_cache(target.id)
+        clear_access_cache(target.id)
         return unique
 
 
@@ -187,7 +192,7 @@ _Grantor = Annotated[User, Depends(require_permission("role_manage"))]
 
 @router.get("/personas", response_model=list[PersonaCatalogItem])
 def list_personas(current_user: _Grantor, db: DbSession, scope: Scope) -> list[PersonaCatalogItem]:
-    return PersonaService(db, scope).catalog()
+    return PersonaService(db, scope).catalog(current_user)
 
 
 @router.get("/users/{user_id}/personas", response_model=UserPersonasResponse)

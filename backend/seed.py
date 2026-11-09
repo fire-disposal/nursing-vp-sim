@@ -1,4 +1,4 @@
-"""Database seeding — roles, admin user, test data, LLM config.
+"""Database seeding — platform/admin users, test data, LLM config.
 
 Extracted from main.py to keep the application entrypoint thin.
 Called once during app startup (lifespan).
@@ -106,7 +106,7 @@ def _seed_data() -> None:
         )
         _seed_user(
             db,
-            personas=["admin"],
+            personas=["admin", "teacher", "student"],
             is_platform=False,
             env_username="SEED_OPERATOR_USERNAME",
             env_password="SEED_OPERATOR_PASSWORD",

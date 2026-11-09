@@ -17,7 +17,7 @@ export default function ProtectedRoute() {
 
 	// 冷启动恢复会话时权限还在 `/auth/me` revalidation 中？先等它落地。
 	// 直接放行会让 RequirePermission 拿持久化里的旧权限快照渲染 403 页
-	// （2026-09-28 生产缺陷：学生被新授予的 scenario_training 挡在门外）。
+	// （2026-09-28 生产缺陷：新授予的权限被旧快照挡住）。
 	if (!sessionReady) {
 		return (
 			<Center h="100vh">

@@ -1,0 +1,952 @@
+import { Badge, Box, Button, Group, Modal, Paper, SimpleGrid, Stack, Text, ThemeIcon, Title, UnstyledButton } from "@mantine/core";
+import {
+	IconAlertTriangle,
+	IconAward,
+	IconBook2,
+	IconChartBar,
+	IconClipboardCheck,
+	IconClipboardList,
+	IconClock,
+	IconGift,
+	IconPlayerPlay,
+	IconRotate,
+	IconSpeakerphone,
+	IconStar,
+	IconStethoscope,
+	IconTarget,
+	IconTrendingUp,
+	IconX,
+} from "@tabler/icons-react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { motion } from "motion/react";
+import { type ReactNode, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { abandonRecord, getCases, getNotifications, getRecords, markNotificationRead, startBlindBox, startTraining } from "@/api";
+import type { components } from "@/api/api-types.gen";
+import { getStudentAssignments, startAssignment } from "@/api/assignments";
+import { queryKeys } from "@/api/query-keys";
+import { getTrends } from "@/api/stats";
+import { useToast } from "@/components/Toast";
+import { useConfirm } from "@/components/ui/confirm";
+import EmptyState from "@/components/ui/empty-state";
+import PageHeader from "@/components/ui/page-header";
+import ErrorState from "@/components/ui/error-state";
+import LoadingSkeleton from "@/components/ui/loading-skeleton";
+import Pagination from "@/components/ui/pagination";
+import ScoreSourceBadge from "@/components/ui/score-source-badge";
+import { SearchInput } from "@/components/ui/search-input";
+import StatCard from "@/components/ui/stat-card";
+import { ACTIVITY_LABELS } from "@/config/activity-display";
+import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
+import { useMyQuota } from "@/hooks/useMyQuota";
+import useAuthStore from "@/stores/authStore";
+import { APP_TIME_ZONE, shanghaiDateKey, shanghaiHour } from "@/utils/date";
+import { goTraining, openNotification } from "@/utils/training-nav";
+
+type CaseBrief = components["schemas"]["CaseBrief"];
+type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
+type TrainingNotificationItem = components["schemas"]["TrainingNotificationItem"];
+
+const DIFFICULTY_LABELS: Record<number, string> = { 1: "初级", 2: "中级", 3: "高级" };
+const LIMIT = 50;
+
+type TrainingTab = "home" | "self" | "assignments";
+
+const CAP_COLORS: Record<string, string> = {
+	physical_exam: "violet",
+	nursing_record: "blue",
+	quiz: "blue",
+};
+
+function getPatientSummary(ps: CaseBrief["patient_summary"]): { gender?: string; age?: number; chief_complaint?: string } {
+	if (ps && typeof ps === "object") return ps as { gender?: string; age?: number; chief_complaint?: string };
+	return {};
+}
+
+function Stars({ level }: { level?: number | null }) {
+	const lvl = level && DIFFICULTY_LABELS[level] ? level : 1;
+	return (
+		<Group gap={2} wrap="nowrap">
+			{[1, 2, 3].map((i) => (
+				<IconStar
+					key={i}
+					size={12}
+					fill={i <= lvl ? "var(--mantine-color-yellow-6)" : "none"}
+					color={i <= lvl ? "var(--mantine-color-yellow-6)" : "var(--mantine-color-gray-3)"}
+				/>
+			))}
+		</Group>
+	);
+}
+
+function CapBadges({ caps }: { caps: Record<string, boolean> | undefined }) {
+	if (!caps) return null;
+	const enabled = Object.entries(ACTIVITY_LABELS).filter(([key]) => caps[key]);
+	if (enabled.length === 0) return null;
+	return (
+		<Group gap={4} wrap="wrap">
+			{enabled.map(([key, label]) => (
+				<Badge key={key} variant="light" color={CAP_COLORS[key] ?? "gray"} size="xs">
+					{label}
+				</Badge>
+			))}
+		</Group>
+	);
+}
+
+/**
+ * 病例所属 workflow（服务端唯一来源）：label 由目录投影下发，前端不推导。
+ *
+ * 目录只列**可开始**的 workflow 病例（服务端过滤），因此这里不再有"尚未开放"形态 ——
+ * 未交付学生工作区的 workflow 整类不出现在目录里。
+ */
+function WorkflowBadge({ workflow }: { workflow: CaseBrief["workflow"] }) {
+	if (!workflow?.label) return null;
+	return (
+		<Group gap={4} wrap="wrap">
+			<Badge variant="light" color="teal" size="xs">
+				{workflow.label}
+			</Badge>
+		</Group>
+	);
+}
+
+type StartErrorDetail = { code?: string; message?: string; record_id?: number; case_name?: string };
+
+/**
+ * 产品状态冲突（`workflow_not_startable`）：原样展示服务端文案。
+ *
+ * 这不是「开始失败」—— 病例与权限都没问题，只是该工作区尚未提供学生入口；
+ * 泛化成「请重试」会让学生一直重试一个永远不会成功的动作。
+ */
+function workflowNotStartableMessage(err: unknown): string | null {
+	const axiosErr = err as { status?: number; response?: { data?: { detail?: StartErrorDetail } } };
+	const detail = axiosErr.response?.data?.detail;
+	if (axiosErr.status === 409 && detail?.code === "workflow_not_startable") {
+		return detail.message ?? "该工作区尚未开放，暂时不能开始训练。";
+	}
+	return null;
+}
+
+export default function TrainingSelect({ tab = "home" }: { tab?: TrainingTab }) {
+	const [difficultyFilter, setDifficultyFilter] = useState(0);
+	const { searchInput, debouncedValue: search, handleSearchChange } = useDebouncedSearch("", 300);
+	const { data: quota } = useMyQuota();
+	const [offset, setOffset] = useState(0);
+	const navigate = useNavigate();
+	const location = useLocation();
+	// 所有进入训练页的入口都记来源页：训练壳唯一出口按此回跳（契约见 utils/training-nav）
+	const trainingFrom = location.pathname + location.search;
+	const toast = useToast();
+	const queryClient = useQueryClient();
+	const { confirm } = useConfirm();
+	const user = useAuthStore((s) => s.user);
+	const [dismissedNotificationIds, setDismissedNotificationIds] = useState<Set<number>>(() => new Set());
+	const [conflict, setConflict] = useState<{ recordId: number; caseName: string } | null>(null);
+
+	const { data: casesData, isLoading: casesLoading, isError: isCasesError, error: casesError, refetch: refetchCases } = useQuery({
+		queryKey: queryKeys.cases.list({ difficulty: difficultyFilter, offset, search }),
+		queryFn: () => getCases({ offset, limit: LIMIT, ...(difficultyFilter > 0 ? { difficulty: difficultyFilter } : {}), ...(search ? { name: search } : {}) }).then((r) => r.data),
+		staleTime: 5 * 60_000, placeholderData: keepPreviousData, enabled: tab === "self",
+	});
+
+	// 失败必须能重试：作业列表此前只判 `!data` → 请求失败会永远停在骨架上，用户以为网络还没回。
+	const { data: assignmentsData, isPending: assignmentsLoading, isError: isAssignmentsError, error: assignmentsError, refetch: refetchAssignments } = useQuery({
+		queryKey: queryKeys.assignments.student(),
+		queryFn: () => getStudentAssignments().then((r) => r.data),
+		staleTime: 30_000,
+	});
+
+	// 拆分三个轻量查询：进行中（主行动卡/续练态）、已完成计数（limit=1 取 total）、最近 5 条。
+	// 相比原来一次拉 50 条做客户端过滤，payload 更小且计数不再被 50 封顶截断。
+	const { data: inProgressData, isError: isInProgressError, refetch: refetchInProgress } = useQuery({
+		queryKey: queryKeys.training.records({ status: "in_progress", limit: 50 }),
+		queryFn: () => getRecords({ status: "in_progress", limit: 50, only_student_practice: false, user_id: user?.id }).then((r) => r.data),
+		staleTime: 30_000,
+	});
+	const { data: completedData, isError: isCompletedError, refetch: refetchCompleted } = useQuery({
+		queryKey: queryKeys.training.records({ status: "completed", limit: 1 }),
+		queryFn: () => getRecords({ status: "completed", limit: 1, only_student_practice: false, user_id: user?.id }).then((r) => r.data),
+		staleTime: 30_000,
+	});
+	const { data: recentData, isPending: recentLoading, isError: isRecentError, error: recentError, refetch: refetchRecent } = useQuery({
+		queryKey: queryKeys.training.records({ limit: 5 }),
+		queryFn: () => getRecords({ limit: 5, only_student_practice: false, user_id: user?.id }).then((r) => r.data),
+		staleTime: 30_000,
+	});
+
+	const inProgressRecords = inProgressData?.items ?? [];
+	const records = recentData?.items ?? [];
+	const assignments = (assignmentsData ?? []) as Array<{
+		id: string; title: string; case_name: string; status: string;
+		end_time: string; record_id?: number | null; score_total?: number | null;
+		is_overdue?: boolean; max_attempts?: number | null; attempt_count?: number;
+	}>;
+
+	// 待完成 = 尚未开始或进行中，且未过期/未关闭。只筛 in_progress 会把"新布置但还没点开"
+	// 的作业藏掉：通知里有、首页却显示 0 待办，学生会以为没事可做。
+	const pendingAssignments = useMemo(
+		() =>
+			assignments.filter(
+				(a) =>
+					(a.status === "not_started" || a.status === "in_progress") &&
+					(!a.end_time || new Date(a.end_time) >= new Date()),
+			),
+		[assignments],
+	);
+
+	// 概览计数：拿不到数据给 null（磁贴渲染「—」）。
+	// 用 `?? 0` 会把请求失败洗成「已完成 0 次 / 暂无待完成作业」，学生读成事实后就不再点重试。
+	const inProgressCount = inProgressData ? inProgressRecords.length : null;
+	const completedCount = completedData ? (completedData.total ?? null) : null;
+	const pendingCount = assignmentsData ? pendingAssignments.length : null;
+	const overviewFailed = isInProgressError || isCompletedError || isAssignmentsError;
+
+	// ── Notifications (home tab) ──
+	const { data: notifData } = useQuery({
+		queryKey: queryKeys.notifications.recent(),
+		queryFn: () => getNotifications({ limit: 3 }).then((r) => r.data),
+		staleTime: 30_000,
+	});
+	const recentNotifs = useMemo(
+		() => (notifData?.items ?? [])
+			.filter((n) => !n.is_read && !dismissedNotificationIds.has(n.id))
+			.slice(0, 2),
+		[notifData?.items, dismissedNotificationIds],
+	);
+	const dismissNotificationMutation = useMutation({
+		mutationFn: (id: number) => markNotificationRead(id),
+		onMutate: (id) => {
+			setDismissedNotificationIds((prev) => {
+				const next = new Set(prev);
+				next.add(id);
+				return next;
+			});
+		},
+		onError: (_error, id) => {
+			setDismissedNotificationIds((prev) => {
+				const next = new Set(prev);
+				next.delete(id);
+				return next;
+			});
+			toast.error("关闭通知失败，请重试");
+		},
+		onSettled: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
+		},
+	});
+
+	// ── Training stats (home tab) ──
+	// 个人统计只取本人的数据：/stats/trends 对无 stats_view 权限的调用者只统计本人记录
+	// （服务端按 current_user 过滤）。不再借用 /stats/ranking —— 它对 canonical student
+	// 角色是 403，且排名/百分位属于同伴比较，学生自视图不展示。
+	// 窗口 = 近 30 天（含今天）的上海自然日零点：趋势按日分桶，起点必须落在自然日边界上，
+	// 并由前端显式给出（服务端只认 date_from）。
+	const trendFrom = `${shanghaiDateKey(new Date(), -29)}T00:00:00+08:00`;
+	const { data: trends } = useQuery({
+		queryKey: queryKeys.stats.trends(trendFrom),
+		queryFn: () => getTrends(trendFrom).then((r) => r.data),
+		staleTime: 60_000,
+	});
+	// daily 是弱类型 dict：日期/展示分在这里收口一次，避免散落的 String(item.x) 断言
+	const trendItems = (trends?.daily ?? []) as Array<{ date?: string; avg_score?: number | null }>;
+	const mySessions = trends?.total_sessions ?? 0;
+	const myAvgScore = trends?.avg_score ?? null;
+	const myMinutes = trends?.total_minutes ?? 0;
+
+	const inProgressByCase = useMemo(() => {
+		const map = new Map<number, TrainingRecordBrief>();
+		for (const r of inProgressRecords) {
+			if (!map.has(r.case_id)) map.set(r.case_id, r);
+		}
+		return map;
+	}, [inProgressRecords]);
+
+	type StartResponse = components["schemas"]["TrainingStartResponse"];
+	const startMutation = useMutation({
+		mutationFn: ({ caseId, timeLimit }: { caseId: number; timeLimit: number }) => startTraining(caseId, {}, timeLimit),
+		onSuccess: (res) => {
+			const data: StartResponse = res.data;
+			goTraining(navigate, data.record_id, trainingFrom);
+		},
+		onError: (err: unknown) => {
+			const axiosErr = err as { status?: number; response?: { data?: { detail?: StartErrorDetail } } };
+			if (axiosErr.status === 409 && axiosErr.response?.data?.detail?.code === "existing_training") {
+				const d = axiosErr.response.data.detail;
+				setConflict({ recordId: d.record_id!, caseName: d.case_name ?? "未知病例" });
+				return;
+			}
+			const notOpen = workflowNotStartableMessage(err);
+			if (notOpen) {
+				toast.error(notOpen);
+				return;
+			}
+			toast.error("开始训练失败，请重试");
+		},
+	});
+	const blindBoxMutation = useMutation({
+		mutationFn: () => startBlindBox(),
+		onSuccess: (res) => {
+			const data: StartResponse = res.data;
+			goTraining(navigate, data.record_id, trainingFrom);
+		},
+		onError: (err: unknown) => {
+			const axiosErr = err as { status?: number; response?: { data?: { detail?: StartErrorDetail } } };
+			if (axiosErr.status === 409 && axiosErr.response?.data?.detail?.code === "existing_training") {
+				const d = axiosErr.response.data.detail;
+				setConflict({ recordId: d.record_id!, caseName: d.case_name ?? "未知病例" });
+				return;
+			}
+			toast.error("盲盒训练开始失败，请重试");
+		},
+	});
+	const handleRestart = async (c: CaseBrief, rec: TrainingRecordBrief) => {
+		const ok = await confirm({
+			title: "重新开始训练", message: `放弃「${c.name}」当前未完成的训练并重新开始？`, confirmLabel: "放弃并重开", danger: true,
+		});
+		if (!ok) return;
+		try { await abandonRecord(rec.id); } catch { toast.apiError(null, "放弃记录失败"); return; }
+		queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
+		startMutation.mutate({ caseId: c.id, timeLimit: c.time_limit_minutes ?? 20 });
+	};
+	const handleStartAssignment = async (assignmentId: string) => {
+		try {
+			// 服务端响应有类型（TrainingStartResponse.record_id），不必再靠宽类型断言取字段
+			const res = await startAssignment(assignmentId);
+			goTraining(navigate, res.data.record_id, trainingFrom);
+		} catch (err: unknown) {
+			const axiosErr = err as { status?: number; response?: { data?: { detail?: StartErrorDetail } } };
+			if (axiosErr.status === 409 && axiosErr.response?.data?.detail?.code === "existing_training") {
+				const d = axiosErr.response.data.detail;
+				setConflict({ recordId: d.record_id!, caseName: d.case_name ?? "未知病例" });
+				return;
+			}
+			const notOpen = workflowNotStartableMessage(err);
+			if (notOpen) {
+				toast.error(notOpen);
+				return;
+			}
+			toast.apiError(err, "开始作业失败，请刷新后重试");
+		}
+	};
+
+	const cases = casesData?.items ?? [];
+	const total = casesData?.total ?? 0;
+
+	// 通知落点规则只有一份实现：utils/training-nav.openNotification（铃铛/通知中心/本页预览共用）
+	const hour = shanghaiHour();
+	const greeting = hour < 12 ? "上午好" : hour < 18 ? "下午好" : "晚上好";
+	const recentRecords = records;
+	const primaryInProgress = inProgressRecords[0];
+	const nextAssignment = pendingAssignments[0];
+
+	/** 主行动按「续训 > 作业 > 选病例」择一：同一时刻只有一个能往下走。 */
+	const heroPrimary = primaryInProgress
+		? {
+				label: "继续训练",
+				icon: <IconPlayerPlay size={16} />,
+				onClick: () => goTraining(navigate, primaryInProgress.id, trainingFrom),
+			}
+		: nextAssignment
+			? {
+					label: "开始作业",
+					icon: <IconPlayerPlay size={16} />,
+					onClick: () => handleStartAssignment(nextAssignment.id),
+				}
+			: {
+					label: "选择病例",
+					icon: <IconBook2 size={16} />,
+					onClick: () => navigate("/cases"),
+				};
+
+	const showEmptyActivity =
+		!primaryInProgress &&
+		pendingAssignments.length === 0 &&
+		recentRecords.length === 0 &&
+		!assignmentsLoading &&
+		!recentLoading &&
+		!isAssignmentsError &&
+		!isRecentError;
+
+	if (conflict) return (
+		<Modal opened onClose={() => setConflict(null)} title="有进行中的训练" size={360} centered withinPortal>
+				<Text size="sm" c="dimmed" mb="md">你有一个未完成的训练「{conflict.caseName}」。</Text>
+				<Stack gap="xs">
+					<Button color="green" onClick={() => { setConflict(null); goTraining(navigate, conflict.recordId, trainingFrom); }}>
+						继续之前的训练
+					</Button>
+					<Button variant="default" color="red" onClick={async () => {
+						await abandonRecord(String(conflict.recordId));
+						queryClient.invalidateQueries({ queryKey: queryKeys.training.all });
+						setConflict(null);
+					}}>
+						放弃并开始新训练
+					</Button>
+					<Button variant="default" onClick={() => setConflict(null)}>取消</Button>
+				</Stack>
+		</Modal>
+	);
+
+	return (
+		<Stack gap="lg">
+			{tab === "home" && (
+				<Stack gap="lg">
+					{recentNotifs.length > 0 && (
+						<Paper withBorder style={{ overflow: "hidden" }}>
+							<Group
+								justify="space-between"
+								gap="sm"
+								px="md"
+								py="sm"
+								style={{ borderBottom: "1px solid var(--mantine-color-default-border)", background: "var(--mantine-color-brand-light)" }}
+							>
+								<Group gap="xs">
+									<ThemeIcon size={32} radius="md" variant="light" color="brand">
+										<IconSpeakerphone size={16} />
+									</ThemeIcon>
+									<Box>
+										<Text size="sm" fw={600}>新的训练通知</Text>
+										<Text size="xs" c="dimmed">可关闭，关闭后会标记为已读</Text>
+									</Box>
+								</Group>
+								<Button variant="subtle" color="gray" size="sm" onClick={() => navigate("/notifications")}>
+									查看全部
+								</Button>
+							</Group>
+							<Stack gap={0}>
+								{recentNotifs.map((n: TrainingNotificationItem) => (
+									<Group
+										key={n.id}
+										gap="sm"
+										align="flex-start"
+										px="md"
+										py="sm"
+										wrap="nowrap"
+										style={{ borderBottom: "1px solid var(--mantine-color-gray-2)" }}
+									>
+										<UnstyledButton
+											onClick={() => openNotification(navigate, n, trainingFrom)}
+											style={{ flex: 1, minWidth: 0, textAlign: "left" }}
+										>
+											<Text size="sm" fw={500} truncate>{n.title}</Text>
+											{n.body && (
+												<Text size="xs" c="dimmed" mt={4} lineClamp={2} lh={1.5}>{n.body}</Text>
+											)}
+										</UnstyledButton>
+										<Button
+											variant="subtle" color="gray"
+											size="sm" w={36} h={36} p={0}
+											style={{ flexShrink: 0 }}
+											onClick={() => dismissNotificationMutation.mutate(n.id)}
+											disabled={dismissNotificationMutation.isPending}
+											aria-label={`关闭通知：${n.title}`}
+										>
+											<IconX size={15} />
+										</Button>
+									</Group>
+								))}
+							</Stack>
+						</Paper>
+					)}
+
+					{/* 训练主卡：问候 + 主行动 */}
+					<Paper withBorder p={{ base: "lg", sm: "xl" }} style={{ position: "relative", overflow: "hidden", minHeight: 220, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 32, background: "linear-gradient(135deg, var(--mantine-color-brand-light) 0%, var(--mantine-color-body) 55%)", }} >
+						{/* 装饰性听诊器水印 */}
+						<Box
+							visibleFrom="sm"
+							style={{
+								position: "absolute",
+								right: -28,
+								top: -28,
+								width: 180,
+								height: 180,
+								borderRadius: "50%",
+								background: "var(--mantine-color-brand-light-hover)",
+								opacity: 0.55,
+								pointerEvents: "none",
+							}}
+						/>
+						<ThemeIcon
+							visibleFrom="sm"
+							size={72}
+							radius="xl"
+							variant="light"
+							color="brand"
+							style={{ position: "absolute", right: 28, bottom: 28, pointerEvents: "none" }}
+						>
+							<IconStethoscope size={34} strokeWidth={1.5} />
+						</ThemeIcon>
+
+						<Box style={{ position: "relative", maxWidth: 640 }}>
+							{quota && (quota.llm.limit > 0 || quota.tts.limit > 0) && (
+								<Text size="xs" c={quota.llm.limit > 0 && quota.llm.used / quota.llm.limit >= 0.8 ? "orange" : "dimmed"} mb={6}>
+									今日额度剩余：对话 ¥{Math.max(0, quota.llm.limit - quota.llm.used).toFixed(2)}
+									{quota.tts.limit > 0 ? ` · 语音 ¥${Math.max(0, quota.tts.limit - quota.tts.used).toFixed(2)}` : ""}
+									{quota.llm.limit > 0 && quota.llm.used / quota.llm.limit >= 0.8 ? "（接近上限）" : ""}
+								</Text>
+							)}
+							<Text size="sm" fw={600} c="brand">
+								{greeting}，{user?.display_name || "同学"}
+							</Text>
+							<Title order={2} size="xl" mt="sm" lh={1.35}>
+								{primaryInProgress ? "继续完成这次护理问诊" : nextAssignment ? "先处理最近一项训练作业" : "开始一次新的护理模拟训练"}
+							</Title>
+							<Text size="sm" c="dimmed" mt="sm" lh={1.7} style={{ maxWidth: 560 }}>
+								{primaryInProgress
+									? `当前未完成病例：${primaryInProgress.case_name}。先回到对话，再生成评分。`
+									: nextAssignment
+										? `待完成作业：${nextAssignment.title} · ${nextAssignment.case_name}`
+										: "选择一个病例进入沉浸式问诊，完成后查看评分和改进建议。"}
+							</Text>
+						</Box>
+
+						<Group gap="sm" wrap="wrap" style={{ position: "relative" }}>
+							{/* 层级：全页唯一 filled 主行动 = 学生此刻该做的那件事（续训 > 作业 > 选病例）。
+							    三者互斥，用同一颗按钮表达，避免并列的主按钮互相抢注意力。 */}
+							<Button size="lg" onClick={heroPrimary.onClick}>
+								{heroPrimary.icon}{heroPrimary.label}
+							</Button>
+							{(primaryInProgress || nextAssignment) && (
+								<Button variant="default" size="lg" onClick={() => navigate("/cases")}>
+									{primaryInProgress ? "选择其他病例" : "浏览病例"}
+								</Button>
+							)}
+						</Group>
+					</Paper>
+
+					{showEmptyActivity ? (
+						<Paper withBorder p="lg">
+							<Group gap="sm" justify="center" wrap="wrap">
+								<Text size="sm" c="dimmed">暂无待办作业与训练记录，选一个病例开始今天的训练。</Text>
+								<Button variant="subtle" size="sm" onClick={() => navigate("/cases")}>
+									浏览病例
+								</Button>
+							</Group>
+						</Paper>
+					) : (
+					<SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md" style={{ alignItems: "start" }}>
+						<Paper withBorder p="md">
+							<Group justify="space-between" gap="sm">
+								<Text size="sm" fw={600}>待完成作业</Text>
+								<Button variant="subtle" color="gray" size="xs" onClick={() => navigate("/assignments")}>
+									查看全部
+								</Button>
+							</Group>
+							{isAssignmentsError ? (
+								// 失败不是「没有作业」：否则学生以为作业已清空，不再重试
+								<ErrorState title="作业加载失败" error={assignmentsError} onRetry={() => refetchAssignments()} />
+							) : assignmentsLoading ? (
+								<Stack gap="xs" mt="sm">
+									<LoadingSkeleton variant="text" />
+									<LoadingSkeleton variant="text" />
+								</Stack>
+							) : pendingAssignments.length > 0 ? (
+								<Stack gap="xs" mt="sm">
+									{pendingAssignments.slice(0, 3).map((a: { id: string; title: string; case_name: string; end_time?: string }) => (
+										<Paper key={a.id} withBorder p="sm">
+											<Group justify="space-between" align="flex-start" gap="sm" wrap="nowrap">
+												<Box style={{ minWidth: 0 }}>
+													<Text size="sm" fw={500} truncate>{a.title}</Text>
+													<Text size="xs" c="dimmed" mt={4}>
+														{a.case_name}{a.end_time ? ` · ${new Date(a.end_time).toLocaleDateString("zh-CN", { timeZone: APP_TIME_ZONE, month: "numeric", day: "numeric" })} 截止` : ""}
+													</Text>
+												</Box>
+												<Button variant="subtle" size="sm" onClick={() => handleStartAssignment(a.id)}>
+													<IconPlayerPlay size={14} />开始
+												</Button>
+											</Group>
+										</Paper>
+									))}
+								</Stack>
+							) : (
+								<Paper mt="md" p="md" withBorder style={{ borderStyle: "dashed" }}>
+									<Text size="sm" c="dimmed">
+										暂无待完成作业，可以自主选择病例训练。
+									</Text>
+								</Paper>
+							)}
+						</Paper>
+
+						<Paper withBorder p="md">
+							<Group justify="space-between" mb="sm">
+								<Group gap="xs">
+									<IconTrendingUp size={16} style={{ color: "var(--mantine-color-dimmed)" }} />
+									<Text size="sm" fw={500}>最近训练</Text>
+								</Group>
+								<Button variant="subtle" color="gray" size="xs" onClick={() => navigate("/history")}>
+									全部记录
+								</Button>
+							</Group>
+							{isRecentError ? (
+								<ErrorState title="最近训练加载失败" error={recentError} onRetry={() => refetchRecent()} />
+							) : recentLoading ? (
+								<Stack gap="xs">
+									<LoadingSkeleton variant="text" />
+									<LoadingSkeleton variant="text" />
+									<LoadingSkeleton variant="text" />
+								</Stack>
+							) : recentRecords.length > 0 ? (
+								<Stack gap={4}>
+									{recentRecords.map((r) => (
+										<UnstyledButton
+											key={r.id}
+											onClick={() => r.status === "in_progress" ? goTraining(navigate, r.id, trainingFrom) : navigate(`/record/${r.id}`)}
+											style={{ width: "100%", padding: "8px 12px", borderRadius: "var(--mantine-radius-md)", transition: "background 120ms ease" }}
+											className="hover-row"
+										>
+											<Group justify="space-between" gap="sm" wrap="nowrap">
+												<Box style={{ minWidth: 0, flex: 1 }}>
+													<Text size="sm" fw={500} truncate>{r.case_name}</Text>
+													<Text size="xs" c="dimmed" mt={2}>
+														{new Date(r.start_time).toLocaleDateString("zh-CN", { timeZone: APP_TIME_ZONE, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} · 问诊
+													</Text>
+												</Box>
+												<Box style={{ flexShrink: 0, marginLeft: 12 }}>
+													{r.status === "in_progress" ? (
+														<Badge variant="light" color="brand">进行中</Badge>
+													) : r.score_total != null ? (
+														<Stack gap={2} align="flex-end">
+															<Text size="sm" fw={600} c="brand" className="tabular-nums">{r.score_total} 分</Text>
+															<ScoreSourceBadge record={r} />
+														</Stack>
+													) : null}
+												</Box>
+											</Group>
+										</UnstyledButton>
+									))}
+								</Stack>
+							) : (
+								<Paper px="sm" py="lg" ta="center" withBorder style={{ borderStyle: "dashed" }}>
+									<Text size="sm" c="dimmed">
+										还没有训练记录。先从一个病例开始。
+									</Text>
+								</Paper>
+							)}
+						</Paper>
+					</SimpleGrid>
+					)}
+
+					<SimpleGrid cols={{ base: 1, xl: 2 }} spacing="md" style={{ alignItems: "start" }}>
+						{/* 训练概览：状态磁贴 */}
+						<Paper withBorder p="md">
+							<Group gap="xs" mb="sm">
+								<IconTarget size={16} style={{ color: "var(--mantine-color-dimmed)" }} />
+								<Text size="sm" fw={500}>训练概览</Text>
+							</Group>
+							<SimpleGrid cols={3} spacing="xs">
+								<TrainingTile
+									icon={<IconPlayerPlay size={18} style={{ color: "var(--mantine-color-yellow-light-color)" }} />}
+									value={inProgressCount}
+									label="进行中"
+									color="yellow"
+									onClick={() => { if (inProgressCount != null && inProgressCount > 0) navigate("/history?status=in_progress"); }}
+								/>
+								<TrainingTile
+									icon={<IconClipboardCheck size={18} style={{ color: "var(--mantine-color-green-light-color)" }} />}
+									value={completedCount}
+									label="已完成"
+									color="green"
+									onClick={() => { if (completedCount != null && completedCount > 0) navigate("/history?status=completed"); }}
+								/>
+								<TrainingTile
+									icon={<IconBook2 size={18} style={{ color: "var(--mantine-color-red-light-color)" }} />}
+									value={pendingCount}
+									label="待做作业"
+									color="blue"
+									onClick={() => { if (pendingCount != null && pendingCount > 0) navigate("/assignments"); }}
+								/>
+							</SimpleGrid>
+							{overviewFailed && (
+								<Group justify="space-between" gap="sm" mt="xs" wrap="nowrap">
+									<Text size="xs" c="dimmed">
+										概览有一项没取到（显示「—」），重试可刷新。
+									</Text>
+									<Button
+										variant="default"
+										size="xs"
+										style={{ flexShrink: 0 }}
+										onClick={() => {
+											if (isInProgressError) refetchInProgress();
+											if (isCompletedError) refetchCompleted();
+											if (isAssignmentsError) refetchAssignments();
+										}}
+									>
+										重试
+									</Button>
+								</Group>
+							)}
+						</Paper>
+
+						<Paper withBorder p="md">
+							<Group gap="xs" mb="sm">
+								<IconChartBar size={16} style={{ color: "var(--mantine-color-dimmed)" }} />
+								<Text size="sm" fw={500}>我的训练数据</Text>
+							</Group>
+							{trends && (
+								<>
+									<SimpleGrid cols={{ base: 1, xs: 2, xl: 3 }} spacing="sm">
+										<StatCard withBorder={false} icon={IconTarget} label="我的完成训练" value={mySessions} color="blue" />
+										<StatCard withBorder={false} icon={IconAward} label="我的平均展示分" value={myAvgScore != null ? `${myAvgScore}分` : "--"} color="green" />
+										<StatCard withBorder={false} icon={IconClock} label="我的总时长" value={myMinutes ? `${myMinutes}分钟` : "--"} color="amber" />
+									</SimpleGrid>
+									<Text size="xs" c="dimmed" mt="xs">
+										仅本人数据：展示分为数值参考，不代表能力等第，也不与同伴比较。
+									</Text>
+								</>
+							)}
+							<Box mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
+								<Group gap="xs" mb="sm">
+									<IconChartBar size={16} style={{ color: "var(--mantine-color-dimmed)" }} />
+									<Text size="sm" fw={500}>我的得分趋势（数值参考）</Text>
+								</Group>
+								{trendItems.length > 0 ? (
+									// flex-wrap 而非固定列数：趋势条数随数据变化（2–8 条），固定 4 列会出现末行空列
+									<Group gap="xs" align="stretch">
+										{trendItems.slice(-8).map((item, index) => (
+											<Paper key={`${item.date ?? "day"}-${index}`} bg="var(--mantine-color-default-hover)" p={8} ta="center" style={{ flex: "1 1 84px", minWidth: 84 }}>
+												<Text size="sm" fw={600} className="tabular-nums">
+													{item.avg_score != null ? String(item.avg_score) : "--"}
+												</Text>
+												<Text size="11px" c="dimmed" mt={2} truncate>
+													{item.date ? item.date.slice(5) : "—"}
+												</Text>
+											</Paper>
+										))}
+									</Group>
+								) : (
+									<Paper px="sm" py="lg" ta="center" withBorder style={{ borderStyle: "dashed" }}>
+										<Stack gap={4} align="center">
+											<IconChartBar size={18} style={{ color: "var(--mantine-color-gray-5)" }} />
+											<Text size="xs" c="dimmed">
+												完成更多训练后显示趋势
+											</Text>
+										</Stack>
+									</Paper>
+								)}
+							</Box>
+						</Paper>
+					</SimpleGrid>
+				</Stack>
+			)}
+
+			{/* ═══ 页面：病例目录 ═══ */}
+			{tab === "self" && (
+				<Stack gap="md">
+					<PageHeader
+						title="病例"
+						subtitle={`共 ${total} 个可用病例 · 选择一个开始自主训练`}
+						icon={IconBook2}
+					/>
+					<Group gap="xs" wrap="wrap">
+						{[0, 1, 2, 3].map((d) => (
+							<Button key={d} type="button" variant={difficultyFilter === d ? "light" : "subtle"} color={difficultyFilter === d ? undefined : "gray"} size="xs" onClick={() => { setDifficultyFilter(d); setOffset(0); }}
+							>{d === 0 ? "全部难度" : DIFFICULTY_LABELS[d]}</Button>
+						))}
+						<Box style={{ flex: 1 }} />
+						<Box w={176}>
+							<SearchInput value={searchInput} onChange={(value) => { handleSearchChange(value); setOffset(0); }} placeholder="搜索病例…" />
+						</Box>
+					</Group>
+					<Paper withBorder px="md" py="sm" bg="brand.0" style={{ borderStyle: "dashed", borderColor: "var(--mantine-color-brand-3)" }}>
+						<Group justify="space-between" gap="sm" wrap="wrap">
+							<Box style={{ minWidth: 0 }}>
+								<Group gap={6} wrap="nowrap">
+									<IconGift size={15} style={{ color: "var(--mantine-color-brand-7)", flexShrink: 0 }} />
+									<Text size="sm" fw={600}>盲盒训练</Text>
+								</Group>
+								<Text size="xs" c="dimmed" mt={2} truncate>
+									随机抽取一个开放病例，隐藏标题与引导，考验临场问诊
+								</Text>
+							</Box>
+							<Button
+								size="sm"
+								variant="default"
+								style={{ flexShrink: 0 }}
+								onClick={() => blindBoxMutation.mutate()}
+								disabled={blindBoxMutation.isPending}
+							>
+								{blindBoxMutation.isPending ? "抽取中…" : "开始盲盒"}
+							</Button>
+						</Group>
+					</Paper>
+					{casesLoading ? (
+						<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
+							{Array.from({ length: 6 }).map((_, i) => <LoadingSkeleton key={i} variant="card" />)}
+						</SimpleGrid>
+					) : isCasesError ? (
+						<ErrorState title="病例加载失败" error={casesError} onRetry={() => refetchCases()} />
+					) : cases.length === 0 ? (
+						<EmptyState icon={IconAlertTriangle} title="暂无可用病例" description={search ? "没有匹配的病例" : "管理员尚未开放自主练习病例"} />
+					) : (
+						<>
+							<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
+								{cases.map((c, idx) => {
+									const summary = getPatientSummary(c.patient_summary);
+									const inProgress = inProgressByCase.get(c.id);
+									return (
+										<motion.div key={c.id}
+											initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+											transition={{ duration: 0.25, delay: idx * 0.04, ease: "easeOut" }}>
+											<Paper withBorder p="md" style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%", transition: "box-shadow 150ms ease, transform 150ms ease" }} className="case-card">
+												<Group justify="space-between" align="flex-start" gap="xs" wrap="nowrap">
+													<Box style={{ minWidth: 0, flex: 1 }}>
+														<Text size="sm" fw={600} truncate>{c.name}</Text>
+														<Text size="xs" c="dimmed" mt={2} style={{ lineHeight: 1.6 }}>
+															{[summary.gender, summary.age != null ? `${summary.age}岁` : null].filter(Boolean).join(" · ")}
+															{summary.chief_complaint && <> · {summary.chief_complaint.slice(0, 30)}</>}
+														</Text>
+													</Box>
+													<Stars level={c.difficulty} />
+												</Group>
+												<CapBadges caps={c.capabilities} />
+												<WorkflowBadge workflow={c.workflow} />
+												{inProgress ? (
+													<Group gap="xs" style={{ marginTop: "auto" }}>
+														<Button style={{ flex: 1 }} variant="default" size="sm" onClick={() => goTraining(navigate, inProgress.id, trainingFrom)}><IconPlayerPlay size={14} />继续训练</Button>
+														<Button variant="subtle" size="sm" onClick={() => handleRestart(c, inProgress)} disabled={startMutation.isPending}><IconRotate size={14} /></Button>
+													</Group>
+												) : (
+													<Button
+														style={{ marginTop: "auto", width: "100%" }}
+														size="sm"
+														variant="default"
+														onClick={() => startMutation.mutate({ caseId: c.id, timeLimit: c.time_limit_minutes ?? 20 })}
+														disabled={startMutation.isPending}
+														title={undefined}
+													>
+														开始训练
+													</Button>
+												)}
+											</Paper>
+										</motion.div>
+									);
+								})}
+							</SimpleGrid>
+							{total > LIMIT && <Pagination total={total} offset={offset} limit={LIMIT} onChange={setOffset} />}
+						</>
+					)}
+				</Stack>
+			)}
+
+			{/* ═══ 页面：我的作业 ═══ */}
+			{tab === "assignments" && (
+				<Stack gap="md">
+					<PageHeader
+						title="作业"
+						subtitle={
+							assignmentsLoading
+								? "正在读取作业…"
+								: `共 ${assignments.length} 份 · 待完成 ${pendingAssignments.length} 份`
+						}
+						icon={IconClipboardList}
+					/>
+					{assignmentsLoading ? (
+					<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
+						{Array.from({ length: 3 }).map((_, i) => <LoadingSkeleton key={i} variant="card" />)}
+					</SimpleGrid>
+				) : isAssignmentsError ? (
+					// 失败先于空态判断：否则「教师尚未布置作业」会盖住真实错误
+					<ErrorState title="作业加载失败" error={assignmentsError} onRetry={() => refetchAssignments()} />
+				) : assignments.length === 0 ? (
+					<EmptyState icon={IconClipboardList} title="暂无作业" description="教师尚未布置作业，或所有作业已过期" />
+				) : (
+					<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
+						{assignments.map((a) => {
+							const isExpired = a.end_time && new Date(a.end_time) < new Date();
+							const isClosed = a.status === "closed";
+							const isCompleted = a.status === "completed";
+							const isInProgress = a.status === "in_progress";
+							const attemptsLeft =
+								a.max_attempts != null && a.max_attempts > 0
+									? a.max_attempts - (a.attempt_count ?? 0)
+									: null;
+
+							const handleReattempt = async () => {
+								if (isCompleted && a.score_total != null) {
+									const ok = await confirm({
+										title: "重新训练作业",
+										message: `你已完成此作业（得分 ${a.score_total}），重新开始将创建一条新记录。确定继续？`,
+										confirmLabel: "重新训练",
+									});
+									if (!ok) return;
+								}
+								handleStartAssignment(a.id);
+							};
+
+							return (
+								<Paper key={a.id} withBorder p="md" style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }} >
+									<Box>
+										<Group justify="space-between" align="flex-start" gap="xs" wrap="nowrap">
+											<Text size="sm" fw={600} truncate style={{ flex: 1 }}>{a.title}</Text>
+											{isExpired && <Badge variant="light" color="red">已过期</Badge>}
+											{isClosed && <Badge variant="light" color="orange">已关闭</Badge>}
+											{isCompleted && <Badge variant="light" color="green">已完成</Badge>}
+											{!isExpired && !isClosed && !isCompleted && <Badge variant="light" color="gray">待完成</Badge>}
+										</Group>
+										<Text size="xs" c="dimmed" mt={4}>
+											{a.case_name}
+											{a.score_total != null && <> · 得分 {a.score_total}</>}
+										</Text>
+										{(a.attempt_count ?? 0) > 0 && (
+											<Text size="xs" c="dimmed" mt={2}>
+												已尝试 {a.attempt_count} 次
+												{attemptsLeft != null && <> · 剩余 {attemptsLeft} 次</>}
+											</Text>
+										)}
+									</Box>
+									<Box style={{ marginTop: "auto" }}>
+										{isExpired || isClosed ? (
+											<Button size="sm" variant="default" disabled style={{ width: "100%" }}>{isClosed ? "已关闭" : "已过期"}</Button>
+										) : isInProgress && a.record_id ? (
+											<Button size="sm" variant="default" style={{ width: "100%" }} onClick={() => a.record_id != null && goTraining(navigate, a.record_id, trainingFrom)}><IconPlayerPlay size={14} />继续训练</Button>
+										) : isCompleted ? (
+											<Button size="sm" variant="default" style={{ width: "100%" }} onClick={handleReattempt}><IconRotate size={14} />重新训练</Button>
+										) : (
+											<Button size="sm" variant="default" style={{ width: "100%" }} onClick={() => handleStartAssignment(a.id)}><IconPlayerPlay size={14} />开始作业</Button>
+										)}
+									</Box>
+								</Paper>
+							);
+						})}
+					</SimpleGrid>
+					)}
+				</Stack>
+			)}
+		</Stack>
+	);
+}
+
+/** 训练状态磁贴 — 数字 + 标签 + 轻提示色 */
+function TrainingTile({
+	icon,
+	value,
+	label,
+	color,
+	onClick,
+}: {
+	icon: ReactNode;
+	/** null = 这项数据没取到：画「—」，不画 0（0 会被当成「真的没有」） */
+	value: number | null;
+	label: string;
+	color: "yellow" | "green" | "red" | "blue";
+	onClick: () => void;
+}) {
+	return (
+		<UnstyledButton
+			type="button"
+			onClick={onClick}
+			// 底色/描边按 scheme 感知 token 动态拼名（`-0`/`gray-2` 是固定浅色档，深色态不翻转）
+			style={{ width: "100%", borderRadius: "var(--mantine-radius-md)", background: `var(--mantine-color-${color}-light)`, border: `1px solid var(--mantine-color-${color}-outline)`, transition: "box-shadow 120ms ease" }}
+		>
+			<Stack gap={6} p="sm" align="flex-start" style={{ width: "100%" }}>
+				{icon}
+				<Text size="xl" fw={700} lh={1} className="tabular-nums">
+					{value ?? "—"}
+				</Text>
+				<Text size="xs" c="dimmed">
+					{label}
+				</Text>
+			</Stack>
+		</UnstyledButton>
+	);
+}

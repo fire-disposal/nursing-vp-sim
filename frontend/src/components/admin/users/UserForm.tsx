@@ -85,8 +85,11 @@ export default function UserForm({
   const isEdit = user !== null;
   // 单位下拉的数据形式只需要 id/name：调用方传院校列表，这里只做一次形状转换
   const schoolOptions = schools.map((s) => ({ value: String(s.id), label: s.name }));
-  // 非平台操作者不能授予平台视角（后端 403）；UI 不展示不可选项
-  const grantablePersonas = isPlatform ? personas : personas.filter((p) => p.value !== PLATFORM_PERSONA);
+  // 只展示**能授予**的视角：超出调用者当前权限的档位后端会 403，
+  // 给出可选项等于让用户填完再被拒。平台视角另受"目标账号必须是平台账号"约束。
+  const grantablePersonas = personas.filter(
+    (p) => p.grantable && (isPlatform || p.value !== PLATFORM_PERSONA),
+  );
   // 平台账号已收窄到某一所院校时，新建账号默认落在该校（表单里锁住，避免两个答案）
   const scopedSchool = useSchoolScopeStore((s) => s.school);
 

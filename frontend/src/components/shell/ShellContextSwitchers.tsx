@@ -1,13 +1,12 @@
 import { Box, Divider, Group, Menu, Paper, Text, Tooltip, UnstyledButton } from "@mantine/core";
-import { IconCheck, IconChevronDown, IconLock, IconUserShield } from "@tabler/icons-react";
+import { IconCheck, IconChevronDown, IconLock } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useSchoolsQuery } from "@/hooks/useSchools";
 import useAuthStore from "@/stores/authStore";
 import { usePersonaStore } from "@/stores/personaStore";
-import { type ScopedSchool, useSchoolScopeStore } from "@/stores/schoolScopeStore";
-import { personaLabel } from "@/utils/personas";
+import { type ScopedSchool, SCHOOL_MENU_REQUEST_EVENT, toScopedSchool, useSchoolScopeStore } from "@/stores/schoolScopeStore";
 import PersonaSwitcher from "./PersonaSwitcher";
 import { SchoolLogo } from "./SchoolScopeSwitcher";
 
@@ -17,24 +16,18 @@ import { SchoolLogo } from "./SchoolScopeSwitcher";
  * 两种形态共用同一份逻辑：
  * - `header`：桌面顶栏里的内联胶囊，不占侧栏纵向空间；
  * - `card`：移动端抽屉里的一行卡片（顶栏放不下时仍有完整入口）。
- * 不可切换的一方保留锁图标与原值，字段始终在，避免控件时有时无。
+ *
+ * **单一语境不显示控件**：只有一所院校 + 一个视角的账号（绝大多数学生/教师）看不到
+ * 这段壳层，操作与普通系统无异；多校/多视角账号只显示**能变的那一侧**，避免
+ * "锁着的控件"造成"这里本来该能点"的错觉。
  */
 
-function toScoped(school: { id: number; name: string; theme_color?: string | null; has_logo?: boolean; logo_updated_at?: string | null }): ScopedSchool {
-	return {
-		id: school.id,
-		name: school.name,
-		themeColor: school.theme_color ?? null,
-		hasLogo: !!school.has_logo,
-		logoUpdatedAt: school.logo_updated_at ?? null,
-	};
-}
 
-function LockedInline({ value, hint, icon }: { value: string; hint: string; icon?: React.ReactNode }) {
+function LockedInline({ value, hint }: { value: string; hint: string }) {
 	return (
 		<Tooltip label={hint} withArrow>
 			<Group gap={4} wrap="nowrap" style={{ cursor: "default", minWidth: 0 }}>
-				{icon ?? <IconLock size={11} style={{ color: "var(--mantine-color-dimmed)", flexShrink: 0 }} />}
+				<IconLock size={11} style={{ color: "var(--mantine-color-dimmed)", flexShrink: 0 }} />
 				<Text size="xs" c="dimmed" truncate>
 					{value}
 				</Text>
@@ -57,6 +50,19 @@ export default function ShellContextSwitchers({ variant = "card" }: { variant?: 
 	const queryClient = useQueryClient();
 	const location = useLocation();
 	const navigate = useNavigate();
+	// 平台账号在"全部院校"下点非平台视角时，由 PersonaSwitcher 请求打开院校菜单，
+	// 把"先选院校"从一句 toast 变成直接可操作的下一步。
+	const [schoolMenuOpen, setSchoolMenuOpen] = useState(false);
+	useEffect(() => {
+		const handler = () => {
+			// 顶栏与抽屉各有一份语境控件；只让当前可见的那一份响应，
+			// 否则两个 Menu 会同时打开（门户里出现两份院校列表）。
+			const desktop = window.matchMedia("(min-width: 62em)").matches;
+			if ((variant === "header") === desktop) setSchoolMenuOpen(true);
+		};
+		window.addEventListener(SCHOOL_MENU_REQUEST_EVENT, handler);
+		return () => window.removeEventListener(SCHOOL_MENU_REQUEST_EVENT, handler);
+	}, [variant]);
 
 	const grantSchools: ScopedSchool[] = (user?.school_personas ?? []).map((grant) => ({
 		id: grant.school_id,
@@ -66,7 +72,7 @@ export default function ShellContextSwitchers({ variant = "card" }: { variant?: 
 		hasLogo: grant.school_id === user?.school_id ? !!user?.school_has_logo : false,
 		logoUpdatedAt: grant.school_id === user?.school_id ? (user?.school_logo_updated_at ?? null) : null,
 	}));
-	const optionSchools = isPlatform ? schools.map(toScoped) : grantSchools;
+	const optionSchools = isPlatform ? schools.map(toScopedSchool) : grantSchools;
 	const homeSchool = !isPlatform && user?.school_id != null
 		? (grantSchools.find((school) => school.id === user.school_id) ?? {
 				id: user.school_id,
@@ -82,11 +88,12 @@ export default function ShellContextSwitchers({ variant = "card" }: { variant?: 
 	const schoolName = isPlatform ? (scopedSchool?.name ?? "全部院校") : (activeSchool?.name ?? "未绑定院校");
 	const schoolHint = isPlatform
 		? "切换当前院校：列表、统计与新建都会跟随"
-		: canPickSchool
-			? "切换当前院校：你被授予了多所院校的视角"
-			: "账号固定在本院校（院校边界不可切换）";
-	const personaLabelText = personaLabel(activePersona) ?? "—";
-	const personaHint = available.length <= 1 ? "账号只有这一个视角" : "当前视角（权限按视角生效）";
+		: "切换当前院校：你被授予了多所院校的视角";
+
+	// 单校 + 单视角：整段语境对用户不可见（身份已在侧栏底部与个人中心）。
+	// 多校/多视角账号只显示能变的一侧，不摆"锁着的控件"。
+	const showSchoolControl = isPlatform || canPickSchool;
+	const showPersonaControl = available.length > 1 && !!activePersona;
 
 	// 院校改名/换院徽/被删除时同步本地快照：快照供顶栏与主题使用，不能一直停在旧值。
 	// 列表为空（请求失败）时不动，避免网络抖动把当前作用域清掉。
@@ -105,7 +112,7 @@ export default function ShellContextSwitchers({ variant = "card" }: { variant?: 
 			queryClient.clear();
 			return;
 		}
-		const next = toScoped(current);
+		const next = toScopedSchool(current);
 		if (
 			next.name !== scoped.name ||
 			next.themeColor !== scoped.themeColor ||
@@ -152,8 +159,17 @@ export default function ShellContextSwitchers({ variant = "card" }: { variant?: 
 		await useAuthStore.getState().refreshUser();
 	};
 
+	// 单一语境不渲染：学生/单校教师看到的壳与普通系统一致。
+	if (!showSchoolControl && !showPersonaControl) return null;
+
 	const schoolControl = canPickSchool ? (
-		<Menu position="bottom-start" width={240} withinPortal>
+		<Menu
+			position="bottom-start"
+			width={240}
+			withinPortal
+			opened={schoolMenuOpen}
+			onChange={setSchoolMenuOpen}
+		>
 			<Menu.Target>
 				<UnstyledButton
 					aria-label="切换院校"
@@ -179,7 +195,7 @@ export default function ShellContextSwitchers({ variant = "card" }: { variant?: 
 						全部院校
 					</Menu.Item>
 				)}
-				{(isPlatform ? schools.map(toScoped) : grantSchools).map((school) => {
+				{(isPlatform ? schools.map(toScopedSchool) : grantSchools).map((school) => {
 					const selected = activeSchool?.id === school.id;
 					return (
 						<Menu.Item
@@ -198,12 +214,7 @@ export default function ShellContextSwitchers({ variant = "card" }: { variant?: 
 		<LockedInline value={schoolName} hint={schoolHint} />
 	);
 
-	const personaControl =
-		available.length > 1 ? (
-			<PersonaSwitcher variant="compact" />
-		) : (
-			<LockedInline value={personaLabelText} hint={personaHint} icon={<IconUserShield size={11} style={{ color: "var(--mantine-color-dimmed)", flexShrink: 0 }} />} />
-		);
+	const personaControl = <PersonaSwitcher variant="compact" />;
 
 	if (variant === "header") {
 		return (
@@ -218,9 +229,9 @@ export default function ShellContextSwitchers({ variant = "card" }: { variant?: 
 					height: 30,
 				}}
 			>
-				<Box px={8} style={{ display: "flex", alignItems: "center", minWidth: 0 }}>{schoolControl}</Box>
-				<Divider orientation="vertical" my={5} />
-				<Box px={8} style={{ display: "flex", alignItems: "center", minWidth: 0 }}>{personaControl}</Box>
+				{showSchoolControl && <Box px={8} style={{ display: "flex", alignItems: "center", minWidth: 0 }}>{schoolControl}</Box>}
+				{showSchoolControl && showPersonaControl && <Divider orientation="vertical" my={5} />}
+				{showPersonaControl && <Box px={8} style={{ display: "flex", alignItems: "center", minWidth: 0 }}>{personaControl}</Box>}
 			</Group>
 		);
 	}
@@ -228,19 +239,23 @@ export default function ShellContextSwitchers({ variant = "card" }: { variant?: 
 	return (
 		<Paper withBorder radius="md" p={6} mb="sm">
 			<Group gap={8} wrap="nowrap" align="center">
-				<Group gap={5} wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
-					<Text size="10px" fw={700} c="dimmed" tt="uppercase" style={{ flexShrink: 0 }}>
-						院校
-					</Text>
-					{schoolControl}
-				</Group>
-				<Divider orientation="vertical" my={2} />
-				<Group gap={5} wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
-					<Text size="10px" fw={700} c="dimmed" tt="uppercase" style={{ flexShrink: 0 }}>
-						视角
-					</Text>
-					{personaControl}
-				</Group>
+				{showSchoolControl && (
+					<Group gap={5} wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+						<Text size="10px" fw={700} c="dimmed" tt="uppercase" style={{ flexShrink: 0 }}>
+							院校
+						</Text>
+						{schoolControl}
+					</Group>
+				)}
+				{showSchoolControl && showPersonaControl && <Divider orientation="vertical" my={2} />}
+				{showPersonaControl && (
+					<Group gap={5} wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+						<Text size="10px" fw={700} c="dimmed" tt="uppercase" style={{ flexShrink: 0 }}>
+							视角
+						</Text>
+						{personaControl}
+					</Group>
+				)}
 			</Group>
 		</Paper>
 	);

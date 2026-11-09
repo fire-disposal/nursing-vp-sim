@@ -91,7 +91,9 @@ def _focus_candidate(
         # 既无引用也无理由 → 给不出确定指导（W5 通过条件）
         return None
     is_key_omission = item_id in key_omission_refs
-    if score >= raw_scale and not is_key_omission:
+    item_max_raw = item.get("max")
+    item_max = float(item_max_raw) if isinstance(item_max_raw, (int, float)) and item_max_raw > 0 else raw_scale
+    if score >= item_max and not is_key_omission:
         return None
 
     rubric_item = rubric_items.get(item_id, {})
@@ -104,7 +106,7 @@ def _focus_candidate(
         "item_id": item_id,
         "item_name": name,
         "score": score,
-        "max": raw_scale,
+        "max": item_max,
         "kind": KIND_MISSED if score <= 0 else KIND_PARTIAL,
         "key_omission": is_key_omission,
         "evidence": evidence,

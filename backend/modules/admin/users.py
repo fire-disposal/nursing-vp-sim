@@ -13,6 +13,9 @@ from sqlalchemy.orm import Session, defer, joinedload, selectinload
 
 from core.access import (
     accessible_school_ids,
+    grantable_personas,
+    granted_personas,
+    resolve_access,
     set_student_profile,
 )
 from core.access import (
@@ -39,13 +42,8 @@ from core.identity import (
     normalize_student_id,
 )
 from core.pagination import paginate
-from core.personas import PERSONA_KEYS, PERSONAS, is_super_admin, persona_permissions
-from core.security import (
-    hash_password,
-    load_user_personas,
-    require_permission,
-    resolve_view_persona,
-)
+from core.personas import PERSONA_KEYS, is_super_admin, persona_permissions, persona_scope
+from core.security import hash_password, require_permission
 from core.tenant import Scope, TenantScope, scope_query, visible_class, writable_school_id
 from core.unit_of_work import unit_of_work
 from infra.exporter import ColumnDef, ExportAudit, export_response
@@ -221,7 +219,7 @@ class UserService:
     def _personas_of(self, user: User) -> list[str]:
         if is_super_admin(user):
             return list(PERSONA_KEYS)
-        return sorted(load_user_personas(self.db, user, self._persona_school(user)))
+        return sorted(granted_personas(self.db, user, self._persona_school(user)))
 
     def _brief(self, user: User) -> UserBriefView:
         return UserBriefView(
@@ -305,7 +303,7 @@ class UserService:
         cached = getattr(current_user, "_permissions_cache", None)
         if cached is not None:
             return set(cached)
-        return set(resolve_view_persona(self.db, current_user)[1])
+        return set(resolve_access(self.db, current_user).permissions)
 
     def _assert_can_manage_target(self, current_user: User, target: User, *, action: str) -> None:
         """不能支配权限高于自己的账号；平台账号不可被普通管理员支配。"""
@@ -313,8 +311,12 @@ class UserService:
             return
         if is_super_admin(target):
             raise AuthError(f"无权{action}：目标是平台账号", status_code=403)
+        # 自限视角（学生）的训练/问答权限不是"更高的管理权"：管理员管理学生账号
+        # 不需要自己也拥有这些终端能力；只比较管理面权限。
         target_perms: set[str] = set()
         for persona in self._personas_of(target):
+            if persona_scope(persona) == "self":
+                continue
             target_perms |= persona_permissions(persona)
         exceeded = sorted(target_perms - self._grantable(current_user))
         if exceeded:
@@ -329,11 +331,10 @@ class UserService:
         if "platform" in unique and not is_super_admin(target):
             raise ValidationError("平台视角只能授予平台账号")
         if not is_super_admin(actor):
-            actor_perms = self._grantable(actor)
-            for key in unique:
-                above = sorted(set(PERSONAS[key].permissions) - actor_perms)
-                if above:
-                    raise AuthError(f"无权授予视角 {key}：包含你没有的权限 {above}", status_code=403)
+            allowed = grantable_personas(actor)
+            blocked = sorted(set(unique) - allowed)
+            if blocked:
+                raise AuthError(f"无权授予视角：{blocked}", status_code=403)
         if target.school_id is None:
             raise ValidationError("该账号没有院校归属，不能授予院校视角")
         before = self._personas_of(target)

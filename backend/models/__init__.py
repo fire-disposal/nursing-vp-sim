@@ -47,13 +47,6 @@ from models.questionnaire import (
     QuestionnaireTemplate,
 )
 from models.rate_limit import RateLimitEntry
-from models.scenario_training import (
-    StAsset,
-    StEvent,
-    StPack,
-    StSession,
-    StSessionRequest,
-)
 from models.school import (
     MEMBER_ROLE_STUDENT,
     MEMBER_ROLE_TEACHER,
@@ -62,6 +55,7 @@ from models.school import (
     ClassMembership,
     School,
 )
+from models.settings import AppSettings
 from models.training import (
     Message,
     NursingRecord,
@@ -99,6 +93,7 @@ __all__ = [
     "MEMBER_ROLE_STUDENT",
     "MEMBER_ROLE_TEACHER",
     "ApiSecret",
+    "AppSettings",
     "Assignment",
     "AssignmentRecipient",
     "AuditLog",
@@ -125,11 +120,6 @@ __all__ = [
     "SchoolBudget",
     "Score",
     "ScoreReview",
-    "StAsset",
-    "StEvent",
-    "StPack",
-    "StSession",
-    "StSessionRequest",
     "SystemNotification",
     "TimestampMixin",
     "TrainingAction",

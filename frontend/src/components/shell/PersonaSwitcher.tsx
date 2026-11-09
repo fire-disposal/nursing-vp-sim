@@ -1,11 +1,16 @@
 import { Badge, Menu, SegmentedControl, Text, UnstyledButton } from "@mantine/core";
-import { IconCheck, IconUserShield } from "@tabler/icons-react";
+import { IconCheck, IconChevronDown, IconUserShield } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/Toast";
+import { useSchoolsQuery } from "@/hooks/useSchools";
 import useAuthStore from "@/stores/authStore";
 import { usePersonaStore } from "@/stores/personaStore";
-import { useSchoolScopeStore } from "@/stores/schoolScopeStore";
+import {
+	SCHOOL_MENU_REQUEST_EVENT,
+	toScopedSchool,
+	useSchoolScopeStore,
+} from "@/stores/schoolScopeStore";
 import { isPersonaId, personaLabel, sortPersonas } from "@/utils/personas";
 
 /**
@@ -24,15 +29,25 @@ export function PersonaSwitcher({ variant = "auto" }: { variant?: "auto" | "comp
 	const queryClient = useQueryClient();
 	const navigate = useNavigate();
 	const toast = useToast();
+	const isPlatform = useAuthStore((s) => s.user?.is_platform === true);
+	// 只有一个院校时切视角可直接替用户选上；多个时由 ShellContextSwitchers 把菜单打开。
+	const { data: schools = [] } = useSchoolsQuery({ enabled: isPlatform });
 
 	if (available.length <= 1 || !active) return null;
 
 	const onChange = async (next: string) => {
 		if (next === active) return;
 		// 平台账号的非 platform 视角必须有具体学校：不允许对“全部院校”行使教师/学生/管理数据面。
-		if (useAuthStore.getState().user?.is_platform && next !== "platform" && !useSchoolScopeStore.getState().school) {
-			toast.warning("请先选择一所院校，再切换到该视角");
-			return;
+		// 只有一所院校 → 直接替用户选上（绝大多数部署都是单校，别让人多点一步）；
+		// 多所 → 把院校菜单打开，下一步就是选择，而不是只弹一句提示。
+		if (isPlatform && next !== "platform" && !useSchoolScopeStore.getState().school) {
+			if (schools.length === 1) {
+				useSchoolScopeStore.getState().setSchool(toScopedSchool(schools[0]));
+			} else {
+				window.dispatchEvent(new Event(SCHOOL_MENU_REQUEST_EVENT));
+				toast.warning("请先选择一所院校，再切换到该视角");
+				return;
+			}
 		}
 		setActive(next);
 		// 换视角 = 换了权限口径：所有查询结果都不再成立
@@ -78,6 +93,7 @@ export function PersonaSwitcher({ variant = "auto" }: { variant?: "auto" | "comp
 						color="brand"
 						size="sm"
 						leftSection={<IconUserShield size={12} />}
+						rightSection={<IconChevronDown size={11} />}
 						style={{ textTransform: "none", cursor: "pointer" }}
 					>
 						{label}

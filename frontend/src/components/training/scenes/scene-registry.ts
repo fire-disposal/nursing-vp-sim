@@ -11,4 +11,5 @@ export const TRAINING_SCENES: Record<
 	React.ComponentType<{ recordId: string }>
 > = {
 	history_taking: lazy(() => import("./HistoryTakingScene")),
+	clinical_reasoning: lazy(() => import("./ClinicalReasoningScene")),
 };

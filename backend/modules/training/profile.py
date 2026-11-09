@@ -74,6 +74,8 @@ class WorkflowDefinition:
     note_sources: list[type[NoteSource]]
     prompts: PromptCollection
     rubric: dict
+    #: 老问诊内置特性不会自动泄漏到新闭包；各 Workflow 显式声明。
+    builtin_features: tuple[str, ...] = ("emotion", "patient_initiative", "inquiry_progress")
     #: 产品状态：这条闭包**是否已有真实运行期入口**（学生工作区 + 真实产物/证据 +
     #: 评分/复盘）。``False`` = 只能编写病例、过发布门禁、进目录，训练入口一律拒绝
     #: （``workflows.require_startable`` → 409），绝不落地一条没有 renderer 的训练记录。
@@ -134,10 +136,37 @@ class WorkflowDefinition:
         """
         if not self.runtime_ready:
             return {}
+        builtins = resolve_builtin_features(overrides)
         return {
-            **resolve_builtin_features(overrides),
+            **{key: builtins[key] for key in self.builtin_features},
             **resolve_activity_flags(case_data, allowed=self.activities, overrides=overrides),
         }
+
+    def build_prompt_snapshot(self) -> dict:
+        """冻结该训练产品线实际使用的患者提示词模板。"""
+        if self.scoring_profile == "clinical_reasoning.base":
+            from modules.training.clinical_reasoning.prompts import JSON_CONTRACT, SYSTEM
+
+            return {"schema_version": 2, "segments": {"system": SYSTEM, "dynamic": JSON_CONTRACT}}
+        return {
+            "schema_version": 2,
+            "segments": {"system": self.prompts.system, "dynamic": self.prompts.dynamic},
+        }
+
+    def build_rubric_snapshot(
+        self,
+        case_data: Mapping[str, Any] | None,
+        *,
+        overrides: Mapping[str, Any] | None = None,
+    ) -> dict:
+        """构建本次记录冻结的评分域；病例级 anchors 与固定 rubric 共用同一入口。"""
+        if self.scoring_profile == "clinical_reasoning.base":
+            from modules.training.clinical_reasoning.rubric import build_clinical_rubric
+
+            return build_clinical_rubric(case_data or {})
+        from modules.training.scoring.rubric import build_final_rubric
+
+        return build_final_rubric(self.rubric, self.resolve_features(case_data, overrides=overrides))
 
     def context_sources(
         self,
@@ -159,9 +188,9 @@ class WorkflowDefinition:
         return frozenset(name for name in sources if name)
 
 
-#: 目前只有一个生产 Workflow。``training_records.training_type`` 退场后，
-#: 「这次训练跑哪条闭包」由**病例 revision 决定、训练记录冻结**（``training_records.workflow_id``，
-#: 见 ``modules/training/workflows.py`` 的注册表与解析器）；本文件只负责**声明**一条闭包。
+#: ``training_records.training_type`` 退场后，「这次训练跑哪条闭包」由**病例 revision 决定、
+#: 训练记录冻结**（``training_records.workflow_id``，见 ``modules/training/workflows.py``）。
+#: 本文件只负责声明各条闭包。
 HISTORY_TAKING = WorkflowDefinition(
     id="history_taking",
     label="病史采集",
@@ -180,31 +209,21 @@ HISTORY_TAKING = WorkflowDefinition(
 )
 
 
-#: 第二条登记项：临床判断训练（Clinical Judgment Drill）。
-#:
-#: 它是**真实闭包声明，但运行期尚未就绪**（``runtime_ready=False``）：本切片只交付
-#: 「病例怎么编写 / 发布门禁 / 目录投影」，学生工作区（阶段链条 + 证据获取 + 结构化
-#: 推理产物 + 确定性评分 + 复盘）属于后续切片。因此：
-#:
-#: - ``activities=()``：没有任何已就绪的 Activity —— 未接入的入口不进生产 manifest
-#:   ；病例若声明 ``activities`` 会在发布门禁报 error。
-#: - ``prompts=PromptCollection()``：它不是第二套患者对话 —— 临床判断训练不共享
-#:   ``history_taking`` 的 LLM prompt（判据来自病例声明的确定性证据与 rubric）。
-#: - ``rubric={}``：评分域由**病例**声明的确定性锚点决定；不共享护理评估 rubric。
-#: - 训练入口（学生/作业/盲盒）一律 409 拒绝（``workflows.require_startable``），
-#:   直到下游交付真实 renderer/Activity 才翻转 ``runtime_ready``。
+#: 第二条闭包：证据驱动临床判断训练（内部 V2）。
+#: 患者回合、证据状态、工作区与确定性评分均在 clinical_reasoning 模块独立实现；
+#: 这里只声明其与老问诊共享的记录生命周期和 Activity 命令面。
 CLINICAL_REASONING = WorkflowDefinition(
     id="clinical_reasoning",
-    label="临床判断训练",
-    description="临床判断训练：发现线索 → 获取证据 → 判断 → 行动 → 沟通；工作区与确定性评分待接入，当前仅支持病例编写、发布与目录展示",
-    activities=(),
-    entry_modes=(),
+    label="证据驱动训练",
+    description="发现线索 → 获取证据 → 判断 → 行动 → 沟通；按实际证据事件评分",
+    activities=("clinical_judgment",),
+    entry_modes=("自由练习", "作业", "考核"),
     artifact_kinds=(),
     completion=CompletionPolicy(required_artifacts=()),
     scoring_profile="clinical_reasoning.base",
-    ui={},
+    ui={"workspace": "clinical_reasoning", "primary_surface": "evidence"},
     note_sources=[],
     prompts=PromptCollection(),
     rubric={},
-    runtime_ready=False,
+    builtin_features=(),
 )

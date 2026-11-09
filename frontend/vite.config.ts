@@ -93,8 +93,6 @@ export default defineConfig({
 						return "markdown";
 					if (id.includes("node_modules/zustand")) return "vendor";
 					if (id.includes("node_modules/@tanstack")) return "vendor";
-					if (id.includes("node_modules/three") || id.includes("node_modules/@react-three"))
-						return "three";
 					if (id.includes("node_modules/@monaco-editor")) return "monaco";
 				},
 			},

@@ -344,7 +344,6 @@ async def send_message(
 ):
     assert_within_budget(db, current_user, "llm")
     ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=False)
-
     replay = _resolve_turn_replay(ctx)
     if replay is not None:
         claim, content = replay
@@ -353,6 +352,11 @@ async def send_message(
             content=content,
             operation={"replayed": True, **claim.replay_payload},
         )
+
+    if workflow_for_record(ctx.record).id == "clinical_reasoning":
+        from modules.training.clinical_reasoning.llm import run_clinical_reasoning_turn
+
+        return await run_clinical_reasoning_turn(ctx)
 
     collector = build_note_collector(workflow_for_record(ctx.record))
     ctx.note_collector = collector
@@ -382,6 +386,9 @@ async def send_message_stream(
     try:
         # 花钱入口：先查用户日额度 / 院校月额度（超限 429，不会开始 LLM）
         assert_within_budget(db, current_user, "llm")
+        record = db.get(TrainingRecord, record_id)
+        if record is not None and record.workflow_id == "clinical_reasoning":
+            raise HTTPException(status_code=400, detail="证据驱动训练使用独立非流式回合接口")
         ctx = await _build_context(record_id, req, current_user, db, request, stream_mode=True)
         # 幂等回放：命中既有回合 → 直接回放，不重复开始 LLM（也不新建 SSE 任务）
         replay = _resolve_turn_replay(ctx)
@@ -438,6 +445,9 @@ async def correct_last_message_stream(
     db = await stack.enter_async_context(db_session())
     try:
         assert_within_budget(db, current_user, "llm")
+        record = db.get(TrainingRecord, record_id)
+        if record is not None and record.workflow_id == "clinical_reasoning":
+            raise HTTPException(status_code=400, detail="证据驱动训练不支持老问诊的消息修正管线")
         ctx = await _build_correction_context(record_id, req, current_user, db, request)
         collector = build_note_collector(workflow_for_record(ctx.record))
         ctx.note_collector = collector

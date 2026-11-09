@@ -10,11 +10,11 @@ import jwt
 import pytest
 from fastapi import HTTPException
 
+from core.access import clear_access_cache, granted_personas
 from core.config import ALGORITHM, JWT_SECRET_KEY
 from core.personas import persona_permissions
 from core.security import (
     _set_user_permissions,
-    clear_permission_cache,
     create_access_token,
     decode_token_allow_expired,
     get_current_user,
@@ -56,7 +56,7 @@ class _UserQuery:
         return self._user
 
     def all(self):
-        # load_user_personas may run inside get_current_user via _set_user_permissions
+        # granted_personas may run inside get_current_user via _set_user_permissions
         return []
 
     def __iter__(self):
@@ -150,44 +150,36 @@ def _user(**kw):
 
 @pytest.fixture(autouse=True)
 def _clear_perm_cache():
-    clear_permission_cache()
+    clear_access_cache()
     yield
-    clear_permission_cache()
+    clear_access_cache()
 
 
 class TestLoadUserPersonas:
     def test_loads_and_caches(self):
         db = _PermDb(["teacher", "admin"])
-        from core.security import load_user_personas
-
-        granted = load_user_personas(db, _user(id=7, is_platform=False))
+        granted = granted_personas(db, _user(id=7, is_platform=False))
         assert granted == frozenset({"teacher", "admin"})
         assert db.persona_query.queries == 1
 
     def test_second_call_served_from_cache(self):
-        from core.security import load_user_personas
-
         db = _PermDb(["student"])
         user = _user(id=3, is_platform=False)
-        load_user_personas(db, user)
-        load_user_personas(db, user)
+        granted_personas(db, user)
+        granted_personas(db, user)
         assert db.persona_query.queries == 1
 
     def test_clear_single_user_forces_reload(self):
-        from core.security import load_user_personas
-
         db = _PermDb(["student"])
         user = _user(id=5, is_platform=False)
-        load_user_personas(db, user)
-        clear_permission_cache(5)
-        load_user_personas(db, user)
+        granted_personas(db, user)
+        clear_access_cache(5)
+        granted_personas(db, user)
         assert db.persona_query.queries == 2
 
     def test_empty_result_is_empty_frozenset(self):
-        from core.security import load_user_personas
-
         db = _PermDb([])
-        assert load_user_personas(db, _user(id=9, is_platform=False)) == frozenset()
+        assert granted_personas(db, _user(id=9, is_platform=False)) == frozenset()
 
 
 class TestSetUserPermissions:

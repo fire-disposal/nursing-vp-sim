@@ -138,7 +138,6 @@ export default function CaseFormModal({ open, editingCase, startWithAiPanel, ava
 				setLoadFailed(true);
 				toast.error("加载病例数据失败：当前内容不是该病例，已禁用保存，请关闭后重试");
 			});
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [open, editingCase, dispatch, toast.error]);
 
 	// ── 草稿自动保存（800ms 防抖） ──

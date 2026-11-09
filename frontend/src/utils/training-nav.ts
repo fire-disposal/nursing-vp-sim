@@ -36,8 +36,6 @@ export function readTrainingOrigin(state: unknown): string | undefined {
 	return from;
 }
 
-/** 离开训练页的落点 = `readTrainingOrigin(state) ?? "/history"`（来源优先，无来源落记录列表）。 */
-
 /** 进入训练页（所有入口的唯一写法）：把当前页记进 `state.from`。 */
 export function goTraining(
 	navigate: NavigateFunction,
@@ -72,7 +70,7 @@ export function openNotification(
 	}
 	if (type.startsWith("assignment_")) {
 		if (record_id) goTraining(navigate, record_id, from);
-		else navigate("/training?tab=assignments");
+		else navigate("/assignments");
 		return;
 	}
 	if (type.startsWith("scoring_")) {

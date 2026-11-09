@@ -1,15 +1,14 @@
 """视角（persona）= 权限预设 —— 与 `core/permissions.py` 同构的单一真相。
 
 视角由**代码拥有**：预设写在 `PERSONAS` 里，用户只持有"被授予了哪些视角"
-（`user_personas` 表）。请求经 `X-View-Persona` 选择当前生效视角，生效权限 =
-该视角的预设（`core/security.resolve_view_persona`）。
+（`user_school_personas` 表）。请求经 `X-View-Persona` 选择当前生效视角，生效权限 =
+该视角的预设（`core/access.resolve_access`）。
 
 角色（`roles`）仍是"一个人是什么"，视角是"这一刻他以什么身份操作"：
 同一教师可被授予 `teacher` + `admin`，切换视角即切换权限，审计按视角留痕。
 
-- 超级管理员（`role.name == "super_admin"`）**派生**拥有全部视角，不写 `user_personas` 行。
-- 迁移前的老数据（无 persona 行且非超管）走 legacy `role_permissions`，见 `LEGACY` 说明
-  在 `core/security.resolve_view_persona` 里的分支。
+- 平台账号（`users.is_platform`）**派生**拥有全部视角，不写 `user_school_personas` 行。
+- 没有任何授予的非平台账号：无视角、无权限（失败关闭），不再回落 `role_permissions`。
 """
 
 from __future__ import annotations
@@ -32,7 +31,7 @@ SUPER_ADMIN_ROLE = "super_admin"
 #: 班级只影响页面筛选，不再决定数据边界。
 PersonaScope = Literal["platform", "tenant", "self"]
 
-#: 系统内置角色名 → 默认视角（自定义角色的默认视角 = legacy role_permissions）
+#: 系统内置角色名 → 默认视角（自定义角色 → ``None``，由 `resolve_access` 取首个已授予视角）
 DEFAULT_PERSONA_BY_ROLE: dict[str, str] = {
     "student": "student",
     "teacher": "teacher",
@@ -60,7 +59,6 @@ PERSONAS: dict[str, PersonaDef] = {
         scope="self",
         permissions=(
             "training_access",
-            "scenario_training",
             "qa_access",
         ),
     ),
@@ -71,9 +69,6 @@ PERSONAS: dict[str, PersonaDef] = {
         permissions=(
             "grade_class_manage",
             "case_manage",
-            "training_access",
-            "scenario_training",
-            "qa_access",
             "score_review",
             "stats_view",
             "assignment_manage",
@@ -91,11 +86,8 @@ PERSONAS: dict[str, PersonaDef] = {
             "role_manage",
             "grade_class_manage",
             "case_manage",
-            "training_access",
-            "scenario_training",
             "score_review",
             "stats_view",
-            "qa_access",
             "llm_monitor",
             "assignment_manage",
             "feedback_review",
@@ -140,17 +132,6 @@ if _unknown_persona_perms:
     raise ValueError(f"personas.py 使用了未在 core/permissions.py 定义的权限: {sorted(_unknown_persona_perms)}")
 
 
-def permissions_for_role_name(name: str | None) -> frozenset[str]:
-    """角色（账号类型）的默认权限集合 —— 仅用于"操作者能否支配该账号"的上限判定。
-
-    权限本身只来自视角预设；角色只是默认视角。平台角色 = 全部权限。
-    """
-    if name == SUPER_ADMIN_ROLE:
-        return frozenset(PERMISSION_KEYS)
-    persona = DEFAULT_PERSONA_BY_ROLE.get(name or "")
-    return persona_permissions(persona) if persona else frozenset()
-
-
 def persona_permissions(key: str) -> frozenset[str]:
     """视角的权限预设；未知视角 → 空集（调用方负责在授予集合内校验）。"""
     definition = PERSONAS.get(key)
@@ -160,10 +141,10 @@ def persona_permissions(key: str) -> frozenset[str]:
 
 
 def persona_scope(key: str | None) -> PersonaScope | None:
-    """视角的数据作用域；未知视角 / 无视角（legacy）→ ``None``。
+    """视角的数据作用域；未知视角 / 无视角 → ``None``。
 
-    ``None`` 是**兼容信号**：调用方（`core/tenant.py::resolve_scope`）据此回落到
-    迁移前的 `role_permissions` 推断，而不是静默当成某种作用域。
+    ``None`` = 没有可用的视角声明，调用方（`core/tenant.py::resolve_scope`）据此
+    给出**失败关闭**的空数据面，而不是静默当成某种作用域。
     """
     definition = PERSONAS.get(key) if key else None
     if definition is None:
@@ -172,26 +153,20 @@ def persona_scope(key: str | None) -> PersonaScope | None:
 
 
 def grants_all_personas(user: User) -> bool:
-    """超级管理员派生拥有全部视角（不落 `user_personas` 行）。"""
+    """超级管理员派生拥有全部视角（不落 `user_school_personas` 行）。"""
     return is_super_admin(user)
 
 
 def is_super_admin(user: User) -> bool:
-    """唯一的平台账号判定点：`users.is_platform`。
-
-    迁移期兼容：列尚未回填的旧库/测试夹具仍以角色名兜底（Step 2 删除角色后去掉这一行）。
-    """
-    if getattr(user, "is_platform", False):
-        return True
-    role = getattr(user, "role", None)
-    return bool(role is not None and role.name == SUPER_ADMIN_ROLE)
+    """唯一的平台账号判定点：`users.is_platform`。"""
+    return bool(getattr(user, "is_platform", False))
 
 
 def default_persona_for(user: User) -> str | None:
-    """默认视角：系统角色按 `DEFAULT_PERSONA_BY_ROLE`；自定义角色 → None（走 legacy）。
+    """默认视角：平台账号 → ``platform``；系统角色按 `DEFAULT_PERSONA_BY_ROLE`。
 
-    返回 None 表示"没有可用的视角预设"，此时生效权限回落到 `role_permissions`，
-    审计里的 persona 记为 `role.name`。
+    返回 None 表示"没有角色给出的默认视角"，此时 `core/access.resolve_access` 取
+    已授予视角里的第一个；两者都没有 → 无视角（无权限）。
     """
     if is_super_admin(user):
         return DEFAULT_PERSONA_BY_ROLE[SUPER_ADMIN_ROLE]

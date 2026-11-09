@@ -7,6 +7,8 @@ from fastapi import APIRouter
 
 router = APIRouter(prefix="/api/admin", tags=["管理"])
 
+from .app_settings import public_router as _app_settings_public
+from .app_settings import router as _app_settings
 from .audit_logs import router as _audit_logs
 from .budgets import router as _budgets
 from .class_memberships import router as _class_memberships
@@ -23,6 +25,7 @@ from .versions import router as _versions
 from .voice import router as _voice
 
 for r in (
+    _app_settings,
     _audit_logs,
     _classes,
     _budgets,
@@ -55,4 +58,4 @@ def get_top_level_routers():
     from .schools import public_router as schools_public_router
     from .stats import router as stats_router
 
-    return exports_router, rubrics_router, schools_public_router, stats_router
+    return exports_router, rubrics_router, schools_public_router, stats_router, _app_settings_public

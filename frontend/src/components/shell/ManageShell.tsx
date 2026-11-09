@@ -4,6 +4,7 @@ import { IconLogout, IconMessageCirclePlus, IconStethoscope, IconX } from "@tabl
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, matchPath, useLocation } from "react-router-dom";
 import { useFeedback } from "@/components/FeedbackProvider";
+import FirstRunFeedbackHint from "@/components/shell/FirstRunFeedbackHint";
 import { NetworkBanner } from "@/components/NetworkBanner";
 import NotificationBell from "@/components/NotificationBell";
 import { ModeToggle } from "@/components/ui/mode-toggle";
@@ -43,8 +44,6 @@ export default function ManageShell({
 	children: ReactNode;
 }) {
 	const permissions = useAuthStore((s) => s.permissions);
-	const authUser = useAuthStore((s) => s.user);
-	const canManageSchools = permissions.includes("school_manage");
 	const isAdmin = isAdminPermissions(permissions);
 	/**
 	 * 移动端轨由**当前视角**派生：student → 学生轨，其余 → 教工轨。
@@ -137,6 +136,7 @@ export default function ManageShell({
 			<a href="#main" className="skip-link">
 				跳到主内容
 			</a>
+			<FirstRunFeedbackHint />
 			<AppShell.Header>
 				<Group h="100%" px="md" gap="sm" wrap="nowrap">
 					{staffTier && (
@@ -208,7 +208,25 @@ export default function ManageShell({
 					<Group gap={4} ml="auto" wrap="nowrap">
 						<ModeToggle />
 						<NotificationBell />
-						<Button variant="default" size="sm" onClick={openFeedback} leftSection={<IconMessageCirclePlus size={16} />} visibleFrom="sm">
+						<ActionIcon
+							variant="default"
+							size={36}
+							onClick={openFeedback}
+							aria-label="反馈"
+							title="反馈"
+							hiddenFrom="sm"
+							data-feedback-button
+						>
+							<IconMessageCirclePlus size={16} />
+						</ActionIcon>
+						<Button
+							variant="default"
+							size="sm"
+							onClick={openFeedback}
+							leftSection={<IconMessageCirclePlus size={16} />}
+							visibleFrom="sm"
+							data-feedback-button
+						>
 							反馈
 						</Button>
 						<Tooltip label="退出登录">

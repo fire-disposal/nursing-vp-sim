@@ -39,16 +39,7 @@ export default function ActivityBar() {
 				component="nav"
 				className="stu-activity"
 				aria-label="训练能力条"
-				style={{
-					display: "flex",
-					alignItems: "center",
-					gap: 6,
-					padding: "6px 8px",
-					borderTop: "1px solid var(--mantine-color-default-border)",
-					background: "var(--mantine-color-body)",
-					flexShrink: 0,
-					overflowX: "auto",
-				}}
+				style={{ display: "flex", alignItems: "center", flexShrink: 0, overflowX: "auto" }}
 			>
 				{dockPanes.map((pane) => (
 					<ActivityBarButton
@@ -84,9 +75,15 @@ function ActivityBarButton({ pane, active, onClick }: { pane: WorkspacePane; act
 				/* 触摸目标 ≥44px：用 px 写死，不随主题字号缩放 */
 				height: 44,
 				flexShrink: 0,
-				borderRadius: "var(--mantine-radius-md)",
-				border: `1px solid var(--mantine-color-${active ? "brand-outline" : "default-border"})`,
-				background: active ? "var(--mantine-color-brand-light)" : "var(--mantine-color-body)",
+				borderRadius: 999,
+				/* 选中态用靛青描边表达，而不是把整颗胶囊填成实心色块：
+				   底部能力条是常驻的，实心选中会抢走对话区的视线。 */
+				border: `1px solid ${
+					active
+						? "color-mix(in srgb, var(--mantine-color-brand-6) 45%, transparent)"
+						: "var(--mantine-color-default-border)"
+				}`,
+				background: active ? "var(--mantine-color-brand-light)" : "transparent",
 			}}
 		>
 			<Group gap={6} wrap="nowrap">

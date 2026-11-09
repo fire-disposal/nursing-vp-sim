@@ -388,16 +388,11 @@ def _create_record(
         case_data,
         overrides=(record.practice_snapshot or {}).get("features"),
     )
-    from modules.training.scoring.rubric import build_final_rubric
-
-    record.rubric_snapshot = build_final_rubric(workflow.rubric, resolved_features)
-    record.prompt_snapshot = {
-        "schema_version": 2,
-        "segments": {
-            "system": workflow.prompts.system,
-            "dynamic": workflow.prompts.dynamic,
-        },
-    }
+    record.rubric_snapshot = workflow.build_rubric_snapshot(
+        record.case_snapshot,
+        overrides=(record.practice_snapshot or {}).get("features"),
+    )
+    record.prompt_snapshot = workflow.build_prompt_snapshot()
 
     behavior_cfg = config.get("behavior") or {}
     # 隐藏病例身份：自主盲盒（mode=blind_box）或作业隐藏开关（hide_case_info）

@@ -1,0 +1,415 @@
+{
+  "name": "支气管哮喘急性发作：识别低氧与延误的控制治疗",
+  "difficulty": 2,
+  "time_limit": 30,
+  "description": "青年男性夜间突发喘息、胸闷 2 小时，由妻子陪同到急诊。学生需要通过问诊与床旁评估判断严重程度，识别长期控制中的问题，并完成初步处置与必要沟通。",
+  "workflow": "clinical_reasoning",
+  "patient_info": {
+    "name": "何俊霖",
+    "age": 29,
+    "gender": "男",
+    "visible_symptoms": [
+      "喘息",
+      "端坐前倾呼吸",
+      "说话断续",
+      "大汗"
+    ],
+    "expression": "fearful",
+    "vitals_age_group": "adult"
+  },
+  "chief_complaint": "夜间突发喘息、胸闷伴呼吸困难 2 小时",
+  "opening_line": "护士……我喘得厉害，说不了整句，得歇一下再说……（前倾坐着，双肩起伏，额头都是汗）",
+  "present_illness": "2 小时前在家中清理猫砂、打扫卧室后出现胸闷、喘息，逐渐加重，不能平卧，只能坐起前倾位呼吸，说话只能成短句。自用硫酸沙丁胺醇气雾剂吸入 2 喷，间隔 20 分钟又喷 2 喷，缓解不明显。伴咳嗽，咳少量白色黏痰，不易咳出。无发热、无胸痛、无咯血。近 1 周有鼻痒、连续打喷嚏、清水样涕。",
+  "past_history": "儿童期有哮喘病史（6-12 岁，每年发作 2-3 次），青春期后症状基本消失。3 年前一次急性发作在急诊雾化后缓解，未住院、无气管插管史。过敏性鼻炎 5 年。否认高血压、糖尿病、心脏病史。",
+  "medication_history": "1 年前社区医院处方：布地奈德福莫特罗粉吸入剂 160μg/4.5μg，每次 1 吸、每日 2 次；硫酸沙丁胺醇气雾剂 100μg/喷，气促时按需 1-2 喷。",
+  "allergy_history": "否认药物及食物过敏史。3 年前过敏原检测提示尘螨过敏（皮肤点刺试验阳性）。",
+  "family_history": "母亲有过敏性鼻炎，外祖母有哮喘病史。",
+  "social_history": "与妻子同住，无子女。外卖配送员，每天骑行 8-10 小时。住一楼老式住宅，卧室铺地毯、较潮湿。吸烟 5 年，每日约 10 支，近 1 年未戒。家中其他成员不吸烟。",
+  "communication_style": "青年男性，喘息明显，只能说短句，每说几个字就要停下换气，声音发紧。因为喘不上气很害怕，反复问「要不要紧」。如果连续被追问长问题会明显烦躁、只回「嗯」。提到自己停药、不太会用吸入器时会有些不好意思。",
+  "personality": {
+    "health_literacy": "medium",
+    "verbosity": "terse",
+    "anxiety_trait": "anxious",
+    "patience": "low",
+    "mood": "fearful",
+    "compliance": "resistant"
+  },
+  "deep_background": {
+    "停药": "3 个月前觉得大半年没发作，就把布地奈德福莫特罗停了，只在喘得厉害时喷沙丁胺醇，最近半个月每天要喷 6-10 喷。",
+    "激素顾虑": "听说吸入激素用久了会发胖、伤身体，所以能少用就少用。",
+    "宠物": "2 周前家里新领养了一只猫，喂猫、换猫砂都是他做。他觉得跟自己的喘没关系，也舍不得送走。",
+    "吸入方法": "没人教过正确步骤：常常没有先充分呼气，吸力不足，吸完不屏气也不漱口，总觉得「吸了没用」。"
+  },
+  "scenario": {
+    "title": "夜间急诊：哮喘急性发作",
+    "setting": "急诊抢救区，夜间。患者取端坐前倾位，口唇轻度发绀，大汗，说话只能成短句。床旁有氧源、雾化装置与指夹式血氧仪。",
+    "summary": "29 岁男性，夜间突发喘息、胸闷 2 小时，由妻子陪同到急诊。你需要主动获取证据，判断本次发作的严重程度，识别长期控制中的问题，完成初步处置并做必要沟通。",
+    "learner_brief": "先别急着下结论：有些关键信息患者不会主动说，有些要看、要量、要问。判断严重程度需要证据，处置与沟通同样算完成的任务。"
+  },
+  "findings": [
+    {
+      "id": "f.visible_labored_breathing",
+      "label": "端坐前倾位、说话只能成短句",
+      "kind": "observation",
+      "critical": false,
+      "obtainable_via": [],
+      "note": "开场即见的呼吸困难体征"
+    },
+    {
+      "id": "f.visible_tachypnea",
+      "label": "呼吸频率明显增快、三凹征",
+      "kind": "observation",
+      "critical": false,
+      "obtainable_via": [],
+      "note": "开场即见，提示呼吸做功增加"
+    },
+    {
+      "id": "f.spo2",
+      "label": "SpO2 89%（室内空气）",
+      "kind": "vital_sign",
+      "critical": true,
+      "obtainable_via": [
+        "exam:指夹式血氧饱和度测量"
+      ],
+      "note": "未吸氧状态下的低氧血症"
+    },
+    {
+      "id": "f.rr_hr",
+      "label": "呼吸 30 次/分，心率 118 次/分",
+      "kind": "vital_sign",
+      "critical": true,
+      "obtainable_via": [
+        "exam:测量呼吸与心率"
+      ],
+      "note": "呼吸过速与心动过速"
+    },
+    {
+      "id": "f.auscultation",
+      "label": "双肺弥漫哮鸣音，呼气相延长，呼气末几乎听不到呼吸音",
+      "kind": "exam",
+      "critical": true,
+      "obtainable_via": [
+        "exam:听诊双肺"
+      ],
+      "note": "广泛哮鸣伴呼气末气流极弱，提示通气严重受限"
+    },
+    {
+      "id": "f.speech_phrases",
+      "label": "患者自述本次发作已喷沙丁胺醇 4 喷，缓解不明显",
+      "kind": "history",
+      "critical": true,
+      "obtainable_via": [
+        "inquiry:本次已经用过多少次缓解药、有没有效果"
+      ],
+      "note": "缓解药使用后无改善是重症提示"
+    },
+    {
+      "id": "f.trigger_cat",
+      "label": "2 周前家中新养了一只猫，发作前正在换猫砂、打扫卧室",
+      "kind": "history",
+      "critical": true,
+      "obtainable_via": [
+        "inquiry:这次发作前接触了什么、家里有没有宠物"
+      ],
+      "note": "过敏原暴露，与既往尘螨过敏一致"
+    },
+    {
+      "id": "f.local_rx_inhaled",
+      "label": "吸入激素完全停药 3 个月，近半个月每天喷沙丁胺醇 6-10 喷",
+      "kind": "history",
+      "critical": true,
+      "obtainable_via": [
+        "inquiry:长期控制药还在不在用、为什么停"
+      ],
+      "note": "长期控制治疗中断 + 缓解药过度使用，是本次发作的根源之一"
+    },
+    {
+      "id": "f.hormone_concern",
+      "label": "担心吸入激素伤身体、会发胖，所以能不用就不用",
+      "kind": "history",
+      "critical": false,
+      "obtainable_via": [
+        "inquiry:对长期用药有什么顾虑"
+      ],
+      "note": "停药的真实原因，与沟通目标直接相关"
+    },
+    {
+      "id": "f.inhaler_technique",
+      "label": "吸入装置从未有人教过：不先呼气、吸力不足、不屏气、不漱口",
+      "kind": "history",
+      "critical": false,
+      "obtainable_via": [
+        "inquiry:平时具体是怎么吸的、有没有人教过"
+      ],
+      "note": "技术错误会让「吸了没用」变成自我证实的结论"
+    },
+    {
+      "id": "f.night_symptoms",
+      "label": "近 2 个月每周 1-2 次夜间憋醒，上 3 层楼即气促",
+      "kind": "history",
+      "critical": false,
+      "obtainable_via": [
+        "inquiry:最近晚上睡得好不好、爬楼会不会气促"
+      ],
+      "note": "控制水平长期不佳"
+    },
+    {
+      "id": "f.smoking",
+      "label": "吸烟 5 年，每日约 10 支",
+      "kind": "history",
+      "critical": false,
+      "obtainable_via": [
+        "inquiry:有没有吸烟"
+      ],
+      "note": "持续的气道刺激因素"
+    },
+    {
+      "id": "f.prior_icu",
+      "label": "3 年前急诊雾化后缓解，未住院、无气管插管",
+      "kind": "history",
+      "critical": false,
+      "obtainable_via": [
+        "inquiry:以前发作最重到什么程度、有没有住过院"
+      ],
+      "note": "既往重症史为阴性，影响风险分层"
+    }
+  ],
+  "initial": {
+    "visible_findings": [
+      "f.visible_labored_breathing",
+      "f.visible_tachypnea"
+    ],
+    "hidden_findings": [
+      "f.spo2",
+      "f.rr_hr",
+      "f.auscultation",
+      "f.speech_phrases",
+      "f.trigger_cat",
+      "f.local_rx_inhaled",
+      "f.hormone_concern",
+      "f.inhaler_technique",
+      "f.night_symptoms",
+      "f.smoking",
+      "f.prior_icu"
+    ]
+  },
+  "objectives": {
+    "must_notice": [
+      {
+        "id": "n.spo2",
+        "label": "识别低氧血症（SpO2 89%）",
+        "finding": "f.spo2"
+      },
+      {
+        "id": "n.auscultation",
+        "label": "识别广泛哮鸣与呼气末气流极弱",
+        "finding": "f.auscultation"
+      },
+      {
+        "id": "n.repeated_saba",
+        "label": "识别缓解药反复使用仍无效",
+        "finding": "f.speech_phrases"
+      },
+      {
+        "id": "n.stopped_controller",
+        "label": "识别吸入激素已停用 3 个月",
+        "finding": "f.local_rx_inhaled"
+      },
+      {
+        "id": "n.allergen",
+        "label": "识别猫/猫砂过敏原暴露",
+        "finding": "f.trigger_cat"
+      }
+    ],
+    "must_act": [
+      {
+        "id": "a.oxygen",
+        "label": "立即给予氧气支持",
+        "action": "启动吸氧，将 SpO2 维持在 94% 以上",
+        "requires_findings": [
+          "f.spo2"
+        ]
+      },
+      {
+        "id": "a.nebulizer",
+        "label": "遵医嘱给予短效支气管舒张剂雾化",
+        "action": "雾化吸入沙丁胺醇 + 异丙托溴铵",
+        "requires_findings": [
+          "f.spo2",
+          "f.auscultation"
+        ]
+      },
+      {
+        "id": "a.position",
+        "label": "协助患者取舒适的前倾坐位",
+        "action": "协助端坐前倾，减少呼吸做功",
+        "requires_findings": []
+      }
+    ],
+    "must_communicate": [
+      {
+        "id": "c.sbar_doctor",
+        "label": "向接诊医生做结构化交接（SBAR）",
+        "cue": "说明 SpO2 89%、哮鸣明显、缓解药已用 4 喷无效，请求立即评估"
+      },
+      {
+        "id": "c.explain_controller",
+        "label": "向患者解释吸入激素为何不能自行停用",
+        "cue": "说明吸入激素是预防发作的长期用药，不会像口服激素那样明显发胖"
+      },
+      {
+        "id": "c.calming",
+        "label": "安抚患者的恐惧",
+        "cue": "告诉患者你会一直在旁边处理，让他按你的节奏呼吸"
+      }
+    ]
+  },
+  "rubric": {
+    "anchors": [
+      {
+        "id": "r.oxygenation",
+        "label": "识别低氧并立即给氧",
+        "rule": "objective_met",
+        "weight": 2,
+        "objectives": [
+          "n.spo2",
+          "a.oxygen"
+        ]
+      },
+      {
+        "id": "r.auscultation",
+        "label": "完成双肺听诊并读懂危险信号",
+        "rule": "finding_observed",
+        "weight": 1.5,
+        "findings": [
+          "f.auscultation"
+        ],
+        "objectives": [
+          "n.auscultation"
+        ]
+      },
+      {
+        "id": "r.vitals",
+        "label": "测量生命体征（呼吸、心率、血氧）",
+        "rule": "finding_observed",
+        "weight": 1,
+        "findings": [
+          "f.spo2",
+          "f.rr_hr"
+        ]
+      },
+      {
+        "id": "r.saba_failure",
+        "label": "追问缓解药使用情况并识别无效",
+        "rule": "objective_met",
+        "weight": 1.5,
+        "objectives": [
+          "n.repeated_saba"
+        ]
+      },
+      {
+        "id": "r.controller_gap",
+        "label": "问出长期控制治疗中断",
+        "rule": "objective_met",
+        "weight": 1.5,
+        "objectives": [
+          "n.stopped_controller"
+        ]
+      },
+      {
+        "id": "r.allergen",
+        "label": "问出过敏原暴露",
+        "rule": "finding_observed",
+        "weight": 1,
+        "findings": [
+          "f.trigger_cat"
+        ],
+        "objectives": [
+          "n.allergen"
+        ]
+      },
+      {
+        "id": "r.bronchodilator",
+        "label": "完成支气管舒张剂雾化",
+        "rule": "action_taken",
+        "weight": 1.5,
+        "objectives": [
+          "a.nebulizer"
+        ]
+      },
+      {
+        "id": "r.position",
+        "label": "协助取舒适体位",
+        "rule": "action_taken",
+        "weight": 0.5,
+        "objectives": [
+          "a.position"
+        ]
+      },
+      {
+        "id": "r.sbar",
+        "label": "向医生做结构化交接",
+        "rule": "communicated",
+        "weight": 1.5,
+        "objectives": [
+          "c.sbar_doctor"
+        ]
+      },
+      {
+        "id": "r.education",
+        "label": "向患者解释吸入激素的长期作用",
+        "rule": "communicated",
+        "weight": 1,
+        "objectives": [
+          "c.explain_controller"
+        ]
+      },
+      {
+        "id": "r.reassurance",
+        "label": "安抚患者恐惧",
+        "rule": "communicated",
+        "weight": 0.5,
+        "objectives": [
+          "c.calming"
+        ]
+      }
+    ]
+  },
+  "scene": {
+    "environment": {
+      "type": "er",
+      "time_of_day": "night",
+      "equipment": [
+        "氧气管",
+        "雾化器",
+        "心电监护仪",
+        "指夹式血氧仪",
+        "抢救车"
+      ],
+      "noise_level": "moderate"
+    },
+    "patient": {
+      "position": "sitting",
+      "consciousness": "alert",
+      "visible_symptoms": [
+        "喘息",
+        "端坐呼吸",
+        "三凹征",
+        "大汗",
+        "说话断续",
+        "口唇轻度发绀"
+      ],
+      "expression": "fearful",
+      "breathing": "labored"
+    },
+    "vitals": {
+      "hr": 118,
+      "bp_sys": 132,
+      "bp_dia": 78,
+      "rr": 30,
+      "spo2": 89,
+      "temp": 36.9,
+      "pain": 0
+    }
+  }
+}

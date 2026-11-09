@@ -8,7 +8,6 @@ import { filterNavByPersona, NAV_ITEMS } from "@/components/shell/navigation";
 
 import useAuthStore from "@/stores/authStore";
 import { usePersonaStore } from "@/stores/personaStore";
-import { isAdminPermissions } from "@/utils/permissions";
 import { APP_VERSION } from "@/version";
 
 /**
@@ -121,8 +120,6 @@ export default function Layout() {
 	const persona = usePersonaStore((s) => s.active);
 	const [aboutOpen, setAboutOpen] = useState(false);
 	const { openFeedback } = useFeedback();
-
-	const hasAdminPerm = isAdminPermissions(permissions);
 
 	const { userLinks, adminLinks } = useMemo(() => {
 		// 先按视角收窄"这一档身份有哪些入口"，再按权限判"这个人能不能进"：

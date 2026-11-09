@@ -1,0 +1,445 @@
+import { APP_TIME_ZONE } from "@/utils/date";
+import { recordDurationMinutes } from "@/utils/duration";
+import RecordSubPageLayout from "@/components/shell/RecordSubPageLayout";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { Badge, Box, Button, Group, Paper, Select, Stack, Text, UnstyledButton } from "@mantine/core";
+import { IconCircleX, IconClipboardList, IconPlayerPlay, IconTrash } from "@tabler/icons-react";
+import { useCallback, useEffect, useMemo } from "react";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
+import { getRecords } from "@/api";
+import { queryKeys } from "@/api/query-keys";
+import ErrorState from "@/components/ui/error-state";
+import { FilterToolbar } from "@/components/ui/filter-toolbar";
+import { SearchInput } from "@/components/ui/search-input";
+import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
+import { useRecordActions } from "@/hooks/useRecordActions";
+import EmptyState from "@/components/ui/empty-state";
+import Pagination from "@/components/ui/pagination";
+import LoadingSkeleton from "@/components/ui/loading-skeleton";
+import ScoreSourceBadge from "@/components/ui/score-source-badge";
+import TableScroll from "@/components/ui/table-scroll";
+import { Table } from "@mantine/core";
+import { DatePickerInput } from "@mantine/dates";
+import { goTraining } from "@/utils/training-nav";
+
+const LIMIT = 50;
+
+/**
+ * 记录状态 → 展示词/配色/是否可续练（本页唯一词表）。
+ * 后端终态含 discarded（没有学生消息的弃置）；未知值原样显示、按只读处理，
+ * 绝不兜底成「进行中」——那会把用户送进已终结的会话（审计 E2）。
+ */
+const RECORD_STATUS_META: Record<string, { label: string; color: string; resumable: boolean }> = {
+	in_progress: { label: "进行中", color: "brand", resumable: true },
+	completed: { label: "已完成", color: "green", resumable: false },
+	abandoned: { label: "已放弃", color: "gray", resumable: false },
+	discarded: { label: "已作废", color: "gray", resumable: false },
+};
+
+function recordStatusMeta(status: string) {
+	return RECORD_STATUS_META[status] ?? { label: status, color: "gray", resumable: false };
+}
+
+const STATUS_FILTERS = [
+	{ value: "all", label: "全部状态" },
+	...Object.entries(RECORD_STATUS_META).map(([value, meta]) => ({ value, label: meta.label })),
+];
+
+const DIM = { color: "var(--mantine-color-dimmed)" } as const;
+
+export default function History() {
+	const [searchParams, setSearchParams] = useSearchParams();
+	const navigate = useNavigate();
+	const location = useLocation();
+	// 进入训练页记来源页（含当前筛选的 URL），训练壳出口据此回跳到这里而非固定路径
+	const trainingFrom = location.pathname + location.search;
+
+	const status = searchParams.get("status") || "";
+	const date_from = searchParams.get("date_from") || "";
+	const search = searchParams.get("search") || "";
+	// 防抖搜索：输入即时反馈、200ms 后写入 URL 参数（避免每键一次请求，与 ClassesPage/RolesPage 一致）
+	const { searchInput, debouncedValue: debouncedSearch, handleSearchChange, setSearchInput } =
+		useDebouncedSearch(search);
+	const date_to = searchParams.get("date_to") || "";
+	const offset = parseInt(searchParams.get("offset") || "0", 10);
+
+	const setParam = useCallback(
+		(key: string, value: string) => {
+			const next = new URLSearchParams(searchParams);
+			if (value) {
+				next.set(key, value);
+			} else {
+				next.delete(key);
+			}
+			if (key !== "offset") next.set("offset", "0");
+			setSearchParams(next, { replace: true });
+		},
+		[searchParams, setSearchParams],
+	);
+
+	const params = useMemo(() => {
+		const p: Record<string, unknown> = { offset, limit: LIMIT };
+		if (status) p.status = status;
+		if (date_from) p.date_from = date_from;
+		if (debouncedSearch) p.search = debouncedSearch;
+		if (date_to) p.date_to = date_to;
+		return p;
+	}, [offset, status, date_from, date_to]);
+
+	const { data, isLoading, isError, error, refetch } = useQuery({
+		queryKey: queryKeys.training.records(params),
+		queryFn: () => getRecords(params).then((r) => r.data),
+		staleTime: 2 * 60_000,
+		placeholderData: keepPreviousData,
+	});
+
+	const records = data?.items ?? [];
+	const total = data?.total ?? 0;
+
+	const { handleDeleteRecord, handleAbandonRecord } = useRecordActions();
+
+	useEffect(() => {
+		setParam("search", debouncedSearch);
+	}, [debouncedSearch]);
+
+	const clearFilters = () => {
+		// 本地防抖输入不随 URL 变化复位，需显式清空（否则清除后输入框仍显示旧词）
+		setSearchInput("");
+		setSearchParams({}, { replace: true });
+	};
+
+	return (
+		<RecordSubPageLayout title="训练记录" icon={IconClipboardList}>
+			<FilterToolbar
+				summary={total > 0 ? `共 ${total} 条` : undefined}
+				filters={
+					<>
+						<Box w={120}>
+							<Select
+								data={STATUS_FILTERS}
+								value={status || "all"}
+								onChange={(v) => setParam("status", v === "all" ? "" : v ?? "")}
+								size="sm"
+								allowDeselect={false}
+							/>
+						</Box>
+						<DatePickerInput
+							label="从"
+							size="sm"
+							w={140}
+							clearable
+							valueFormat="YYYY-MM-DD"
+							placeholder="不限"
+							value={date_from || null}
+							onChange={(v) => setParam("date_from", typeof v === "string" ? v : "")}
+						/>
+						<DatePickerInput
+							label="至"
+							size="sm"
+							w={140}
+							clearable
+							valueFormat="YYYY-MM-DD"
+							placeholder="不限"
+							value={date_to || null}
+							onChange={(v) => setParam("date_to", typeof v === "string" ? v : "")}
+						/>
+					</>
+				}
+				search={
+					<SearchInput
+						value={searchInput}
+						onChange={handleSearchChange}
+						placeholder="搜索病例名称..."
+					/>
+				}
+				hasActiveFilters={!!(status || date_from || date_to || debouncedSearch)}
+				onClear={clearFilters}
+			/>
+
+			{isLoading ? (
+				<LoadingSkeleton variant="spinner" message="加载中..." />
+			) : isError ? (
+				<ErrorState title="训练记录加载失败" error={error} onRetry={() => refetch()} />
+			) : records.length === 0 ? (
+				<Paper withBorder>
+					<EmptyState icon={IconClipboardList} title="暂无训练记录" description="前往病例列表选择病例开始训练" />
+				</Paper>
+			) : (
+				<>
+					<Paper withBorder style={{ overflow: "hidden" }}>
+						{/* Mobile: card list */}
+						<Box hiddenFrom="md" p="xs">
+							<Stack gap="xs">
+								{records.map((r) => {
+									const durMins = recordDurationMinutes(r);
+									const meta = recordStatusMeta(r.status);
+									return (
+										<Paper key={r.id} p="sm" bg="var(--mantine-color-default-hover)">
+											<UnstyledButton
+												// 进行中的记录点卡片直接回对话：手机上只有这里能一键续练，
+												// 落到只读复盘页会把「继续问诊」藏成二次跳转
+												onClick={() =>
+													meta.resumable
+														? goTraining(navigate, r.id, trainingFrom)
+														: navigate(`/record/${r.id}`)
+												}
+												aria-label={
+													meta.resumable
+														? `继续训练：${r.case_name}`
+														: `查看记录：${r.case_name}`
+												}
+												style={{ width: "100%", textAlign: "left" }}
+											>
+												<Group justify="space-between" align="flex-start" gap="xs" wrap="nowrap">
+													<Box style={{ minWidth: 0, flex: 1 }}>
+														<Group gap="xs" wrap="nowrap">
+															<Text size="sm" fw={600} truncate>
+																{r.case_name}
+															</Text>
+															{r.assignment_title && (
+																<Badge size="xs">
+																	作业
+																</Badge>
+															)}
+														</Group>
+														<Text size="xs" c="dimmed" mt={2}>
+															{new Date(r.start_time).toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE, month: "numeric", day: "numeric",
+																hour: "2-digit", minute: "2-digit",
+															})}
+
+															{durMins != null ? ` · ${durMins} 分钟` : ""}
+														</Text>
+														{meta.resumable && (
+															<Text size="xs" fw={500} mt={4} style={{ color: "var(--mantine-color-brand-6)" }}>
+																点卡片继续问诊
+															</Text>
+														)}
+													</Box>
+													<Box style={{ flexShrink: 0 }}>
+														{r.status === "completed" ? (
+															<Stack gap={2} align="flex-end">
+																<Text
+																	size="xs"
+																	fw={600}
+																	title="数值参考，不代表能力等第"
+																	style={{ fontVariantNumeric: "tabular-nums" }}
+																>
+																	{r.score_total != null ? `${r.score_total} 分` : "评分中"}
+																</Text>
+																<ScoreSourceBadge record={r} />
+															</Stack>
+														) : meta.resumable ? (
+															// 进行中卡片要点得动：标记 + 副文案给出手势预期，避免被当成只读行
+															<Badge variant="light" color="brand" leftSection={<IconPlayerPlay size={10} />}>
+																进行中
+															</Badge>
+														) : (
+															<Text size="xs" c="dimmed">
+																{meta.label}
+															</Text>
+														)}
+													</Box>
+												</Group>
+											</UnstyledButton>
+											<Group gap="xs" mt="xs" pt="xs" wrap="nowrap" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
+												{meta.resumable && (
+													<>
+														<Button
+															variant="default"
+															size="xs"
+															style={{ flex: 1 }}
+															onClick={(e) => {
+																e.stopPropagation();
+																goTraining(navigate, r.id, trainingFrom);
+															}}
+														>
+															<IconPlayerPlay size={12} /> 继续
+														</Button>
+														<Button
+															variant="subtle" color="gray"
+															size="xs"
+															onClick={(e) => {
+																e.stopPropagation();
+																handleAbandonRecord(r);
+															}}
+														>
+															<IconCircleX size={12} /> 放弃
+														</Button>
+													</>
+												)}
+												{!meta.resumable && r.status !== "completed" && (
+													<Button
+														variant="subtle" color="gray"
+														size="xs"
+														style={{ flex: 1 }}
+														onClick={(e) => {
+															e.stopPropagation();
+															navigate(`/record/${r.id}`);
+														}}
+													>
+														查看
+													</Button>
+												)}
+												<Button
+													variant="subtle"
+													color="red"
+													size="xs"
+													style={{ marginLeft: "auto" }}
+													onClick={(e) => {
+														e.stopPropagation();
+														handleDeleteRecord(r);
+													}}
+												>
+													<IconTrash size={12} /> 删除
+												</Button>
+											</Group>
+										</Paper>
+									);
+								})}
+							</Stack>
+						</Box>
+
+						<Box visibleFrom="md">
+							<TableScroll minWidth={760}>
+								<Table>
+									<Table.Thead>
+										<Table.Tr>
+											{/* 「类型」列恒为「问诊」，2026-09-26 按实用性删除（审计 UI-STU-2） */}
+											<Table.Th style={{ fontWeight: 600, fontSize: 12 }}>病例</Table.Th>
+											<Table.Th style={{ fontWeight: 600, fontSize: 12, width: 92 }}>来源</Table.Th>
+											<Table.Th style={{ fontWeight: 600, fontSize: 12, width: 168, whiteSpace: "nowrap" }}>开始时间</Table.Th>
+											<Table.Th style={{ fontWeight: 600, fontSize: 12, width: 84, whiteSpace: "nowrap" }}>时长</Table.Th>
+											<Table.Th style={{ fontWeight: 600, fontSize: 12, width: 92 }}>状态</Table.Th>
+											<Table.Th
+												style={{ fontWeight: 600, fontSize: 12, width: 76 }}
+												title="数值参考，不代表能力等第"
+											>
+												得分
+											</Table.Th>
+											<Table.Th style={{ fontWeight: 600, fontSize: 12, width: 96, whiteSpace: "nowrap" }}>
+												成绩来源
+											</Table.Th>
+											<Table.Th style={{ fontWeight: 600, fontSize: 12, width: 120, whiteSpace: "nowrap" }}>操作</Table.Th>
+										</Table.Tr>
+									</Table.Thead>
+									<Table.Tbody>
+										{records.map((r) => {
+											const durMins = recordDurationMinutes(r);
+											const meta = recordStatusMeta(r.status);
+											return (
+												<Table.Tr key={r.id} className="data-table-row">
+													<Table.Td style={{ fontWeight: 500 }}>{r.case_name}</Table.Td>
+
+													<Table.Td style={{ fontSize: 12, ...DIM }}>
+														{r.assignment_title ? (
+															<Badge size="xs">作业</Badge>
+														) : (
+															<Text component="span" size="xs" c="dimmed" opacity={0.4}>
+																自由训练
+															</Text>
+														)}
+													</Table.Td>
+													<Table.Td style={{ fontSize: 12, ...DIM }}>
+														{new Date(r.start_time).toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE })}
+													</Table.Td>
+													<Table.Td style={{ fontSize: 12, ...DIM }}>
+														{durMins != null ? `${durMins} 分钟` : meta.resumable ? "进行中" : "—"}
+													</Table.Td>
+													<Table.Td>
+														<Badge
+															variant="light" color={meta.color}
+														>
+															{meta.label}
+														</Badge>
+													</Table.Td>
+													<Table.Td>
+														{r.score_total != null ? (
+															<Text component="span" fw={600} c="brand" className="tabular-nums">
+																{r.score_total}分
+															</Text>
+														) : r.scoring_status === "pending" ||
+															r.scoring_status === "processing" ? (
+															<Badge variant="light" color="yellow">评分中...</Badge>
+														) : r.scoring_status === "failed" ? (
+															<Text
+																component="span"
+																size="xs"
+																c="red"
+																title={r.scoring_error ?? undefined}
+															>
+																评分失败
+															</Text>
+														) : (
+															<Text component="span" c="dimmed" opacity={0.4}>
+																-
+															</Text>
+														)}
+													</Table.Td>
+													<Table.Td>
+														<ScoreSourceBadge record={r} />
+													</Table.Td>
+													<Table.Td>
+														<Group gap="xs" wrap="nowrap">
+															{meta.resumable && (
+																<>
+																	<Button
+																		variant="subtle"
+																		size="xs"
+																		onClick={() => goTraining(navigate, r.id, trainingFrom)}
+																	>
+																		继续训练
+																	</Button>
+																	<Button
+																		variant="subtle"
+																		size="xs"
+																		onClick={() => handleAbandonRecord(r)}
+																	>
+																		放弃
+																	</Button>
+																</>
+															)}
+															{!meta.resumable && (
+																<Button
+																	variant="subtle"
+																	size="xs"
+																	onClick={() => navigate(`/record/${r.id}`)}
+																>
+																	{r.status === "completed" ? "查看详情" : "查看"}
+																</Button>
+															)}
+															<Button
+																variant="subtle"
+																color="red"
+																size="xs" w={32} h={32} p={0}
+																onClick={() => handleDeleteRecord(r)}
+																aria-label="删除记录"
+															>
+																<IconTrash size={14} />
+															</Button>
+														</Group>
+													</Table.Td>
+												</Table.Tr>
+											);
+										})}
+									</Table.Tbody>
+								</Table>
+							</TableScroll>
+						</Box>
+					</Paper>
+					<Text size="xs" c="dimmed">
+						成绩来源来自服务端的复核状态（教师复核优先，其次 AI 初评），降级分单独标为「系统降级」；原始条目层在记录详情中可见。分数为数值参考，不代表能力等第。
+					</Text>
+				</>
+			)}
+
+			<Paper withBorder px="md" py="sm">
+				<Pagination
+					total={total}
+					offset={offset}
+					limit={LIMIT}
+					onChange={(newOffset) => setParam("offset", String(newOffset))}
+				/>
+			</Paper>
+		</RecordSubPageLayout>
+	);
+}

@@ -45,28 +45,6 @@ LOGIN_MAX_FAILED_ATTEMPTS = int(os.getenv("LOGIN_MAX_FAILED_ATTEMPTS", "5"))
 USER_DAILY_LLM_LIMIT_CNY = float(os.getenv("USER_DAILY_LLM_LIMIT_CNY", "2"))
 USER_DAILY_TTS_LIMIT_CNY = float(os.getenv("USER_DAILY_TTS_LIMIT_CNY", "0.2"))
 
-# 情境训练（正式特性，docs/scenario.md）：与正式训练**资源隔离**、不替代老系统；本变量是它的**运行时开关
-# （kill switch）**——生产由 `deploy/.env`（服务器 `/opt/nursing-vp-sim/.env`）置 `true` 开启，
-# 见 docs/ops/scenario-training.md。
-# 关闭时 `/api/scenario/**` 一律 404（不是 403：不暴露功能存在），对学生界面零可见。
-# 开启后学生侧判权限键 `scenario_training`（core/permissions.py，视角授予见 core/personas.py +
-# 存量库补权迁移 c8d9e0f1a2b3）；管理侧复用 `case_manage` / `stats_view`。
-SCENARIO_TRAINING_ENABLED = os.getenv("SCENARIO_TRAINING_ENABLED", "false").lower() == "true"
-
-# 学生侧限流（正式特性的成本/滥用面）。走 `core/rate_limits.PgRateLimiter`（PG 滑窗、多 worker 安全），
-# 超限给 429 + 人话；命中同时落一条审计（`scenario.rate_limited`），运维面按它统计。
-# 默认值按"正常学生打不到"取值：一次会话通常几十个回合，单日开局上限 20 次足够重做多轮。
-SCENARIO_OPEN_LIMIT_PER_DAY = int(os.getenv("SCENARIO_OPEN_LIMIT_PER_DAY", "20"))
-SCENARIO_ACTION_LIMIT_PER_5MIN = int(os.getenv("SCENARIO_ACTION_LIMIT_PER_5MIN", "30"))
-
-# DM 的**受限多步循环**步数上限（docs/scenario.md四）：DM 可以先调只读工具看环境，再产出信封。
-# 每一步 = 一次 LLM 调用（工具协议写在提示词里，见 dm/tools.py），因此这个数**直接是成本旋钮**：
-# 3 步 ≈ 最坏情况每回合多 3 次调用；置 0 即回到"一次交付"的单步模式（延迟/成本敏感的部署可用）。
-SCENARIO_DM_MAX_STEPS = max(0, int(os.getenv("SCENARIO_DM_MAX_STEPS", "3")))
-
-# 场景图片字节一律入库（`st_assets` / `st_generated_assets`），不再有磁盘缓存目录：
-# 曾用 `SCENARIO_IMAGE_CACHE_DIR` 落盘，容器重建即丢、管理端也看不见——已删除。
-
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000")
 
 
@@ -150,7 +128,7 @@ LLM_WORKER_COUNT = int(os.getenv("LLM_WORKER_COUNT", "2"))
 # 批量建用户上限 —— 防止单次请求过大导致系统卡死
 BATCH_USER_LIMIT = int(os.getenv("BATCH_USER_LIMIT", "500"))
 
-# LLM 调用配置已迁移至 core/llm_profile.py —— 各用途的 model/temperature/max_tokens 等均在该文件统一管理
+# LLM 调用配置已迁移至 infra/llm/profile.py —— 各用途的 model/temperature/max_tokens 等均在该文件统一管理
 
 
 # 自动结算与智能评分

@@ -17,6 +17,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
+from modules.training.clinical_reasoning.tools import ClinicalJudgmentHandler
 from modules.training.tools.base import ToolHandler
 from modules.training.tools.nursing_record import NursingRecordHandler
 from modules.training.tools.physical_exam import PhysicalExamHandler
@@ -92,6 +93,17 @@ class QuizOutput(_ActivityModel):
     explanation: str = ""
 
 
+class ClinicalJudgmentInput(_ActivityModel):
+    """临床判断命令入参（load / observe / act）。"""
+
+    finding_id: str = ""
+    objective_id: str = ""
+
+
+class ClinicalJudgmentOutput(_ActivityModel):
+    state: dict[str, Any] = {}
+
+
 # ── 契约 ─────────────────────────────────────────────────────────────────
 
 
@@ -150,6 +162,7 @@ class ActivityDefinition:
 # ── 唯一登记表 ────────────────────────────────────────────────────────────
 #: 允许存在的 Activity id（新增能力 = 先在这里登记，再谈病例配置）
 ACTIVITY_IDS: tuple[str, ...] = (
+    "clinical_judgment",
     "physical_exam",
     "nursing_record",
     "quiz",
@@ -158,6 +171,19 @@ ACTIVITY_IDS: tuple[str, ...] = (
 ACTIVITY_BINDINGS: dict[str, ActivityDefinition] = {
     binding.id: binding
     for binding in (
+        ActivityDefinition(
+            id="clinical_judgment",
+            label="证据与判断",
+            description="V2 内置的证据获取、行动与沟通状态；不使用老问诊工具面板",
+            inputs_schema=ClinicalJudgmentInput,
+            outputs_schema=ClinicalJudgmentOutput,
+            availability=Availability(requires_case_config=False),
+            handler=ClinicalJudgmentHandler(),
+            ui_renderer="clinical_judgment",
+            evidence_kind="clinical_evidence",
+            artifact_kind=None,
+            ui_order=10,
+        ),
         ActivityDefinition(
             id="physical_exam",
             label="床旁检查",

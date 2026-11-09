@@ -11,9 +11,9 @@ from datetime import UTC, datetime
 
 import pytest
 
+from core.access import clear_access_cache
 from core.exceptions import NotFoundError, ValidationError
 from core.personas import persona_permissions
-from core.security import clear_permission_cache
 from core.tenant import apply_school_scope, platform_scope, resolve_scope, school_name_map
 from models import Case, Class, ClassMembership, School, TrainingRecord, User, UserSchoolPersona
 from modules.admin.class_memberships import upsert_members
@@ -55,7 +55,7 @@ def _user(db, username: str, persona: str, school_id: int | None) -> User:
         db.flush()
     user.set_active_persona(persona)
     user.set_permissions_cache(set(persona_permissions(persona)))
-    clear_permission_cache()
+    clear_access_cache()
     return user
 
 
@@ -75,7 +75,7 @@ def _join(db, user: User, cls: Class, role: str = "student") -> None:
 def world(pg_session):
     """两所院校、两名院校管理员、各两组师生，互不相干。"""
     db = pg_session
-    clear_permission_cache()
+    clear_access_cache()
     school_a = _school(db, "甲大学")
     school_b = _school(db, "乙学院")
     admin_a = _user(db, "admin-a", "admin", school_a.id)

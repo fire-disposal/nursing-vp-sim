@@ -32,6 +32,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -258,11 +259,23 @@ def begin_turn(db: Session, *, record: TrainingRecord, request_id: str | None, c
     return claim
 
 
-def complete_turn(db: Session, *, claim: TurnClaim, patient_content: str) -> Message:
-    """事务 B（成功）：患者消息 + turn(completed) → commit。"""
+def complete_turn(
+    db: Session,
+    *,
+    claim: TurnClaim,
+    patient_content: str,
+    before_commit: Callable[[Message], None] | None = None,
+) -> Message:
+    """事务 B（成功）：患者消息 + turn(completed) → commit。
+
+    ``before_commit`` 在患者消息 flush 后、提交前执行，供独立训练核心把引用该消息
+    的证据状态纳入同一事务。老问诊不传钩子，行为不变。
+    """
     patient_msg = Message(record_id=claim.record_id, role="patient", content=patient_content)
     db.add(patient_msg)
     db.flush()
+    if before_commit is not None:
+        before_commit(patient_msg)
     _write_result(
         db,
         claim,

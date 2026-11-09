@@ -1,7 +1,7 @@
-"""pack 的**加载期**校验：形状由 pydantic 管，这里管引用闭合、词表闭合与可达性。
+"""病例的**加载期**校验：形状由 pydantic 管，这里管引用闭合、词表闭合与可达性。
 
-原则：坏包在**加载时**失败，不在会话中途炸（docs/scenario.md九）。校验只报问题、不修改内容；
-本轨的包校验是**检查器**不是门禁（`state="experimental"` 允许犯错，仅记录风险）。
+原则：坏包在**加载时**就失败，不在别处中途炸（docs/scenario.md）。校验只报问题、不修改内容；
+它是**检查器**不是门禁——病例可以引用尚未补齐的线索，作者自己决定什么时候改。
 """
 
 from __future__ import annotations
@@ -9,8 +9,22 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from .runtime.world import namespaced_key
-from .schema import Affordance, AffordanceType, Clause, EffectOp, JudgeRuleKind, ScenarioPack, Trigger
+from .schema import (
+    Affordance,
+    AffordanceType,
+    Clause,
+    Effect,
+    EffectOp,
+    JudgeRuleKind,
+    ScenarioPack,
+    Trigger,
+)
+
+
+def namespaced_key(effect: Effect) -> str:
+    """效果指向的完整状态键：已带命名空间的原样返回，否则补上 `target.` 前缀。"""
+    return effect.key if "." in effect.key else f"{effect.target}.{effect.key}"
+
 
 _RULE_AFFORDANCE_KEYS: dict[JudgeRuleKind, tuple[str, ...]] = {
     JudgeRuleKind.FIRST_ACTION: ("affordances",),
@@ -247,7 +261,7 @@ def _check_leaks(pack: ScenarioPack) -> list[str]:
 
 
 def _check_assets(pack: ScenarioPack, index: _Index) -> list[str]:
-    """资源声明必须可用；**字节是否已上传不在加载期判断**（不做 IO，由管理侧/安装时报告）。"""
+    """资源声明必须可用；**字节是否已上传不在加载期判断**（不做 IO，只核对文件名与 mime 约定）。"""
     problems: list[str] = []
     for asset in pack.assets:
         if not asset.alt:
@@ -326,7 +340,7 @@ def _check_trigger(pack: ScenarioPack, index: _Index, trigger: Trigger | None, w
     """触发子句的引用闭合。
 
     问题串一律以 `<定位前缀>:` 开头（`where` 自带 `affordance <id>` / `device <id>/<ref>`），
-    子句序号写在原因里——这样 `pack_loader.problem_path` 能把每条问题映射回**字段路径**。
+    子句序号写在原因里——这样调用方能把每条问题映射回**字段路径**。
     """
     if trigger is None:
         return []

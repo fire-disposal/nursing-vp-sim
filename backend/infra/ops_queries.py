@@ -25,20 +25,11 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import case, func, text
 from sqlalchemy.orm import Query, Session
 
-from core.audit import ACTION_SCENARIO_RATE_LIMITED
 from core.exceptions import ValidationError
 from core.statuses import LLMCallStatus
 from models import LLMCallLog, School, TrainingRecord, User, VoiceCallLog, VoiceConfig
-from models.audit import AuditLog
-from models.scenario_training import StEvent, StSession
 
 log = logging.getLogger(__name__)
-
-# 情境训练的 LLM purpose（agent 运行时：一个回合内模型可能多步调用工具，都走 `st_dm`）。
-# 权威定义在 ``modules/scenario_training/agent/runner.py`` 与 ``infra/llm/profile.py`` 的 ``PROFILES``；
-# 这里不反向 import feature 模块，故复写这个冻结字面量（改名时必须两处一起改）。
-# 已废弃：两阶段时代的 ``st_intent``（意图解析）与独立患者实体的 ``st_patient``，都不再写入。
-SCENARIO_LLM_PURPOSES: tuple[str, ...] = ("st_dm",)
 
 _CN_TZ = ZoneInfo("Asia/Shanghai")
 _TZ_NAME = "Asia/Shanghai"
@@ -372,103 +363,6 @@ def query_sessions(db: Session) -> int:
     return db.query(func.count(TrainingRecord.id)).filter(TrainingRecord.status == "in_progress").scalar() or 0
 
 
-def query_scenario(db: Session, day_ago: datetime) -> dict:
-    """情境训练（`st_*`）的 24h 观察面 + 即时会话数（docs/scenario.md 唯一回合管线口径）。
-
-    只读、只聚合，不触碰老系统的任何表；`st_*` 表在功能未上线/未加迁移的环境可能不存在
-    → 调用方（`build_dashboard`）负责降级，这里只管查询。
-
-    事件口径（新机制只写 `session_opened` / `turn_committed` / `clarification_exchange` /
-    `hint_requested` / `session_closed` 五种 kind）：
-
-    - `requests_24h` / `time_cost_24h` / `model_calls_24h`：分子都只取 `turn_committed`
-      （= 已提交的业务回合）。`time_cost_24h` = 窗口内这些回合推进的**情境时间单位总和**
-      （载荷 `time_cost` 是本请求消耗的时间单位，0 = 没花时间；机制切换前的事件没有该键 → 记 0）。
-      它不是请求数、不是分钟。`model_calls_24h` 取该回合记录的 `models.calls`（agent 运行时一个回合
-      可能调用模型多步）；历史事件用的是 `models.parse + models.delivery` 两阶段口径，两者都认，
-      不静默记 0。
-    - `avg_time_cost_per_request_24h` / `avg_model_calls_per_request_24h`：分子分母
-      **同群体同窗口**（都只数 `turn_committed`）；请求数为 0 时给 `null`，不给 0。
-      `avg_time_cost_per_request_24h` 读作「平均每个已提交请求推进的时间单位」。
-    - `clarifications_24h` / `hints_24h`：`clarification_exchange` / `hint_requested` 的次数
-      ——它们**不推进情境时间**，故与 `requests_24h` 分列。
-    - `llm_failures_24h`：情境 agent 运行时（`st_dm`）在 `llm_call_logs` 里窗口内
-      `status != success` 的调用数——失败没有世界事件，只有日志来源，故不取 `st_events`。
-    - `active` / `completed`：即时状态计数（见块上的 `state_window`），不受 24h 窗口影响。
-    - `rate_limited_24h`：`audit_logs` 里 `scenario.rate_limited` 的行数（见
-      `core/rate_limits._scenario_limited`）——多 worker 安全的唯一取数来源。
-    """
-    opened_24h = db.query(func.count(StSession.id)).filter(StSession.created_at >= day_ago).scalar() or 0
-    active = db.query(func.count(StSession.id)).filter(StSession.status == "active").scalar() or 0
-    completed = db.query(func.count(StSession.id)).filter(StSession.status == "completed").scalar() or 0
-
-    turns = db.execute(
-        text(
-            """
-            SELECT
-                count(*) AS requests,
-                coalesce(sum(coalesce((payload ->> 'time_cost')::int, 0)), 0) AS time_cost,
-                coalesce(sum(
-                    coalesce((payload -> 'models' ->> 'calls')::int,
-                             coalesce((payload -> 'models' ->> 'parse')::int, 0)
-                           + coalesce((payload -> 'models' ->> 'delivery')::int, 0))
-                ), 0) AS model_calls
-              FROM st_events
-             WHERE kind = 'turn_committed' AND created_at >= :since
-            """
-        ),
-        {"since": day_ago},
-    ).one()
-
-    llm_failures_24h = (
-        db.query(func.count(LLMCallLog.id))
-        .filter(
-            LLMCallLog.purpose.in_(SCENARIO_LLM_PURPOSES),
-            LLMCallLog.status != LLMCallStatus.SUCCESS,
-            LLMCallLog.created_at >= day_ago,
-        )
-        .scalar()
-        or 0
-    )
-
-    clarifications_24h = (
-        db.query(func.count(StEvent.id))
-        .filter(StEvent.kind == "clarification_exchange", StEvent.created_at >= day_ago)
-        .scalar()
-        or 0
-    )
-    hints_24h = (
-        db.query(func.count(StEvent.id))
-        .filter(StEvent.kind == "hint_requested", StEvent.created_at >= day_ago)
-        .scalar()
-        or 0
-    )
-    rate_limited_24h = (
-        db.query(func.count(AuditLog.id))
-        .filter(AuditLog.action == ACTION_SCENARIO_RATE_LIMITED, AuditLog.created_at >= day_ago)
-        .scalar()
-        or 0
-    )
-
-    requests_24h = int(turns.requests or 0)
-    time_cost_24h = int(turns.time_cost or 0)
-    model_calls_24h = int(turns.model_calls or 0)
-    return {
-        "opened_24h": int(opened_24h),
-        "active": int(active),
-        "completed": int(completed),
-        "requests_24h": requests_24h,
-        "time_cost_24h": time_cost_24h,
-        "avg_time_cost_per_request_24h": round(time_cost_24h / requests_24h, 2) if requests_24h else None,
-        "model_calls_24h": model_calls_24h,
-        "avg_model_calls_per_request_24h": round(model_calls_24h / requests_24h, 2) if requests_24h else None,
-        "clarifications_24h": int(clarifications_24h),
-        "hints_24h": int(hints_24h),
-        "llm_failures_24h": int(llm_failures_24h),
-        "rate_limited_24h": int(rate_limited_24h),
-    }
-
-
 def query_voice(db: Session, day_ago: datetime) -> dict:
     windows = voice_window(db, day_ago, direction="tts")
     tts = windows.get("tts", {})
@@ -572,36 +466,10 @@ def build_dashboard(db: Session, now: datetime | None = None) -> dict:
         },
         "scoring": scoring,
         "sessions": {"active": active},
-        "scenario": query_scenario_safe(db, day_ago),
         "voice": voice,
         "voice_budget": voice_budget,
         "business": business,
     }
-
-
-def query_scenario_safe(db: Session, day_ago: datetime) -> dict:
-    """`query_scenario` 的降级外壳：`st_*` 表缺失（未跑迁移的环境）与其他查询失败
-    都只告警并返回确定的零值形状 —— 情境训练是**附加轨道**，它的查询失败不得让
-    整个诊断/看板端点倒下（老系统的可见性优先）。
-    """
-    try:
-        return query_scenario(db, day_ago)
-    except Exception:
-        log.warning("scenario diagnostics unavailable", exc_info=True)
-        return {
-            "opened_24h": 0,
-            "active": 0,
-            "completed": 0,
-            "requests_24h": 0,
-            "time_cost_24h": 0,
-            "avg_time_cost_per_request_24h": None,
-            "model_calls_24h": 0,
-            "avg_model_calls_per_request_24h": None,
-            "clarifications_24h": 0,
-            "hints_24h": 0,
-            "llm_failures_24h": 0,
-            "rate_limited_24h": 0,
-        }
 
 
 def compute_alerts(dashboard: dict) -> list[str]:

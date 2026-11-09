@@ -48,6 +48,23 @@ api.interceptors.response.use(
 	async (err) => {
 		const originalRequest = err.config;
 
+		// 权限口径失效（视角/院校被撤销）：服务端对 `X-View-Persona` / `X-School-Scope`
+		// 的越界一律 403「视角不可用 / 院校不可用」。此时本地状态已过时，重新拉一次
+		// `/auth/me`（refreshUser 会清掉失效选择并回落默认）再重放本次请求。只重试一次。
+		const accessDetail = err.response?.data?.detail;
+		const isMeRequest = !!originalRequest?.url?.includes("/auth/me");
+		if (
+			err.response?.status === 403 &&
+			(accessDetail === "视角不可用" || accessDetail === "院校不可用") &&
+			originalRequest &&
+			!isMeRequest &&
+			!originalRequest._accessRetry
+		) {
+			originalRequest._accessRetry = true;
+			await useAuthStore.getState().refreshUser();
+			return api(originalRequest);
+		}
+
 		if (
 			err.response?.status === 401 &&
 			!originalRequest?._retry &&

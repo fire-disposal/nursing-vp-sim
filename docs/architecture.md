@@ -56,8 +56,20 @@ React/Mantine/懒加载 chunk 执行。新增依赖若引入新的内置 API（�
 **前端路由与导航的唯一来源是代码**：`frontend/src/components/shell/navigation.tsx` 的 `APP_ROUTES`（路径 → 页面 → 权限 → 活动类型）
 与 `NAV_GROUPS`（分组/图标/标签）。文档里不再维护路由表（旧 `04-frontend.md` 的路由表已因缺项腐化并在 2026-09-26 删除）。
 
+**页面目录按能力域组织**（与侧栏分组、权限键同构，避免按视角切分后共享页无处安放）：
+
+`pages/share`（与视角无关的登录、个人中心、通知、公开演示）、`pages/practice`（本人训练轨）、
+`pages/teaching`（看板/记录/批改/作业/成绩）、`pages/people`（用户/班级/视角/院校）、
+`pages/content`（病例/问卷/评分标准）、`pages/ops`（运维/成本/密钥/审计/版本）。
+
+**一个页面文件 = 一条工作流**。同一能力下，如果不同视角的职责不同，就并列一个变体页面
+（已有的例子：`practice/RecordDetail` 是学生自查，`teaching/TeacherRecordDetail` 是教师批阅），
+而不是把两套 UX 塞进一个带大量 `isPlatform`/权限分支的共享页。职责相同的页面（例如不同院校范围下的
+用户列表）保持一份，作用域差异由服务端数据边界承担；可复用的展示块沉到 `components/<域>`
+（如 `components/record-detail`），但不为了复用把页面参数化成万能组件——少量重复通常比多层抽象更好读。
+
 **移动端底栏同样由路由表派生**：`APP_ROUTES[].nav.mobile`（顺序 + 轨 + 可选落点/标签）是唯一来源，
-`BottomTabBar` 不再自带清单。学生轨 5 项（训练/情境/记录/问答/我的）；管理轨 3 项 + 「更多」
+`BottomTabBar` 不再自带清单。学生轨 5 项（训练/作业/记录/问答/我的）；管理轨 3 项 + 「更多」
 （管理端 15–22 个条目放不进底栏，「更多」打开完整侧栏抽屉，保证每个页面在手机上仍可达）。
 
 
@@ -71,7 +83,6 @@ React/Mantine/懒加载 chunk 执行。新增依赖若引入新的内置 API（�
 | **PracticeShell（沉浸会话）** | `/training/:recordId` | 全屏会话界面（患者区 + 对话列 + 工作区面板），**无 App 导航**，出口契约见 `utils/training-nav.ts`（入口带 `state.from`，返回落点与文案由来源决定） |
 
 断点与壳尺寸只有一个来源：`frontend/src/config/layout-scale.ts`（`WIDTH` / `HEIGHT` / `SHELL`）。
-`scenario.css` 里的媒体查询仍是字面量（CSS 用不了该模块），对应值在文件内注释标注。
 
 训练能力以 **Workflow / Activity 两层协约**承载：
 后端 `modules/training/activities.py` 是唯一登记表，`modules/training/manifest.py` 解析出会话 manifest
@@ -79,6 +90,12 @@ React/Mantine/懒加载 chunk 执行。新增依赖若引入新的内置 API（�
 前端只消费 manifest，`components/training/workspace/renderers.ts` 是一张**纯映射**（`ui.renderer → 组件`），
 **不判断**某个病例有没有某能力——可用性与能否结束一律由服务端决定。旧的 `tools/registry.ts` 与
 `engine/capabilities.gen.ts` 已删除。
+
+两条训练产品线按 Workflow 做**领域隔离**：`history_taking` 保留老流式患者管线与 LLM 评分；
+`clinical_reasoning`（V2）拥有独立的结构化患者回合、证据状态、工作区和确定性评分。
+共享仅限记录/权限/计时、durable turn、Activity 命令审计与 Score 存储，不能把一个产品线的
+内部规则散进另一个。病例未声明 `workflow` 永久表示最早的 `history_taking`，以兼容不可变旧 revision；
+新格式必须显式声明，记录开始后再冻结到 `TrainingRecord.workflow_id`。
 
 统计口径只有一条链路：`/api/training/records/summary` 与列表 `/api/training/records` **共用同一套筛选参数**
 （`RecordFilters` + `_apply_record_filters`），所以看板卡片的数字与它下钻的列表由构造保证一致；
@@ -91,7 +108,7 @@ React/Mantine/懒加载 chunk 执行。新增依赖若引入新的内置 API（�
 3. **两层扩展协约**：Workflow 负责过程与生命周期，Activity 负责能力与产物；前端由 manifest 驱动（纯 RendererMap），后端训练流程走中间件链（`modules/training/pipeline/builder.py` 按 `PipelineStage` 装配）。新增能力必须满足准入质量门槛：可用性与能否结束一律由服务端声明，不在前端另建能力真相源
 4. **管道架构 (Pipeline)**：每轮对话按固定阶（`pipeline/stages.py` 的 `PipelineStage`）执行：`guard → transition → analysis → prompt → llm → persist → side_effects`。当前已装配 `emotion_analysis` / `prompt_builder` / `llm_caller` / `persister` / `side_effects`；`guard`、`transition` 是已声明、待用的扩展点（阶段定义与装配的唯一事实源见 `pipeline/__init__.py`）
 5. **JWT无状态认证**：登录颁发Token，前端存储到localStorage，每次请求携带。支持 token_version 强制过期
-6. **视角即权限预设（学校 × 视角）**：`core/personas.py` 定义五组预设——`student`（self）/ `teacher`（class）/ `admin`（tenant）/ `ops`（tenant）/ `platform`（跨院校）。每组同时声明**权限**与**数据作用域**；用户可被授予多个视角（`user_personas`），请求头 `X-View-Persona` 选择当前生效的那一个，未授予 → 403。两条边界固定：院校边界只来自账号（`users.school_id`），视角**永不放宽**院校；`platform` 视角是唯一例外（跨院校），只能授予平台账号。平台账号用显式标记 `users.is_platform`（由原 `super_admin` 迁移），派生拥有全部视角。`roles` / `users.role_id` / `role_permissions` 已全部删除：账号身份 = 院校 + 班级归属 + 视角授予 + `is_platform`，不再有“角色”概念。审计同时记录 `actor_role` 与 `actor_persona`。
+6. **视角即权限预设（学校 × 视角）**：`core/personas.py` 定义五组预设——`student`（self）/ `teacher`（tenant）/ `admin`（tenant）/ `ops`（tenant）/ `platform`（跨院校）。每组同时声明**权限**与**数据作用域**；用户可被授予多个视角（`user_school_personas`，按院校分别授予），请求头 `X-View-Persona` 选择当前生效的那一个，未授予 → 403。两条边界固定：院校边界只来自账号（`users.school_id` 是家院校）+ `user_school_personas`；视角**永不放宽**院校；`platform` 视角是唯一例外（跨院校），只能授予平台账号。平台账号用显式标记 `users.is_platform`（由原 `super_admin` 迁移），派生拥有全部视角。`roles` / `users.role_id` / `role_permissions` 已全部删除：账号身份 = 院校 + 班级归属 + 视角授予 + `is_platform`，不再有“角色”概念。审计同时记录 `actor_role` 与 `actor_persona`。
 7. **后端分层纪律**：thin router → service（业务规则 + 事务），service 直持 `db: Session`（无 repository 层）；跨切面使用 `core/exceptions` (AuthError/NotFoundError/ConflictError/ValidationError) + `core/unit_of_work` (commit/rollback) + `core/deps` (DbSession/CurrentUser DI)。analytics/流式/导出路由保持胖路由
 8. **LLM服务封装**：统一通过 `infra/llm/` 进行调用，支持多Provider优先级加权路由、熔断、健康检查
 9. **Practice/Scenario 分离**：Practice 从 Case 中独立出来，支持训练(training)、考核(assessment)、自由练习(free_play)三种模式
