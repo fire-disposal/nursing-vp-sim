@@ -75,7 +75,7 @@ export default function App() {
 									<Route element={<ProtectedRoute />}>
 										<Route element={<Layout />}>
 											{/* 首页落点由当前视角的权限决定（DashboardHome → resolveLandingPath：
-											    平台→院校管理、运维→运维仪表盘、教师/管理→教学看板、学生→训练）。
+											    平台→平台总览、运维→运维仪表盘、教师/管理→教学看板、学生→训练）。
 											    曾经这里硬编码 `/training`，于是超管打开域名落到学生训练页，
 											    点头部 logo 却回到 /admin——同一个"首页"两种落点。 */}
 											<Route index element={<DashboardHome />} />

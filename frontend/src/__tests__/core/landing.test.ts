@@ -22,8 +22,8 @@ const TEACHER = [
 const STUDENT = ["training_access", "qa_access"];
 
 describe("resolveLandingPath", () => {
-	it("平台视角：没有 stats_view → 院校管理", () => {
-		expect(resolveLandingPath(PLATFORM, "platform")).toBe("/admin/schools");
+	it("平台视角：进入平台总览", () => {
+		expect(resolveLandingPath(PLATFORM, "platform")).toBe("/admin/platform");
 	});
 
 	it("运维视角：没有 stats_view → 运维仪表盘", () => {

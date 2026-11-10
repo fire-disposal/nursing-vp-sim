@@ -12,10 +12,11 @@ import {
 import { schemaResolver, useForm } from "@mantine/form";
 import { IconArrowRight, IconStethoscope } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import FormMessageBanner from "@/components/ui/form-message-banner";
 import { type LoginFormValues, loginSchema } from "@/schemas/auth";
 import useAuthStore from "@/stores/authStore";
+import { safeNextPath } from "@/utils/login-redirect";
 import "./Login.css";
 
 function isTokenExpired(token: string): boolean {
@@ -56,6 +57,8 @@ export default function Login() {
 	const usernameRef = useRef<HTMLInputElement>(null);
 	const passwordRef = useRef<HTMLInputElement>(null);
 	const navigate = useNavigate();
+	const [searchParams] = useSearchParams();
+	const nextPath = safeNextPath(searchParams.get("next"));
 	const login = useAuthStore((s) => s.login);
 	const user = useAuthStore((s) => s.user);
 	const token = useAuthStore((s) => s.token);
@@ -74,10 +77,10 @@ export default function Login() {
 
 	// Token exists but expired → silent refresh inline
 	if (token && !user) {
-		return <Navigate to="/home" replace />;
+		return <Navigate to={nextPath} replace />;
 	}
 	if (token && user && !isTokenExpired(token)) {
-		return <Navigate to="/home" replace />;
+		return <Navigate to={nextPath} replace />;
 	}
 
 	const onSubmit = async (values: LoginFormValues) => {
@@ -87,7 +90,7 @@ export default function Login() {
 		try {
 			await login(values.username, values.password);
 			if (mountedRef.current) {
-				navigate("/home", { replace: true });
+				navigate(nextPath, { replace: true });
 			}
 		} catch (err: unknown) {
 			if (mountedRef.current) {

@@ -51,6 +51,7 @@ const AdminClasses = lazy(
 );
 const AdminSchools = lazy(() => import("@/pages/people/SchoolsPage"));
 const SchoolDetailPage = lazy(() => import("@/pages/people/SchoolDetailPage"));
+const PlatformOverview = lazy(() => import("@/pages/ops/PlatformOverviewPage"));
 const AdminCases = lazy(() => import("@/pages/content/CasesPage"));
 const CaseWorkspacePage = lazy(() => import("@/pages/content/CaseWorkspacePage"));
 const AssignmentsPage = lazy(
@@ -365,6 +366,19 @@ export const APP_ROUTES: AppRoute[] = [
 		nav: { label: "教学看板", icon: IconChartBar, section: "admin", group: "teaching", end: true, mobile: { order: 10, tier: "staff" } },
 	},
 	{
+		path: "/admin/platform",
+		element: <PlatformOverview />,
+		permission: "school_manage",
+		activity: "manage",
+		nav: {
+			label: "平台总览",
+			icon: IconBuildingCommunity,
+			section: "admin",
+			group: "system",
+			personas: ["platform"],
+		},
+	},
+	{
 		path: "/admin/system-ops",
 		element: <SystemOpsPage />,
 		permission: "api_manage",
@@ -582,15 +596,17 @@ export function filterNavByPersona(items: NavItem[], persona: string | null | un
  *
  * `/admin` 要 `stats_view`，而平台/运维视角没有这个键 —— 旧逻辑按"有非学生权限就是管理员"
  * 直接跳 `/admin`，这两类账号一登录就是 403。顺序口径：
- * 1. 有 `stats_view` → 教学看板（管理员/教师的日常首页）；
- * 2. 否则取导航里第一个有权限的管理条目（平台 → 院校管理，运维 → 运维仪表盘）；
- * 3. 没有管理条目 → 第一个个人条目（学生 → 训练）；
- * 4. 什么都没有 → 个人中心（永远可达，不制造 403 循环）。
+ * 1. 平台 → 平台总览（跨院校规模、运行状态与成本）；
+ * 2. 有 `stats_view` → 教学看板（管理员/教师的日常首页）；
+ * 3. 否则取导航里第一个有权限的管理条目（运维 → 运维仪表盘）；
+ * 4. 没有管理条目 → 第一个个人条目（学生 → 训练）；
+ * 5. 什么都没有 → 个人中心（永远可达，不制造 403 循环）。
  */
 export function resolveLandingPath(
 	permissions: readonly string[],
 	persona: string | null | undefined,
 ): string {
+	if (persona === "platform") return "/admin/platform";
 	const allowed = filterNavByPersona(NAV_ITEMS, persona).filter(
 		(item) => !item.permission || permissions.includes(item.permission),
 	);
