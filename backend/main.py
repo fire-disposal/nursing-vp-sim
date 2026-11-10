@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 from core.config import (
     APP_VERSION,
     CORS_ORIGINS,
+    ENV,
     LLM_CONNECTION_KEEPALIVE,
     LLM_CONNECTION_POOL_SIZE,
     MAX_REQUEST_BYTES,
@@ -250,7 +251,15 @@ async def lifespan(app: FastAPI):
 
 # ── Application ──
 
-app = FastAPI(title="虚拟患者训练系统", version=APP_VERSION, lifespan=lifespan)
+DOCS_ENABLED = ENV != "production"
+app = FastAPI(
+    title="虚拟患者训练系统",
+    version=APP_VERSION,
+    lifespan=lifespan,
+    docs_url="/docs" if DOCS_ENABLED else None,
+    redoc_url="/redoc" if DOCS_ENABLED else None,
+    openapi_url="/openapi.json" if DOCS_ENABLED else None,
+)
 
 
 # ── Domain exception handlers ──
