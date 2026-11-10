@@ -388,19 +388,31 @@ jobs:
 
             IMAGE_VERSION=$VER docker compose -f docker-compose.yml --env-file .env up -d --remove-orphans
 
-            echo ">> Health check..."
-            OK=false
+            echo ">> Health check (backend + frontend)..."
+            BOK=false
+            FOK=false
             for i in \$(seq 1 30); do
-              S=\$(docker inspect --format '{{.State.Health.Status}}' nursing-vp-sim-backend-1 2>/dev/null || echo "")
-              case "\$S" in
-                healthy) echo "  ✓ healthy (\$((i * 2))s)"; OK=true; break ;;
+              BS=\$(docker inspect --format '{{.State.Health.Status}}' nursing-vp-sim-backend-1 2>/dev/null || echo "")
+              FS=\$(docker inspect --format '{{.State.Health.Status}}' nursing-vp-sim-frontend-1 2>/dev/null || echo "")
+              case "\$BS" in
                 unhealthy)
                   rollback_deploy "backend unhealthy!"
                   exit 1 ;;
+                healthy) BOK=true ;;
               esac
+              case "\$FS" in
+                unhealthy)
+                  rollback_deploy "frontend unhealthy!"
+                  exit 1 ;;
+                healthy) FOK=true ;;
+              esac
+              if [ "\$BOK" = true ] && [ "\$FOK" = true ]; then
+                echo "  ✓ backend + frontend healthy (\$((i * 2))s)"
+                break
+              fi
               sleep 2
             done
-            [ "\$OK" = true ] || { rollback_deploy "health check timeout."; exit 1; }
+            [ "\$BOK" = true ] && [ "\$FOK" = true ] || { rollback_deploy "health check timeout."; exit 1; }
 
             # 断言**跑起来的版本 == 本次发布的版本**。
             # 只 `curl -sf` 是不够的：容器没被重建时它照样 200，于是"部署成功"可能是旧代码在跑

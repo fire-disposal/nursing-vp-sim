@@ -57,10 +57,11 @@ services:
         max-file: "3"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
-      interval: 30s
+      # 10s 而非 30s：部署脚本只等 Docker 的 healthy 状态，30s 周期会白等一整个 interval。
+      interval: 10s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 5s
 
   frontend:
     image: ghcr.io/fire-disposal/nursing-vp-sim-frontend:${IMAGE_VERSION}
@@ -78,10 +79,11 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:80/"]
-      interval: 30s
+      # 与后端同一节奏；部署脚本会把前后端健康状态放在同一个等待循环里检查。
+      interval: 10s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 5s
 
 volumes:
   ai_vp_pg_data:
