@@ -73,9 +73,8 @@ services:
         max-file: "3"
     ports:
       - "127.0.0.1:9000:80"
-    depends_on:
-      backend:
-        condition: service_healthy
+    # 前端只是静态 Nginx；等待后端 healthy 会让每次发布多等一个健康检查周期。
+    # 后端就绪由部署脚本里的健康检查单独负责。
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:80/"]

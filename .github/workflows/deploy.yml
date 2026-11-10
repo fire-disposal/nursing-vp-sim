@@ -191,6 +191,9 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
+        with:
+          # runner 是一次性的：任务结束即销毁，不需要再花时间清理 builder。
+          cleanup: false
 
       - name: Log in to GHCR
         uses: docker/login-action@v4
@@ -220,7 +223,8 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/nursing-vp-sim-frontend:${{ steps.resolve_version.outputs.version }}
           build-args: APP_VERSION=${{ steps.resolve_version.outputs.version }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # 前端 cache export 比实际构建还贵；只导出最终镜像层。
+          cache-to: type=gha,mode=min
           provenance: true
 
       - name: Verify images exist in registry
@@ -249,19 +253,27 @@ jobs:
 
       - name: Deploy
         run: |
+          set -euo pipefail
           HOST="${{ secrets.SSH_HOST }}"
           USER="${{ secrets.SSH_USER }}"
           VER="${{ steps.resolve_version.outputs.version }}"
           OWNER="${{ steps.owner.outputs.value }}"
 
           ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
-          ssh "$USER@$HOST" "mkdir -p $DEPLOY_DIR/deploy"
-          scp deploy/docker-compose.prod.yml "$USER@$HOST":$DEPLOY_DIR/docker-compose.yml
-          scp deploy/rollback.sh "$USER@$HOST":$DEPLOY_DIR/rollback.sh
-          scp deploy/db-backup.sh "$USER@$HOST":$DEPLOY_DIR/deploy/db-backup.sh
-          scp deploy/db-restore.sh "$USER@$HOST":$DEPLOY_DIR/deploy/db-restore.sh
-          scp .deploy-ops/deploy/pre-deploy-backup.sh "$USER@$HOST":$DEPLOY_DIR/deploy/pre-deploy-backup.sh
-          scp deploy/prune-images.sh "$USER@$HOST":$DEPLOY_DIR/deploy/prune-images.sh
+
+          # 一次 tar/ssh 传输全部部署文件：多次 scp 每次都要重新握手，累计约 20–30s。
+          # 在临时目录先摆好远端目录结构（compose 改名、备份脚本落到 deploy/），再整体解包。
+          STAGE="$(mktemp -d)"
+          trap 'rm -rf "$STAGE"' EXIT
+          mkdir -p "$STAGE/deploy"
+          cp deploy/docker-compose.prod.yml "$STAGE/docker-compose.yml"
+          cp deploy/rollback.sh "$STAGE/deploy/rollback.sh"
+          cp deploy/db-backup.sh "$STAGE/deploy/db-backup.sh"
+          cp deploy/db-restore.sh "$STAGE/deploy/db-restore.sh"
+          cp deploy/prune-images.sh "$STAGE/deploy/prune-images.sh"
+          cp .deploy-ops/deploy/pre-deploy-backup.sh "$STAGE/deploy/pre-deploy-backup.sh"
+          tar -C "$STAGE" -czf - . \
+            | ssh "$USER@$HOST" "mkdir -p '$DEPLOY_DIR' && tar -xzf - -C '$DEPLOY_DIR'"
 
           # nginx 已于 2026-10-23 退役（边缘切换到 Caddy，见 server-ops/NETWORK.md §9.7）。
           # 本步骤不再安装 vhost / reload nginx；站点路由由 Caddy 的 base 配置负责。
@@ -437,20 +449,19 @@ jobs:
 
       - name: Publish dev report (non-blocking)
         continue-on-error: true
+        # 报告脚本只用标准库和 git；不要为了它安装整套后端依赖。
+        timeout-minutes: 3
         run: |
           HOST="${{ secrets.SSH_HOST }}"
           USER="${{ secrets.SSH_USER }}"
           ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
-          cd backend
-          python -m ensurepip --upgrade 2>/dev/null || true
-          pip install -q uv 2>/dev/null || true
-          python -m uv run python ../scripts/dev-report.py --output ../frontend/public/report.html 2>&1 || {
+          python3 scripts/dev-report.py --output frontend/public/report.html 2>&1 || {
             echo "⚠ Report generation failed — skipping publish"
             exit 0
           }
 
-          scp ../frontend/public/report.html "$USER@$HOST":/tmp/report.html 2>/dev/null || {
+          scp frontend/public/report.html "$USER@$HOST":/tmp/report.html 2>/dev/null || {
             echo "⚠ SCP failed — skipping publish"
             exit 0
           }
