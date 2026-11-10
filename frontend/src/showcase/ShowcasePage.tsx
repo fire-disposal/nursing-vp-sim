@@ -1,6 +1,5 @@
-import "@fontsource-variable/geist";
-import { useEffect } from "react";
 import { Box } from "@mantine/core";
+import { useEffect } from "react";
 import { PRODUCT_NAME } from "./data";
 import EngineeringBand from "./sections/EngineeringBand";
 import FinalCta from "./sections/FinalCta";
@@ -22,42 +21,11 @@ export default function ShowcasePage() {
 
 	return (
 		<Box mih="100vh" pos="relative">
-			<Box
-				pos="fixed"
-				inset={0}
-				style={{ pointerEvents: "none", zIndex: -30, overflow: "hidden" }}
-			>
-				<Box
-					style={{
-						position: "absolute",
-						left: "50%",
-						top: 0,
-						width: "22rem",
-						height: "22rem",
-						transform: "translateX(-50%)",
-						borderRadius: "50%",
-						background: "var(--mantine-primary-color-6)",
-						opacity: 0.04,
-						filter: "blur(160px)",
-					}}
-				/>
-				<Box
-					style={{
-						position: "absolute",
-						bottom: 0,
-						right: 0,
-						width: "18rem",
-						height: "18rem",
-						borderRadius: "50%",
-						background: "var(--mantine-color-blue-5)",
-						opacity: 0.04,
-						filter: "blur(140px)",
-					}}
-				/>
-			</Box>
-
+			<a className="skip-link" href="#showcase-main">
+				跳到主要内容
+			</a>
 			<TopBar />
-			<Box component="main" pos="relative" style={{ zIndex: 10 }}>
+			<Box component="main" id="showcase-main" tabIndex={-1} pos="relative" style={{ zIndex: 10 }}>
 				<Hero />
 				<Overview />
 				<Highlights />

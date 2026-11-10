@@ -18,7 +18,7 @@ export default function SectionHeading({
 					size="11px"
 					fw={600}
 					tt="uppercase"
-					c="var(--mantine-primary-color-6)"
+					c="var(--mantine-primary-color-7)"
 					style={{ letterSpacing: "0.22em" }}
 				>
 					{eyebrow}

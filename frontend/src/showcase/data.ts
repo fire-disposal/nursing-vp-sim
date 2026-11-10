@@ -122,7 +122,7 @@ export const TECH_STACK: string[] = [
 	"React 19",
 	"TypeScript",
 	"Vite",
-	"Tailwind CSS",
+	"Mantine",
 	"TanStack Query",
 	"GSAP",
 	"Biome",

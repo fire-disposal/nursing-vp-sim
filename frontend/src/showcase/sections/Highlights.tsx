@@ -56,7 +56,7 @@ function visualFor(h: Highlight) {
 				>
 					<Text
 						size="xs"
-						c="var(--mantine-primary-color-6)"
+						c="var(--mantine-primary-color-7)"
 						mb={8}
 						style={{ fontFamily: "var(--mantine-font-family-monospace)" }}
 					>

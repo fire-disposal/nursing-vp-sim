@@ -1,6 +1,7 @@
 import { Box, Group, Loader, Stack, Text } from "@mantine/core";
 import { IconSend } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
+import { prefersReducedMotion } from "../gsap";
 
 const SCENE = [
 	{ role: "nurse" as const, text: "您好，我是您的责任护士。请问您今天哪里不舒服？", delay: 1200 },
@@ -20,8 +21,13 @@ const SCENE = [
 
 type Message = { role: "nurse" | "patient"; text: string };
 
+const STATIC_MESSAGES: Message[] = SCENE.slice(0, 4).map(({ role, text }) => ({ role, text }));
+
 export default function LiveChatSimulation() {
-	const [messages, setMessages] = useState<Message[]>([]);
+	const reducedMotion = useRef(prefersReducedMotion());
+	const [messages, setMessages] = useState<Message[]>(() =>
+		reducedMotion.current ? STATIC_MESSAGES : [],
+	);
 	const [typing, setTyping] = useState(false);
 	const [inputText, setInputText] = useState("");
 	const [inputVisible, setInputVisible] = useState(false);
@@ -34,6 +40,7 @@ export default function LiveChatSimulation() {
 	}, [messages, typing]);
 
 	useEffect(() => {
+		if (reducedMotion.current) return;
 		let cancelled = false;
 
 		const typeText = async (text: string) => {
@@ -161,7 +168,7 @@ export default function LiveChatSimulation() {
 											display: "flex",
 											alignItems: "center",
 											justifyContent: "center",
-											fontSize: "xs",
+											fontSize: "var(--mantine-font-size-xs)",
 											fontWeight: 700,
 											flexShrink: 0,
 										}}
@@ -203,7 +210,7 @@ export default function LiveChatSimulation() {
 											display: "flex",
 											alignItems: "center",
 											justifyContent: "center",
-											fontSize: "xs",
+											fontSize: "var(--mantine-font-size-xs)",
 											fontWeight: 700,
 											flexShrink: 0,
 										}}
@@ -227,7 +234,7 @@ export default function LiveChatSimulation() {
 									display: "flex",
 									alignItems: "center",
 									justifyContent: "center",
-									fontSize: "xs",
+									fontSize: "var(--mantine-font-size-xs)",
 									fontWeight: 700,
 									flexShrink: 0,
 								}}

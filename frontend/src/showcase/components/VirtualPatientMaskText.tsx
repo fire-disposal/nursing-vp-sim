@@ -1,5 +1,6 @@
-import { useId } from "react";
 import type { CSSProperties } from "react";
+import { useId } from "react";
+import { prefersReducedMotion } from "../gsap";
 
 type MaskWordProps = {
 	text: string;
@@ -15,6 +16,7 @@ type MaskWordProps = {
 	lineFontSize: number;
 	shiftY: number;
 	duration: string;
+	animate: boolean;
 	style?: CSSProperties;
 };
 
@@ -32,6 +34,7 @@ function MaskWord({
 	lineFontSize,
 	shiftY,
 	duration,
+	animate,
 	style,
 }: MaskWordProps) {
 	return (
@@ -65,53 +68,56 @@ function MaskWord({
 			</defs>
 
 			<g mask={`url(#${maskId})`}>
-				<rect width="100%" height="100%" fill="var(--mantine-primary-color-6)" fillOpacity="0.10" />
+				<rect width="100%" height="100%" fill="var(--mantine-primary-color-7)" fillOpacity="0.10" />
 				<g>
 					<g>
-						<text x="0" y={lineY[0]} fill="var(--mantine-primary-color-6)" fillOpacity={lineOpacity[0]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
+						<text x="0" y={lineY[0]} fill="var(--mantine-primary-color-7)" fillOpacity={lineOpacity[0]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
 							{lineTexts[0]}
 						</text>
-						<text x="0" y={lineY[1]} fill="var(--mantine-primary-color-6)" fillOpacity={lineOpacity[1]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
+						<text x="0" y={lineY[1]} fill="var(--mantine-primary-color-7)" fillOpacity={lineOpacity[1]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
 							{lineTexts[1]}
 						</text>
-						<text x="0" y={lineY[2]} fill="var(--mantine-primary-color-6)" fillOpacity={lineOpacity[2]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
+						<text x="0" y={lineY[2]} fill="var(--mantine-primary-color-7)" fillOpacity={lineOpacity[2]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
 							{lineTexts[2]}
 						</text>
-						<text x="0" y={lineY[3]} fill="var(--mantine-primary-color-6)" fillOpacity={lineOpacity[3]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
+						<text x="0" y={lineY[3]} fill="var(--mantine-primary-color-7)" fillOpacity={lineOpacity[3]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
 							{lineTexts[3]}
 						</text>
 					</g>
 					<g transform={`translate(0 ${shiftY})`}>
-						<text x="0" y={lineY[0]} fill="var(--mantine-primary-color-6)" fillOpacity={lineOpacity[0]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
+						<text x="0" y={lineY[0]} fill="var(--mantine-primary-color-7)" fillOpacity={lineOpacity[0]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
 							{lineTexts[0]}
 						</text>
-						<text x="0" y={lineY[1]} fill="var(--mantine-primary-color-6)" fillOpacity={lineOpacity[1]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
+						<text x="0" y={lineY[1]} fill="var(--mantine-primary-color-7)" fillOpacity={lineOpacity[1]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
 							{lineTexts[1]}
 						</text>
-						<text x="0" y={lineY[2]} fill="var(--mantine-primary-color-6)" fillOpacity={lineOpacity[2]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
+						<text x="0" y={lineY[2]} fill="var(--mantine-primary-color-7)" fillOpacity={lineOpacity[2]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
 							{lineTexts[2]}
 						</text>
-						<text x="0" y={lineY[3]} fill="var(--mantine-primary-color-6)" fillOpacity={lineOpacity[3]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
+						<text x="0" y={lineY[3]} fill="var(--mantine-primary-color-7)" fillOpacity={lineOpacity[3]} fontSize={lineFontSize} fontWeight="800" letterSpacing="1.6">
 							{lineTexts[3]}
 						</text>
 					</g>
-					<animateTransform
-						attributeName="transform"
-						type="translate"
-						from="0 0"
-						to={`0 ${-shiftY}`}
-						dur={duration}
-						repeatCount="indefinite"
-					/>
+					{animate && (
+						<animateTransform
+							attributeName="transform"
+							type="translate"
+							from="0 0"
+							to={`0 ${-shiftY}`}
+							dur={duration}
+							repeatCount="indefinite"
+						/>
+					)}
 				</g>
 			</g>
 
 			<text
 				x="0"
 				y={Math.round(viewBoxHeight * 0.88)}
-				fill="transparent"
-				stroke="var(--mantine-primary-color-6)"
-				strokeWidth="1.45"
+				fill="var(--mantine-primary-color-7)"
+				fillOpacity="0.88"
+				stroke="var(--mantine-primary-color-7)"
+				strokeWidth="1.2"
 				fontSize={fontSize}
 				fontWeight="900"
 				fontFamily="Geist Variable, Inter, system-ui, sans-serif"
@@ -126,6 +132,7 @@ function MaskWord({
 export default function VirtualPatientMaskText() {
 	const virtualMaskId = useId();
 	const patientMaskId = useId();
+	const animate = !prefersReducedMotion();
 
 	return (
 		<span
@@ -156,6 +163,7 @@ export default function VirtualPatientMaskText() {
 				lineOpacity={["0.56", "0.38", "0.45", "0.34"]}
 				shiftY={108}
 				duration="18s"
+				animate={animate}
 			/>
 			<MaskWord
 				text="患者"
@@ -177,6 +185,7 @@ export default function VirtualPatientMaskText() {
 				lineOpacity={["0.52", "0.4", "0.46", "0.36"]}
 				shiftY={108}
 				duration="22s"
+				animate={animate}
 			/>
 		</span>
 	);

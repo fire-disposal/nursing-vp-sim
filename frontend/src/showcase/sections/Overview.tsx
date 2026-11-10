@@ -64,7 +64,7 @@ function Stat({ stat }: { stat: OverviewStat }) {
 					fw={600}
 					tt="uppercase"
 					c="dimmed"
-					style={{ maxWidth: "12ch", letterSpacing: "0.22em", lineHeight: 1.6 }}
+					style={{ maxWidth: "20ch", letterSpacing: "0.22em", lineHeight: 1.6 }}
 				>
 					{stat.label}
 				</Text>

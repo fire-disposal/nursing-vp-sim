@@ -1,8 +1,7 @@
 import { Badge, Box, Button, Group, Paper, SimpleGrid, Stack, Text, Title } from "@mantine/core";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import LiveChatSimulation from "../components/LiveChatSimulation";
-import VideoModal from "../components/VideoModal";
 import VirtualPatientMaskText from "../components/VirtualPatientMaskText";
 import { CTA_HREF, CTA_LABEL, HERO_TITLE, PRODUCT_NAME } from "../data";
 import { ensureGsap, prefersReducedMotion } from "../gsap";
@@ -12,7 +11,6 @@ export default function Hero() {
 	const panel = useRef<HTMLDivElement>(null);
 	const titleRef = useRef<HTMLHeadingElement>(null);
 	const ctaRef = useRef<HTMLDivElement>(null);
-	const [videoOpen, setVideoOpen] = useState(false);
 
 	useEffect(() => {
 		if (prefersReducedMotion() || !root.current) return;
@@ -39,9 +37,8 @@ export default function Hero() {
 	}, []);
 
 	return (
-		<>
-			<Box
-				component="section"
+		<Box
+			component="section"
 				ref={root}
 				pos="relative"
 				style={{
@@ -54,36 +51,6 @@ export default function Hero() {
 					paddingBottom: "4rem",
 				}}
 			>
-				<Box pos="absolute" inset={0} style={{ pointerEvents: "none", zIndex: -10 }}>
-					<Box
-						style={{
-							position: "absolute",
-							left: "50%",
-							top: 0,
-							width: "28rem",
-							height: "28rem",
-							transform: "translateX(-50%)",
-							borderRadius: "50%",
-							background: "var(--mantine-primary-color-6)",
-							opacity: 0.05,
-							filter: "blur(140px)",
-						}}
-					/>
-					<Box
-						style={{
-							position: "absolute",
-							right: 0,
-							top: "33%",
-							width: "18rem",
-							height: "18rem",
-							borderRadius: "50%",
-							background: "var(--mantine-color-blue-5)",
-							opacity: 0.06,
-							filter: "blur(120px)",
-						}}
-					/>
-				</Box>
-
 				<SimpleGrid
 					cols={{ base: 1, lg: 2 }}
 					spacing={{ base: 56, lg: 80 }}
@@ -104,9 +71,12 @@ export default function Hero() {
 							aria-label={HERO_TITLE}
 							fw={700}
 							lh={1.03}
-							style={{ fontSize: "clamp(2rem, 6vw, 4.5rem)", letterSpacing: "-0.02em" }}
+							style={{ fontSize: "clamp(2rem, 5.4vw, 4rem)", letterSpacing: "-0.02em" }}
 						>
-							把 LLM 做成可教学、可评估的
+							把 LLM 做成
+							<br />
+							可教学、可评估的
+							<br />
 							<VirtualPatientMaskText />
 						</Title>
 						<Group gap={12}>
@@ -143,8 +113,6 @@ export default function Hero() {
 						</Paper>
 					</Box>
 				</SimpleGrid>
-			</Box>
-			<VideoModal open={videoOpen} onClose={() => setVideoOpen(false)} src="/demo.mp4" />
-		</>
+		</Box>
 	);
 }

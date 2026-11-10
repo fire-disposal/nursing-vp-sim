@@ -29,23 +29,23 @@ const STAGES = [
 	{
 		label: "构建镜像",
 		accent: "yellow",
-		desc: "前后端分别打包为 Docker 镜像，支持 x86 和 ARM 双架构，推送至 GitHub 容器仓库。利用缓存加速，构建通常在 2 分钟内完成。",
+		desc: "前后端分别打包为 Docker 镜像，推送至 GitHub 容器仓库；部署机按版本拉取对应镜像，构建缓存复用依赖层。",
 		chips: [
 			{ k: "容器化", v: "Docker 镜像" },
-			{ k: "多架构", v: "amd64 + arm64" },
+			{ k: "双镜像", v: "前端 + 后端" },
 			{ k: "镜像仓库", v: "GitHub GHCR" },
-			{ k: "缓存加速", v: "分钟级构建" },
+			{ k: "版本固定", v: "Tag 对应镜像" },
 		],
 	},
 	{
-		label: "发布审批",
+		label: "发布触发",
 		accent: "pink",
-		desc: "打 Tag 触发部署流水线，并绑定 GitHub Environment 审批：必须由人工放行才会真正发版（单实例部署，不再有独立的测试服）。每次部署留痕，可精确回退到历史版本。",
+		desc: "打 Tag 触发部署流水线；生产环境为单实例，没有独立测试服。每次部署写入版本历史，可按版本回退。",
 		chips: [
 			{ k: "自动触发", v: "Tag push" },
-			{ k: "人工闸门", v: "环境审批" },
+			{ k: "单实例", v: "直接发布" },
 			{ k: "版本留痕", v: "部署历史" },
-			{ k: "任意回退", v: "指定版本" },
+			{ k: "按版本回退", v: "rollback.yml" },
 		],
 	},
 	{
@@ -73,12 +73,12 @@ const STAGES = [
 	{
 		label: "生产发布",
 		accent: "green",
-		desc: "审批通过后部署至 iomt.205716.xyz：部署前自动备份数据库（失败即停），部署后健康检查与诊断端点冒烟，异常秒级回滚，全程零停机。",
+		desc: "部署至 iomt.205716.xyz：部署前自动备份数据库（失败即停），部署后健康检查与诊断端点冒烟；异常时回滚上一版本。单实例更新期间服务会短暂重启。",
 		chips: [
 			{ k: "备份门禁", v: "失败即停" },
 			{ k: "镜像校验", v: "存在性检查" },
-			{ k: "秒级回滚", v: "失败自恢复" },
-			{ k: "零停机", v: "滚动更新" },
+			{ k: "健康检查", v: "部署后冒烟" },
+			{ k: "版本回退", v: "上一版本" },
 		],
 	},
 ];
@@ -103,6 +103,8 @@ export default function EngineeringBand() {
 									<Group
 										key={s.label}
 										component="button"
+										aria-pressed={active === i}
+										aria-controls="pipeline-stage-detail"
 										onClick={() => setActive(i)}
 										gap={12}
 										px="md"
@@ -144,6 +146,8 @@ export default function EngineeringBand() {
 
 						<Grid.Col span={{ base: 12, md: 9 }}>
 							<Box
+								id="pipeline-stage-detail"
+								aria-live="polite"
 								p={{ base: "lg", md: "xl" }}
 								style={{
 									border: "1px solid var(--mantine-color-default-border)",

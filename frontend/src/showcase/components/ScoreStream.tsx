@@ -199,7 +199,7 @@ export default function ScoreStream() {
 						overflow: "hidden",
 					}}
 				>
-					<Text size="xs" c="var(--mantine-primary-color-6)" mb={4} style={{ fontFamily: "var(--mantine-font-family-monospace)", flexShrink: 0 }}>
+					<Text size="xs" c="var(--mantine-primary-color-7)" mb={4} style={{ fontFamily: "var(--mantine-font-family-monospace)", flexShrink: 0 }}>
 						$ scoring_dimensions
 					</Text>
 					<Box style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" }}>
@@ -228,7 +228,7 @@ export default function ScoreStream() {
 						overflow: "hidden",
 					}}
 				>
-					<Text size="xs" c="var(--mantine-primary-color-6)" mb={4} style={{ fontFamily: "var(--mantine-font-family-monospace)", flexShrink: 0 }}>
+					<Text size="xs" c="var(--mantine-primary-color-7)" mb={4} style={{ fontFamily: "var(--mantine-font-family-monospace)", flexShrink: 0 }}>
 						$ feedback_generation
 					</Text>
 					<Box style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" }}>

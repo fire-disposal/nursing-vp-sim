@@ -476,7 +476,7 @@ export default function Profile() {
 							</Box>
 							<Text
 								component="a"
-								href="/showcase"
+								href="/share"
 								target="_blank"
 								rel="noopener noreferrer"
 								size="sm"

@@ -18,10 +18,10 @@ export default function FutureOutlook() {
 							未来展望
 						</Text>
 						<Title order={2} fw={700}>
-							随时随地，触手可及
+							移动端延伸
 						</Title>
 						<Text size="sm" c="dimmed" style={{ maxWidth: "52ch" }}>
-							即将推出微信小程序与手机 App 适配，将虚拟患者训练从桌面延伸到移动端，让学生在任何场景下都能随时随地进行护理沟通练习。
+							微信小程序与手机 App 适配仍在规划中，尚未上线。方向是把虚拟患者训练从桌面延伸到移动场景。
 						</Text>
 
 						<SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg" mt="lg">
@@ -34,7 +34,7 @@ export default function FutureOutlook() {
 										微信小程序
 									</Text>
 									<Text size="xs" c="dimmed">
-										轻量接入，即开即用
+										规划中 · 轻量接入
 									</Text>
 								</Stack>
 							</Group>
@@ -47,7 +47,7 @@ export default function FutureOutlook() {
 										手机 App
 									</Text>
 									<Text size="xs" c="dimmed">
-										原生体验，深度集成
+										规划中 · 原生体验
 									</Text>
 								</Stack>
 							</Group>
