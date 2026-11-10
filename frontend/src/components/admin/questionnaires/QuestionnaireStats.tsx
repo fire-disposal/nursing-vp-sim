@@ -8,39 +8,46 @@ import {
 	SimpleGrid,
 	Stack,
 	Text,
-	Title,
 } from "@mantine/core";
-import { IconArrowLeft, IconChartBar, IconDownload } from "@tabler/icons-react";
-import { exportQuestionnaireCSV } from "@/api/questionnaires";
-import type {
-	ResponseStats,
-	TemplateListItem,
-} from "@/components/admin/questionnaires/types";
+import { IconChartBar, IconClipboardList, IconDownload } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { queryKeys } from "@/api/query-keys";
+import { exportQuestionnaireCSV, getQuestionnaireStats } from "@/api/questionnaires";
+import type { ResponseStats } from "@/components/admin/questionnaires/types";
 import { QUESTION_TYPE_LABELS } from "@/components/admin/questionnaires/types";
 import { toast } from "@/components/Toast";
 import EmptyState from "@/components/ui/empty-state";
+import ErrorState from "@/components/ui/error-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 
 interface QuestionnaireStatsProps {
-	template: TemplateListItem;
-	stats: ResponseStats | null;
-	isLoading: boolean;
-	onBack: () => void;
+	templateId: number;
 }
 
-export default function QuestionnaireStats({
-	template,
-	stats,
-	isLoading,
-	onBack,
-}: QuestionnaireStatsProps) {
+/**
+ * 问卷统计（`/admin/questionnaires/:id/stats`）。
+ *
+ * 与旧版本的区别：模板不再由父组件的本地 state 传入——页面直接从地址栏的 id 取数，
+ * 于是刷新、前进/后退、「返回列表」都落在真实路由上。
+ * 失败态显式区分于「0 分配 / 0 完成」：统计取不到时绝不渲染成一张全是 0 的假报表。
+ */
+export default function QuestionnaireStats({ templateId }: QuestionnaireStatsProps) {
+	const navigate = useNavigate();
+
+	const { data: stats, isLoading, isError, error, refetch } = useQuery({
+		queryKey: queryKeys.questionnaires.stats(templateId),
+		queryFn: () => getQuestionnaireStats(templateId).then((r) => r.data as ResponseStats),
+		staleTime: 2 * 60_000,
+	});
+
 	const exportCSV = async () => {
 		try {
-			const response = await exportQuestionnaireCSV(template.id);
+			const response = await exportQuestionnaireCSV(templateId);
 			const url = URL.createObjectURL(response.data);
 			const a = document.createElement("a");
 			a.href = url;
-			a.download = `questionnaire_responses_${template.id}.csv`;
+			a.download = `questionnaire_responses_${templateId}.csv`;
 			a.click();
 			URL.revokeObjectURL(url);
 			toast.success("CSV 导出成功");
@@ -51,21 +58,34 @@ export default function QuestionnaireStats({
 
 	return (
 		<Paper withBorder shadow="sm" p="md">
-			<Group justify="space-between" mb="md">
-				<div>
-					<Button variant="subtle" color="gray" size="sm" onClick={onBack} mb="xs">
-						<IconArrowLeft size={14} />
-						返回列表
+			<Group justify="flex-end" mb="md" align="flex-start">
+				<Group gap="xs" wrap="wrap">
+					<Button
+						variant="light"
+						leftSection={<IconClipboardList size={14} />}
+						onClick={() => navigate(`/admin/questionnaires/${templateId}/responses`)}
+					>
+						查看答卷
 					</Button>
-					<Title order={3}>{template.title} - 数据统计</Title>
-				</div>
-				<Button variant="outline" onClick={exportCSV}>
-					<IconDownload size={14} /> 导出CSV
-				</Button>
+					<Button
+						variant="outline"
+						leftSection={<IconDownload size={14} />}
+						onClick={() => { void exportCSV(); }}
+						disabled={isError}
+					>
+						导出CSV
+					</Button>
+				</Group>
 			</Group>
 
 			{isLoading ? (
 				<LoadingSkeleton variant="spinner" message="加载统计数据..." />
+			) : isError ? (
+				<ErrorState
+					title="统计数据加载失败"
+					error={error}
+					onRetry={() => refetch()}
+				/>
 			) : stats ? (
 				<Stack gap="xl">
 					<SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
@@ -87,7 +107,8 @@ export default function QuestionnaireStats({
 						</Paper>
 						<Paper bg="var(--mantine-color-default-hover)" p="md" ta="center">
 							<Text size="xl" fw={700} c="yellow">
-								{(stats.completion_rate * 100).toFixed(1)}%
+								{/* 后端 `completion_rate` 已是百分数（0–100），这里不再乘 100 */}
+								{stats.completion_rate.toFixed(1)}%
 							</Text>
 							<Text size="xs" c="dimmed" mt={4}>
 								完成率

@@ -26,15 +26,34 @@ from sqlalchemy import case, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from core.exceptions import NotFoundError
-from core.statuses import ScoringStatus, TrainingStatus
+from core.statuses import AssignmentLifecycle, AssignmentProgressStatus, ScoringStatus, TrainingStatus
 from core.tenant import TenantScope, school_name_map, visible_class
-from models import MEMBER_ROLE_STUDENT, Assignment, Class, ClassMembership, Score, TrainingRecord, User
+from models import (
+    MEMBER_ROLE_STUDENT,
+    Assignment,
+    AssignmentRecipient,
+    Class,
+    ClassMembership,
+    Score,
+    ScoreReview,
+    TrainingRecord,
+    User,
+)
+from modules.assignments.progress import (
+    Attempt,
+    attempt_from_record,
+    count_attempts,
+    effective_status,
+    pick_representative,
+    progress_status,
+)
 from modules.training.scoring.comparability import build_comparability, comparability_key, key_label
 from modules.training.scoring.grade_policy import (
     NUMERIC_BANDS,
     PROGRESS_TREND_THRESHOLD,
     numeric_band,
     policy_descriptor,
+    score_source,
 )
 from modules.training.scoring.grade_scope import grade_conditions, grade_expr
 from schemas.scoreboard import (
@@ -48,6 +67,12 @@ from schemas.scoreboard import (
     ScoreboardRankingItem,
     ScoreboardRankingResponse,
     ScoreboardSummary,
+    StudentLearningProfileResponse,
+    StudentProfileAssignmentItem,
+    StudentProfileClass,
+    StudentProfileIdentity,
+    StudentProfileTrainingItem,
+    StudentProfileTrainingSummary,
     StudentTrendRecord,
     StudentTrendResponse,
 )
@@ -571,4 +596,271 @@ class ScoreboardService:
             records=trend_records,
             policy=policy_descriptor(),
             comparability=comparability,
+        )
+
+    # ── 学生学习档案 ──
+
+    def learning_profile(
+        self,
+        user_id: int,
+        *,
+        scope: ScoreboardScope,
+        training_status: str | None = None,
+        training_offset: int = 0,
+        training_limit: int = 20,
+        now: datetime | None = None,
+    ) -> StudentLearningProfileResponse:
+        """教师在**一个学生**身上连续看趋势 / 作业 / 训练记录。
+
+        三块数据全部复用既有口径，本方法只做聚合：
+
+        - 趋势直接调用 ``student_trend`` —— 可比性与进步幅度不在这里重算，
+          档案与排行榜弹窗看到的必须是同一组点；
+        - 作业进度用 ``modules.assignments.progress``（教师作业详情同一份推导）；
+        - 训练记录的成绩口径与教师记录列表一致：``Score.effective_total``
+          （复核分优先）且**兜底分不计入**（与 ``grade_conditions`` 同义）。
+
+        可见性：目标学生必须在本作用域内（跨院校/非任教班一律 404），
+        趋势与作业/训练三块共用同一个 ``_require_visible_student`` 判定。
+        """
+        student = self._require_visible_student(user_id)
+        self._require_visible_class(scope)
+        now = now or datetime.now(UTC)
+
+        trend = self.student_trend(user_id, scope=scope, now=now)
+        classes = self._visible_classes_of(user_id, scope)
+
+        return StudentLearningProfileResponse(
+            student=StudentProfileIdentity(
+                user_id=student.id,
+                display_name=student.display_name,
+                student_id=student.student_id,
+                username=student.username,
+                classes=classes,
+            ),
+            trend=trend,
+            assignments=self._profile_assignments(user_id, scope, now),
+            training=self._profile_training(user_id, scope, training_status, training_offset, training_limit),
+            training_total=self._profile_training_count(user_id, scope, training_status),
+            training_summary=self._profile_training_summary(user_id, scope, training_status),
+            training_offset=training_offset,
+            training_limit=training_limit,
+        )
+
+    def _visible_classes_of(self, user_id: int, scope: ScoreboardScope) -> list[StudentProfileClass]:
+        """该生的班级（同一条收窄链：本校 + 作用域班级），class_id 升序。"""
+        query = (
+            self.db.query(Class)
+            .join(ClassMembership, ClassMembership.class_id == Class.id)
+            .filter(
+                ClassMembership.user_id == user_id,
+                ClassMembership.member_role == MEMBER_ROLE_STUDENT,
+            )
+        )
+        query = self._narrow_classes(query)
+        if scope.class_id is not None:
+            query = query.filter(Class.id == scope.class_id)
+        rows = query.order_by(Class.id).all()
+        school_names = school_name_map(self.db, [c.school_id for c in rows])
+        return [
+            StudentProfileClass(
+                id=c.id,
+                name=c.name,
+                cohort_label=c.cohort_label or "",
+                school_id=c.school_id,
+                school_name=school_names.get(c.school_id, ""),
+            )
+            for c in rows
+        ]
+
+    def _profile_assignment_query(self, user_id: int, scope: ScoreboardScope):
+        """该生作为受众收到的作业（受众快照口径），并按作用域收窄班级。
+
+        受众快照是作业可见性的唯一读口径（见 ``AssignmentService.recipient_ids``）：
+        用「当前班级成员」反推会把移出班级的学生算成"没被布置过"，与作业详情分叉。
+        """
+        query = (
+            self.db.query(Assignment)
+            .join(AssignmentRecipient, AssignmentRecipient.assignment_id == Assignment.id)
+            .join(Class, Class.id == Assignment.class_id)
+            .options(joinedload(Assignment.case), joinedload(Assignment.class_))
+            .filter(AssignmentRecipient.user_id == user_id)
+        )
+        query = self._narrow_classes(query)
+        if scope.class_id is not None:
+            query = query.filter(Class.id == scope.class_id)
+        return query
+
+    def _profile_assignments(
+        self, user_id: int, scope: ScoreboardScope, now: datetime
+    ) -> list[StudentProfileAssignmentItem]:
+        assignments = (
+            self._profile_assignment_query(user_id, scope).order_by(Assignment.end_time.desc(), Assignment.id).all()
+        )
+        if not assignments:
+            return []
+        # 一次取全（本页所有作业的该生记录），进度推导仍是纯函数，不在这里重写规则
+        records = (
+            self.db.query(TrainingRecord)
+            .options(joinedload(TrainingRecord.score))
+            .filter(
+                TrainingRecord.assignment_id.in_([a.id for a in assignments]),
+                TrainingRecord.user_id == user_id,
+                TrainingRecord.is_student_practice == True,
+            )
+            .order_by(TrainingRecord.start_time.desc())
+            .all()
+        )
+        by_assignment: dict[str, list[Attempt]] = {}
+        for record in records:
+            by_assignment.setdefault(record.assignment_id or "", []).append(attempt_from_record(record))
+
+        items: list[StudentProfileAssignmentItem] = []
+        for assignment in assignments:
+            attempts = by_assignment.get(assignment.id, [])
+            representative = pick_representative(attempts)
+            lifecycle = effective_status(assignment.is_closed, assignment.end_time, now)
+            status = (
+                AssignmentProgressStatus.CLOSED.value
+                if lifecycle is AssignmentLifecycle.CLOSED
+                else progress_status(representative)
+            )
+            items.append(
+                StudentProfileAssignmentItem(
+                    assignment_id=assignment.id,
+                    title=assignment.title,
+                    case_id=assignment.case_id,
+                    case_name=assignment.case.name if assignment.case else "",
+                    class_id=assignment.class_id,
+                    class_name=assignment.class_.name if assignment.class_ else "",
+                    start_time=assignment.start_time,
+                    end_time=assignment.end_time,
+                    lifecycle=lifecycle.value,
+                    status=status,
+                    attempt_count=count_attempts(a.status for a in attempts),
+                    max_attempts=assignment.max_attempts,
+                    record_id=representative.record_id if representative else None,
+                    score_total=representative.score if representative else None,
+                    scoring_status=representative.scoring_status if representative else None,
+                    is_overdue=representative.is_overdue if representative else False,
+                )
+            )
+        return items
+
+    def _profile_training_query(self, user_id: int, scope: ScoreboardScope, status: str | None):
+        """该生的学生练习记录（含进行中/已放弃）—— 教师记录列表同一可见域。"""
+        query = (
+            self.db.query(TrainingRecord)
+            .options(
+                joinedload(TrainingRecord.score),
+                joinedload(TrainingRecord.case),
+                joinedload(TrainingRecord.assignment),
+            )
+            .filter(
+                TrainingRecord.user_id == user_id,
+                TrainingRecord.is_student_practice == True,
+            )
+        )
+        if scope.case_id is not None:
+            query = query.filter(TrainingRecord.case_id == scope.case_id)
+        if scope.assignment_id is not None:
+            query = query.filter(TrainingRecord.assignment_id == scope.assignment_id)
+        if status:
+            query = query.filter(TrainingRecord.status == status)
+        return query
+
+    def _profile_training_count(self, user_id: int, scope: ScoreboardScope, status: str | None) -> int:
+        return self._profile_training_query(user_id, scope, status).order_by(None).count()
+
+    def _profile_training(
+        self,
+        user_id: int,
+        scope: ScoreboardScope,
+        status: str | None,
+        offset: int,
+        limit: int,
+    ) -> list[StudentProfileTrainingItem]:
+        rows = (
+            self._profile_training_query(user_id, scope, status)
+            .order_by(TrainingRecord.start_time.desc(), TrainingRecord.id.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+        if not rows:
+            return []
+        score_ids = [r.score.id for r in rows if r.score]
+        reviewed_map: set[int] = set()
+        if score_ids:
+            reviewed_map = {
+                row[0] for row in self.db.query(ScoreReview.score_id).filter(ScoreReview.score_id.in_(score_ids)).all()
+            }
+        return [self._training_item(r, reviewed=bool(r.score and r.score.id in reviewed_map)) for r in rows]
+
+    @staticmethod
+    def _training_item(record: TrainingRecord, *, reviewed: bool) -> StudentProfileTrainingItem:
+        score = record.score
+        duration = 0
+        if record.start_time and record.end_time:
+            duration = max(0, int((record.end_time - record.start_time).total_seconds()))
+        return StudentProfileTrainingItem(
+            record_id=record.id,
+            case_id=record.case_id,
+            case_name=record.case.name if record.case else "",
+            assignment_id=record.assignment_id,
+            assignment_title=record.assignment.title if record.assignment else None,
+            status=record.status,
+            scoring_status=record.scoring_status,
+            score_reviewed=reviewed,
+            # 兜底分不进统计（grade_conditions）：档案列表同样不展示，避免与趋势分叉
+            score_total=None if (score is None or score.fallback) else score.effective_total,
+            score_source=(
+                score_source(reviewed_total=score.reviewed_total, fallback=score.fallback) if score else None
+            ),
+            score_degraded=bool(score and score.fallback),
+            start_time=record.start_time,
+            end_time=record.end_time,
+            duration_seconds=duration,
+            is_student_practice=record.is_student_practice,
+            is_overdue=bool(record.is_overdue),
+        )
+
+    def _profile_training_summary(
+        self, user_id: int, scope: ScoreboardScope, status: str | None
+    ) -> StudentProfileTrainingSummary:
+        """完成/已评分计数与均分、均时长 —— 与列表同一筛选（``status``），同一成绩口径。"""
+        rows = (
+            self._profile_training_query(user_id, scope, status)
+            .order_by(None)
+            # 列投影而不是实体：joinedload 的 case/assignment 在这里没有消费方
+            .with_entities(
+                TrainingRecord.status,
+                TrainingRecord.scoring_status,
+                grade_expr().label("score"),
+                Score.fallback,
+                func.extract("epoch", TrainingRecord.end_time - TrainingRecord.start_time).label("duration"),
+            )
+            .join(Score, Score.record_id == TrainingRecord.id, isouter=True)
+            .all()
+        )
+        completed = 0
+        scores: list[float] = []
+        durations: list[float] = []
+        for row_status, scoring_status, score, fallback, duration in rows:
+            if row_status == TrainingStatus.COMPLETED:
+                completed += 1
+                if duration is not None:
+                    durations.append(float(duration))
+            if (
+                row_status == TrainingStatus.COMPLETED
+                and scoring_status == ScoringStatus.COMPLETED
+                and score is not None
+                and not fallback
+            ):
+                scores.append(float(score))
+        return StudentProfileTrainingSummary(
+            completed=completed,
+            scored=len(scores),
+            avg_score=round(mean(scores), 1) if scores else None,
+            avg_duration_seconds=round(mean(durations)) if durations else None,
         )

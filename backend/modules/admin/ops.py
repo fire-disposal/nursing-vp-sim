@@ -107,13 +107,25 @@ async def admin_ops_dashboard(
         system_errors = {}
         frontend_errors = {}
         data["error_burst_5min"] = 0
-    errors_structured = {
+    errors_structured: dict = {
         "scope": SCOPE_WORKERS,
         "window": TELEMETRY_WINDOW_LABEL,
         "window_by_count": ERROR_COUNT_WINDOWS,
         "count": error_count_block(system_errors),
         "recent": system_errors.get("recent", []),
     }
+    try:
+        if isinstance(system_errors, dict) and system_errors:
+            # 分组投影与公开端点同源（`get_error_context()`），运维页与错误组详情
+            # 因此拿到的是**档案 + 未落盘增量**的分组，而不是只在内存里留 20 条的
+            # `recent` —— 否则刷新后打不开任何已落盘的指纹。
+            context = get_diagnose_service().get_error_context()
+            errors_structured["groups"] = context.get("groups", [])
+            errors_structured["total_events"] = context.get("total_events", 0)
+            errors_structured["unique_groups"] = context.get("unique_groups", 0)
+            errors_structured["truncated"] = context.get("truncated", False)
+    except Exception:
+        log.warning("ops error context failed", exc_info=True)
 
     alerts = compute_alerts(data)
 

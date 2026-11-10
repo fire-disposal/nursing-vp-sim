@@ -156,7 +156,7 @@ export default function UserDetailPage() {
 											<Button
 												variant="subtle" color="gray"
 												size="sm"
-												onClick={() => navigate(`/record/${r.id}`)}
+												onClick={() => navigate(`/admin/records/${r.id}`)}
 											>
 												查看详情
 											</Button>

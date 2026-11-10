@@ -1,10 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { batchCreateUsers, deleteUser, updateUser } from "@/api/admin/users";
+import { deleteUser, updateUser } from "@/api/admin/users";
 import type { components } from "@/api/api-types.gen";
 import { register } from "@/api/auth";
 import { queryKeys } from "@/api/query-keys";
 import { toast } from "@/components/Toast";
-import type { BatchUser, RegisterPayload, UpdatePayload } from "./types";
+import type { RegisterPayload, UpdatePayload } from "./types";
 
 type Schemas = components["schemas"];
 
@@ -73,20 +73,6 @@ export function useDeleteUserMutation() {
 		},
 		onError: (err: unknown) => {
 			toast.apiError(err, "删除失败");
-		},
-	});
-}
-
-export function useBatchCreateUsersMutation() {
-	const queryClient = useQueryClient();
-
-	return useMutation({
-		mutationFn: (users: BatchUser[]) =>
-			batchCreateUsers(users).then((r) => r.data),
-		// 回执（成功 / 跳过 / 逐行原因）由导入弹窗留在页面上核对；这里只负责刷新列表。
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.admin.users.all });
-			queryClient.invalidateQueries({ queryKey: queryKeys.classes.all });
 		},
 	});
 }

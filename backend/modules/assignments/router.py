@@ -9,11 +9,13 @@ from sqlalchemy.orm import Session, joinedload
 
 from core.database import get_db
 from core.deps import DbSession
+from core.exceptions import NotFoundError
 from core.security import get_current_user, require_permission
 from core.statuses import AssignmentLifecycle, AssignmentProgressStatus
 from core.tenant import Scope, TenantScope
+from core.time_limits import resolve_time_limit_minutes
 from infra.exporter import ColumnDef, ExportAudit, export_response
-from models import Assignment, AssignmentRecipient, TrainingRecord, User
+from models import Assignment, AssignmentRecipient, CaseRevision, TrainingRecord, User
 from modules.admin.class_memberships import student_class_ids
 from modules.assignments.progress import (
     attempt_from_record,
@@ -23,6 +25,8 @@ from modules.assignments.progress import (
     progress_status,
 )
 from modules.assignments.service import UNSET, AssignmentService
+from modules.training.activities import artifact_definition, resolve_activities
+from modules.training.workflows import workflow_for_case_revision
 from schemas import (
     AssignmentCreateRequest,
     AssignmentDetail,
@@ -30,7 +34,11 @@ from schemas import (
     AssignmentUpdateRequest,
     DeleteResponse,
     PaginatedResponse,
+    StudentAssignmentAttempt,
+    StudentAssignmentDetail,
     StudentAssignmentItem,
+    StudentRequiredActivity,
+    StudentRequiredArtifact,
 )
 
 
@@ -44,6 +52,59 @@ class StudentService:
 
     def __init__(self, db: Session):
         self.db = db
+
+    def _requirements(
+        self,
+        assignment: Assignment,
+    ) -> tuple[list[StudentRequiredActivity], list[StudentRequiredArtifact], int | None]:
+        """学生可见的训练要求：预计时限 + 要做的操作 + 必交产物。
+
+        全部**复用已有声明**，不新建平行映射：
+
+        - 时限：作业 ``behavior.time_limit_minutes`` 覆盖病例列，再经
+          ``core.time_limits.resolve_time_limit_minutes`` 收敛 —— 与开始训练时的倒计时同源。
+        - 操作：``resolve_activities`` 按作业钉住的 revision 解析（workflow 白名单 ∩ 病例声明
+          ∩ 作业覆盖），只投影 Activity 登记表里的公开 ``label``。
+        - 必交：``WorkflowDefinition.required_artifacts_for``（病例 ``completion`` 声明优先），
+          只投影 ``artifact_definition(kind).label``。
+
+        披露边界：不读 ``hidden_info``、不读评分细则、不读 Activity config —— 这些都是教师侧
+        或运行期材料，学生判断「要交什么」不需要它们。
+        """
+        # 作业钉住的版本（不是病例的 current_revision）：学生练的正是发布时冻结的那份内容
+        revision = self.db.query(CaseRevision).filter(CaseRevision.id == assignment.case_revision_id).first()
+        case_data = revision.content if revision is not None else None
+        behavior = assignment.behavior or {}
+        features = assignment.features or {}
+
+        if revision is None:
+            activities: list[StudentRequiredActivity] = []
+            artifacts: list[StudentRequiredArtifact] = []
+        else:
+            workflow = workflow_for_case_revision(revision)
+            activities = [
+                StudentRequiredActivity(id=item.definition.id, label=item.definition.label)
+                for item in resolve_activities(case_data, allowed=workflow.activities, overrides=features)
+                if item.availability.available
+            ]
+            artifacts = [
+                StudentRequiredArtifact(kind=kind, label=definition.label)
+                for kind in workflow.required_artifacts_for(case_data)
+                if (definition := artifact_definition(kind)) is not None
+            ]
+
+        declared_limit = behavior.get("time_limit_minutes") or (
+            assignment.case.time_limit_minutes if assignment.case is not None else None
+        )
+        time_limit = (
+            resolve_time_limit_minutes(
+                int(declared_limit),
+                source="assignment" if behavior.get("time_limit_minutes") else "case",
+            )
+            if declared_limit is not None
+            else None
+        )
+        return activities, artifacts, time_limit
 
     def list_assignments(self, user_id: int) -> list[StudentAssignmentItem]:
         # 学生侧可见性 = 当前仍是该班学生成员 ∩ 发布时固化的受众快照。
@@ -107,6 +168,94 @@ class StudentService:
             )
 
         return items
+
+    def get_assignment(self, assignment_id: str, user_id: int) -> StudentAssignmentDetail:
+        """学生自己的作业详情 —— 可见性与开始入口同一把门。
+
+        可见 = 仍是该班学生成员 ∩ 发布时的受众快照（与 ``start_training_from_assignment``
+        完全一致）。任一不满足一律 404：教别人「你无权查看」等于确认作业存在，
+        而作业是按班发布的，被移出班级的学生不该从错误码里读到自己被移出。
+        """
+        class_ids = student_class_ids(self.db, user_id)
+        assignment = (
+            self.db.query(Assignment)
+            .options(joinedload(Assignment.case), joinedload(Assignment.class_))
+            .filter(Assignment.id == assignment_id)
+            .first()
+        )
+        if assignment is None or assignment.class_id not in class_ids:
+            raise NotFoundError("作业不存在")
+        in_audience = (
+            self.db.query(AssignmentRecipient)
+            .filter(
+                AssignmentRecipient.assignment_id == assignment.id,
+                AssignmentRecipient.user_id == user_id,
+            )
+            .first()
+        )
+        if in_audience is None:
+            raise NotFoundError("作业不存在")
+
+        now = datetime.now(UTC)
+        records = (
+            self.db.query(TrainingRecord)
+            .options(joinedload(TrainingRecord.score))
+            .filter(
+                TrainingRecord.user_id == user_id,
+                TrainingRecord.assignment_id == assignment.id,
+                TrainingRecord.is_student_practice == True,
+            )
+            .order_by(TrainingRecord.start_time.desc())
+            .all()
+        )
+
+        attempts = [attempt_from_record(record) for record in records]
+        representative = pick_representative(attempts)
+        lifecycle = effective_status(assignment.is_closed, assignment.end_time, now)
+        closed = lifecycle is AssignmentLifecycle.CLOSED
+        attempt_count = count_attempts(attempt.status for attempt in attempts)
+        limit = assignment.max_attempts
+        remaining = None if not limit or limit <= 0 else max(limit - attempt_count, 0)
+        required_activities, required_artifacts, time_limit = self._requirements(assignment)
+
+        return StudentAssignmentDetail(
+            id=assignment.id,
+            title=assignment.title,
+            description=assignment.description,
+            case_id=assignment.case_id,
+            # 隐藏病例时连名称都不披露：作业页比训练入口更容易被截图转发
+            case_name=""
+            if (assignment.behavior or {}).get("hide_case_info")
+            else (assignment.case.name if assignment.case else ""),
+            hide_case_info=bool((assignment.behavior or {}).get("hide_case_info")),
+            class_id=assignment.class_id,
+            class_name=assignment.class_.name if assignment.class_ else "",
+            teacher_name=assignment.teacher.display_name if assignment.teacher else "",
+            start_time=assignment.start_time,
+            end_time=assignment.end_time,
+            lifecycle=lifecycle.value,
+            status=AssignmentProgressStatus.CLOSED.value if closed else progress_status(representative),
+            mode=str((assignment.behavior or {}).get("mode") or ""),
+            max_attempts=assignment.max_attempts,
+            attempt_count=attempt_count,
+            remaining_attempts=remaining,
+            record_id=representative.record_id if representative else None,
+            attempts=[
+                StudentAssignmentAttempt(
+                    record_id=attempt.record_id,
+                    status=attempt.status,
+                    scoring_status=attempt.scoring_status,
+                    score_total=attempt.score,
+                    is_overdue=attempt.is_overdue,
+                    start_time=attempt.start_time,
+                    end_time=attempt.end_time,
+                )
+                for attempt in attempts
+            ],
+            time_limit_minutes=time_limit,
+            required_activities=required_activities,
+            required_artifacts=required_artifacts,
+        )
 
 
 log = logging.getLogger(__name__)
@@ -265,3 +414,14 @@ student_router = APIRouter(prefix="/api/students/assignments", tags=["学生练�
 @student_router.get("", response_model=list[StudentAssignmentItem])
 def list_student_assignments(current_user: Annotated[User, Depends(get_current_user)], db: DbSession):
     return StudentService(db).list_assignments(current_user.id)
+
+
+@student_router.get("/{assignment_id}", response_model=StudentAssignmentDetail)
+def get_student_assignment(assignment_id: str, current_user: Annotated[User, Depends(get_current_user)], db: DbSession):
+    """学生作业详情。
+
+    刻意**不走** ``assignment_manage`` 权限：那是教师发布/编辑作业的门，
+    学生看自己被布置的作业不该借用它。可见性由 ``StudentService.get_assignment``
+    按成员关系 + 受众快照判定，越界一律 404。
+    """
+    return StudentService(db).get_assignment(assignment_id, current_user.id)

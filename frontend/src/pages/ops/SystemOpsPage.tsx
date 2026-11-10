@@ -1,14 +1,21 @@
-import { Alert, Button, Checkbox, Group, Progress, SimpleGrid, Stack, Table, Text } from "@mantine/core";
+import { Alert, Anchor, Button, Checkbox, Group, Progress, SimpleGrid, Stack, Table, Text } from "@mantine/core";
 import { IconActivity, IconAlertTriangle, IconCircleCheck, IconClock, IconCpu, IconRefresh, IconServer } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { type DiagnoseResponse, fetchDiagnose } from "@/api/admin/ops";
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import {
+	type DiagnoseResponse,
+	fetchDiagnose,
+	resolveBackendGroups,
+	resolveFrontendGroups,
+} from "@/api/admin/ops";
 import { queryKeys } from "@/api/query-keys";
 import TableScroll from "@/components/ui/table-scroll";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import StatCard from "@/components/ui/stat-card";
+import { formatShortDateTime } from "@/utils/date";
 
 function StatGrid({ data }: { data: DiagnoseResponse }) {
 	const successRate = data.llm?.success_rate ?? 100;
@@ -388,8 +395,16 @@ function HttpFrontendCard({ data }: { data: DiagnoseResponse }) {
 	);
 }
 
-function ErrorLogTable({ data }: { data: DiagnoseResponse }) {
-	const entries = data.errors?.recent || [];
+/**
+ * 错误组表 —— 后端档案分组，每行「指纹」是到 `/admin/system-ops/errors/:fingerprint` 的真链接。
+ *
+ * 数据源是 `errors.groups`（后端 `get_error_context()` 的投影）优先，只有 `recent` 行时
+ * 由 `resolveBackendGroups` 按指纹聚合（见 api/admin/ops.ts）。没有分组就没有可下钻的证据，
+ * 此时如实说明，而不是给一个点进去必然空的链接。
+ */
+function ErrorGroupTable({ data }: { data: DiagnoseResponse }) {
+	const groups = useMemo(() => resolveBackendGroups(data.errors), [data.errors]);
+	const windowLabel = data.errors?.window ?? "当前窗口";
 	return (
 		<Card>
 			<CardHeader>
@@ -401,37 +416,54 @@ function ErrorLogTable({ data }: { data: DiagnoseResponse }) {
 				</Group>
 			</CardHeader>
 			<CardContent>
-				{entries.length === 0 ? (
+				{groups.length === 0 ? (
 					<Text size="sm" c="dimmed" ta="center" py="md">暂无错误</Text>
 				) : (
 					<TableScroll
-						minWidth={640}
+						minWidth={720}
 						maxHeight={320}
 						style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 8 }}
 					>
-						<Table>
+						<Table highlightOnHover>
 							<Table.Thead>
 								<Table.Tr>
-									<Table.Th style={{ width: 144 }}>时间</Table.Th>
-									<Table.Th>来源</Table.Th>
-									<Table.Th>消息</Table.Th>
+									<Table.Th style={{ width: 144 }}>最近时间</Table.Th>
 									<Table.Th style={{ width: 96 }}>级别</Table.Th>
+									<Table.Th style={{ width: 200 }}>来源</Table.Th>
+									<Table.Th>消息</Table.Th>
+									<Table.Th style={{ width: 72 }}>次数</Table.Th>
+									<Table.Th style={{ width: 150 }}>指纹</Table.Th>
 								</Table.Tr>
 							</Table.Thead>
 							<Table.Tbody>
-								{entries.map((e, i) => (
-									<Table.Tr key={i}>
+								{groups.map((group) => (
+									<Table.Tr key={group.fingerprint}>
 										<Table.Td style={{ fontSize: 12, fontFamily: "var(--mantine-font-family-monospace)", whiteSpace: "nowrap" }}>
-											{e.time?.slice(0, 19) ?? "-"}
-										</Table.Td>
-										<Table.Td style={{ fontSize: 12, fontFamily: "var(--mantine-font-family-monospace)" }}>
-											{e.logger ?? "-"}
-										</Table.Td>
-										<Table.Td style={{ fontSize: 12, maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-											{e.message ?? "-"}
+											{formatShortDateTime(group.last_seen) || "-"}
 										</Table.Td>
 										<Table.Td style={{ fontSize: 12, fontFamily: "var(--mantine-font-family-monospace)", color: "var(--mantine-color-dimmed)" }}>
-											{e.level ?? "-"}
+											{group.level || "-"}
+										</Table.Td>
+										<Table.Td style={{ fontSize: 12, fontFamily: "var(--mantine-font-family-monospace)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+											{group.logger || "-"}
+										</Table.Td>
+										<Table.Td style={{ fontSize: 12, maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+											{group.message || "-"}
+										</Table.Td>
+										<Table.Td style={{ fontSize: 12, fontVariantNumeric: "tabular-nums" }}>
+											{group.count}
+										</Table.Td>
+										<Table.Td>
+											{/* 键盘可用：Anchor + Link 是真 <a>，Tab/Enter 都能走 */}
+											<Anchor
+												component={Link}
+												to={`/admin/system-ops/errors/${encodeURIComponent(group.fingerprint)}`}
+												size="xs"
+												ff="monospace"
+												aria-label={`查看错误组 ${group.fingerprint} 详情`}
+											>
+												{group.fingerprint}
+											</Anchor>
 										</Table.Td>
 									</Table.Tr>
 								))}
@@ -439,6 +471,94 @@ function ErrorLogTable({ data }: { data: DiagnoseResponse }) {
 						</Table>
 					</TableScroll>
 				)}
+				<Text size="xs" c="dimmed" mt="sm">
+					窗口 {windowLabel}；点击指纹查看该组的首末时间、消息变体与浏览器现场。
+					{data.errors?.truncated && (
+						<>
+							{" "}
+							当前窗口共 {data.errors?.unique_groups ?? "?"} 个指纹，本表只列出最近
+							{data.errors?.groups?.length ?? 0} 个代表错误（更多见日志档案）。
+						</>
+					)}
+					{data.errors?.groups == null && (
+						<> 本快照未透出 `errors.groups`，上表由 `recent` 行按指纹聚合，变体列表可能不完整。</>
+					)}
+				</Text>
+			</CardContent>
+		</Card>
+	);
+}
+
+/**
+ * 前端遥测错误组 —— 每行链接到同一详情页（指纹算法不同，由详情页自行辨认来源）。
+ */
+function FrontendErrorTable({ data }: { data: DiagnoseResponse }) {
+	const groups = useMemo(
+		() => resolveFrontendGroups(data.frontend_errors),
+		[data.frontend_errors],
+	);
+	if (groups.length === 0) return null;
+	return (
+		<Card>
+			<CardHeader>
+				<Group justify="space-between" align="center" wrap="wrap">
+					<CardTitle>前端遥测错误组</CardTitle>
+					<Text size="xs" c="dimmed">
+						窗口 {data.frontend_errors?.window ?? "当前窗口"} · {groups.length} 组
+					</Text>
+				</Group>
+			</CardHeader>
+			<CardContent>
+				<TableScroll
+					minWidth={720}
+					maxHeight={320}
+					style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 8 }}
+				>
+					<Table highlightOnHover>
+						<Table.Thead>
+							<Table.Tr>
+								<Table.Th style={{ width: 144 }}>最近时间</Table.Th>
+								<Table.Th style={{ width: 140 }}>类型</Table.Th>
+								<Table.Th>消息</Table.Th>
+								<Table.Th style={{ width: 180 }}>URL</Table.Th>
+								<Table.Th style={{ width: 72 }}>次数</Table.Th>
+								<Table.Th style={{ width: 150 }}>指纹</Table.Th>
+							</Table.Tr>
+						</Table.Thead>
+						<Table.Tbody>
+							{groups.map((group) => (
+								<Table.Tr key={group.fingerprint}>
+									<Table.Td style={{ fontSize: 12, fontFamily: "var(--mantine-font-family-monospace)", whiteSpace: "nowrap" }}>
+										{formatShortDateTime(group.time) || "-"}
+									</Table.Td>
+									<Table.Td style={{ fontSize: 12, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+										{group.type || "-"}
+									</Table.Td>
+									<Table.Td style={{ fontSize: 12, maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+										{group.message || "-"}
+									</Table.Td>
+									<Table.Td style={{ fontSize: 12, fontFamily: "var(--mantine-font-family-monospace)", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+										{group.url || "-"}
+									</Table.Td>
+									<Table.Td style={{ fontSize: 12, fontVariantNumeric: "tabular-nums" }}>
+										{group.count}
+									</Table.Td>
+									<Table.Td>
+										<Anchor
+											component={Link}
+											to={`/admin/system-ops/errors/${encodeURIComponent(group.fingerprint)}`}
+											size="xs"
+											ff="monospace"
+											aria-label={`查看前端错误组 ${group.fingerprint} 详情`}
+										>
+											{group.fingerprint}
+										</Anchor>
+									</Table.Td>
+								</Table.Tr>
+							))}
+						</Table.Tbody>
+					</Table>
+				</TableScroll>
 			</CardContent>
 		</Card>
 	);
@@ -493,7 +613,8 @@ export default function SystemOpsPage() {
 
 			<AlertsCard data={data} />
 
-			<ErrorLogTable data={data} />
+			<ErrorGroupTable data={data} />
+			<FrontendErrorTable data={data} />
 		</Stack>
 	);
 }

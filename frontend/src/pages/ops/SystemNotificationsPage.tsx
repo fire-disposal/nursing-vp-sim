@@ -16,6 +16,7 @@ import { getAppSettings, updateAppSettings } from "@/api/settings";
 import { useToast } from "@/components/Toast";
 import { ConfirmDialog, useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
+import ErrorState from "@/components/ui/error-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import { SearchInput } from "@/components/ui/search-input";
@@ -70,7 +71,7 @@ export default function SystemNotificationsPage() {
 		validate: schemaResolver(notificationSchema),
 	});
 
-	const { data, isLoading } = useQuery({
+	const { data, isLoading, isError, error, refetch } = useQuery({
 		queryKey: queryKeys.systemNotifications.all,
 		queryFn: () => getSystemNotifications().then((r) => r.data),
 	});
@@ -188,7 +189,7 @@ export default function SystemNotificationsPage() {
 			<Group justify="space-between" align="center" gap="sm" wrap="wrap">
 				<FilterToolbar
 					compact
-					summary={`共 ${filtered.length} 条`}
+					summary={isError ? "共 — 条" : `共 ${filtered.length} 条`}
 					hasActiveFilters={Boolean(searchText || levelFilter)}
 					onClear={() => {
 						setSearchText("");
@@ -215,6 +216,8 @@ export default function SystemNotificationsPage() {
 			</Group>
 			{isLoading ? (
 				<LoadingSkeleton variant="card" />
+			) : isError ? (
+				<ErrorState title="系统通知加载失败" error={error} onRetry={() => refetch()} />
 			) : filtered.length === 0 ? (
 				<EmptyState icon={IconSpeakerphone} title="暂无通知" description="点击上方按钮创建第一条全站通知" />
 			) : (

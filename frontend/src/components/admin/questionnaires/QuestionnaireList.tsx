@@ -2,10 +2,12 @@ import { Badge, Button, Group, Text } from "@mantine/core";
 import {
 	IconChartBar,
 	IconClipboardCheck,
+	IconClipboardList,
 	IconEdit,
 	IconFileText,
 	IconTrash,
 } from "@tabler/icons-react";
+import { useNavigate } from "react-router-dom";
 import type { TemplateListItem } from "@/components/admin/questionnaires/types";
 import { TYPE_LABEL } from "@/components/admin/questionnaires/types";
 import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
@@ -16,17 +18,23 @@ interface QuestionnaireListProps {
 	onEdit: (t: TemplateListItem) => void;
 	onDelete: (t: TemplateListItem) => void;
 	onAssign: (t: TemplateListItem) => void;
-	onViewStats: (t: TemplateListItem) => void;
 }
 
+/**
+ * 问卷模板列表。
+ *
+ * 「统计」与「答卷」都不再由本地 view 状态承载：它们是可前进/后退/刷新/分享的页面，
+ * 各自有自己的地址（`/admin/questionnaires/:id/stats` / `.../responses`）。
+ * 只有编辑器和分配仍走弹窗——它们是就地修改，关掉即回列表，没有独立浏览价值。
+ */
 export default function QuestionnaireList({
 	templates,
 	isLoading,
 	onEdit,
 	onDelete,
 	onAssign,
-	onViewStats,
 }: QuestionnaireListProps) {
+	const navigate = useNavigate();
 	const columns: DataTableColumn<TemplateListItem>[] = [
 		{
 			key: "title",
@@ -109,11 +117,21 @@ export default function QuestionnaireList({
 						size="sm"
 						variant="subtle"
 						color="gray"
-						onClick={() => onViewStats(t)}
-						title="查看数据"
-						aria-label="查看数据"
+						onClick={() => navigate(`/admin/questionnaires/${t.id}/stats`)}
+						title="查看统计"
+						aria-label="查看统计"
 					>
 						<IconChartBar size={14} />
+					</Button>
+					<Button
+						size="sm"
+						variant="subtle"
+						color="gray"
+						onClick={() => navigate(`/admin/questionnaires/${t.id}/responses`)}
+						title="查看答卷"
+						aria-label="查看答卷"
+					>
+						<IconClipboardList size={14} />
 					</Button>
 					<Button
 						size="sm"

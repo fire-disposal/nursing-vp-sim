@@ -1,55 +1,54 @@
-import { Button, Select, Stack } from "@mantine/core";
-import { IconArrowLeft, IconClipboardCheck, IconPlus } from "@tabler/icons-react";
+import { Button, Select } from "@mantine/core";
+import { IconClipboardCheck, IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { getCases } from "@/api/cases";
-import type { QuestionnaireTemplateParams } from "@/api/query-params";
 import { queryKeys } from "@/api/query-keys";
+import type { QuestionnaireTemplateParams } from "@/api/query-params";
 import {
-	getQuestionnaireStats,
 	getQuestionnairesTemplates,
 	getQuestionnaireTemplate,
 } from "@/api/questionnaires";
 import QuestionnaireAssign from "@/components/admin/questionnaires/QuestionnaireAssign";
 import QuestionnaireEditor from "@/components/admin/questionnaires/QuestionnaireEditor";
 import QuestionnaireList from "@/components/admin/questionnaires/QuestionnaireList";
-import QuestionnaireStats from "@/components/admin/questionnaires/QuestionnaireStats";
 import type {
 	AssignForm,
 	CaseBrief,
-	ResponseStats,
 	TemplateDetail,
 	TemplateForm,
 	TemplateListItem,
-	ViewMode,
 } from "@/components/admin/questionnaires/types";
-import { TYPE_OPTIONS, emptyForm } from "@/components/admin/questionnaires/types";
+import { emptyForm, TYPE_OPTIONS } from "@/components/admin/questionnaires/types";
 import {
 	useAssignTemplateMutation,
 	useDeleteTemplateMutation,
 	useSaveTemplateMutation,
 } from "@/components/admin/questionnaires/useQuestionnaireMutations";
-import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import { useConfirm } from "@/components/ui/confirm";
 import ErrorState from "@/components/ui/error-state";
+import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import ListPage from "@/components/ui/list-page";
 import PageHeader from "@/components/ui/page-header";
 import Pagination from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
-import { getApiErrorDetail } from "@/utils/error";
 import { useListFilters } from "@/hooks/useListFilters";
+import { getApiErrorDetail } from "@/utils/error";
 
+/**
+ * 问卷模板管理（列表 + 编辑器 + 分配）。
+ *
+ * 统计与答卷已迁到独立路由（`/admin/questionnaires/:id/stats`、`.../responses`），
+ * 本 Tab 不再持有 `stats` 本地视图：那两个页面要能前进/后退/刷新/收藏，
+ * 用组件内 `useState` 承载的"伪页面"做不到其中任何一件。
+ */
 export default function QuestionnairesTab() {
-	const [view, setView] = useState<ViewMode>("list");
 	const [showEditor, setShowEditor] = useState(false);
 	const [editingId, setEditingId] = useState<number | null>(null);
 	const [form, setForm] = useState<TemplateForm>(emptyForm());
 	/** 编辑器打开/载入时的快照：关闭前据此判断"有没有未保存的改动"。 */
 	const [editorBaseline, setEditorBaseline] = useState("");
 	const [editMsg, setEditMsg] = useState("");
-	const [statsTemplate, setStatsTemplate] = useState<TemplateListItem | null>(
-		null,
-	);
 	const [showAssign, setShowAssign] = useState(false);
 	const [assignTemplate, setAssignTemplate] = useState<TemplateListItem | null>(
 		null,
@@ -110,22 +109,6 @@ export default function QuestionnairesTab() {
 		enabled: editingId !== null && showEditor,
 		staleTime: 5 * 60_000,
 	});
-
-	const {
-		data: statsData,
-		isLoading: isLoadingStats,
-		isError: isStatsError,
-		error: statsError,
-		refetch: refetchStats,
-	} = useQuery({
-		queryKey: queryKeys.questionnaires.stats(statsTemplate?.id ?? null),
-		queryFn: () =>
-			getQuestionnaireStats(statsTemplate!.id).then((r) => r.data),
-		enabled: view === "stats" && statsTemplate !== null,
-		staleTime: 2 * 60_000,
-	});
-
-	const stats: ResponseStats | null = statsData ?? null;
 
 	// 详情取不到时编辑器里是一张空表单：不吭声会让人以为模板本身就是空的，
 	// 所以把错误塞进编辑器自己的错误横幅（表单/详情页统一走 getApiErrorDetail）。
@@ -275,49 +258,6 @@ export default function QuestionnairesTab() {
 		}
 	};
 
-	const openStats = (t: TemplateListItem) => {
-		setStatsTemplate(t);
-		setView("stats");
-	};
-
-	const backToList = () => {
-		setView("list");
-		setStatsTemplate(null);
-	};
-
-	if (view === "stats" && statsTemplate) {
-		// 统计取数失败不能交给统计组件：stats 为 null 时它会渲染成「0 分配 / 0 完成」的假数据
-		if (isStatsError) {
-			return (
-				<Stack gap="md">
-					<Button
-						variant="subtle"
-						color="gray"
-						size="sm"
-						leftSection={<IconArrowLeft size={14} />}
-						onClick={backToList}
-						style={{ alignSelf: "flex-start" }}
-					>
-						返回列表
-					</Button>
-					<ErrorState
-						title="统计数据加载失败"
-						error={statsError}
-						onRetry={() => refetchStats()}
-					/>
-				</Stack>
-			);
-		}
-		return (
-			<QuestionnaireStats
-				template={statsTemplate}
-				stats={stats}
-				isLoading={isLoadingStats}
-				onBack={backToList}
-			/>
-		);
-	}
-
 	return (
 		<>
 			{/* 页头与本 Tab 共享同一份状态：主行动（新建问卷）和列表筛选都在这里，
@@ -408,7 +348,6 @@ export default function QuestionnairesTab() {
 						onEdit={openEdit}
 						onDelete={handleDelete}
 						onAssign={openAssign}
-						onViewStats={openStats}
 					/>
 				)}
 			</ListPage>

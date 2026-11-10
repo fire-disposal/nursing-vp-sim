@@ -74,7 +74,28 @@ export interface QuestionStats {
 	text_answers?: string[];
 }
 
-export type ViewMode = "list" | "stats";
+export const TRIGGER_EVENT_LABEL: Record<string, string> = {
+	before_training: "训练前",
+	after_scoring: "评分后",
+};
+
+export const RESPONSE_STATUS_LABEL: Record<string, string> = {
+	completed: "已提交",
+	pending: "未提交",
+};
+
+/** 触发时点筛选的选项（与后端 `QuestionnaireTrigger` 同源）。 */
+export const TRIGGER_EVENT_FILTER_OPTIONS = [
+	{ value: "", label: "全部时点" },
+	{ value: "before_training", label: "训练前" },
+	{ value: "after_scoring", label: "评分后" },
+];
+
+export const RESPONSE_STATUS_FILTER_OPTIONS = [
+	{ value: "", label: "全部状态" },
+	{ value: "completed", label: "已提交" },
+	{ value: "pending", label: "未提交" },
+];
 
 export const QUESTION_TYPE_LABELS: Record<string, string> = {
 	likert_5: "李克特5级量表",

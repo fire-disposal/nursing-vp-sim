@@ -4,6 +4,21 @@ import { api } from "./client";
 
 type Schemas = components["schemas"];
 
+export type QuestionnaireAnswerItem = Schemas["QuestionnaireAnswerItem"];
+export type QuestionnaireResponseItem = Schemas["QuestionnaireResponseItem"];
+export type PaginatedQuestionnaireResponses = Schemas["PaginatedResponse_QuestionnaireResponseItem_"];
+
+export interface QuestionnaireResponseListParams {
+	offset?: number;
+	limit?: number;
+	/** 提交状态：completed / pending。 */
+	status?: string;
+	/** 触发时点：before_training / after_scoring。 */
+	trigger_event?: string;
+	/** 学生姓名模糊搜索。 */
+	search?: string;
+}
+
 export const getQuestionnairesTemplates = (params?: Record<string, unknown>) =>
 	api.get<Schemas["PaginatedResponse_QuestionnaireTemplateResponse_"]>(
 		"/questionnaires/templates",
@@ -52,6 +67,28 @@ export const submitQuestionnaire = (
 		data,
 	);
 
+/** 答卷列表（真实分页 + 服务端筛选）。收窄到本校/本人任教班由后端完成。 */
+export const getQuestionnaireResponses = (
+	templateId: number,
+	params: QuestionnaireResponseListParams,
+) =>
+	api.get<PaginatedQuestionnaireResponses>(
+		`/questionnaires/responses/${templateId}`,
+		{ params },
+	);
+
+/**
+ * 单份答卷详情。越权（他校/他人名下）由后端返回 404，
+ * 前端照常走错误态——不把它降级成「空答卷」。
+ */
+export const getQuestionnaireResponse = (
+	templateId: number,
+	responseId: number,
+) =>
+	api.get<QuestionnaireResponseItem>(
+		`/questionnaires/responses/${templateId}/${responseId}`,
+	);
+
 export const getQuestionnaireStats = (templateId: number) =>
 	api.get<Schemas["QuestionnaireStatsResponse"]>(
 		`/questionnaires/responses/${templateId}/stats`,
@@ -73,4 +110,3 @@ export const assignCaseQuestionnaire = (
 		`/questionnaires/templates/${templateId}/case-assignments`,
 		payload,
 	);
-

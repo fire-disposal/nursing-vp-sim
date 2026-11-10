@@ -173,3 +173,86 @@ class StudentAssignmentItem(BaseModel):
     is_overdue: bool = False
     max_attempts: int | None = None
     attempt_count: int = 0
+
+
+class StudentAssignmentAttempt(BaseModel):
+    """学生本人某次作业尝试 —— 只披露学生自己会用来复盘/续练的字段。
+
+    刻意不含病例名以外的教学内容、诊断、评分明细：尝试列表是「我考了几次」，
+    不是成绩单（分数只有在 ``scoring_status == completed`` 时才有值）。
+    """
+
+    model_config = _RESP_CFG
+    record_id: int
+    status: str
+    scoring_status: str | None = None
+    score_total: float | None = None
+    is_overdue: bool = False
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+
+
+class StudentRequiredActivity(BaseModel):
+    """学生可见的「本次要做什么」—— 只含公开标签。
+
+    标签来源是 Activity 登记表（``ACTIVITY_BINDINGS[*].label``），不新建映射表；
+    刻意**不含** config / evidence_kind / 内部判定条件。
+    """
+
+    model_config = _RESP_CFG
+    id: str
+    label: str
+
+
+class StudentRequiredArtifact(BaseModel):
+    """学生可见的必交产物 —— 只含可公开的标签与 id。
+
+    不含提交判定细节、评分细则或病例 hidden_info。
+    """
+
+    model_config = _RESP_CFG
+    kind: str
+    label: str
+
+
+class StudentAssignmentDetail(BaseModel):
+    """学生作业详情 —— 单页展示作业要求 + 本人全部尝试所需的全部字段。
+
+    与学生列表卡片共用同一套进度推导（``modules.assignments.progress``）；
+    额外给出 ``lifecycle``（active/ended/closed）以便页面区分「还能开始/只能看历史」。
+    """
+
+    model_config = _RESP_CFG
+    id: str
+    title: str
+    description: str | None = None
+    case_id: int
+    #: ``behavior.hide_case_info`` 为真时不披露病例名（与训练入口的脱敏口径一致）
+    case_name: str = ""
+    hide_case_info: bool = False
+    class_id: int
+    class_name: str = ""
+    teacher_name: str = ""
+    start_time: datetime
+    end_time: datetime
+    #: active | ended | closed（见 core.statuses.AssignmentLifecycle）
+    lifecycle: str = "active"
+    #: not_started | in_progress | completed | overdue | closed
+    status: str = "not_started"
+    #: 作业配置的训练模式（guided/assessment），空串 = 未配置
+    mode: str = ""
+    #: 0 / None = 不限制
+    max_attempts: int | None = None
+    attempt_count: int = 0
+    #: 还能开始几次；None = 不限制；0 = 已用完
+    remaining_attempts: int | None
+    #: 当前可续练的训练记录（仅 status=in_progress 时给出）
+    record_id: int | None
+    #: 本人该作业的全部尝试，新→旧；响应始终携带，空数组表示无尝试
+    attempts: list[StudentAssignmentAttempt]
+    #: 本次训练的预计时限（分钟）—— 与开始训练时的倒计时同一口径
+    time_limit_minutes: int | None = None
+    #: 学生需要在本病例里完成的公开操作（标签来自 Activity 登记表），只含展示标签
+    required_activities: list[StudentRequiredActivity]
+    #: 交卷前必须提交的产物（``completion.required_artifacts``）；为空 = 无额外必交
+    required_artifacts: list[StudentRequiredArtifact]

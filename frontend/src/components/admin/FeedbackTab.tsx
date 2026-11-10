@@ -49,6 +49,7 @@ import { FeedbackImagePreview } from "@/components/feedback/ImagePreviewModal";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
 
 import EmptyState from "@/components/ui/empty-state";
+import ErrorState from "@/components/ui/error-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import Pagination from "@/components/ui/pagination";
 import { FilterToolbar } from "@/components/ui/filter-toolbar";
@@ -500,7 +501,7 @@ export default function FeedbackTab() {
 	// 回复状态在 UI 上是三态，进请求时映射为 replied: true / false / 不传
 	const replyStatus = repliedToUi(list.values.replied);
 
-	const { data: feedbacksData, isLoading, refetch } = useQuery({
+	const { data: feedbacksData, isLoading, isError, error, refetch } = useQuery({
 		queryKey: queryKeys.admin.feedback.list(list.params),
 		queryFn: () => getFeedbacks(list.params).then((r) => r.data),
 		placeholderData: (prev) => prev,
@@ -535,7 +536,7 @@ export default function FeedbackTab() {
 			toolbar={
 				// 统一工具栏：计数 / 筛选 / 搜索 + 一键复位（与其余列表页同范式）
 				<FilterToolbar
-					summary={`共 ${total} 条反馈`}
+					summary={isError ? "共 — 条反馈" : `共 ${total} 条反馈`}
 					hasActiveFilters={list.hasActiveFilters}
 					onClear={list.reset}
 					search={
@@ -627,6 +628,8 @@ export default function FeedbackTab() {
 
 			{isLoading ? (
 				<LoadingSkeleton variant="spinner" />
+			) : isError ? (
+				<ErrorState title="系统反馈加载失败" error={error} onRetry={() => refetch()} />
 			) : feedbacks.length === 0 ? (
 				<EmptyState icon={IconMessageCircle} title="暂无反馈" />
 			) : (

@@ -10,6 +10,7 @@ import { queryKeys } from "@/api/query-keys";
 import AuthImage from "@/components/ui/auth-image";
 import { FeedbackImagePreview } from "@/components/feedback/ImagePreviewModal";
 import EmptyState from "@/components/ui/empty-state";
+import ErrorState from "@/components/ui/error-state";
 import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import ProfileTabs from "@/components/shell/ProfileTabs";
@@ -38,7 +39,7 @@ export default function MyFeedbackPage() {
 		{ limit: LIMIT },
 	);
 
-	const { data, isLoading } = useQuery({
+	const { data, isLoading, isError, error, refetch } = useQuery({
 		queryKey: queryKeys.admin.feedback.my(list.params),
 		queryFn: () => getMyFeedback(list.params).then((r) => r.data),
 		staleTime: 0,
@@ -66,7 +67,7 @@ export default function MyFeedbackPage() {
 					<SimpleGrid cols={3} spacing="xs">
 						<Paper bg="var(--mantine-color-default-hover)" px="sm" py="xs" ta="center">
 							<Text size="lg" fw={600}>
-								{total}
+								{isError ? "—" : total}
 							</Text>
 							<Text size="xs" c="dimmed">
 								累计反馈
@@ -74,7 +75,7 @@ export default function MyFeedbackPage() {
 						</Paper>
 						<Paper bg="var(--mantine-color-blue-light)" px="sm" py="xs" ta="center">
 							<Text size="lg" fw={600} c="var(--mantine-color-blue-light-color)">
-								{repliedCount}
+								{isError ? "—" : repliedCount}
 							</Text>
 							<Text size="xs" c="dimmed">
 								本页已回复
@@ -82,7 +83,7 @@ export default function MyFeedbackPage() {
 						</Paper>
 						<Paper bg="var(--mantine-color-default-hover)" px="sm" py="xs" ta="center">
 							<Text size="lg" fw={600}>
-								{pendingCount}
+								{isError ? "—" : pendingCount}
 							</Text>
 							<Text size="xs" c="dimmed">
 								本页待处理
@@ -93,7 +94,7 @@ export default function MyFeedbackPage() {
 
 				{/* 统一工具栏：计数 / 筛选 + 一键复位（与 /admin/feedback 同范式）；本页无可搜索的行，故无搜索框 */}
 				<FilterToolbar
-					summary={`共 ${total} 条反馈`}
+					summary={isError ? "共 — 条反馈" : `共 ${total} 条反馈`}
 					hasActiveFilters={list.hasActiveFilters}
 					onClear={list.reset}
 					filters={
@@ -129,6 +130,8 @@ export default function MyFeedbackPage() {
 							<LoadingSkeleton key={i} variant="card" />
 						))}
 					</Stack>
+				) : isError ? (
+					<ErrorState title="我的反馈加载失败" error={error} onRetry={() => refetch()} />
 				) : items.length === 0 ? (
 					<EmptyState
 						icon={IconMessageCircle}

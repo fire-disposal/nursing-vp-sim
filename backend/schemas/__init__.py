@@ -23,6 +23,12 @@ from schemas.school import (
     SchoolCreate as SchoolCreate,
 )
 from schemas.school import (
+    SchoolDetailClassItem as SchoolDetailClassItem,
+)
+from schemas.school import (
+    SchoolDetailResponse as SchoolDetailResponse,
+)
+from schemas.school import (
     SchoolResponse as SchoolResponse,
 )
 from schemas.school import (

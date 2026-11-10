@@ -1,14 +1,14 @@
 import {
 	ActionIcon,
-	Button,
+	Button,Checkbox, 
 	Group,
-	Paper,
 	Modal,
+	Paper,
 	Select,
-	Stack,
+	Stack,Switch, 
 	Text,
-	TextInput,
 	Textarea,
+	TextInput
 } from "@mantine/core";
 import {
 	IconArrowLeft,
@@ -22,10 +22,7 @@ import {
 	emptyQuestion,
 	QUESTION_TYPE_OPTIONS,
 } from "@/components/admin/questionnaires/types";
-import { Checkbox } from "@mantine/core";
-
 import { FormMessageBanner } from "@/components/ui/form-message-banner";
-import { Switch } from "@mantine/core";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 
 interface QuestionnaireEditorProps {
@@ -113,9 +110,10 @@ export default function QuestionnaireEditor({
 							label="标题"
 											withAsterisk
 							value={form.title}
-							onChange={(e) =>
-								setForm((f) => ({ ...f, title: e.currentTarget.value }))
-							}
+							onChange={(e) => {
+								const value = e.currentTarget.value;
+								setForm((f) => ({ ...f, title: value }));
+							}}
 							required
 							placeholder="问卷标题"
 						/>
@@ -138,9 +136,10 @@ export default function QuestionnaireEditor({
 								<Group gap={8}>
 									<Switch
 										checked={form.is_active}
-										onChange={(e) =>
-											setForm((f) => ({ ...f, is_active: e.currentTarget.checked }))
-										}
+onChange={(e) => {
+										const checked = e.currentTarget.checked;
+										setForm((f) => ({ ...f, is_active: checked }));
+									}}
 										aria-label="状态"
 									/>
 									<Text size="sm" c="dimmed">
@@ -154,12 +153,13 @@ export default function QuestionnaireEditor({
 							label="描述"
 							minRows={2}
 							value={form.description}
-							onChange={(e) =>
+							onChange={(e) => {
+								const value = e.currentTarget.value;
 								setForm((f) => ({
 									...f,
-									description: e.currentTarget.value,
-								}))
-							}
+									description: value,
+								}));
+							}}
 							placeholder="问卷说明（可选）"
 						/>
 

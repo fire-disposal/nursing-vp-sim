@@ -4,13 +4,7 @@ import { Notifications } from "@mantine/notifications";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MotionConfig } from "motion/react";
 import { lazy, Suspense, useEffect } from "react";
-import {
-	BrowserRouter,
-	Navigate,
-	Route,
-	Routes,
-	useNavigate,
-} from "react-router-dom";
+import { BrowserRouter, Route, Routes, useNavigate } from "react-router-dom";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { FeedbackHost } from "@/components/FeedbackProvider";
 import Layout from "@/components/Layout";
@@ -39,6 +33,7 @@ const Showcase = lazy(() => import("@/showcase/ShowcasePage"));
 const DashboardHome = lazy(() => import("@/pages/share/DashboardHome"));
 // 表现层试验台：纯前端陈列（不读会话、不调后端），公开可直达，故挂在 ProtectedRoute 之外。
 const PresentationLab = lazy(() => import("@/pages/share/PresentationLab"));
+const NotFound = lazy(() => import("@/pages/share/NotFound"));
 
 function ForceLogoutListener() {
 	const navigate = useNavigate();
@@ -113,7 +108,7 @@ export default function App() {
 											))}
 										</Route>
 									</Route>
-									<Route path="*" element={<Navigate to="/login" replace />} />
+									<Route path="*" element={<NotFound />} />
 								</Routes>
 							</Suspense>
 						</ErrorBoundary>

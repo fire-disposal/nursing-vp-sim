@@ -19,14 +19,24 @@ from core.audit import (
     TARGET_TYPE_SCHOOL,
     record,
 )
+from core.budget import school_monthly_spend
 from core.deps import DbSession
 from core.exceptions import NotFoundError, ValidationError
 from core.images import ImageRejected, normalize_image
 from core.personas import is_super_admin
 from core.security import get_current_user, require_permission
+from core.tenant import Scope, TenantScope
 from core.unit_of_work import unit_of_work
-from models import Class, School, User, UserSchoolPersona
-from schemas import DeleteSchoolResponse, SchoolCreate, SchoolResponse, SchoolUpdate
+from models import MEMBER_ROLE_STUDENT, MEMBER_ROLE_TEACHER, Class, School, SchoolBudget, User, UserSchoolPersona
+from modules.admin.class_memberships import member_counts
+from schemas import (
+    DeleteSchoolResponse,
+    SchoolCreate,
+    SchoolDetailClassItem,
+    SchoolDetailResponse,
+    SchoolResponse,
+    SchoolUpdate,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -41,6 +51,8 @@ _PlatformAdmin = Annotated[User, Depends(require_permission("school_manage"))]
 #: 院徽长边上限：页首标识，512 足够；再大只是体积。
 LOGO_MAX_EDGE = 512
 MAX_LOGO_UPLOAD_BYTES = 2 * 1024 * 1024
+#: 详情页只列前若干个班级：详情是"看清这所学校"，不是第二个班级管理页（全量在 /admin/classes）。
+SCHOOL_DETAIL_CLASS_LIMIT = 50
 
 
 def _normalize_theme_color(value: str | None) -> str | None:
@@ -80,6 +92,51 @@ class SchoolService:
         rows = self.db.query(School).order_by(School.name).all()
         counts = self._counts()
         return [self._view(s, counts) for s in rows]
+
+    def detail(self, school_id: int, scope: TenantScope) -> SchoolDetailResponse:
+        """院校详情：列表口径 + 用量/额度 + 班级摘要。
+
+        **越权失败关闭**：端点本身要 ``school_manage``，但平台角色可能正把工作视图收窄到
+        另一所院校（``X-School-Scope``）。收窄时只能看收窄后的那一所，其余一律 404 —— 与
+        班级/账号详情同一口径（不确认"存在但你没权"）。
+        """
+        if scope.school_id is not None and scope.school_id != school_id:
+            raise NotFoundError("院校不存在")
+        school = self._get(school_id)
+        budget = self.db.query(SchoolBudget).filter(SchoolBudget.school_id == school_id).first()
+        classes = (
+            self.db.query(Class)
+            .filter(Class.school_id == school_id)
+            .order_by(Class.cohort_label, Class.name)
+            .limit(SCHOOL_DETAIL_CLASS_LIMIT)
+            .all()
+        )
+        class_ids = [c.id for c in classes]
+        students = member_counts(self.db, class_ids, role=MEMBER_ROLE_STUDENT)
+        teachers = member_counts(self.db, class_ids, role=MEMBER_ROLE_TEACHER)
+        class_total = self.db.query(func.count(Class.id)).filter(Class.school_id == school_id).scalar() or 0
+        view = self._view(school)
+        return SchoolDetailResponse(
+            **view.model_dump(),
+            llm_used=school_monthly_spend(self.db, school_id, "llm"),
+            tts_used=school_monthly_spend(self.db, school_id, "tts"),
+            llm_monthly_limit=budget.llm_monthly_limit if budget else 0.0,
+            tts_monthly_limit=budget.tts_monthly_limit if budget else 0.0,
+            default_daily_llm_limit=budget.default_daily_llm_limit if budget else None,
+            default_daily_tts_limit=budget.default_daily_tts_limit if budget else None,
+            classes=[
+                SchoolDetailClassItem(
+                    id=c.id,
+                    name=c.name,
+                    cohort_label=c.cohort_label,
+                    student_count=students.get(c.id, 0),
+                    teacher_count=teachers.get(c.id, 0),
+                    created_at=c.created_at,
+                )
+                for c in classes
+            ],
+            class_total=class_total,
+        )
 
     def create(self, name: str, theme_color: str | None = None, *, request: Request | None = None) -> SchoolResponse:
         name = name.strip()
@@ -238,6 +295,16 @@ def list_schools(current_user: Annotated[User, Depends(get_current_user)], db: D
     if not is_super_admin(current_user) and not current_user.has_permission("school_manage"):
         raise HTTPException(status_code=403, detail="缺少权限：school_manage")
     return SchoolService(db).list_all()
+
+
+@router.get("/{school_id}", response_model=SchoolDetailResponse)
+def get_school(school_id: int, current_user: _PlatformAdmin, db: DbSession, scope: Scope):
+    """院校详情（品牌 + 账号/班级计数 + 用量额度 + 班级摘要）。
+
+    `school_manage` 是跨院校权限，但**工作视图收窄时不行**：带 `X-School-Scope` 看别人的
+    院校一律 404（服务层判定，见 `SchoolService.detail`）。
+    """
+    return SchoolService(db).detail(school_id, scope)
 
 
 @router.post("", response_model=SchoolResponse)

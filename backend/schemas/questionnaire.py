@@ -112,6 +112,7 @@ class QuestionnaireAnswerItem(BaseModel):
     question_id: int
     question_content: str = ""
     question_type: str = ""
+    required: bool = True
     options: list[str] | None = None
     answer_value: str | None = None
 
@@ -124,8 +125,10 @@ class QuestionnaireResponseItem(BaseModel):
     user_id: int
     user_name: str = ""
     case_id: int | None = None
+    case_name: str | None = None
     record_id: int | None = None
     status: str
+    trigger_event: str = "before_training"
     answers: list["QuestionnaireAnswerItem"] = []
     completed_at: datetime | None = None
     created_at: datetime

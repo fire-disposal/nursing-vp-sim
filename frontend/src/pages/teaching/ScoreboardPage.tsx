@@ -11,16 +11,13 @@ import {
 	IconUsers,
 } from "@tabler/icons-react";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { getAssignments } from "@/api/assignments";
 import { getManageCases } from "@/api/cases";
 import { getClasses } from "@/api/classes";
 import { queryKeys } from "@/api/query-keys";
 import { getScoreboardRanking } from "@/api/scoreboard";
 import type { components } from "@/api/api-types.gen";
-import StudentTrendDialog, {
-	type TrendScope,
-} from "@/components/admin/scoreboard/StudentTrendDialog";
 import { formatDuration } from "@/utils/duration";
 import { TextInput } from "@mantine/core";
 import PageHeader from "@/components/ui/page-header";
@@ -222,6 +219,7 @@ function FilterSelect({ label, value, onChange, data, searchable, width }: Filte
 
 export default function ScoreboardPage() {
 	const [searchParams, setSearchParams] = useSearchParams();
+	const navigate = useNavigate();
 	// 平台角色在「全部院校」视角下逐行标院校；收窄到某校时排名只含本校，不重复标注
 	const { isPlatform, school: activeSchool } = useActiveSchoolBrand();
 	const showSchoolColumn = isPlatform && !activeSchool;
@@ -236,7 +234,6 @@ export default function ScoreboardPage() {
 
 	const [searchInput, setSearchInput] = useState(search);
 	const [offset, setOffset] = useState(0);
-	const [trendUserId, setTrendUserId] = useState<number | null>(null);
 
 	const updateParam = useCallback(
 		(key: string, value: string) => {
@@ -253,7 +250,7 @@ export default function ScoreboardPage() {
 
 	const assignmentId = searchParams.get("assignment_id") || "";
 
-	const scope = useMemo<TrendScope>(
+	const scope = useMemo(
 		() => ({
 			case_id: caseId ? Number(caseId) : null,
 			class_id: classId ? Number(classId) : null,
@@ -452,8 +449,8 @@ export default function ScoreboardPage() {
 				<Button
 					variant="subtle" color="gray"
 					w={44} h={44} p={0}
-					title="查看趋势"
-					onClick={() => setTrendUserId(r.user_id)}
+					title="查看学习档案"
+					onClick={() => navigate(`/admin/students/${r.user_id}`)}
 				>
 					<IconChartLine size={16} />
 				</Button>
@@ -649,8 +646,8 @@ export default function ScoreboardPage() {
 									<Button
 										variant="subtle" color="gray"
 										w={44} h={44} p={0}
-										title="查看趋势"
-										onClick={() => setTrendUserId(r.user_id)}
+										title="查看学习档案"
+										onClick={() => navigate(`/admin/students/${r.user_id}`)}
 									>
 										<IconChartLine size={16} />
 									</Button>
@@ -661,14 +658,6 @@ export default function ScoreboardPage() {
 				)}
 			</Paper>
 
-			<StudentTrendDialog
-				open={trendUserId != null}
-				userId={trendUserId}
-				scope={scope}
-				onOpenChange={(o) => {
-					if (!o) setTrendUserId(null);
-				}}
-			/>
 		</Stack>
 	);
 }

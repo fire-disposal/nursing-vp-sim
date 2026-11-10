@@ -10,7 +10,7 @@ from core.security import require_permission
 from core.tenant import Scope
 from models import User
 from modules.scoreboard.service import ScoreboardScope, ScoreboardService
-from schemas.scoreboard import ScoreboardRankingResponse, StudentTrendResponse
+from schemas.scoreboard import ScoreboardRankingResponse, StudentLearningProfileResponse, StudentTrendResponse
 
 log = logging.getLogger(__name__)
 
@@ -76,4 +76,42 @@ def student_trend(
             assignment_status=assignment_status,
             include_free=include_free,
         ),
+    )
+
+
+@router.get("/students/{user_id}/profile", response_model=StudentLearningProfileResponse)
+def student_learning_profile(
+    user_id: int,
+    current_user: _ScoreboardUser,
+    db: DbSession,
+    tenant: Scope,
+    case_id: Annotated[int | None, Query(description="病例范围，缺省=全部病例")] = None,
+    class_id: Annotated[int | None, Query(description="班级筛选；只能指向作用域内的班级，否则 404")] = None,
+    assignment_id: Annotated[str | None, Query(description="指定作业")] = None,
+    assignment_status: Annotated[str | None, Query(description="作业状态限定：active|ended")] = None,
+    include_free: Annotated[bool, Query(description="是否纳入自主训练（无作业关联）记录")] = False,
+    training_status: Annotated[
+        str | None, Query(description="训练记录页签的状态筛选：in_progress|completed|abandoned|discarded")
+    ] = None,
+    training_offset: Annotated[int, Query(ge=0)] = 0,
+    training_limit: Annotated[int, Query(ge=1, le=200)] = 20,
+):
+    """教师视角的单个学生学习档案：身份 + 趋势 + 作业 + 训练记录。
+
+    权限是 ``assignment_manage``（与成绩管理同一道门），**不要求** ``user_manage``：
+    教学侧看的是这个人的训练与作业，不是账号管理面，所以响应里也没有账号/安全字段。
+    目标学生必须在本作用域内，跨院校/非任教班一律 404。
+    """
+    return ScoreboardService(db, tenant).learning_profile(
+        user_id,
+        scope=ScoreboardScope(
+            case_id=case_id,
+            class_id=class_id,
+            assignment_id=assignment_id,
+            assignment_status=assignment_status,
+            include_free=include_free,
+        ),
+        training_status=training_status,
+        training_offset=training_offset,
+        training_limit=training_limit,
     )

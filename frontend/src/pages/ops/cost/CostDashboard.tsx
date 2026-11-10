@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import EmptyState from "@/components/ui/empty-state";
+import ErrorState from "@/components/ui/error-state";
 import StatCard from "@/components/ui/stat-card";
 import { Table } from "@mantine/core";
 import { useChartTheme } from "@/hooks/useChartTheme";
@@ -333,7 +334,7 @@ function UserCostBreakdown() {
 }
 
 export default function CostDashboard() {
-	const { data, isLoading } = useQuery({
+	const { data, isLoading, isError, error, refetch } = useQuery({
 		queryKey: queryKeys.cost.dashboard,
 		queryFn: () => fetchCostDashboard().then((r) => r.data),
 		staleTime: 60_000,
@@ -353,6 +354,9 @@ export default function CostDashboard() {
 	}
 
 	if (isLoading) return <LoadingSkeleton />;
+	if (isError) {
+		return <ErrorState title="成本总览加载失败" error={error} onRetry={() => refetch()} />;
+	}
 
 	const empty: CostDashboardResponse = {
 		today: { calls: 0, success: 0, error: 0, latency_ms_avg: 0, total_cost: 0 },

@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
+import { isAxiosError } from "axios";
 import {
 	createSchool,
 	deleteSchool,
 	deleteSchoolLogo,
+	getSchoolDetail,
 	getSchools,
 	updateSchool,
 	uploadSchoolLogo,
@@ -20,6 +22,22 @@ export function useSchoolsQuery(options: { enabled?: boolean } = {}) {
 		queryFn: () => getSchools().then((r) => r.data),
 		staleTime: 60_000,
 		enabled: options.enabled ?? true,
+	});
+}
+
+/**
+ * 单所院校详情（`/admin/schools/:schoolId`）。
+ *
+ * 404 不重试：越权与不存在在后端同为 404（失败关闭），重试只会把"这所学校你看不到"
+ * 变成三次无谓请求。其它错误交给 react-query 的默认重试。
+ */
+export function useSchoolDetailQuery(schoolId: number | null) {
+	return useQuery({
+		queryKey: queryKeys.schools.detail(schoolId),
+		queryFn: () => getSchoolDetail(schoolId as number).then((r) => r.data),
+		enabled: schoolId != null && Number.isFinite(schoolId),
+		staleTime: 30_000,
+		retry: (count, error) => !(isAxiosError(error) && error.response?.status === 404) && count < 1,
 	});
 }
 

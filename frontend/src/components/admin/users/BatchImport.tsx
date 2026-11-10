@@ -1,4 +1,4 @@
-import { Alert, Box, Button, Group, Modal, Stack, Table, Text, Textarea } from "@mantine/core";
+import { Alert, Button, Group, Paper, Stack, Table, Text, Textarea } from "@mantine/core";
 import {
   IconAlertCircle,
   IconCircleCheck,
@@ -8,6 +8,7 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 import { useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { PersonaBadges } from "@/components/ui/persona-badges";
 import TableScroll from "@/components/ui/table-scroll";
 import type { ClassItem } from "@/types/store";
@@ -68,17 +69,27 @@ function splitRecords(text: string): string[] {
 }
 
 interface BatchImportProps {
-  open: boolean;
-  onClose: () => void;
   /** 全部班级，用于把「届别 + 班级名」解析成确定的 class_id。 */
   classes: ClassItem[];
   /** 提交一批学生；返回后端的逐行回执（新建/并入/跳过的行与原因）。 */
   onImport: (users: BatchUser[]) => Promise<BatchCreateResult>;
   /** 预检：只读，返回每行将被「新建 / 并入既有账号 / 跳过（原因）」。 */
   onPreview: (users: BatchUser[]) => Promise<BatchPreviewResult>;
+  /**
+   * 有没有「未提交的输入」（粘贴文本、解析出的行或预检结果）。
+   * 页面据此在离开时拦一道确认 —— 批量导入的内容重贴一次很贵。
+   */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
-export default function BatchImport({ open, onClose, classes, onImport, onPreview }: BatchImportProps) {
+/**
+ * BatchImport — 批量导入学生的工作区（页面正文，不是弹窗）。
+ *
+ * 以前它长在 `Modal` 里：宽表被弹窗高度限死，横向滚动条、粘贴框、预检结果互相挤，
+ * 一屏能看四行。搬到独立页后表格高度跟随视口，宽表也不再被 800px 的弹窗宽度压扁。
+ * 解析/预检/提交三段仍在这里，页面只负责路由、页头与「返回用户列表」。
+ */
+export default function BatchImport({ classes, onImport, onPreview, onDirtyChange }: BatchImportProps) {
   const [batchText, setBatchText] = useState("");
   const [previewRows, setPreviewRows] = useState<PreviewRow[]>([]);
   const [plan, setPlan] = useState<BatchPreviewResult | null>(null);
@@ -89,19 +100,12 @@ export default function BatchImport({ open, onClose, classes, onImport, onPrevie
   const [previewing, setPreviewing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function resetState() {
-    setBatchText("");
-    setPreviewRows([]);
-    setPlan(null);
-    setParseIssues([]);
-    setReceipt(null);
-    setImportError("");
-  }
-
-  function handleClose() {
-    if (submitting) return;
-    resetState();
-    onClose();
+  /** 单一出口：所有会改变「有没有未提交输入」的状态都在这里对齐给页面。 */
+  const dirty = !receipt && (batchText.trim() !== "" || previewRows.length > 0 || parseIssues.length > 0);
+  const reportedDirtyRef = useRef(false);
+  if (reportedDirtyRef.current !== dirty) {
+    reportedDirtyRef.current = dirty;
+    onDirtyChange?.(dirty);
   }
 
   /**
@@ -359,228 +363,258 @@ export default function BatchImport({ open, onClose, classes, onImport, onPrevie
 
   const partiallySkipped = receipt !== null && receipt.skipped > 0;
 
-  return (
-    <Modal
-      opened={open}
-      onClose={handleClose}
-      title={<><IconUsers size={20} /> 批量导入学生</>}
-      size={800}
-      centered
-      withinPortal
-    >
-        <Text size="xs" c="dimmed" mb="md">
-          支持 CSV 文件上传或直接粘贴文本。表头行自动识别，无表头按位置匹配。
-          仅限创建<strong>学生视角</strong>账号；班级不存在时自动创建。
-          <br />
-          <strong>学号是身份键</strong>：本校同一学号已有学生账号时，这一行会「并入」那个账号并补上班级归属，
-          不新建第二个账号（训练历史跟着人走）；学号相同但姓名不同会跳过，交给人工核对。
-          「视角」列逗号分隔可多值，默认 student（批量导入只接受学生视角）；
-          「学校」列填「院校管理」里的院校名称：平台账号每行必须给出学校或已存在的班级之一；
-          院校管理员可留空（自动落本校），填了就必须是本校。
-          学校不存在、或学校与班级所属院校不一致时，该行报错丢弃。
-          同名班级存在于多个届别/院校时，必须补充「届别」或用「学校」消歧。
-          <br />
-          提交前先点「预检」：逐行告知将新建、并入（到哪个账号）还是跳过，预检不写任何数据。
-        </Text>
-        {receipt ? (
-          <Stack gap="sm" mb="md">
-            <Alert
-              color={partiallySkipped ? "orange" : "teal"}
-              variant="light"
-              title={partiallySkipped ? "导入部分完成" : "导入完成"}
-              icon={<IconCircleCheck size={16} />}
-            >
-              <Text size="sm">
-                新建 {receipt.created} 人 · 并入既有账号 {receipt.linked} 人 · 跳过 {receipt.skipped} 人 · 提交{" "}
-                {receipt.submitted} 行
-                {receipt.notSubmitted > 0
-                  ? `（另有 ${receipt.notSubmitted} 行未通过本地校验，未提交）`
-                  : ""}
-              </Text>
-            </Alert>
-            {receipt.rows.length > 0 && (
-              <Box>
-                <Text fw={600} size="sm" mb="xs">
-                  未入库 {receipt.rows.length} 行（按 CSV 行号）
-                </Text>
-                <Stack gap={4} style={{ maxHeight: 240, overflowY: "auto" }}>
-                  {receipt.rows.map((row, i) => (
-                    <Group key={`${row.line}-${i}`} gap={6} align="flex-start" wrap="nowrap">
-                      <IconAlertCircle size={13} style={{ flexShrink: 0, marginTop: 3 }} />
-                      <Text size="xs">
-                        第{row.line}行 {row.message}
-                      </Text>
-                    </Group>
-                  ))}
-                </Stack>
-              </Box>
-            )}
-          </Stack>
-        ) : (
-          <>
-            <Box mb="md">
-              <Group gap={6} mb={8}>
-                <IconFileText size={14} />
-                <Text fw={600} size="sm">粘贴文本（每行一个学生，逗号分隔）</Text>
-              </Group>
-              <Textarea
-                rows={5}
-                placeholder={`${CSV_HEADERS.join(",")}\nstudent01,123456,张同学,student,S2024001,<院校名称>,2024级,护理1班`}
-                value={batchText}
-                onChange={(e) => { setBatchText(e.currentTarget.value); parseBatchText(e.currentTarget.value); }}
-                disabled={submitting}
-                style={{ fontFamily: "var(--mantine-font-family-monospace)" }}
-              />
-              <Text size="xs" c="dimmed" mt={4}>
-                列顺序：{CSV_HEADERS.join(" / ")}（学校、届别与班级名称按需填写）
-              </Text>
-            </Box>
-            <Group gap={12} mb="md" wrap="wrap">
-              <Button
-                variant="light"
-                color="gray"
-                size="sm"
-                leftSection={<IconUpload size={14} />}
-                onClick={() => fileInputRef.current?.click()}
-                disabled={submitting}
-              >
-                上传 CSV 文件
-              </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) { setBatchText(""); parseCSVFile(f); } e.target.value = ""; }}
-                hidden
-                disabled={submitting}
-              />
-              <Button
-                variant="transparent"
-                size="sm"
-                leftSection={<IconDownload size={14} />}
-                onClick={handleDownloadTemplate}
-              >
-                下载模板
-              </Button>
-            </Group>
-            {importError && (
-              <Alert color="red" variant="light" mb="md" icon={<IconAlertCircle size={16} />}>
-                <Text size="xs">{importError}</Text>
-              </Alert>
-            )}
-            {parseIssues.length > 0 && (
-              <Alert color="red" variant="light" mb="md" style={{ maxHeight: 200, overflowY: "auto" }}>
-                <Stack gap={4}>
-                  <Text size="xs" fw={600}>
-                    未通过校验 {parseIssues.length} 行（不会提交）
+  if (receipt) {
+    return (
+      <Stack gap="md">
+        <Alert
+          color={partiallySkipped ? "orange" : "teal"}
+          variant="light"
+          title={partiallySkipped ? "导入部分完成" : "导入完成"}
+          icon={<IconCircleCheck size={16} />}
+        >
+          <Text size="sm">
+            新建 {receipt.created} 人 · 并入既有账号 {receipt.linked} 人 · 跳过 {receipt.skipped} 人 · 提交{" "}
+            {receipt.submitted} 行
+            {receipt.notSubmitted > 0
+              ? `（另有 ${receipt.notSubmitted} 行未通过本地校验，未提交）`
+              : ""}
+          </Text>
+        </Alert>
+        {receipt.rows.length > 0 && (
+          <Paper withBorder p="md">
+            <Text fw={600} size="sm" mb="xs">
+              未入库 {receipt.rows.length} 行（按 CSV 行号）
+            </Text>
+            <Stack gap={6}>
+              {receipt.rows.map((row, i) => (
+                <Group key={`${row.line}-${i}`} gap={6} align="flex-start" wrap="nowrap">
+                  <IconAlertCircle size={13} style={{ flexShrink: 0, marginTop: 3 }} />
+                  <Text size="xs">
+                    第{row.line}行 {row.message}
                   </Text>
-                  {parseIssues.map((issue, i) => (
-                    <Group key={`${issue.line}-${i}`} gap={6} align="flex-start" wrap="nowrap">
-                      <IconAlertCircle size={13} style={{ flexShrink: 0, marginTop: 3 }} />
-                      <Text size="xs">{issue.message}</Text>
-                    </Group>
-                  ))}
-                </Stack>
-              </Alert>
-            )}
-            {previewRows.length > 0 && (
-              <Box mb="md">
-                <Group gap={8} mb="xs" justify="space-between">
-                  <Text fw={600} size="sm">
-                    预览（{previewRows.length} 名学生）
-                  </Text>
-                  {plan && (
-                    <Text size="xs" c="dimmed">
-                      将新建 {plan.create} 人 · 并入 {plan.link} 人 · 跳过 {plan.skip} 人
-                    </Text>
-                  )}
                 </Group>
-                <TableScroll minWidth={1000} maxHeight={240}>
-                  <Table stickyHeader>
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th>行</Table.Th>
-                        {CSV_HEADERS.map((h) => (
-                          <Table.Th key={h}>{h}</Table.Th>
-                        ))}
-                        <Table.Th>预检结果</Table.Th>
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {previewRows.map(({ line, user: u }, i) => {
-                        const row = plan?.rows[i];
-                        return (
-                          <Table.Tr key={line}>
-                            <Table.Td>
-                              <Text size="sm" c="dimmed">
-                                {line}
-                              </Text>
-                            </Table.Td>
-                            <Table.Td>{u.username}</Table.Td>
-                            <Table.Td>{"*".repeat(Math.min(u.password.length, 8))}</Table.Td>
-                            <Table.Td>{u.display_name}</Table.Td>
-                            <Table.Td>
-                              <PersonaBadges personas={u.personas} size="xs" />
-                            </Table.Td>
-                            <Table.Td>
-                              <Text size="sm" c="dimmed">
-                                {u.student_id || "-"}
-                              </Text>
-                            </Table.Td>
-                            <Table.Td>
-                              <Text size="sm" c="dimmed">
-                                {u.school_name || "-"}
-                              </Text>
-                            </Table.Td>
-                            <Table.Td>
-                              <Text size="sm" c="dimmed">
-                                {u.cohort_label || "-"}
-                              </Text>
-                            </Table.Td>
-                            <Table.Td>
-                              <Text size="sm" c="dimmed">
-                                {classCell(u)}
-                              </Text>
-                            </Table.Td>
-                            <Table.Td>{planCell(row)}</Table.Td>
-                          </Table.Tr>
-                        );
-                      })}
-                    </Table.Tbody>
-                  </Table>
-                </TableScroll>
-              </Box>
-            )}
-          </>
+              ))}
+            </Stack>
+          </Paper>
         )}
-        <Group gap={12} justify="flex-end">
-          {receipt ? (
-            <Button onClick={handleClose}>完成</Button>
-          ) : (
-            <>
-              <Button variant="outline" onClick={handleClose} disabled={submitting}>取消</Button>
-              <Button
-                variant="light"
-                onClick={handlePreview}
-                loading={previewing}
-                disabled={previewRows.length === 0 || submitting || previewing}
-              >
-                预检
-              </Button>
-              <Button
-                disabled={
-                  previewRows.length === 0 ||
-                  submitting ||
-                  !plan ||
-                  plan.create + plan.link === 0
-                }
-                onClick={handleImport}
-              >
-                {submitting ? "导入中..." : `导入 ${previewRows.length} 名学生`}
-              </Button>
-            </>
-          )}
+        <Group gap={8} wrap="wrap">
+          <Button component={Link} to="/admin/users">
+            返回用户列表
+          </Button>
+          <Button variant="default" onClick={() => window.location.reload()}>
+            再导入一批
+          </Button>
         </Group>
-    </Modal>
+      </Stack>
+    );
+  }
+
+  return (
+    <Stack gap="md">
+      <Text size="xs" c="dimmed">
+        支持 CSV 文件上传或直接粘贴文本。表头行自动识别，无表头按位置匹配。
+        仅限创建<strong>学生视角</strong>账号；班级不存在时自动创建。
+        <br />
+        <strong>学号是身份键</strong>：本校同一学号已有学生账号时，这一行会「并入」那个账号并补上班级归属，
+        不新建第二个账号（训练历史跟着人走）；学号相同但姓名不同会跳过，交给人工核对。
+        「视角」列逗号分隔可多值，默认 student（批量导入只接受学生视角）；
+        「学校」列填「院校管理」里的院校名称：平台账号每行必须给出学校或已存在的班级之一；
+        院校管理员可留空（自动落本校），填了就必须是本校。
+        学校不存在、或学校与班级所属院校不一致时，该行报错丢弃。
+        同名班级存在于多个届别/院校时，必须补充「届别」或用「学校」消歧。
+        <br />
+        提交前先点「预检」：逐行告知将新建、并入（到哪个账号）还是跳过，预检不写任何数据。
+      </Text>
+
+      <Paper withBorder p="md">
+        <Group gap={6} mb={8}>
+          <IconFileText size={14} />
+          <Text fw={600} size="sm">
+            粘贴文本（每行一个学生，逗号分隔）
+          </Text>
+        </Group>
+        <Textarea
+          aria-label="批量导入文本"
+          autosize
+          minRows={6}
+          maxRows={14}
+          placeholder={`${CSV_HEADERS.join(",")}\nstudent01,123456,张同学,student,S2024001,<院校名称>,2024级,护理1班`}
+          value={batchText}
+          onChange={(e) => {
+            setBatchText(e.currentTarget.value);
+            parseBatchText(e.currentTarget.value);
+          }}
+          disabled={submitting}
+          styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }}
+        />
+        <Text size="xs" c="dimmed" mt={4}>
+          列顺序：{CSV_HEADERS.join(" / ")}（学校、届别与班级名称按需填写）
+        </Text>
+        <Group gap={12} mt="sm" wrap="wrap">
+          <Button
+            variant="light"
+            color="gray"
+            size="sm"
+            leftSection={<IconUpload size={14} />}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={submitting}
+          >
+            上传 CSV 文件
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            aria-label="上传 CSV 文件"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) {
+                setBatchText("");
+                parseCSVFile(f);
+              }
+              e.target.value = "";
+            }}
+            hidden
+            disabled={submitting}
+          />
+          <Button
+            variant="transparent"
+            size="sm"
+            leftSection={<IconDownload size={14} />}
+            onClick={handleDownloadTemplate}
+          >
+            下载模板
+          </Button>
+        </Group>
+      </Paper>
+
+      {importError && (
+        <Alert color="red" variant="light" icon={<IconAlertCircle size={16} />}>
+          <Text size="xs">{importError}</Text>
+        </Alert>
+      )}
+
+      {parseIssues.length > 0 && (
+        <Alert color="red" variant="light">
+          <Stack gap={4}>
+            <Text size="xs" fw={600}>
+              未通过校验 {parseIssues.length} 行（不会提交）
+            </Text>
+            {parseIssues.map((issue, i) => (
+              <Group key={`${issue.line}-${i}`} gap={6} align="flex-start" wrap="nowrap">
+                <IconAlertCircle size={13} style={{ flexShrink: 0, marginTop: 3 }} />
+                <Text size="xs">{issue.message}</Text>
+              </Group>
+            ))}
+          </Stack>
+        </Alert>
+      )}
+
+      {previewRows.length > 0 && (
+        <Paper withBorder p="md">
+          <Group gap={8} mb="xs" justify="space-between" wrap="wrap">
+            <Text fw={600} size="sm">
+              预览（{previewRows.length} 名学生）
+            </Text>
+            {plan && (
+              <Text size="xs" c="dimmed">
+                将新建 {plan.create} 人 · 并入 {plan.link} 人 · 跳过 {plan.skip} 人
+              </Text>
+            )}
+          </Group>
+          {/* 独立页不再被弹窗限高：表格在这里跟随视口纵向滚动，表头吸顶。 */}
+          <TableScroll minWidth={1000} style={{ maxHeight: "calc(100dvh - 320px)" }}>
+            <Table stickyHeader>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>行</Table.Th>
+                  {CSV_HEADERS.map((h) => (
+                    <Table.Th key={h}>{h}</Table.Th>
+                  ))}
+                  <Table.Th>预检结果</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {previewRows.map(({ line, user: u }, i) => {
+                  const row = plan?.rows[i];
+                  return (
+                    <Table.Tr key={line}>
+                      <Table.Td>
+                        <Text size="sm" c="dimmed">
+                          {line}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>{u.username}</Table.Td>
+                      <Table.Td>{"*".repeat(Math.min(u.password.length, 8))}</Table.Td>
+                      <Table.Td>{u.display_name}</Table.Td>
+                      <Table.Td>
+                        <PersonaBadges personas={u.personas} size="xs" />
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm" c="dimmed">
+                          {u.student_id || "-"}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm" c="dimmed">
+                          {u.school_name || "-"}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm" c="dimmed">
+                          {u.cohort_label || "-"}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm" c="dimmed">
+                          {classCell(u)}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>{planCell(row)}</Table.Td>
+                    </Table.Tr>
+                  );
+                })}
+              </Table.Tbody>
+            </Table>
+          </TableScroll>
+        </Paper>
+      )}
+
+      {previewRows.length === 0 && parseIssues.length === 0 && !batchText.trim() && (
+        <Paper withBorder p="xl">
+          <Stack align="center" gap={8}>
+            <IconUsers size={28} style={{ opacity: 0.5 }} />
+            <Text size="sm" fw={600}>
+              还没有导入内容
+            </Text>
+            <Text size="xs" c="dimmed" ta="center">
+              上传 CSV 文件或在上面的输入框里粘贴名单；也可以先下载模板按列填写。
+            </Text>
+          </Stack>
+        </Paper>
+      )}
+
+      <Group gap={12} wrap="wrap" justify="flex-end">
+        <Button
+          variant="light"
+          onClick={handlePreview}
+          loading={previewing}
+          disabled={previewRows.length === 0 || submitting || previewing}
+        >
+          预检
+        </Button>
+        <Button
+          disabled={
+            previewRows.length === 0 ||
+            submitting ||
+            !plan ||
+            plan.create + plan.link === 0
+          }
+          onClick={handleImport}
+        >
+          {submitting ? "导入中..." : `导入 ${previewRows.length} 名学生`}
+        </Button>
+      </Group>
+    </Stack>
   );
 }

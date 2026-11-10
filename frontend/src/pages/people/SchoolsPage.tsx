@@ -1,4 +1,5 @@
 import {
+	Anchor,
 	Box,
 	Button,
 	ColorSwatch,
@@ -12,10 +13,9 @@ import {
 	UnstyledButton,
 } from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
-import { useQueryClient } from "@tanstack/react-query";
 import { IconCheck, IconPhoto, IconSchool, IconTrash } from "@tabler/icons-react";
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { z } from "zod";
 
 import type { SchoolItem } from "@/api/admin/schools";
@@ -28,6 +28,7 @@ import PageHeader from "@/components/ui/page-header";
 import ResponsiveTable from "@/components/ui/responsive-table";
 import { SearchInput } from "@/components/ui/search-input";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
+import { useEnterSchoolAdmin } from "@/hooks/useEnterSchoolAdmin";
 import {
 	useCreateSchool,
 	useDeleteSchool,
@@ -36,9 +37,6 @@ import {
 	useUpdateSchool,
 	useUploadSchoolLogo,
 } from "@/hooks/useSchools";
-import useAuthStore from "@/stores/authStore";
-import { usePersonaStore } from "@/stores/personaStore";
-import { toScopedSchool, useSchoolScopeStore } from "@/stores/schoolScopeStore";
 import { SCHOOL_PALETTES, schoolPalette } from "@/theme/school-palettes";
 import { formatDate } from "@/utils/date";
 
@@ -59,10 +57,9 @@ export default function SchoolsPage() {
 	const { searchInput, debouncedValue: search, handleSearchChange } = useDebouncedSearch();
 	const [modalOpen, setModalOpen] = useState(false);
 	const [editId, setEditId] = useState<number | null>(null);
+	const [searchParams, setSearchParams] = useSearchParams();
 	const { confirm } = useConfirm();
-	const navigate = useNavigate();
-	const queryClient = useQueryClient();
-	const setSchoolScope = useSchoolScopeStore((s) => s.setSchool);
+	const enterSchoolAdmin = useEnterSchoolAdmin();
 
 	const {
 		data: schools = [],
@@ -101,6 +98,30 @@ export default function SchoolsPage() {
 		setEditId(null);
 	};
 
+	/**
+	 * `?edit=<id>` 深链：院校详情页的「编辑品牌」按钮通过它打开同一张编辑弹窗
+	 * （改名/主题色/院徽只有这一处实现，不复制第二份）。列表到齐后打开一次就清掉参数，
+	 * 避免用户关窗后刷新又弹一次，也避免后退键把它们带回来。
+	 */
+	const deepLinkEditId = Number(searchParams.get("edit"));
+	const deepLinkConsumed = useRef(false);
+	useEffect(() => {
+		if (deepLinkConsumed.current || isError) return;
+		if (!Number.isFinite(deepLinkEditId) || deepLinkEditId <= 0) return;
+		const target = schools.find((s) => s.id === deepLinkEditId);
+		if (!target) return;
+		deepLinkConsumed.current = true;
+		openEdit(target);
+		setSearchParams(
+			(prev) => {
+				const next = new URLSearchParams(prev);
+				next.delete("edit");
+				return next;
+			},
+			{ replace: true },
+		);
+	}, [deepLinkEditId, schools, isError, setSearchParams]);
+
 	const onSubmit = async (values: SchoolFormValues) => {
 		const name = values.name.trim();
 		// 失败时保持弹窗与输入：关闭弹窗等于把用户刚输入的内容也一起丢掉，
@@ -135,15 +156,10 @@ export default function SchoolsPage() {
 
 	/**
 	 * 平台账号的日常入口：选一所院校 → 以「管理」视角进入它的账号与班级控制台。
-	 * 从"院校管理"进来的人通常是要管这所学校的人，而不是看教学趋势；看板仍可从侧栏进入。
+	 * 具体步骤在 `useEnterSchoolAdmin`（详情页与列表共用同一份，避免两处漂移）。
 	 */
-	const enterSchoolAdmin = async (school: SchoolItem) => {
-		setSchoolScope(toScopedSchool(school));
-		const persona = usePersonaStore.getState();
-		if (persona.available.includes("admin")) persona.setActive("admin");
-		queryClient.clear();
-		await useAuthStore.getState().refreshUser();
-		navigate("/admin/users");
+	const enterSchool = (school: SchoolItem) => {
+		void enterSchoolAdmin(school);
 	};
 
 	// 院徽地址带版本号：换图即换 URL（公开读端点，`<img>` 带不了 Authorization）
@@ -181,7 +197,10 @@ export default function SchoolsPage() {
 			render: (s) => (
 				<Group gap={8} wrap="nowrap">
 					{identity(s)}
-					<Text size="sm" fw={500}>{s.name}</Text>
+					{/* 真链接（不是 onClick navigate）：中键/新标签页/读屏都能用，地址栏也可直接分享 */}
+					<Anchor component={Link} to={`/admin/schools/${s.id}`} size="sm" fw={500} underline="hover">
+						{s.name}
+					</Anchor>
 				</Group>
 			),
 		},
@@ -224,8 +243,17 @@ export default function SchoolsPage() {
 				);
 				return (
 					<Group gap={4} wrap="nowrap">
-						<Button variant="light" size="sm" onClick={() => void enterSchoolAdmin(s)}>
+						<Button variant="light" size="sm" onClick={() => enterSchool(s)}>
 							进入管理
+						</Button>
+						<Button
+							component={Link}
+							to={`/admin/schools/${s.id}`}
+							variant="subtle"
+							color="gray"
+							size="sm"
+						>
+							详情
 						</Button>
 						<Button variant="subtle" color="gray" size="sm" onClick={() => openEdit(s)}>
 							编辑
@@ -282,12 +310,27 @@ export default function SchoolsPage() {
 						<Stack gap={6}>
 							<Group gap={8} wrap="nowrap">
 								{identity(s)}
-								<Text fw={500}>{s.name}</Text>
+								<Anchor component={Link} to={`/admin/schools/${s.id}`} fw={500} underline="hover">
+									{s.name}
+								</Anchor>
 							</Group>
 							<Text size="xs" c="dimmed">
 								{s.class_count} 个班级 · {s.user_count} 个账号
 							</Text>
 							<Group gap={4}>
+								{/* 移动端最容易漏的是主行动：卡片上「进入管理」必须与桌面行同一入口 */}
+								<Button variant="light" size="xs" onClick={() => enterSchool(s)}>
+									进入管理
+								</Button>
+								<Button
+									component={Link}
+									to={`/admin/schools/${s.id}`}
+									variant="subtle"
+									color="gray"
+									size="xs"
+								>
+									详情
+								</Button>
 								<Button variant="subtle" color="gray" size="xs" onClick={() => openEdit(s)}>
 									编辑
 								</Button>

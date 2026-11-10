@@ -20,7 +20,7 @@ import {
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { type ReactNode, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { abandonRecord, getCases, getNotifications, getRecords, markNotificationRead, startBlindBox, startTraining } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { getStudentAssignments, startAssignment } from "@/api/assignments";
@@ -313,6 +313,7 @@ export default function TrainingSelect({ tab = "home" }: { tab?: TrainingTab }) 
 		try {
 			// 服务端响应有类型（TrainingStartResponse.record_id），不必再靠宽类型断言取字段
 			const res = await startAssignment(assignmentId);
+			void queryClient.invalidateQueries({ queryKey: queryKeys.assignments.all });
 			goTraining(navigate, res.data.record_id, trainingFrom);
 		} catch (err: unknown) {
 			const axiosErr = err as { status?: number; response?: { data?: { detail?: StartErrorDetail } } };
@@ -349,9 +350,11 @@ export default function TrainingSelect({ tab = "home" }: { tab?: TrainingTab }) 
 			}
 		: nextAssignment
 			? {
-					label: "开始作业",
+					label: nextAssignment.status === "in_progress" ? "继续作业" : "查看作业要求",
 					icon: <IconPlayerPlay size={16} />,
-					onClick: () => handleStartAssignment(nextAssignment.id),
+					onClick: () => nextAssignment.status === "in_progress" && nextAssignment.record_id
+						? goTraining(navigate, nextAssignment.record_id, trainingFrom)
+						: navigate(`/assignments/${nextAssignment.id}`),
 				}
 			: {
 					label: "选择病例",
@@ -542,7 +545,7 @@ export default function TrainingSelect({ tab = "home" }: { tab?: TrainingTab }) 
 								</Stack>
 							) : pendingAssignments.length > 0 ? (
 								<Stack gap="xs" mt="sm">
-									{pendingAssignments.slice(0, 3).map((a: { id: string; title: string; case_name: string; end_time?: string }) => (
+									{pendingAssignments.slice(0, 3).map((a) => (
 										<Paper key={a.id} withBorder p="sm">
 											<Group justify="space-between" align="flex-start" gap="sm" wrap="nowrap">
 												<Box style={{ minWidth: 0 }}>
@@ -551,9 +554,11 @@ export default function TrainingSelect({ tab = "home" }: { tab?: TrainingTab }) 
 														{a.case_name}{a.end_time ? ` · ${new Date(a.end_time).toLocaleDateString("zh-CN", { timeZone: APP_TIME_ZONE, month: "numeric", day: "numeric" })} 截止` : ""}
 													</Text>
 												</Box>
-												<Button variant="subtle" size="sm" onClick={() => handleStartAssignment(a.id)}>
-													<IconPlayerPlay size={14} />开始
-												</Button>
+<Button variant="subtle" size="sm" onClick={() => a.status === "in_progress" && a.record_id
+												? goTraining(navigate, a.record_id, trainingFrom)
+												: navigate(`/assignments/${a.id}`)}>
+											<IconPlayerPlay size={14} />{a.status === "in_progress" ? "继续" : "查看"}
+										</Button>
 											</Group>
 										</Paper>
 									))}
@@ -877,7 +882,14 @@ export default function TrainingSelect({ tab = "home" }: { tab?: TrainingTab }) 
 								<Paper key={a.id} withBorder p="md" style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }} >
 									<Box>
 										<Group justify="space-between" align="flex-start" gap="xs" wrap="nowrap">
-											<Text size="sm" fw={600} truncate style={{ flex: 1 }}>{a.title}</Text>
+											<Text
+											component={Link}
+											to={`/assignments/${a.id}`}
+											size="sm"
+											fw={600}
+											truncate
+											style={{ flex: 1, color: "inherit", textDecoration: "none" }}
+										>{a.title}</Text>
 											{isExpired && <Badge variant="light" color="red">已过期</Badge>}
 											{isClosed && <Badge variant="light" color="orange">已关闭</Badge>}
 											{isCompleted && <Badge variant="light" color="green">已完成</Badge>}
@@ -902,7 +914,7 @@ export default function TrainingSelect({ tab = "home" }: { tab?: TrainingTab }) 
 										) : isCompleted ? (
 											<Button size="sm" variant="default" style={{ width: "100%" }} onClick={handleReattempt}><IconRotate size={14} />重新训练</Button>
 										) : (
-											<Button size="sm" variant="default" style={{ width: "100%" }} onClick={() => handleStartAssignment(a.id)}><IconPlayerPlay size={14} />开始作业</Button>
+											<Button size="sm" variant="default" style={{ width: "100%" }} onClick={() => navigate(`/assignments/${a.id}`)}><IconPlayerPlay size={14} />查看要求</Button>
 										)}
 									</Box>
 								</Paper>

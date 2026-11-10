@@ -2,7 +2,7 @@ import { Badge, Button, Group, SegmentedControl, Table, Text } from "@mantine/co
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconArrowRight, IconClipboardCheck } from "@tabler/icons-react";
 import { useCallback, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { getRecords, submitScoreReview } from "@/api";
 import type { GetRecordsParams } from "@/api";
 import { queryKeys } from "@/api/query-keys";
@@ -175,7 +175,7 @@ export default function ReviewWorkbench() {
 								{records.map((r) => (
 									<Table.Tr key={r.id}>
 										<Table.Td>
-											<Text size="sm" fw={500}>{r.user_display_name}</Text>
+											<Text component={Link} to={`/admin/students/${r.user_id}`} size="sm" fw={500} c="brand">{r.user_display_name}</Text>
 											{r.user_student_id && (
 												<Text size="xs" c="dimmed">{r.user_student_id}</Text>
 											)}

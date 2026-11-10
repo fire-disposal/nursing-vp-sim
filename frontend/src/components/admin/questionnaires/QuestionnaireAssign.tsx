@@ -1,4 +1,4 @@
-import { Box, Button, Group, Modal, Paper, ScrollArea, Select, Stack, Text } from "@mantine/core";
+import { Box, Button, Checkbox, Group, Modal, Paper, ScrollArea, Select, Stack, Switch, Text } from "@mantine/core";
 import type {
 	AssignForm as AssignFormType,
 	CaseBrief,
@@ -6,9 +6,6 @@ import type {
 import {
 	TRIGGER_EVENT_OPTIONS,
 } from "@/components/admin/questionnaires/types";
-import { Checkbox } from "@mantine/core";
-
-import { Switch } from "@mantine/core";
 
 interface QuestionnaireAssignProps {
 	open: boolean;

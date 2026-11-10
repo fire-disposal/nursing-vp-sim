@@ -29,6 +29,7 @@ import { isPersonaId, type PersonaId } from "@/utils/personas";
 const DashboardHome = lazy(() => import("@/pages/share/DashboardHome"));
 
 const TrainingSelect = lazy(() => import("@/pages/practice/TrainingSelect"));
+const StudentAssignmentDetailPage = lazy(() => import("@/pages/practice/StudentAssignmentDetailPage"));
 const TrainingEntry = lazy(() => import("@/pages/practice/TrainingEntry"));
 const History = lazy(() => import("@/pages/practice/History"));
 const VersionsPage = lazy(() => import("@/pages/ops/VersionsPage"));
@@ -42,13 +43,16 @@ const NotificationInboxPage = lazy(() => import("@/pages/share/NotificationInbox
 const Profile = lazy(() => import("@/pages/share/Profile"));
 const Admin = lazy(() => import("@/pages/teaching/home/Home"));
 const AdminUsers = lazy(() => import("@/pages/people/UsersPage"));
+const UserImportPage = lazy(() => import("@/pages/people/UserImportPage"));
 const AdminUserDetail = lazy(() => import("@/pages/people/UserDetailPage"));
 const AdminPersonas = lazy(() => import("@/pages/people/PersonasPage"));
 const AdminClasses = lazy(
 	() => import("@/pages/people/ClassesPage"),
 );
 const AdminSchools = lazy(() => import("@/pages/people/SchoolsPage"));
+const SchoolDetailPage = lazy(() => import("@/pages/people/SchoolDetailPage"));
 const AdminCases = lazy(() => import("@/pages/content/CasesPage"));
+const CaseWorkspacePage = lazy(() => import("@/pages/content/CaseWorkspacePage"));
 const AssignmentsPage = lazy(
 	() => import("@/pages/teaching/AssignmentsPage"),
 );
@@ -56,10 +60,12 @@ const AssignmentDetailPage = lazy(
 	() => import("@/pages/teaching/AssignmentDetailPage"),
 );
 const ScoreboardPage = lazy(() => import("@/pages/teaching/ScoreboardPage"));
+const StudentLearningProfilePage = lazy(() => import("@/pages/teaching/StudentLearningProfilePage"));
 const CostManagement = lazy(() => import("@/pages/ops/CostManagementPage"));
 const AdminFeedback = lazy(() => import("@/pages/ops/FeedbackPage"));
 const ClassDetailPage = lazy(() => import("@/pages/people/ClassDetailPage"));
 const SystemOpsPage = lazy(() => import("@/pages/ops/SystemOpsPage"));
+const OpsErrorDetailPage = lazy(() => import("@/pages/ops/OpsErrorDetailPage"));
 const SystemNotificationsPage = lazy(
 	() => import("@/pages/ops/SystemNotificationsPage"),
 );
@@ -71,6 +77,9 @@ const RubricPage = lazy(() => import("@/pages/content/RubricPage"));
 const AdminQuestionnaires = lazy(
 	() => import("@/pages/content/AdminQuestionnaires"),
 );
+const QuestionnaireStatsPage = lazy(() => import("@/pages/content/QuestionnaireStatsPage"));
+const QuestionnaireResponsesPage = lazy(() => import("@/pages/content/QuestionnaireResponsesPage"));
+const QuestionnaireResponseDetailPage = lazy(() => import("@/pages/content/QuestionnaireResponseDetailPage"));
 /**
  * 当前的「活动」——决定**外壳形态**（`AdaptiveShell` 按它选壳）。
  *
@@ -107,8 +116,8 @@ export const NAV_GROUPS: NavGroupDef[] = [
 	// 教学 = 日常查看与操作（看板/作业/成绩/记录）；教学资源 = 低频配置（病例/问卷/标准）
 	{ key: "teaching", label: "教学", icon: IconSchool, defaultOpen: true, personas: ["teacher", "admin"] },
 	{ key: "content", label: "教学资源", icon: IconBook2, defaultOpen: false, personas: ["teacher", "admin", "platform"] },
-	{ key: "people", label: "人员", icon: IconUsers, defaultOpen: false, personas: ["admin", "platform"] },
-	{ key: "system", label: "运维", icon: IconActivity, defaultOpen: false, personas: ["ops", "platform"] },
+	{ key: "people", label: "人员", icon: IconUsers, defaultOpen: false, personas: ["teacher", "admin", "platform"] },
+	{ key: "system", label: "运维", icon: IconActivity, defaultOpen: false, personas: ["admin", "ops", "platform"] },
 ];
 
 /**
@@ -199,6 +208,12 @@ export const APP_ROUTES: AppRoute[] = [
 		},
 	},
 	{
+		path: "/assignments/:id",
+		element: <StudentAssignmentDetailPage />,
+		permission: "training_access",
+		activity: "manage",
+	},
+	{
 		path: "/history",
 		element: <History />,
 		// 记录是"我的训练档案"：没有训练权限的视角（平台/运维）不该在侧栏看到它，
@@ -245,6 +260,12 @@ export const APP_ROUTES: AppRoute[] = [
 		nav: { label: "用户管理", icon: IconUsers, section: "admin", group: "people" },
 	},
 	{
+		path: "/admin/users/import",
+		element: <UserImportPage />,
+		permission: "user_manage",
+		activity: "manage",
+	},
+	{
 		path: "/admin/users/:userId",
 		element: <AdminUserDetail />,
 		permission: "user_manage",
@@ -265,6 +286,12 @@ export const APP_ROUTES: AppRoute[] = [
 		nav: { label: "院校管理", icon: IconBuildingCommunity, section: "admin", group: "people" },
 	},
 	{
+		path: "/admin/schools/:schoolId",
+		element: <SchoolDetailPage />,
+		permission: "school_manage",
+		activity: "manage",
+	},
+	{
 		path: "/admin/classes",
 		element: <AdminClasses />,
 		permission: "grade_class_manage",
@@ -279,6 +306,18 @@ export const APP_ROUTES: AppRoute[] = [
 		nav: { label: "病例库", icon: IconUserSearch, section: "admin", group: "content" },
 	},
 	{
+		path: "/admin/cases/new",
+		element: <CaseWorkspacePage />,
+		permission: "case_manage",
+		activity: "manage",
+	},
+	{
+		path: "/admin/cases/:caseId",
+		element: <CaseWorkspacePage />,
+		permission: "case_manage",
+		activity: "manage",
+	},
+	{
 		path: "/admin/assignments",
 		element: <AssignmentsPage />,
 		permission: "assignment_manage",
@@ -288,6 +327,12 @@ export const APP_ROUTES: AppRoute[] = [
 	{
 		path: "/admin/assignments/:id",
 		element: <AssignmentDetailPage />,
+		permission: "assignment_manage",
+		activity: "manage",
+	},
+	{
+		path: "/admin/students/:userId",
+		element: <StudentLearningProfilePage />,
 		permission: "assignment_manage",
 		activity: "manage",
 	},
@@ -325,6 +370,12 @@ export const APP_ROUTES: AppRoute[] = [
 		permission: "api_manage",
 		activity: "manage",
 		nav: { label: "运维仪表盘", icon: IconActivity, section: "admin", group: "system" },
+	},
+	{
+		path: "/admin/system-ops/errors/:fingerprint",
+		element: <OpsErrorDetailPage />,
+		permission: "api_manage",
+		activity: "manage",
 	},
 	{
 		path: "/admin/versions",
@@ -371,6 +422,24 @@ export const APP_ROUTES: AppRoute[] = [
 			section: "admin",
 			group: "content",
 		},
+	},
+	{
+		path: "/admin/questionnaires/:id/stats",
+		element: <QuestionnaireStatsPage />,
+		permission: "questionnaire_manage",
+		activity: "manage",
+	},
+	{
+		path: "/admin/questionnaires/:id/responses",
+		element: <QuestionnaireResponsesPage />,
+		permission: "questionnaire_manage",
+		activity: "manage",
+	},
+	{
+		path: "/admin/questionnaires/:id/responses/:responseId",
+		element: <QuestionnaireResponseDetailPage />,
+		permission: "questionnaire_manage",
+		activity: "manage",
 	},
 	{
 		path: "/admin/rubric",

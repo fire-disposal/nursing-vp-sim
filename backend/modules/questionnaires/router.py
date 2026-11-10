@@ -11,7 +11,11 @@ from core.statuses import QuestionnaireTrigger
 from core.tenant import Scope
 from infra.exporter import ExportAudit, export_response
 from models import User
-from modules.questionnaires.response_service import QuestionnaireResponseService, build_response_export_columns
+from modules.questionnaires.response_service import (
+    QuestionnaireResponseFilters,
+    QuestionnaireResponseService,
+    build_response_export_columns,
+)
 from modules.questionnaires.service import QuestionnaireTemplateFilters, QuestionnaireTemplateService
 from schemas import (
     CaseAssignmentRequest,
@@ -177,6 +181,7 @@ def list_responses(
     current_user: _Manager,
     db: DbSession,
     scope: Scope,
+    filters: Annotated[QuestionnaireResponseFilters, Depends()],
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=200)] = 20,
 ):
@@ -184,6 +189,7 @@ def list_responses(
         template_id=template_id,
         offset=offset,
         limit=limit,
+        filters=filters,
     )
     return PaginatedResponse(
         items=[QuestionnaireResponseItem.model_validate(v) for v in items],
@@ -204,6 +210,23 @@ def response_stats(
     scope: Scope,
 ):
     return QuestionnaireResponseService(db, scope).get_stats(template_id)
+
+
+@router.get(
+    "/questionnaires/responses/{template_id}/{response_id}",
+    response_model=QuestionnaireResponseItem,
+)
+def get_response(
+    template_id: int,
+    response_id: int,
+    current_user: _Manager,
+    db: DbSession,
+    scope: Scope,
+):
+    """单份答卷详情；不属于本校/本人名下学生的答卷一律 404。"""
+    return QuestionnaireResponseItem.model_validate(
+        QuestionnaireResponseService(db, scope).get_response(template_id, response_id)
+    )
 
 
 @router.post("/questionnaires/responses/{template_id}/export")

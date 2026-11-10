@@ -12,6 +12,8 @@ export const queryKeys = {
 				[...queryKeys.cases.managed.all, "validation", String(id)] as const,
 			revisions: (id: number | string) =>
 				[...queryKeys.cases.managed.all, "revisions", String(id)] as const,
+			detail: (id: number | string) =>
+				[...queryKeys.cases.managed.all, "detail", String(id)] as const,
 		},
 		student: () => [...queryKeys.cases.all, "student"] as const,
 	},
@@ -108,6 +110,8 @@ export const queryKeys = {
 	},
 	schools: {
 		all: ["admin", "schools"] as const,
+		detail: (schoolId: number | string | null | undefined) =>
+			[...queryKeys.schools.all, "detail", schoolId ?? null] as const,
 	},
 	classes: {
 		all: ["classes"] as const,
@@ -136,6 +140,10 @@ export const queryKeys = {
 			[...queryKeys.questionnaires.all, "detail", id] as const,
 		stats: (templateId: number | null | undefined) =>
 			[...queryKeys.questionnaires.all, "stats", templateId] as const,
+		responses: (templateId: number | null | undefined, params: object) =>
+			[...queryKeys.questionnaires.all, "responses", templateId, params] as const,
+		response: (templateId: number | null | undefined, responseId: number | null | undefined) =>
+			[...queryKeys.questionnaires.all, "response", templateId, responseId] as const,
 	},
 	assignments: {
 		all: ["assignments"] as const,
@@ -144,6 +152,8 @@ export const queryKeys = {
 		admin: () => [...queryKeys.assignments.all, "admin"] as const,
 		detail: (id: string | null | undefined) => [...queryKeys.assignments.all, "detail", id] as const,
 		student: () => [...queryKeys.assignments.all, "student"] as const,
+		studentDetail: (id: string | null | undefined) =>
+			[...queryKeys.assignments.student(), "detail", id] as const,
 	},
 	scoreboard: {
 		all: ["scoreboard"] as const,
@@ -151,6 +161,8 @@ export const queryKeys = {
 			[...queryKeys.scoreboard.all, "ranking", params] as const,
 		trend: (userId: number | null | undefined, params: Record<string, unknown>) =>
 			[...queryKeys.scoreboard.all, "trend", userId, params] as const,
+		profile: (userId: number | null | undefined, params: object) =>
+			[...queryKeys.scoreboard.all, "profile", userId ?? null, params] as const,
 	},
 	versions: {
 		all: ["admin", "versions"] as const,

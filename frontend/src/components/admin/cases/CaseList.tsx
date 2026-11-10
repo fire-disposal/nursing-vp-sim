@@ -1,6 +1,7 @@
-import { IconAlertCircle, IconArchive, IconPencil, IconRefresh, IconRocket, IconTrash } from "@tabler/icons-react";
-import { ActionIcon, Alert, Badge, Box, Button, Group, Loader, Paper, Select, Stack, Switch, Table, Text } from "@mantine/core";
+import { IconAlertCircle, IconArchive, IconPencil, IconRefresh, IconTrash } from "@tabler/icons-react";
+import { ActionIcon, Alert, Anchor, Badge, Box, Button, Group, Loader, Paper, Select, Stack, Switch, Table, Text } from "@mantine/core";
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import Pagination from "@/components/ui/pagination";
 import { ACTIVITY_LABELS } from "@/config/activity-display";
 import type { components } from "@/api/api-types.gen";
@@ -41,10 +42,13 @@ interface CaseListProps {
 	onFilterChange: (filters: CaseListFilters) => void;
 	onOffsetChange: (offset: number) => void;
 	onRetry?: () => void;
-	onEdit: (c: CaseManageItem) => void;
+	/**
+	 * 编辑入口的地址（病例工作台页）。这里渲染的是**真链接**，不是按钮回调：
+	 * 中键/新标签能开、地址能复制，刷新回到同一份病例。
+	 */
+	caseHref: (id: number) => string;
 	onDelete: (c: CaseManageItem) => void;
 	onToggleOpen: (c: CaseManageItem) => void;
-	onPublish: (c: CaseManageItem) => void;
 	onArchive: (c: CaseManageItem) => void;
 }
 
@@ -66,8 +70,8 @@ function CapabilityBadges({ caps }: { caps: Record<string, boolean> | undefined 
 export default function CaseList({
 	cases, total, offset, limit,
 	filters, hasFilters, searchInput, loading, error, pendingId,
-	header, onSearchChange, onFilterChange, onOffsetChange, onRetry,
-	onEdit, onDelete, onToggleOpen, onPublish, onArchive,
+	header, onSearchChange, onFilterChange, onOffsetChange, onRetry, caseHref,
+	onDelete, onToggleOpen, onArchive,
 }: CaseListProps) {
 
 	return (
@@ -187,7 +191,17 @@ export default function CaseList({
 								return (
 									<Table.Tr key={c.id}>
 										<Table.Td>
-											<Text size="xs" fw={500} truncate>{c.name}</Text>
+											<Anchor
+												component={Link}
+												to={caseHref(c.id)}
+												size="xs"
+												fw={500}
+												truncate
+												style={{ display: "block" }}
+												title={archived ? "查看已归档病例" : "打开病例工作台"}
+											>
+												{c.name}
+											</Anchor>
 											<Text size="xs" c="dimmed" truncate mt={2}>
 												{[c.patient_gender, c.patient_age != null ? `${c.patient_age}岁` : null].filter(Boolean).join(" · ")}
 											</Text>
@@ -213,32 +227,19 @@ export default function CaseList({
 											)}
 										</Table.Td>
 										<Table.Td>
-											{/* 四个图标按钮：换行会让操作列变高，故 nowrap；删除与其它三者再拉开 6px 间距，防误点 */}
+											{/* 图标按钮：换行会让操作列变高，故 nowrap；删除与其它拉开 6px 间距，防误点 */}
 											<Group gap={6} justify="center" wrap="nowrap">
 												<ActionIcon
+													component={Link}
+													to={caseHref(c.id)}
 													variant="subtle"
 													color="gray"
 													size="sm"
-													onClick={() => onEdit(c)}
-													aria-label="编辑"
-													title={archived ? "已归档病例内容冻结，不可编辑" : "编辑"}
-													disabled={archived}
+													aria-label={archived ? "查看" : "编辑"}
+													title={archived ? "已归档病例内容冻结，仅可查看" : "编辑"}
 												>
 													<IconPencil size={14} />
 												</ActionIcon>
-												{!published && !archived && (
-													<ActionIcon
-														variant="subtle"
-														color="green"
-														size="sm"
-														onClick={() => onPublish(c)}
-														aria-label="发布"
-														title="发布（先过发布门禁）"
-														loading={busy}
-													>
-														<IconRocket size={14} />
-													</ActionIcon>
-												)}
 												{!archived && (
 													<ActionIcon
 														variant="subtle"

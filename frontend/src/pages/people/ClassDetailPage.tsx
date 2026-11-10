@@ -1,79 +1,86 @@
-import { APP_TIME_ZONE } from "@/utils/date";
-import {
-	Badge,
-	Box,
-	Button,
-	Center,
-	Checkbox,
-	Container,
-	Group,
-	Loader,
-	Paper,
-	SimpleGrid,
-	Stack,
-	Tabs,
-	Text,
-	ThemeIcon,
-} from "@mantine/core";
+import { Button, Container, SimpleGrid, Stack, Tabs } from "@mantine/core";
 import {
 	IconAlertTriangle,
 	IconAward,
+	IconChartPie,
+	IconClipboardList,
+	IconFileText,
 	IconMagnet,
-	IconSchool,
 	IconTarget,
 	IconTrendingUp,
 	IconUser,
-	IconUserPlus,
 	IconUsers,
 } from "@tabler/icons-react";
-import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
 import { isAxiosError } from "axios";
-import { useToast } from "@/components/Toast";
-import { useConfirm } from "@/components/ui/confirm";
+import { useCallback, useMemo } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import EmptyState from "@/components/ui/empty-state";
 import ErrorState from "@/components/ui/error-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
-import Pagination from "@/components/ui/pagination";
-import { SearchInput } from "@/components/ui/search-input";
 import StatCard from "@/components/ui/stat-card";
-import AddMembersDialog from "@/components/admin/classes/AddMembersDialog";
-import MemberAffiliations from "@/components/admin/classes/MemberAffiliations";
+import { useClassDetailQuery, useClassSummaryQuery } from "@/hooks/useClasses";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
+import ClassAssignmentsTab from "./ClassAssignmentsTab";
+import ClassMembersTab from "./ClassMembersTab";
+import ClassRecordsTab from "./ClassRecordsTab";
 import {
-	useClassDetailQuery,
-	useClassMembersQuery,
-	useClassSummaryQuery,
-	useRemoveClassMember,
-	useRemoveClassMembers,
-} from "@/hooks/useClasses";
-import type { ClassMemberItem, MemberRole } from "@/types/store";
+	buildTabSearch,
+	CLASS_TAB_LABEL,
+	CLASS_TAB_PARAMS,
+	parseClassTab,
+	parseMemberRole,
+	parseOffset,
+	parseRecordStatus,
+} from "./class-workspace-tabs";
 
-const LIMIT = 20;
-
-const ROLE_LABEL: Record<MemberRole, string> = {
-	student: "学生",
-	teacher: "教师",
-};
-
-function formatJoined(value: string): string {
-	const date = new Date(value);
-	return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString("zh-CN", { timeZone: APP_TIME_ZONE });
-}
-
+/**
+ * 班级工作台 —— 一个班级的概览、成员、作业与训练记录。
+ *
+ * 页签写进 URL（`?tab=overview|members|assignments|records`），每个页签的分页/筛选
+ * 也留在 URL：刷新、分享、前进后退都回到同一视图；切页签只动 `tab`，回来时页码与
+ * 搜索词仍在。这里**不再**持有本地页签状态（旧 `roleTab` 与地址栏互相覆盖的根因）。
+ */
 export default function ClassDetailPage() {
 	const { classId } = useParams<{ classId: string }>();
 	const navigate = useNavigate();
+	const [searchParams, setSearchParams] = useSearchParams();
 	const cid = Number(classId);
-	const toast = useToast();
-	const { confirm } = useConfirm();
-	const [roleTab, setRoleTab] = useState<MemberRole>("student");
-	const [offset, setOffset] = useState(0);
-	const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-	const [showAddDialog, setShowAddDialog] = useState(false);
-	const { searchInput, debouncedValue, handleSearchChange } = useDebouncedSearch();
+
+	const tab = parseClassTab(searchParams.get("tab"));
+	const memberRole = parseMemberRole(searchParams.get(CLASS_TAB_PARAMS.members.role));
+	const memberOffset = parseOffset(searchParams.get(CLASS_TAB_PARAMS.members.offset));
+	const assignmentOffset = parseOffset(searchParams.get(CLASS_TAB_PARAMS.assignments.offset));
+	const recordOffset = parseOffset(searchParams.get(CLASS_TAB_PARAMS.records.offset));
+	const recordStatus = parseRecordStatus(searchParams.get(CLASS_TAB_PARAMS.records.status));
+
+	/**
+	 * 一次改多个 URL 参数（空串 = 删除该键）；`replace` 保持返回历史干净。
+	 *
+	 * 必须走 react-router 的 `setSearchParams`：直接 `history.replaceState` 只改浏览器地址，
+	 * `useSearchParams` 不会收到通知，页面就会与地址栏分叉（正是本页要消灭的那类冲突）。
+	 */
+	const setParams = useCallback(
+		(updates: Array<[string, string]>) => {
+			setSearchParams(
+				(prev) => {
+					const next = new URLSearchParams(prev);
+					for (const [key, value] of updates) {
+						if (value) next.set(key, value);
+						else next.delete(key);
+					}
+					return next;
+				},
+				{ replace: true },
+			);
+		},
+		[setSearchParams],
+	);
+
+	// 搜索词进 URL，但进请求前防抖：地址栏即时反馈，请求不逐字轰炸
+	const urlMemberSearch = searchParams.get(CLASS_TAB_PARAMS.members.search) ?? "";
+	const { debouncedValue: memberSearch } = useDebouncedSearch(urlMemberSearch, 300);
 
 	const {
 		data: cls,
@@ -82,106 +89,82 @@ export default function ClassDetailPage() {
 		error: clsError,
 		refetch: refetchClass,
 	} = useClassDetailQuery(cid);
-	const { data: summary } = useClassSummaryQuery(cid);
-	const membersQuery = useClassMembersQuery(cid, {
-		role: roleTab,
-		search: debouncedValue || undefined,
-		offset,
-		limit: LIMIT,
-	});
-	const removeOne = useRemoveClassMember(cid);
-	const removeBulk = useRemoveClassMembers(cid);
+	const {
+		data: summary,
+		isError: summaryFailed,
+		error: summaryError,
+		refetch: refetchSummary,
+	} = useClassSummaryQuery(cid);
+
+	const clsSummary = useMemo(
+		() =>
+			Array.isArray(summary) ? summary.find((s) => s.class_id === cid) : undefined,
+		[summary, cid],
+	);
+
+	// 数字参数非法时不要发请求（后端会 422，页面只会显示一个看不懂的错误）
+	if (!Number.isInteger(cid) || cid <= 0) {
+		return (
+			<Container size="lg" p="md">
+				<EmptyState
+					icon={IconAlertTriangle}
+					title="班级参数不合法"
+					description="请从班级管理页选择一个班级后再打开工作台"
+					action={
+						<Button variant="default" onClick={() => navigate("/admin/classes")}>
+							返回班级管理
+						</Button>
+					}
+				/>
+			</Container>
+		);
+	}
 
 	if (clsLoading) return <LoadingSkeleton />;
 	if (isError) {
 		// 404 才是「班级真的没了」；网络/5xx 只是这次没取到，给重试而不是让人以为链接失效
 		const missing = isAxiosError(clsError) && clsError.response?.status === 404;
-		return missing ? (
-			<EmptyState
-				icon={IconAlertTriangle}
-				title="班级不存在"
-				description="该班级可能已被删除，或链接有误"
-				action={
-					<Button variant="default" onClick={() => navigate("/admin/classes")}>
-						返回班级管理
-					</Button>
-				}
-			/>
-		) : (
-			<ErrorState
-				title="班级信息加载失败"
-				error={clsError}
-				onRetry={() => refetchClass()}
-			/>
+		return (
+			<Container size="lg" p="md">
+				{missing ? (
+					<EmptyState
+						icon={IconAlertTriangle}
+						title="班级不存在"
+						description="该班级可能已被删除，或链接有误"
+						action={
+							<Button variant="default" onClick={() => navigate("/admin/classes")}>
+								返回班级管理
+							</Button>
+						}
+					/>
+				) : (
+					<ErrorState title="班级信息加载失败" error={clsError} onRetry={() => refetchClass()} />
+				)}
+			</Container>
 		);
 	}
 	if (!cls) {
 		return (
-			<EmptyState
-				icon={IconAlertTriangle}
-				title="班级不存在"
-				description="该班级可能已被删除，或链接有误"
-				action={
-					<Button variant="default" onClick={() => navigate("/admin/classes")}>
-						返回班级管理
-					</Button>
-				}
-			/>
+			<Container size="lg" p="md">
+				<EmptyState
+					icon={IconAlertTriangle}
+					title="班级不存在"
+					description="该班级可能已被删除，或链接有误"
+					action={
+						<Button variant="default" onClick={() => navigate("/admin/classes")}>
+							返回班级管理
+						</Button>
+					}
+				/>
+			</Container>
 		);
 	}
 
-	const members: ClassMemberItem[] = membersQuery.data?.items ?? [];
-	const total = membersQuery.data?.total ?? 0;
-	const existingIds = new Set(members.map((m) => m.user_id));
-	const clsSummary = Array.isArray(summary)
-		? summary.find((s) => s.class_id === cid)
-		: undefined;
-
 	const switchTab = (value: string | null) => {
-		setRoleTab(value === "teacher" ? "teacher" : "student");
-		setSelectedIds(new Set());
-		setOffset(0);
-	};
-
-	const toggleAll = (checked: boolean) => {
-		setSelectedIds(checked ? new Set(members.map((m) => m.user_id)) : new Set());
-	};
-
-	const handleRemoveOne = async (member: ClassMemberItem) => {
-		const ok = await confirm({
-			title: "移出班级",
-			message: `确定将「${member.display_name}」移出本班吗？其在其他班级的归属不受影响。`,
-			confirmLabel: "确定移出",
-			danger: true,
-		});
-		if (!ok) return;
-		try {
-			await removeOne.mutateAsync(member.user_id);
-			toast.success("已移出班级");
-		} catch (e: unknown) {
-			toast.apiError(e, "移出失败");
-		}
-	};
-
-	const handleRemoveSelected = async () => {
-		const count = selectedIds.size;
-		if (count === 0) return;
-		const ok = await confirm({
-			title: "批量移出班级",
-			message: `确定将选中的 ${count} 名成员移出本班吗？他们在其他班级的归属不受影响。`,
-			confirmLabel: "确定移出",
-			danger: true,
-		});
-		if (!ok) return;
-		try {
-			const result = await removeBulk.mutateAsync([...selectedIds]);
-			toast.success(
-				`已移出 ${result.removed} 人${result.skipped > 0 ? `，${result.skipped} 人不在本班` : ""}`,
-			);
-			setSelectedIds(new Set());
-		} catch (e: unknown) {
-			toast.apiError(e, "批量移出失败");
-		}
+		// 与其它参数写入走同一路径（replaceState），避免一次切换产生两条历史
+		const next = buildTabSearch(searchParams, parseClassTab(value));
+		const tabValue = next.get("tab");
+		setParams([["tab", tabValue ?? ""]]);
 	};
 
 	return (
@@ -189,197 +172,108 @@ export default function ClassDetailPage() {
 			<Stack gap="xl">
 				<PageHeader
 					title={cls.name}
-					subtitle={cls.cohort_label ? `届别：${cls.cohort_label}` : "未标注届别"}
+					subtitle={[cls.school_name, cls.cohort_label ? `届别：${cls.cohort_label}` : "未标注届别"]
+						.filter(Boolean)
+						.join(" · ")}
 					backTo="/admin/classes"
 				/>
 
-				<SimpleGrid cols={{ base: 2, sm: 4 }} spacing="sm">
-					<StatCard icon={IconUser} label="学生数" value={cls.student_count} />
-					<StatCard icon={IconUsers} label="教师数" value={cls.teacher_count} />
-					<StatCard icon={IconMagnet} label="作业数" value={cls.assignment_count} />
-					<StatCard
-						icon={IconTarget}
-						label="训练总数"
-						value={clsSummary?.total_sessions ?? 0}
-					/>
-					<StatCard
-						icon={IconAward}
-						label="平均得分"
-						value={clsSummary?.avg_score != null ? `${clsSummary.avg_score}分` : "--"}
-					/>
-					<StatCard
-						icon={IconTrendingUp}
-						label="完成率"
-						value={clsSummary?.completion_rate != null ? `${clsSummary.completion_rate}%` : "--"}
-					/>
-				</SimpleGrid>
+				{/* 统计只属于概览：成员/作业/记录页签有自己的计数，避免两组数字互相解释不清 */}
+				{tab === "overview" && (
+					<SimpleGrid cols={{ base: 2, sm: 4 }} spacing="sm">
+						<StatCard icon={IconUser} label="学生数" value={cls.student_count} />
+						<StatCard icon={IconUsers} label="教师数" value={cls.teacher_count} />
+						<StatCard icon={IconMagnet} label="作业数" value={cls.assignment_count} />
+						<StatCard icon={IconTarget} label="训练总数" value={summaryFailed ? "—" : (clsSummary?.total_sessions ?? 0)} />
+						<StatCard
+							icon={IconAward}
+							label="平均得分"
+							value={clsSummary?.avg_score != null ? `${clsSummary.avg_score}分` : "--"}
+						/>
+						<StatCard
+							icon={IconTrendingUp}
+							label="完成率"
+							value={clsSummary?.completion_rate != null ? `${clsSummary.completion_rate}%` : "--"}
+						/>
+					</SimpleGrid>
+				)}
 
-				<Card>
-					<CardHeader>
-						<CardTitle>
-							<Group gap={8} wrap="nowrap" justify="space-between" w="100%">
-								<Group gap={8} wrap="nowrap">
-									<IconSchool size={16} />
-									<Text component="span" fw={600} inherit>花名册</Text>
-								</Group>
-								{/* 层级：本页唯一 filled = 添加成员（详情页要把人加进来才用得上，其余都是行内低层操作） */}
-								<Button
-									size="xs"
-									leftSection={<IconUserPlus size={14} />}
-									onClick={() => setShowAddDialog(true)}
-								>
-									添加成员
-								</Button>
-							</Group>
-						</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<Tabs value={roleTab} onChange={switchTab} mb="md">
-							<Tabs.List>
-								<Tabs.Tab value="student">
-									学生（{cls.student_count}）
-								</Tabs.Tab>
-								<Tabs.Tab value="teacher">
-									教师（{cls.teacher_count}）
-								</Tabs.Tab>
-							</Tabs.List>
-						</Tabs>
+				<Tabs value={tab} onChange={switchTab} keepMounted={false}>
+					{/* 窄屏：四个页签允许换行，避免被压扁成不可读的窄条（键盘 Tab 仍逐个可达） */}
+					<Tabs.List style={{ flexWrap: "wrap" }}>
+						<Tabs.Tab value="overview" leftSection={<IconChartPie size={14} />}>
+							{CLASS_TAB_LABEL.overview}
+						</Tabs.Tab>
+						<Tabs.Tab value="members" leftSection={<IconUsers size={14} />}>
+							{CLASS_TAB_LABEL.members}（{cls.student_count + cls.teacher_count}）
+						</Tabs.Tab>
+						<Tabs.Tab value="assignments" leftSection={<IconClipboardList size={14} />}>
+							{CLASS_TAB_LABEL.assignments}（{cls.assignment_count}）
+						</Tabs.Tab>
+						<Tabs.Tab value="records" leftSection={<IconFileText size={14} />}>
+							{CLASS_TAB_LABEL.records}
+						</Tabs.Tab>
+					</Tabs.List>
 
-						<Group gap={8} mb="md" wrap="wrap">
-							<Box maw={320} style={{ flex: 1 }}>
-								<SearchInput
-									value={searchInput}
-									onChange={(value) => {
-										handleSearchChange(value);
-										setOffset(0);
-									}}
-									placeholder="搜索姓名、用户名或学号..."
-								/>
-							</Box>
-							<Text size="sm" c="dimmed">
-								{ROLE_LABEL[roleTab]}共 {membersQuery.isError ? "—" : total} 人
-							</Text>
-							{selectedIds.size > 0 && (
-								<>
-									<Text size="sm" fw={500}>已选 {selectedIds.size} 人</Text>
-									<Button
-										size="xs"
-										color="red"
-										variant="default"
-										onClick={handleRemoveSelected}
-										disabled={removeBulk.isPending}
-									>
-										{removeBulk.isPending ? "移出中…" : "移出班级"}
-									</Button>
-								</>
-							)}
-						</Group>
-
-						{membersQuery.isError ? (
-							/* 先判失败再判空：取数失败时「没有匹配的成员」会让人以为班里真没人（或搜索词写错） */
-							<ErrorState
-								title="花名册加载失败"
-								error={membersQuery.error}
-								onRetry={() => membersQuery.refetch()}
-							/>
-						) : membersQuery.isLoading && members.length === 0 ? (
-							<Center py={48}>
-								<Loader size={24} color="gray" />
-							</Center>
-						) : members.length === 0 ? (
-							<EmptyState
-								icon={IconSchool}
-								title={debouncedValue ? "没有匹配的成员" : `暂无${ROLE_LABEL[roleTab]}`}
-								description={
-									debouncedValue
-										? "换个关键词试试"
-										: "点击右上角「添加成员」把用户加入本班"
-								}
-							/>
+					<Tabs.Panel value="overview" pt="lg">
+						{summaryFailed ? (
+							<ErrorState title="班级统计加载失败" error={summaryError} onRetry={() => refetchSummary()} />
 						) : (
-							<>
-								<Group gap={8} mb={4}>
-									<Checkbox
-										checked={members.length > 0 && members.every((m) => selectedIds.has(m.user_id))}
-										onChange={(e) => toggleAll(e.currentTarget.checked)}
-										aria-label="全选本页成员"
+						<Card>
+							<CardHeader>
+								<CardTitle>班级概况</CardTitle>
+							</CardHeader>
+							<CardContent>
+								<SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+									<StatCard
+										icon={IconTarget}
+										label="累计训练时长"
+										value={
+											clsSummary?.total_minutes != null
+												? `${clsSummary.total_minutes} 分钟`
+												: "--"
+										}
 									/>
-									<Text size="xs" c="dimmed">全选本页</Text>
-								</Group>
-								<Stack gap={8}>
-									{members.map((m) => (
-										<Paper key={m.user_id} p="sm">
-											<Group gap={12} wrap="nowrap" align="flex-start">
-												<Checkbox
-													mt={4}
-													checked={selectedIds.has(m.user_id)}
-													onChange={(e) => {
-														setSelectedIds((prev) => {
-															const next = new Set(prev);
-															if (e.currentTarget.checked) next.add(m.user_id);
-															else next.delete(m.user_id);
-															return next;
-														});
-													}}
-													aria-label={`选择 ${m.display_name}`}
-												/>
-												<ThemeIcon size={36} radius="md" variant="light" color="brand">
-													<IconUser size={16} />
-												</ThemeIcon>
-												<div style={{ minWidth: 0, flex: 1 }}>
-													<Group gap={8} wrap="wrap">
-														<Text size="sm" fw={500}>{m.display_name}</Text>
-														<Text size="xs" c="dimmed">{m.username}</Text>
-														{m.student_id && (
-															<Text size="xs" c="dimmed">学号 {m.student_id}</Text>
-														)}
-														<Badge size="xs" variant={m.member_role === "teacher" ? "light" : "outline"} color={m.member_role === "teacher" ? "grape" : "blue"}>
-															{ROLE_LABEL[m.member_role === "teacher" ? "teacher" : "student"]}
-														</Badge>
-														<Text size="xs" c="dimmed">
-															加入于 {formatJoined(m.joined_at)}
-														</Text>
-													</Group>
-													<Box mt={4}>
-														<MemberAffiliations
-															userId={m.user_id}
-															username={m.username}
-															currentClassId={cid}
-														/>
-													</Box>
-												</div>
-												<Button
-													size="xs"
-													variant="subtle"
-													color="red"
-													onClick={() => handleRemoveOne(m)}
-													disabled={removeOne.isPending}
-												>
-													移出
-												</Button>
-											</Group>
-										</Paper>
-									))}
-								</Stack>
-								<Pagination
-									total={total}
-									offset={offset}
-									limit={LIMIT}
-									onChange={setOffset}
-								/>
-							</>
+									<StatCard
+										icon={IconUsers}
+										label="参与学生数"
+										value={clsSummary?.student_count ?? cls.student_count}
+									/>
+								</SimpleGrid>
+							</CardContent>
+						</Card>
 						)}
-					</CardContent>
-				</Card>
+					</Tabs.Panel>
 
+					<Tabs.Panel value="members" pt="lg">
+						<ClassMembersTab
+							classId={cid}
+							role={memberRole}
+							offset={memberOffset}
+							searchInput={urlMemberSearch}
+							search={memberSearch}
+							onParamsChange={setParams}
+						/>
+					</Tabs.Panel>
+
+					<Tabs.Panel value="assignments" pt="lg">
+						<ClassAssignmentsTab
+							classId={cid}
+							offset={assignmentOffset}
+							onParamsChange={setParams}
+						/>
+					</Tabs.Panel>
+
+					<Tabs.Panel value="records" pt="lg">
+						<ClassRecordsTab
+							classId={cid}
+							offset={recordOffset}
+							status={recordStatus}
+							onParamsChange={setParams}
+						/>
+					</Tabs.Panel>
+				</Tabs>
 			</Stack>
-
-			<AddMembersDialog
-				open={showAddDialog}
-				onClose={() => setShowAddDialog(false)}
-				classId={cid}
-				existingIds={existingIds}
-			/>
 		</Container>
 	);
 }

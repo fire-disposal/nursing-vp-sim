@@ -39,12 +39,12 @@ describe("视角导航过滤", () => {
 		}
 	});
 
-	it("教师：教学 + 教学资源，没有人员 / 运维分组", () => {
+	it("教师：教学 + 教学资源 + 班级，没有运维分组", () => {
 		const groups = groupsOf("teacher");
-		for (const visible of ["teaching", "content"] as const) {
+		for (const visible of ["teaching", "content", "people"] as const) {
 			expect(groups, `教师应看到 ${visible} 分组`).toContain(visible);
 		}
-		expect(groups).not.toContain("people");
+		expect(labelsOf("teacher")).toContain("班级管理");
 		// 运维分组本身不给教师；「系统反馈」靠条目级覆盖单独可见（见下条用例）
 		expect(
 			itemsOf("teacher")
@@ -58,8 +58,8 @@ describe("视角导航过滤", () => {
 		for (const key of ["people", "teaching", "content"] as const) {
 			expect(groups, `管理视角缺少 ${key} 分组`).toContain(key);
 		}
-		// 运维分组：运维 + 平台（只有「系统反馈」被条目级对教师/管理放开）
-		expect(NAV_GROUP_PERSONAS.system).toEqual(["ops", "platform"]);
+		// 运维分组对管理开放，后续权限过滤只保留成本、密钥与系统反馈。
+		expect(NAV_GROUP_PERSONAS.system).toEqual(["admin", "ops", "platform"]);
 	});
 
 	it("运维：只剩运维分组，教学/人员/教学资源一律不可见", () => {
@@ -85,13 +85,13 @@ describe("视角导航过滤", () => {
 	it("条目级 personas 覆盖分组口径（是取代，不是并集）", () => {
 		const feedback = NAV_ITEMS.find((item) => item.label === "系统反馈");
 		expect(feedback?.personas).toEqual(["teacher", "admin", "ops", "platform"]);
-		// 分组本身给运维 + 平台
-		expect(NAV_GROUP_PERSONAS.system).toEqual(["ops", "platform"]);
-		// 运维分组里除覆盖条目外，教师/管理一个都看不到
-		const leaked = itemsOf("admin")
+		// 分组本身给管理 + 运维 + 平台；管理最终只显示其权限允许的成本与密钥。
+		expect(NAV_GROUP_PERSONAS.system).toEqual(["admin", "ops", "platform"]);
+		// 此处只验视角裁剪；院校管理员的权限过滤由导航矩阵测试覆盖。
+		const visible = itemsOf("admin")
 			.filter((item) => item.group === "system" && !item.personas)
 			.map((item) => item.label);
-		expect(leaked).toEqual([]);
+		expect(visible).toEqual(["运维仪表盘", "成本管理", "审计日志", "系统通知", "API 密钥", "版本归因"]);
 	});
 
 	it("平台：人员 / 教学资源 / 运维可见，教学分组不可见", () => {

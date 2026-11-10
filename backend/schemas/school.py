@@ -39,6 +39,39 @@ class SchoolResponse(BaseModel):
     created_at: datetime
 
 
+class SchoolDetailClassItem(BaseModel):
+    """院校详情里的班级条目（只读摘要，点进去是现有的班级详情页）。"""
+
+    model_config = _RESP_CFG
+    id: int
+    name: str
+    cohort_label: str
+    student_count: int = 0
+    teacher_count: int = 0
+    created_at: datetime
+
+
+class SchoolDetailResponse(SchoolResponse):
+    """院校详情：列表字段 + 「进入管理」前要先看清的两件事。
+
+    - 用量与额度：与 `SchoolQuotaModal` 同一数据源（月度 LLM/TTS 账单 + 上限 + 用户默认日额度）
+    - 班级摘要：本院校的班级列表（最多 ``SCHOOL_DETAIL_CLASS_LIMIT`` 个，全量仍在 /admin/classes）
+    """
+
+    #: 本月 LLM/TTS 账单（当前生效院校维度；单位与成本管理一致）
+    llm_used: float = 0.0
+    tts_used: float = 0.0
+    #: 月度上限；0 = 不限
+    llm_monthly_limit: float = 0.0
+    tts_monthly_limit: float = 0.0
+    #: 院校内用户的默认日额度；null = 继承平台默认
+    default_daily_llm_limit: float | None = None
+    default_daily_tts_limit: float | None = None
+    classes: list[SchoolDetailClassItem] = Field(default_factory=list)
+    #: 班级总数（`classes` 只是前若干个）
+    class_total: int = 0
+
+
 class DeleteSchoolResponse(BaseModel):
     model_config = _RESP_CFG
     ok: bool = True

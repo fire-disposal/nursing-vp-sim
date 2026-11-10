@@ -3,7 +3,7 @@ import { Anchor, Badge, Box, Button, Group, Paper, Progress, Select, SimpleGrid,
 import { useQuery } from "@tanstack/react-query";
 import { IconArrowLeft, IconCopy, IconDownload } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import TableScroll from "@/components/ui/table-scroll";
 import { exportAssignment, getAssignment } from "@/api/assignments";
 import { queryKeys } from "@/api/query-keys";
@@ -253,17 +253,16 @@ export default function AssignmentDetailPage() {
 										{s.student_id || "-"}
 									</Table.Td>
 									<Table.Td style={{ fontWeight: 500 }}>
-										{s.record_id != null ? (
-											<Anchor
-												onClick={() => navigate(`/record/${s.record_id}`)}
-												c="blue"
-												size="sm"
-											>
+										<Stack gap={0}>
+											<Anchor component={Link} to={`/admin/students/${s.user_id}`} c="blue" size="sm">
 												{s.display_name}
 											</Anchor>
-										) : (
-											s.display_name
-										)}
+											{s.record_id != null && (
+												<Anchor component={Link} to={`/admin/records/${s.record_id}`} c="dimmed" size="xs">
+													查看本次训练
+												</Anchor>
+											)}
+										</Stack>
 									</Table.Td>
 									<Table.Td>{statusBadge(s.status)}</Table.Td>
 									<Table.Td style={{ fontSize: 12, color: "var(--mantine-color-dimmed)" }}>{s.attempt_count > 0 ? s.attempt_count : "-"}</Table.Td>

@@ -9,6 +9,7 @@ import {
 import { queryKeys } from "@/api/query-keys";
 import TableScroll from "@/components/ui/table-scroll";
 import EmptyState from "@/components/ui/empty-state";
+import ErrorState from "@/components/ui/error-state";
 import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
@@ -47,7 +48,7 @@ export default function VersionsPage() {
 	const [by, setBy] = useState<AttributionDimension>("prompt");
 	const [windowDays, setWindowDays] = useState(DEFAULT_WINDOW);
 
-	const { data, isLoading } = useQuery({
+	const { data, isLoading, isError, error, refetch } = useQuery({
 		queryKey: queryKeys.versions.attribution(by, Number(windowDays)),
 		queryFn: () => getVersionAttribution({ by, window_days: Number(windowDays) }).then((r) => r.data),
 		staleTime: 60_000,
@@ -97,6 +98,8 @@ export default function VersionsPage() {
 
 			{isLoading ? (
 				<LoadingSkeleton variant="card" />
+			) : isError ? (
+				<ErrorState title="版本归因加载失败" error={error} onRetry={() => refetch()} />
 			) : items.length === 0 ? (
 				<EmptyState title="该窗口内没有记录" description="换一个时间窗口，或等训练产生数据后再看。" />
 			) : (

@@ -2645,6 +2645,69 @@
       }
     },
     "/api/admin/schools/{school_id}": {
+      "get": {
+        "tags": [
+          "管理",
+          "院校管理"
+        ],
+        "summary": "Get School",
+        "description": "院校详情（品牌 + 账号/班级计数 + 用量额度 + 班级摘要）。\n\n`school_manage` 是跨院校权限，但**工作视图收窄时不行**：带 `X-School-Scope` 看别人的\n院校一律 404（服务层判定，见 `SchoolService.detail`）。",
+        "operationId": "get_school_api_admin_schools__school_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "school_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "School Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchoolDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
       "put": {
         "tags": [
           "管理",
@@ -4724,6 +4787,54 @@
             "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/api/students/assignments/{assignment_id}": {
+      "get": {
+        "tags": [
+          "学生练习"
+        ],
+        "summary": "Get Student Assignment",
+        "description": "学生作业详情。\n\n刻意**不走** ``assignment_manage`` 权限：那是教师发布/编辑作业的门，\n学生看自己被布置的作业不该借用它。可见性由 ``StudentService.get_assignment``\n按成员关系 + 受众快照判定，越界一律 404。",
+        "operationId": "get_student_assignment_api_students_assignments__assignment_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "assignment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Assignment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentAssignmentDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/auth/login": {
@@ -8163,6 +8274,61 @@
             }
           },
           {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "提交状态：completed / pending",
+              "title": "Status"
+            },
+            "description": "提交状态：completed / pending"
+          },
+          {
+            "name": "trigger_event",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "触发时点：before_training / after_scoring",
+              "title": "Trigger Event"
+            },
+            "description": "触发时点：before_training / after_scoring"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 50
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "学生姓名模糊搜索",
+              "title": "Search"
+            },
+            "description": "学生姓名模糊搜索"
+          },
+          {
             "name": "X-School-Scope",
             "in": "header",
             "required": false,
@@ -8186,6 +8352,79 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PaginatedResponse_QuestionnaireResponseItem_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/questionnaires/responses/{template_id}/{response_id}": {
+      "get": {
+        "tags": [
+          "问卷"
+        ],
+        "summary": "Get Response",
+        "description": "单份答卷详情；不属于本校/本人名下学生的答卷一律 404。",
+        "operationId": "get_response_api_questionnaires_responses__template_id___response_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Template Id"
+            }
+          },
+          {
+            "name": "response_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Response Id"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionnaireResponseItem"
                 }
               }
             }
@@ -8748,6 +8987,195 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/StudentTrendResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scoreboard/students/{user_id}/profile": {
+      "get": {
+        "tags": [
+          "成绩管理"
+        ],
+        "summary": "Student Learning Profile",
+        "description": "教师视角的单个学生学习档案：身份 + 趋势 + 作业 + 训练记录。\n\n权限是 ``assignment_manage``（与成绩管理同一道门），**不要求** ``user_manage``：\n教学侧看的是这个人的训练与作业，不是账号管理面，所以响应里也没有账号/安全字段。\n目标学生必须在本作用域内，跨院校/非任教班一律 404。",
+        "operationId": "student_learning_profile_api_scoreboard_students__user_id__profile_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "case_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "病例范围，缺省=全部病例",
+              "title": "Case Id"
+            },
+            "description": "病例范围，缺省=全部病例"
+          },
+          {
+            "name": "class_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "班级筛选；只能指向作用域内的班级，否则 404",
+              "title": "Class Id"
+            },
+            "description": "班级筛选；只能指向作用域内的班级，否则 404"
+          },
+          {
+            "name": "assignment_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "指定作业",
+              "title": "Assignment Id"
+            },
+            "description": "指定作业"
+          },
+          {
+            "name": "assignment_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "作业状态限定：active|ended",
+              "title": "Assignment Status"
+            },
+            "description": "作业状态限定：active|ended"
+          },
+          {
+            "name": "include_free",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "是否纳入自主训练（无作业关联）记录",
+              "default": false,
+              "title": "Include Free"
+            },
+            "description": "是否纳入自主训练（无作业关联）记录"
+          },
+          {
+            "name": "training_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "训练记录页签的状态筛选：in_progress|completed|abandoned|discarded",
+              "title": "Training Status"
+            },
+            "description": "训练记录页签的状态筛选：in_progress|completed|abandoned|discarded"
+          },
+          {
+            "name": "training_offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Training Offset"
+            }
+          },
+          {
+            "name": "training_limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 20,
+              "title": "Training Limit"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentLearningProfileResponse"
                 }
               }
             }
@@ -15228,6 +15656,11 @@
             "title": "Question Type",
             "default": ""
           },
+          "required": {
+            "type": "boolean",
+            "title": "Required",
+            "default": true
+          },
           "options": {
             "anyOf": [
               {
@@ -15533,6 +15966,17 @@
             ],
             "title": "Case Id"
           },
+          "case_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Name"
+          },
           "record_id": {
             "anyOf": [
               {
@@ -15547,6 +15991,11 @@
           "status": {
             "type": "string",
             "title": "Status"
+          },
+          "trigger_event": {
+            "type": "string",
+            "title": "Trigger Event",
+            "default": "before_training"
           },
           "answers": {
             "items": {
@@ -16234,6 +16683,168 @@
           "name"
         ],
         "title": "SchoolCreate"
+      },
+      "SchoolDetailClassItem": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "cohort_label": {
+            "type": "string",
+            "title": "Cohort Label"
+          },
+          "student_count": {
+            "type": "integer",
+            "title": "Student Count",
+            "default": 0
+          },
+          "teacher_count": {
+            "type": "integer",
+            "title": "Teacher Count",
+            "default": 0
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "cohort_label",
+          "created_at"
+        ],
+        "title": "SchoolDetailClassItem",
+        "description": "院校详情里的班级条目（只读摘要，点进去是现有的班级详情页）。"
+      },
+      "SchoolDetailResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "class_count": {
+            "type": "integer",
+            "title": "Class Count",
+            "default": 0
+          },
+          "user_count": {
+            "type": "integer",
+            "title": "User Count",
+            "default": 0
+          },
+          "admin_count": {
+            "type": "integer",
+            "title": "Admin Count",
+            "default": 0
+          },
+          "theme_color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Theme Color"
+          },
+          "has_logo": {
+            "type": "boolean",
+            "title": "Has Logo",
+            "default": false
+          },
+          "logo_updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Updated At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "llm_used": {
+            "type": "number",
+            "title": "Llm Used",
+            "default": 0.0
+          },
+          "tts_used": {
+            "type": "number",
+            "title": "Tts Used",
+            "default": 0.0
+          },
+          "llm_monthly_limit": {
+            "type": "number",
+            "title": "Llm Monthly Limit",
+            "default": 0.0
+          },
+          "tts_monthly_limit": {
+            "type": "number",
+            "title": "Tts Monthly Limit",
+            "default": 0.0
+          },
+          "default_daily_llm_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Daily Llm Limit"
+          },
+          "default_daily_tts_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Daily Tts Limit"
+          },
+          "classes": {
+            "items": {
+              "$ref": "#/components/schemas/SchoolDetailClassItem"
+            },
+            "type": "array",
+            "title": "Classes"
+          },
+          "class_total": {
+            "type": "integer",
+            "title": "Class Total",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "created_at"
+        ],
+        "title": "SchoolDetailResponse",
+        "description": "院校详情：列表字段 + 「进入管理」前要先看清的两件事。\n\n- 用量与额度：与 `SchoolQuotaModal` 同一数据源（月度 LLM/TTS 账单 + 上限 + 用户默认日额度）\n- 班级摘要：本院校的班级列表（最多 ``SCHOOL_DETAIL_CLASS_LIMIT`` 个，全量仍在 /admin/classes）"
       },
       "SchoolResponse": {
         "properties": {
@@ -17274,6 +17885,238 @@
         "title": "StartPracticeRequest",
         "description": "复盘后的再练习请求：同例纠正 / 迁移变式。\n\n目标病例由**服务端**按源记录与病例家族解析，请求体只表达意图，不能指定 case_id。"
       },
+      "StudentAssignmentAttempt": {
+        "properties": {
+          "record_id": {
+            "type": "integer",
+            "title": "Record Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "scoring_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scoring Status"
+          },
+          "score_total": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score Total"
+          },
+          "is_overdue": {
+            "type": "boolean",
+            "title": "Is Overdue",
+            "default": false
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          }
+        },
+        "type": "object",
+        "required": [
+          "record_id",
+          "status"
+        ],
+        "title": "StudentAssignmentAttempt",
+        "description": "学生本人某次作业尝试 —— 只披露学生自己会用来复盘/续练的字段。\n\n刻意不含病例名以外的教学内容、诊断、评分明细：尝试列表是「我考了几次」，\n不是成绩单（分数只有在 ``scoring_status == completed`` 时才有值）。"
+      },
+      "StudentAssignmentDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "case_id": {
+            "type": "integer",
+            "title": "Case Id"
+          },
+          "case_name": {
+            "type": "string",
+            "title": "Case Name",
+            "default": ""
+          },
+          "hide_case_info": {
+            "type": "boolean",
+            "title": "Hide Case Info",
+            "default": false
+          },
+          "class_id": {
+            "type": "integer",
+            "title": "Class Id"
+          },
+          "class_name": {
+            "type": "string",
+            "title": "Class Name",
+            "default": ""
+          },
+          "teacher_name": {
+            "type": "string",
+            "title": "Teacher Name",
+            "default": ""
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start Time"
+          },
+          "end_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End Time"
+          },
+          "lifecycle": {
+            "type": "string",
+            "title": "Lifecycle",
+            "default": "active"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "not_started"
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode",
+            "default": ""
+          },
+          "max_attempts": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Attempts"
+          },
+          "attempt_count": {
+            "type": "integer",
+            "title": "Attempt Count",
+            "default": 0
+          },
+          "remaining_attempts": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Attempts"
+          },
+          "record_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Id"
+          },
+          "attempts": {
+            "items": {
+              "$ref": "#/components/schemas/StudentAssignmentAttempt"
+            },
+            "type": "array",
+            "title": "Attempts"
+          },
+          "time_limit_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Limit Minutes"
+          },
+          "required_activities": {
+            "items": {
+              "$ref": "#/components/schemas/StudentRequiredActivity"
+            },
+            "type": "array",
+            "title": "Required Activities"
+          },
+          "required_artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/StudentRequiredArtifact"
+            },
+            "type": "array",
+            "title": "Required Artifacts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "case_id",
+          "class_id",
+          "start_time",
+          "end_time",
+          "remaining_attempts",
+          "record_id",
+          "attempts",
+          "required_activities",
+          "required_artifacts"
+        ],
+        "title": "StudentAssignmentDetail",
+        "description": "学生作业详情 —— 单页展示作业要求 + 本人全部尝试所需的全部字段。\n\n与学生列表卡片共用同一套进度推导（``modules.assignments.progress``）；\n额外给出 ``lifecycle``（active/ended/closed）以便页面区分「还能开始/只能看历史」。"
+      },
       "StudentAssignmentItem": {
         "properties": {
           "id": {
@@ -17489,6 +18332,416 @@
         ],
         "title": "StudentDetail"
       },
+      "StudentLearningProfileResponse": {
+        "properties": {
+          "student": {
+            "$ref": "#/components/schemas/StudentProfileIdentity"
+          },
+          "trend": {
+            "$ref": "#/components/schemas/StudentTrendResponse"
+          },
+          "assignments": {
+            "items": {
+              "$ref": "#/components/schemas/StudentProfileAssignmentItem"
+            },
+            "type": "array",
+            "title": "Assignments"
+          },
+          "training": {
+            "items": {
+              "$ref": "#/components/schemas/StudentProfileTrainingItem"
+            },
+            "type": "array",
+            "title": "Training"
+          },
+          "training_total": {
+            "type": "integer",
+            "title": "Training Total",
+            "default": 0
+          },
+          "training_summary": {
+            "$ref": "#/components/schemas/StudentProfileTrainingSummary"
+          },
+          "training_offset": {
+            "type": "integer",
+            "title": "Training Offset",
+            "default": 0
+          },
+          "training_limit": {
+            "type": "integer",
+            "title": "Training Limit",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "student",
+          "trend",
+          "assignments",
+          "training",
+          "training_summary"
+        ],
+        "title": "StudentLearningProfileResponse",
+        "description": "教师视角的单个学生学习档案。\n\n三块数据各有唯一的既有口径，本响应只做聚合、不新造判断：\n\n- ``trend``：与 ``GET /scoreboard/students/{id}/trend`` **同一份**服务与筛选范围，\n  可比性/进步幅度由服务端判定，前端不复制；\n- ``assignments``：与教师端作业详情同一份进度推导；\n- ``training``：与教师记录列表同一份成绩口径（复核分优先、兜底分排除）。"
+      },
+      "StudentProfileAssignmentItem": {
+        "properties": {
+          "assignment_id": {
+            "type": "string",
+            "title": "Assignment Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "case_id": {
+            "type": "integer",
+            "title": "Case Id"
+          },
+          "case_name": {
+            "type": "string",
+            "title": "Case Name",
+            "default": ""
+          },
+          "class_id": {
+            "type": "integer",
+            "title": "Class Id"
+          },
+          "class_name": {
+            "type": "string",
+            "title": "Class Name",
+            "default": ""
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start Time"
+          },
+          "end_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End Time"
+          },
+          "lifecycle": {
+            "type": "string",
+            "title": "Lifecycle",
+            "default": "active"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "not_started"
+          },
+          "attempt_count": {
+            "type": "integer",
+            "title": "Attempt Count",
+            "default": 0
+          },
+          "max_attempts": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Attempts"
+          },
+          "record_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Id"
+          },
+          "score_total": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score Total"
+          },
+          "scoring_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scoring Status"
+          },
+          "is_overdue": {
+            "type": "boolean",
+            "title": "Is Overdue",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "assignment_id",
+          "title",
+          "case_id",
+          "class_id",
+          "start_time",
+          "end_time"
+        ],
+        "title": "StudentProfileAssignmentItem",
+        "description": "该生在某次作业里的进度。\n\n口径与教师端作业详情、学生端作业列表**同一份**推导\n（``modules.assignments.progress``）：代表记录 = 作业进度与分数的唯一来源，\n尝试次数排除进行中/已放弃/已丢弃。"
+      },
+      "StudentProfileClass": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "cohort_label": {
+            "type": "string",
+            "title": "Cohort Label",
+            "default": ""
+          },
+          "school_id": {
+            "type": "integer",
+            "title": "School Id",
+            "default": 0
+          },
+          "school_name": {
+            "type": "string",
+            "title": "School Name",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "StudentProfileClass",
+        "description": "学生所属班级（报名册口径：``member_role='student'`` 的成员关系）。"
+      },
+      "StudentProfileIdentity": {
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "student_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "classes": {
+            "items": {
+              "$ref": "#/components/schemas/StudentProfileClass"
+            },
+            "type": "array",
+            "title": "Classes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "display_name",
+          "username",
+          "classes"
+        ],
+        "title": "StudentProfileIdentity",
+        "description": "档案头部身份块 —— 只含教师工作所需的展示字段。"
+      },
+      "StudentProfileTrainingItem": {
+        "properties": {
+          "record_id": {
+            "type": "integer",
+            "title": "Record Id"
+          },
+          "case_id": {
+            "type": "integer",
+            "title": "Case Id"
+          },
+          "case_name": {
+            "type": "string",
+            "title": "Case Name",
+            "default": ""
+          },
+          "assignment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignment Id"
+          },
+          "assignment_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignment Title"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "scoring_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scoring Status"
+          },
+          "score_reviewed": {
+            "type": "boolean",
+            "title": "Score Reviewed",
+            "default": false
+          },
+          "score_total": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score Total"
+          },
+          "score_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score Source"
+          },
+          "score_degraded": {
+            "type": "boolean",
+            "title": "Score Degraded",
+            "default": false
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start Time"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "duration_seconds": {
+            "type": "integer",
+            "title": "Duration Seconds",
+            "default": 0
+          },
+          "is_student_practice": {
+            "type": "boolean",
+            "title": "Is Student Practice",
+            "default": true
+          },
+          "is_overdue": {
+            "type": "boolean",
+            "title": "Is Overdue",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "record_id",
+          "case_id",
+          "status",
+          "start_time"
+        ],
+        "title": "StudentProfileTrainingItem",
+        "description": "一条训练记录（档案「训练记录」页签的列表行，字段与教师记录列表同源）。"
+      },
+      "StudentProfileTrainingSummary": {
+        "properties": {
+          "completed": {
+            "type": "integer",
+            "title": "Completed",
+            "default": 0
+          },
+          "scored": {
+            "type": "integer",
+            "title": "Scored",
+            "default": 0
+          },
+          "avg_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Score"
+          },
+          "avg_duration_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Duration Seconds"
+          }
+        },
+        "type": "object",
+        "title": "StudentProfileTrainingSummary",
+        "description": "训练记录页签的集合统计（与列表同一套筛选，故与 ``training_total`` 同源）。"
+      },
       "StudentRecentRecord": {
         "properties": {
           "id": {
@@ -17613,6 +18866,44 @@
         ],
         "title": "StudentRecentRecord",
         "description": "学生详情页最近训练记录项（TrainingRecordBrief 子集）"
+      },
+      "StudentRequiredActivity": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "StudentRequiredActivity",
+        "description": "学生可见的「本次要做什么」—— 只含公开标签。\n\n标签来源是 Activity 登记表（``ACTIVITY_BINDINGS[*].label``），不新建映射表；\n刻意**不含** config / evidence_kind / 内部判定条件。"
+      },
+      "StudentRequiredArtifact": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "label"
+        ],
+        "title": "StudentRequiredArtifact",
+        "description": "学生可见的必交产物 —— 只含可公开的标签与 id。\n\n不含提交判定细节、评分细则或病例 hidden_info。"
       },
       "StudentTrendRecord": {
         "properties": {

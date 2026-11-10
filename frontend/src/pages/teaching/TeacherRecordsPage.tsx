@@ -7,7 +7,7 @@ import {
 import ErrorDisplay from "@/components/ui/error-display";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { type CSSProperties, useCallback, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { getCases, getRecords } from "@/api";
 import type { GetRecordsParams } from "@/api";
 import { Checkbox } from "@mantine/core";
@@ -337,7 +337,11 @@ export default function TeacherRecordsPage() {
 									const durMins = recordDurationMinutes(r);
 									return (
 										<Table.Tr key={r.id}>
-											<Table.Td style={{ whiteSpace: "nowrap" }}>{r.user_display_name}</Table.Td>
+											<Table.Td style={{ whiteSpace: "nowrap" }}>
+												<Text component={Link} to={`/admin/students/${r.user_id}`} size="sm" fw={500} c="brand">
+													{r.user_display_name}
+												</Text>
+											</Table.Td>
 											<Table.Td style={{ color: "var(--mantine-color-dimmed)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
 												{r.user_student_id ?? ""}
 											</Table.Td>

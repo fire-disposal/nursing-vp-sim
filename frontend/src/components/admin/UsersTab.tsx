@@ -3,8 +3,9 @@ import {ActionBar, Button, Center,
 import { IconPlus, IconUpload, IconUsers } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { removeClassMembers } from "@/api";
-import { bulkAssignClass, previewBatchUsers, updateUser } from "@/api/admin/users";
+import { bulkAssignClass, updateUser } from "@/api/admin/users";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import type { UserListFilterParams } from "@/api/query-params";
@@ -28,9 +29,7 @@ import { useSchoolsQuery } from "@/hooks/useSchools";
 import useAuthStore from "@/stores/authStore";
 import { useSchoolScopeStore } from "@/stores/schoolScopeStore";
 import { getApiErrorMessage } from "@/utils/error";
-import BatchImport from "./users/BatchImport";
 import type {
-	BatchUser,
 	EditUserFormValues,
 	MembershipDraft,
 	RegisterPayload,
@@ -41,7 +40,6 @@ import type {
 import UserForm from "./users/UserForm";
 import { usePersonasQuery, useUserList } from "./users/useUserList";
 import {
-	useBatchCreateUsersMutation,
 	useDeleteUserMutation,
 	useRegisterMutation,
 	useUpdateUserMutation,
@@ -92,7 +90,6 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	);
 	const [showUserForm, setShowUserForm] = useState(false);
 	const [editingUser, setEditingUser] = useState<UserBrief | null>(null);
-	const [showBatchImport, setShowBatchImport] = useState(false);
 	const [regMsg, setRegMsg] = useState("");
 	const [editUserMsg, setEditUserMsg] = useState("");
 	const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -157,7 +154,6 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	const registerMutation = useRegisterMutation();
 	const updateMutation = useUpdateUserMutation();
 	const deleteMutation = useDeleteUserMutation();
-	const batchImportMutation = useBatchCreateUsersMutation();
 
 	const users = userData?.items ?? [];
 	const total = userData?.total ?? 0;
@@ -407,9 +403,6 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 	const [quotaUser, setQuotaUser] = useState<UserBrief | null>(null);
 	const [schoolPersonasUser, setSchoolPersonasUser] = useState<UserBrief | null>(null);
 
-	const handleBatchImport = (usersToImport: BatchUser[]) =>
-		batchImportMutation.mutateAsync(usersToImport);
-
 	const handleResetPassword = async (password: string) => {
 		if (!editingUser) return;
 		const ok = await confirm({
@@ -443,7 +436,14 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 						actions={
 							<Group gap={8}>
 								<ExportButton endpoint="/admin/export" filename="用户列表" params={listExportParams} />
-								<Button variant="default" leftSection={<IconUpload size={16} />} onClick={() => setShowBatchImport(true)}>
+								{/* 批量导入是独立页（宽表与逐行预检结果需要整页高度）：真链接，
+								    可中键新标签打开、可复制地址，不再是一个弹窗开关。 */}
+								<Button
+									component={Link}
+									to="/admin/users/import"
+									variant="default"
+									leftSection={<IconUpload size={16} />}
+								>
 									批量导入
 								</Button>
 								<Button leftSection={<IconPlus size={16} />} onClick={openCreateUser}>
@@ -599,14 +599,6 @@ export default function UsersTab({ currentUserId }: UsersTabProps) {
 				editUserMsg={editUserMsg}
 				isSaving={updateMutation.isPending}
 				dirtyRef={userFormDirtyRef}
-			/>
-
-			<BatchImport
-				open={showBatchImport}
-				onClose={() => setShowBatchImport(false)}
-				classes={classes}
-				onImport={handleBatchImport}
-				onPreview={(users) => previewBatchUsers(users).then((r) => r.data)}
 			/>
 
 			{resetPasswordDialog && (

@@ -4,7 +4,9 @@ from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Annotated
 
+from fastapi import Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
@@ -174,12 +176,40 @@ def count_pending_required(db: Session, user_id: int, case_id: int) -> int:
 
 
 @dataclass
+class QuestionnaireResponseFilters:
+    """答卷列表的筛选（唯一事实来源，`Depends()` 注入）。
+
+    只暴露已有字段能支撑的维度：提交状态、触发时点、是否关联训练记录、学生关键字。
+    「触发时点」不落库，由 ``record_id`` 推导（见 ``_trigger_event``），与提交侧
+    （``submit`` 里 ``record_id is None → before_training``）同一口径。
+    """
+
+    status: Annotated[str | None, Query(description="提交状态：completed / pending")] = None
+    trigger_event: Annotated[str | None, Query(description="触发时点：before_training / after_scoring")] = None
+    search: Annotated[str | None, Query(max_length=50, description="学生姓名模糊搜索")] = None
+
+
+def _trigger_event(record_id: int | None) -> str:
+    """答卷的触发时点：有训练记录 = 评分后，无记录 = 训练前。
+
+    与 ``QuestionnaireResponseService.submit`` 写入侧的判定同源；DB 里没有这一列，
+    也不打算加——它是 ``record_id`` 的函数，存一份就有两份真相。
+    """
+    return (
+        QuestionnaireTrigger.AFTER_SCORING.value
+        if record_id is not None
+        else QuestionnaireTrigger.BEFORE_TRAINING.value
+    )
+
+
+@dataclass
 class AnswerView:
     question_id: int
     question_content: str
     question_type: str
     options: list[str] | None = None
     answer_value: str | None = None
+    required: bool = True
 
 
 @dataclass
@@ -190,8 +220,10 @@ class ResponseView:
     user_id: int
     user_name: str
     case_id: int | None
+    case_name: str | None
     record_id: int | None
     status: str
+    trigger_event: str
     answers: list[AnswerView]
     completed_at: datetime | None
     created_at: datetime
@@ -240,13 +272,41 @@ class QuestionnaireResponseService:
             q = q.filter(QuestionnaireResponse.record_id == record_id)
         return q.first()
 
-    def _list_by_template(self, template_id: int, offset: int, limit: int) -> tuple[list[QuestionnaireResponse], int]:
+    def _list_by_template(
+        self,
+        template_id: int,
+        offset: int,
+        limit: int,
+        filters: "QuestionnaireResponseFilters | None" = None,
+    ) -> tuple[list[QuestionnaireResponse], int]:
         q = (
             self.db.query(QuestionnaireResponse)
-            .options(joinedload(QuestionnaireResponse.template), joinedload(QuestionnaireResponse.user))
-            .filter(QuestionnaireResponse.template_id == template_id, QuestionnaireResponse.status == "completed")
+            .options(
+                joinedload(QuestionnaireResponse.template),
+                joinedload(QuestionnaireResponse.user),
+                joinedload(QuestionnaireResponse.case),
+            )
+            .filter(QuestionnaireResponse.template_id == template_id)
             .order_by(QuestionnaireResponse.created_at.desc())
         )
+        if filters is not None:
+            # 显式 status 说了算；不传时沿用「只列已提交」的默认口径（答卷池的既有语义）
+            if filters.status:
+                q = q.filter(QuestionnaireResponse.status == filters.status)
+            else:
+                q = q.filter(QuestionnaireResponse.status == "completed")
+            if filters.trigger_event == QuestionnaireTrigger.AFTER_SCORING.value:
+                q = q.filter(QuestionnaireResponse.record_id.isnot(None))
+            elif filters.trigger_event == QuestionnaireTrigger.BEFORE_TRAINING.value:
+                q = q.filter(QuestionnaireResponse.record_id.is_(None))
+            if filters.search:
+                # 用子查询而不是再 JOIN 一次 users：``_scoped`` 已经按院校 JOIN 过 users，
+                # 第二次 JOIN 会让 PostgreSQL 报 DuplicateAlias。
+                q = q.filter(
+                    QuestionnaireResponse.user_id.in_(
+                        select(User.id).where(User.display_name.ilike(f"%{filters.search}%"))
+                    )
+                )
         return paginate(self._scoped(q), offset, limit)
 
     def _delete_answers(self, response_id: int) -> None:
@@ -316,8 +376,10 @@ class QuestionnaireResponseService:
             user_id=response.user_id,
             user_name=response.user.display_name if response.user else "",
             case_id=response.case_id,
+            case_name=response.case.name if response.case else None,
             record_id=response.record_id,
             status=response.status,
+            trigger_event=_trigger_event(response.record_id),
             answers=[
                 AnswerView(
                     question_id=a.question_id,
@@ -325,6 +387,7 @@ class QuestionnaireResponseService:
                     question_type=q_map[a.question_id].question_type if a.question_id in q_map else "",
                     options=q_map[a.question_id].options if a.question_id in q_map else None,
                     answer_value=a.answer_value,
+                    required=q_map[a.question_id].required if a.question_id in q_map else True,
                 )
                 for a in answers
             ],
@@ -465,18 +528,50 @@ class QuestionnaireResponseService:
         self.db.refresh(response)
         return self._build_response_item(response)
 
-    def list_responses(self, template_id: int, offset: int, limit: int) -> tuple[list[ResponseView], int]:
+    def list_responses(
+        self,
+        template_id: int,
+        offset: int,
+        limit: int,
+        filters: "QuestionnaireResponseFilters | None" = None,
+    ) -> tuple[list[ResponseView], int]:
         t = self._get_template(template_id)
         if not t:
             raise NotFoundError("问卷模板不存在")
 
-        rows, total = self._list_by_template(template_id, offset, limit)
+        rows, total = self._list_by_template(template_id, offset, limit, filters)
         response_ids = [r.id for r in rows]
         template_ids = [template_id]
         answers_map = self._load_answers(response_ids)
         questions_map = self._load_questions(template_ids)
         items = [self._build_response_item(r, answers_map, questions_map) for r in rows]
         return items, total
+
+    def get_response(self, template_id: int, response_id: int) -> ResponseView:
+        """单份答卷详情。
+
+        越权一律 ``NotFoundError``（404）而不是 403：既不泄露"这份答卷存在",
+        也和后端其它按归属收窄的详情端点同一口径。模板也必须对得上，
+        否则 ``/templates/1/responses/<他人的答卷 id>`` 就能读到他处的答卷。
+        """
+        if self._get_template(template_id) is None:
+            raise NotFoundError("问卷模板不存在")
+
+        response = self._scoped(
+            self.db.query(QuestionnaireResponse)
+            .options(
+                joinedload(QuestionnaireResponse.template),
+                joinedload(QuestionnaireResponse.user),
+                joinedload(QuestionnaireResponse.case),
+            )
+            .filter(
+                QuestionnaireResponse.id == response_id,
+                QuestionnaireResponse.template_id == template_id,
+            )
+        ).first()
+        if response is None:
+            raise NotFoundError("答卷不存在")
+        return self._build_response_item(response)
 
     def get_stats(self, template_id: int) -> QuestionnaireStatsResponse:
         t = self._get_template(template_id)

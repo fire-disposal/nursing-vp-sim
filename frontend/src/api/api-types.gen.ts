@@ -495,7 +495,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Get School
+         * @description 院校详情（品牌 + 账号/班级计数 + 用量额度 + 班级摘要）。
+         *
+         *     `school_manage` 是跨院校权限，但**工作视图收窄时不行**：带 `X-School-Scope` 看别人的
+         *     院校一律 404（服务层判定，见 `SchoolService.detail`）。
+         */
+        get: operations["get_school_api_admin_schools__school_id__get"];
         /** Update School */
         put: operations["update_school_api_admin_schools__school_id__put"];
         post?: never;
@@ -881,6 +888,30 @@ export interface paths {
         };
         /** List Student Assignments */
         get: operations["list_student_assignments_api_students_assignments_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/students/assignments/{assignment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Student Assignment
+         * @description 学生作业详情。
+         *
+         *     刻意**不走** ``assignment_manage`` 权限：那是教师发布/编辑作业的门，
+         *     学生看自己被布置的作业不该借用它。可见性由 ``StudentService.get_assignment``
+         *     按成员关系 + 受众快照判定，越界一律 404。
+         */
+        get: operations["get_student_assignment_api_students_assignments__assignment_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1747,6 +1778,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/questionnaires/responses/{template_id}/{response_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Response
+         * @description 单份答卷详情；不属于本校/本人名下学生的答卷一律 404。
+         */
+        get: operations["get_response_api_questionnaires_responses__template_id___response_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/questionnaires/responses/{template_id}/stats": {
         parameters: {
             query?: never;
@@ -1846,6 +1897,30 @@ export interface paths {
         };
         /** Student Trend */
         get: operations["student_trend_api_scoreboard_students__user_id__trend_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scoreboard/students/{user_id}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Student Learning Profile
+         * @description 教师视角的单个学生学习档案：身份 + 趋势 + 作业 + 训练记录。
+         *
+         *     权限是 ``assignment_manage``（与成绩管理同一道门），**不要求** ``user_manage``：
+         *     教学侧看的是这个人的训练与作业，不是账号管理面，所以响应里也没有账号/安全字段。
+         *     目标学生必须在本作用域内，跨院校/非任教班一律 404。
+         */
+        get: operations["student_learning_profile_api_scoreboard_students__user_id__profile_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4326,6 +4401,11 @@ export interface components {
              * @default
              */
             question_type: string;
+            /**
+             * Required
+             * @default true
+             */
+            required: boolean;
             /** Options */
             options?: string[] | null;
             /** Answer Value */
@@ -4438,10 +4518,17 @@ export interface components {
             user_name: string;
             /** Case Id */
             case_id?: number | null;
+            /** Case Name */
+            case_name?: string | null;
             /** Record Id */
             record_id?: number | null;
             /** Status */
             status: string;
+            /**
+             * Trigger Event
+             * @default before_training
+             */
+            trigger_event: string;
             /**
              * Answers
              * @default []
@@ -4725,6 +4812,106 @@ export interface components {
              * @description 主题色调色板键；空串 = 清除
              */
             theme_color?: string | null;
+        };
+        /**
+         * SchoolDetailClassItem
+         * @description 院校详情里的班级条目（只读摘要，点进去是现有的班级详情页）。
+         */
+        SchoolDetailClassItem: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Cohort Label */
+            cohort_label: string;
+            /**
+             * Student Count
+             * @default 0
+             */
+            student_count: number;
+            /**
+             * Teacher Count
+             * @default 0
+             */
+            teacher_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * SchoolDetailResponse
+         * @description 院校详情：列表字段 + 「进入管理」前要先看清的两件事。
+         *
+         *     - 用量与额度：与 `SchoolQuotaModal` 同一数据源（月度 LLM/TTS 账单 + 上限 + 用户默认日额度）
+         *     - 班级摘要：本院校的班级列表（最多 ``SCHOOL_DETAIL_CLASS_LIMIT`` 个，全量仍在 /admin/classes）
+         */
+        SchoolDetailResponse: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /**
+             * Class Count
+             * @default 0
+             */
+            class_count: number;
+            /**
+             * User Count
+             * @default 0
+             */
+            user_count: number;
+            /**
+             * Admin Count
+             * @default 0
+             */
+            admin_count: number;
+            /** Theme Color */
+            theme_color?: string | null;
+            /**
+             * Has Logo
+             * @default false
+             */
+            has_logo: boolean;
+            /** Logo Updated At */
+            logo_updated_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Llm Used
+             * @default 0
+             */
+            llm_used: number;
+            /**
+             * Tts Used
+             * @default 0
+             */
+            tts_used: number;
+            /**
+             * Llm Monthly Limit
+             * @default 0
+             */
+            llm_monthly_limit: number;
+            /**
+             * Tts Monthly Limit
+             * @default 0
+             */
+            tts_monthly_limit: number;
+            /** Default Daily Llm Limit */
+            default_daily_llm_limit?: number | null;
+            /** Default Daily Tts Limit */
+            default_daily_tts_limit?: number | null;
+            /** Classes */
+            classes?: components["schemas"]["SchoolDetailClassItem"][];
+            /**
+             * Class Total
+             * @default 0
+             */
+            class_total: number;
         };
         /** SchoolResponse */
         SchoolResponse: {
@@ -5095,6 +5282,115 @@ export interface components {
             kind: string;
         };
         /**
+         * StudentAssignmentAttempt
+         * @description 学生本人某次作业尝试 —— 只披露学生自己会用来复盘/续练的字段。
+         *
+         *     刻意不含病例名以外的教学内容、诊断、评分明细：尝试列表是「我考了几次」，
+         *     不是成绩单（分数只有在 ``scoring_status == completed`` 时才有值）。
+         */
+        StudentAssignmentAttempt: {
+            /** Record Id */
+            record_id: number;
+            /** Status */
+            status: string;
+            /** Scoring Status */
+            scoring_status?: string | null;
+            /** Score Total */
+            score_total?: number | null;
+            /**
+             * Is Overdue
+             * @default false
+             */
+            is_overdue: boolean;
+            /** Start Time */
+            start_time?: string | null;
+            /** End Time */
+            end_time?: string | null;
+        };
+        /**
+         * StudentAssignmentDetail
+         * @description 学生作业详情 —— 单页展示作业要求 + 本人全部尝试所需的全部字段。
+         *
+         *     与学生列表卡片共用同一套进度推导（``modules.assignments.progress``）；
+         *     额外给出 ``lifecycle``（active/ended/closed）以便页面区分「还能开始/只能看历史」。
+         */
+        StudentAssignmentDetail: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description?: string | null;
+            /** Case Id */
+            case_id: number;
+            /**
+             * Case Name
+             * @default
+             */
+            case_name: string;
+            /**
+             * Hide Case Info
+             * @default false
+             */
+            hide_case_info: boolean;
+            /** Class Id */
+            class_id: number;
+            /**
+             * Class Name
+             * @default
+             */
+            class_name: string;
+            /**
+             * Teacher Name
+             * @default
+             */
+            teacher_name: string;
+            /**
+             * Start Time
+             * Format: date-time
+             */
+            start_time: string;
+            /**
+             * End Time
+             * Format: date-time
+             */
+            end_time: string;
+            /**
+             * Lifecycle
+             * @default active
+             */
+            lifecycle: string;
+            /**
+             * Status
+             * @default not_started
+             */
+            status: string;
+            /**
+             * Mode
+             * @default
+             */
+            mode: string;
+            /** Max Attempts */
+            max_attempts?: number | null;
+            /**
+             * Attempt Count
+             * @default 0
+             */
+            attempt_count: number;
+            /** Remaining Attempts */
+            remaining_attempts: number | null;
+            /** Record Id */
+            record_id: number | null;
+            /** Attempts */
+            attempts: components["schemas"]["StudentAssignmentAttempt"][];
+            /** Time Limit Minutes */
+            time_limit_minutes?: number | null;
+            /** Required Activities */
+            required_activities: components["schemas"]["StudentRequiredActivity"][];
+            /** Required Artifacts */
+            required_artifacts: components["schemas"]["StudentRequiredArtifact"][];
+        };
+        /**
          * StudentAssignmentItem
          * @description 学生作业卡片 —— status 取值见 core.statuses.AssignmentProgressStatus。
          *
@@ -5203,6 +5499,227 @@ export interface components {
             daily: components["schemas"]["StudentDailyStat"][];
         };
         /**
+         * StudentLearningProfileResponse
+         * @description 教师视角的单个学生学习档案。
+         *
+         *     三块数据各有唯一的既有口径，本响应只做聚合、不新造判断：
+         *
+         *     - ``trend``：与 ``GET /scoreboard/students/{id}/trend`` **同一份**服务与筛选范围，
+         *       可比性/进步幅度由服务端判定，前端不复制；
+         *     - ``assignments``：与教师端作业详情同一份进度推导；
+         *     - ``training``：与教师记录列表同一份成绩口径（复核分优先、兜底分排除）。
+         */
+        StudentLearningProfileResponse: {
+            student: components["schemas"]["StudentProfileIdentity"];
+            trend: components["schemas"]["StudentTrendResponse"];
+            /** Assignments */
+            assignments: components["schemas"]["StudentProfileAssignmentItem"][];
+            /** Training */
+            training: components["schemas"]["StudentProfileTrainingItem"][];
+            /**
+             * Training Total
+             * @default 0
+             */
+            training_total: number;
+            training_summary: components["schemas"]["StudentProfileTrainingSummary"];
+            /**
+             * Training Offset
+             * @default 0
+             */
+            training_offset: number;
+            /**
+             * Training Limit
+             * @default 0
+             */
+            training_limit: number;
+        };
+        /**
+         * StudentProfileAssignmentItem
+         * @description 该生在某次作业里的进度。
+         *
+         *     口径与教师端作业详情、学生端作业列表**同一份**推导
+         *     （``modules.assignments.progress``）：代表记录 = 作业进度与分数的唯一来源，
+         *     尝试次数排除进行中/已放弃/已丢弃。
+         */
+        StudentProfileAssignmentItem: {
+            /** Assignment Id */
+            assignment_id: string;
+            /** Title */
+            title: string;
+            /** Case Id */
+            case_id: number;
+            /**
+             * Case Name
+             * @default
+             */
+            case_name: string;
+            /** Class Id */
+            class_id: number;
+            /**
+             * Class Name
+             * @default
+             */
+            class_name: string;
+            /**
+             * Start Time
+             * Format: date-time
+             */
+            start_time: string;
+            /**
+             * End Time
+             * Format: date-time
+             */
+            end_time: string;
+            /**
+             * Lifecycle
+             * @default active
+             */
+            lifecycle: string;
+            /**
+             * Status
+             * @default not_started
+             */
+            status: string;
+            /**
+             * Attempt Count
+             * @default 0
+             */
+            attempt_count: number;
+            /** Max Attempts */
+            max_attempts?: number | null;
+            /** Record Id */
+            record_id?: number | null;
+            /** Score Total */
+            score_total?: number | null;
+            /** Scoring Status */
+            scoring_status?: string | null;
+            /**
+             * Is Overdue
+             * @default false
+             */
+            is_overdue: boolean;
+        };
+        /**
+         * StudentProfileClass
+         * @description 学生所属班级（报名册口径：``member_role='student'`` 的成员关系）。
+         */
+        StudentProfileClass: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /**
+             * Cohort Label
+             * @default
+             */
+            cohort_label: string;
+            /**
+             * School Id
+             * @default 0
+             */
+            school_id: number;
+            /**
+             * School Name
+             * @default
+             */
+            school_name: string;
+        };
+        /**
+         * StudentProfileIdentity
+         * @description 档案头部身份块 —— 只含教师工作所需的展示字段。
+         */
+        StudentProfileIdentity: {
+            /** User Id */
+            user_id: number;
+            /** Display Name */
+            display_name: string;
+            /** Student Id */
+            student_id?: string | null;
+            /** Username */
+            username: string;
+            /** Classes */
+            classes: components["schemas"]["StudentProfileClass"][];
+        };
+        /**
+         * StudentProfileTrainingItem
+         * @description 一条训练记录（档案「训练记录」页签的列表行，字段与教师记录列表同源）。
+         */
+        StudentProfileTrainingItem: {
+            /** Record Id */
+            record_id: number;
+            /** Case Id */
+            case_id: number;
+            /**
+             * Case Name
+             * @default
+             */
+            case_name: string;
+            /** Assignment Id */
+            assignment_id?: string | null;
+            /** Assignment Title */
+            assignment_title?: string | null;
+            /** Status */
+            status: string;
+            /** Scoring Status */
+            scoring_status?: string | null;
+            /**
+             * Score Reviewed
+             * @default false
+             */
+            score_reviewed: boolean;
+            /** Score Total */
+            score_total?: number | null;
+            /** Score Source */
+            score_source?: string | null;
+            /**
+             * Score Degraded
+             * @default false
+             */
+            score_degraded: boolean;
+            /**
+             * Start Time
+             * Format: date-time
+             */
+            start_time: string;
+            /** End Time */
+            end_time?: string | null;
+            /**
+             * Duration Seconds
+             * @default 0
+             */
+            duration_seconds: number;
+            /**
+             * Is Student Practice
+             * @default true
+             */
+            is_student_practice: boolean;
+            /**
+             * Is Overdue
+             * @default false
+             */
+            is_overdue: boolean;
+        };
+        /**
+         * StudentProfileTrainingSummary
+         * @description 训练记录页签的集合统计（与列表同一套筛选，故与 ``training_total`` 同源）。
+         */
+        StudentProfileTrainingSummary: {
+            /**
+             * Completed
+             * @default 0
+             */
+            completed: number;
+            /**
+             * Scored
+             * @default 0
+             */
+            scored: number;
+            /** Avg Score */
+            avg_score?: number | null;
+            /** Avg Duration Seconds */
+            avg_duration_seconds?: number | null;
+        };
+        /**
          * StudentRecentRecord
          * @description 学生详情页最近训练记录项（TrainingRecordBrief 子集）
          */
@@ -5238,6 +5755,31 @@ export interface components {
             assignment_id?: string | null;
             /** Assignment Title */
             assignment_title?: string | null;
+        };
+        /**
+         * StudentRequiredActivity
+         * @description 学生可见的「本次要做什么」—— 只含公开标签。
+         *
+         *     标签来源是 Activity 登记表（``ACTIVITY_BINDINGS[*].label``），不新建映射表；
+         *     刻意**不含** config / evidence_kind / 内部判定条件。
+         */
+        StudentRequiredActivity: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+        };
+        /**
+         * StudentRequiredArtifact
+         * @description 学生可见的必交产物 —— 只含可公开的标签与 id。
+         *
+         *     不含提交判定细节、评分细则或病例 hidden_info。
+         */
+        StudentRequiredArtifact: {
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
         };
         /**
          * StudentTrendRecord
@@ -7434,6 +7976,39 @@ export interface operations {
             };
         };
     };
+    get_school_api_admin_schools__school_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path: {
+                school_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     update_school_api_admin_schools__school_id__put: {
         parameters: {
             query?: never;
@@ -8521,6 +9096,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StudentAssignmentItem"][];
+                };
+            };
+        };
+    };
+    get_student_assignment_api_students_assignments__assignment_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assignment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentAssignmentDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -10344,6 +10950,12 @@ export interface operations {
             query?: {
                 offset?: number;
                 limit?: number;
+                /** @description 提交状态：completed / pending */
+                status?: string | null;
+                /** @description 触发时点：before_training / after_scoring */
+                trigger_event?: string | null;
+                /** @description 学生姓名模糊搜索 */
+                search?: string | null;
             };
             header?: {
                 "X-School-Scope"?: string | null;
@@ -10362,6 +10974,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaginatedResponse_QuestionnaireResponseItem_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_response_api_questionnaires_responses__template_id___response_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path: {
+                template_id: number;
+                response_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionnaireResponseItem"];
                 };
             };
             /** @description Validation Error */
@@ -10577,6 +11223,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StudentTrendResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    student_learning_profile_api_scoreboard_students__user_id__profile_get: {
+        parameters: {
+            query?: {
+                /** @description 病例范围，缺省=全部病例 */
+                case_id?: number | null;
+                /** @description 班级筛选；只能指向作用域内的班级，否则 404 */
+                class_id?: number | null;
+                /** @description 指定作业 */
+                assignment_id?: string | null;
+                /** @description 作业状态限定：active|ended */
+                assignment_status?: string | null;
+                /** @description 是否纳入自主训练（无作业关联）记录 */
+                include_free?: boolean;
+                /** @description 训练记录页签的状态筛选：in_progress|completed|abandoned|discarded */
+                training_status?: string | null;
+                training_offset?: number;
+                training_limit?: number;
+            };
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentLearningProfileResponse"];
                 };
             };
             /** @description Validation Error */

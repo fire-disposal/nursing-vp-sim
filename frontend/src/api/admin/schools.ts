@@ -6,9 +6,16 @@ type Schemas = components["schemas"];
 
 export type SchoolItem = Schemas["SchoolResponse"];
 
+export type SchoolDetailClassItem = Schemas["SchoolDetailClassItem"];
+export type SchoolDetail = Schemas["SchoolDetailResponse"];
+
 /** 院校列表（平台级，需 `school_manage`）。 */
 export const getSchools = () =>
 	api.get<SchoolItem[]>("/admin/schools" satisfies ApiPath as string);
+
+/** 院校详情：列表字段 + 用量额度 + 班级摘要。 */
+export const getSchoolDetail = (id: number | string) =>
+	api.get<SchoolDetail>(`/admin/schools/${id}` as ApiPath);
 
 export const createSchool = (data: Schemas["SchoolCreate"]) =>
 	api.post<SchoolItem>("/admin/schools" satisfies ApiPath as string, data);
