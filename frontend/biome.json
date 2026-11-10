@@ -9,8 +9,7 @@
 		"includes": [
 			"**",
 			"!!**/dist",
-			"!openapi.json",
-			"!public/chart.umd.*.min.js"
+			"!openapi.json"
 		]
 	},
 	"formatter": {
