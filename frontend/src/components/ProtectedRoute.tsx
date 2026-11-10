@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
 import { useScoringNotifications } from "@/hooks/useScoringNotifications";
 import useAuthStore from "@/stores/authStore";
+import { loginRedirectPath } from "@/utils/login-redirect";
 
 function ScoringNotificationsSubscriber() {
 	useScoringNotifications();
@@ -15,8 +16,12 @@ export default function ProtectedRoute() {
 	const location = useLocation();
 
 	if (!authed) {
-		const next = `${location.pathname}${location.search}${location.hash}`;
-		return <Navigate to={`/login?next=${encodeURIComponent(next)}`} replace />;
+		return (
+			<Navigate
+				to={loginRedirectPath(location.pathname, location.search, location.hash)}
+				replace
+			/>
+		);
 	}
 
 	// 冷启动恢复会话时权限还在 `/auth/me` revalidation 中？先等它落地。

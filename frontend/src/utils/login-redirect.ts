@@ -16,3 +16,14 @@ export function safeNextPath(raw: string | null | undefined): string {
 	}
 	return value;
 }
+
+/**
+ * 未登录时把当前地址转换成登录入口。
+ *
+ * 根路径与 `/home` 默认就回首页，不需要把 `next=/` 写进地址栏；
+ * 只有真正的深链接才携带回跳目标。
+ */
+export function loginRedirectPath(pathname: string, search = "", hash = ""): string {
+	if (pathname === "/" || pathname === "/home") return "/login";
+	return `/login?next=${encodeURIComponent(`${pathname}${search}${hash}`)}`;
+}
