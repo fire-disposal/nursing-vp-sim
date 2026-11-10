@@ -56,6 +56,8 @@ export interface PersonaOption {
 	label: string;
 	/** 调用者能否授予这一档（后端按当前视角权限算）。 */
 	grantable: boolean;
+	/** 只能授予平台账号（platform / ops）。 */
+	requires_platform_account: boolean;
 }
 
 /** 院校（单位）选项：用户表单只需要 id 与名称。 */

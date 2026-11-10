@@ -13,6 +13,8 @@ export interface PersonaPreset {
 	/** 数据作用域：平台跨校 / 全校 / 仅本人 */
 	scope: PersonaScope;
 	permissions: string[];
+	/** 只能授予平台账号；院校目标不展示，后端同样拒绝 */
+	requires_platform_account: boolean;
 	/** 已授予人数——按调用者作用域统计（平台全局 / 院校本校） */
 	user_count: number;
 	/** 调用者当前能否授予这一档（后端按预设 ⊆ 当前权限算；平台账号恒为 true） */

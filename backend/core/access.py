@@ -112,7 +112,10 @@ def grantable_personas(actor: User) -> frozenset[str]:
         return frozenset(PERSONA_KEYS)
     perms = frozenset(getattr(actor, "_permissions_cache", None) or ())
     return frozenset(
-        key for key in PERSONA_KEYS if PERSONAS[key].scope == "self" or set(PERSONAS[key].permissions) <= perms
+        key
+        for key in PERSONA_KEYS
+        if not PERSONAS[key].requires_platform_account
+        and (PERSONAS[key].scope == "self" or set(PERSONAS[key].permissions) <= perms)
     )
 
 
@@ -206,8 +209,6 @@ def resolve_access(
     desired = requested_persona.strip() if requested_persona else None
     if desired is not None and desired not in granted:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="视角不可用")
-    if desired == "platform" and not is_platform:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="视角不可用")
     if desired is None:
         default = default_persona_for(user)
         if default in granted:
@@ -218,6 +219,10 @@ def resolve_access(
             desired = "platform"
         else:
             desired = None
+    desired_def = PERSONAS.get(desired) if desired else None
+    if desired_def is not None and desired_def.requires_platform_account and not is_platform:
+        # 显式选择与“默认落到 ops”都必须受同一道闸门约束。
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="视角不可用")
     if is_platform and desired is not None and persona_scope(desired) != "platform" and active_school is None:
         # 平台的非 platform 视角不能对“所有学校”生效：先选学校。
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="请先选择院校")

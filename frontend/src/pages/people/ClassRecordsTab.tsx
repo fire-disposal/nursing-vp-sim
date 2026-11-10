@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { queryKeys } from "@/api/query-keys";
 import { type GetRecordsParams, getRecords } from "@/api/training";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import EmptyState from "@/components/ui/empty-state";
 import ErrorState from "@/components/ui/error-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
@@ -70,56 +70,53 @@ export default function ClassRecordsTab({
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle>
-					{/* 标题行不套 Group：CardTitle 自身是 <p>，<p> 里放块级 <div> 是非法嵌套 */}
-					<Box
-						style={{
-							display: "flex",
-							flexWrap: "wrap",
-							gap: 8,
-							alignItems: "center",
-							justifyContent: "space-between",
-						}}
-					>
-						<Group gap={8} wrap="nowrap">
-							<IconFileText size={16} />
-							<Text component="span" fw={600} inherit>
-								训练记录
-							</Text>
-						</Group>
-						<Group gap={8} wrap="wrap" align="center">
-							<Text size="xs" c="dimmed" className="tabular-nums">
-								{isError ? "—" : `共 ${total} 条`}
-							</Text>
-							{/* 用原生 select：三四个状态不值得一个门控下拉（键盘/读屏/移动端都直接可用） */}
-							<select
-								aria-label="按状态筛选训练记录"
-								value={status}
-								onChange={(e) => {
-									// 状态一改就回第一页：否则会停在过滤后的空页
-									onParamsChange([
-										[keys.status, e.currentTarget.value],
-										[keys.offset, ""],
-									]);
-								}}
-								style={{
-									fontSize: 12,
-									padding: "4px 6px",
-									borderRadius: 4,
-									border: "1px solid var(--mantine-color-default-border)",
-									background: "var(--mantine-color-body)",
-									color: "inherit",
-								}}
-							>
-								{RECORD_STATUS_OPTIONS.map((o) => (
-									<option key={o.value} value={o.value}>
-										{o.label}
-									</option>
-								))}
-							</select>
-						</Group>
-					</Box>
-				</CardTitle>
+				<Box
+					style={{
+						display: "flex",
+						flexWrap: "wrap",
+						gap: 8,
+						alignItems: "center",
+						justifyContent: "space-between",
+					}}
+				>
+					<Group gap={8} wrap="nowrap">
+						<IconFileText size={16} />
+						<Text component="span" size="md" fw={600} lh={1.35}>
+							训练记录
+						</Text>
+					</Group>
+					<Group gap={8} wrap="wrap" align="center">
+						<Text size="xs" c="dimmed" className="tabular-nums">
+							{isError ? "—" : `共 ${total} 条`}
+						</Text>
+						{/* 用原生 select：三四个状态不值得一个门控下拉（键盘/读屏/移动端都直接可用） */}
+						<select
+							aria-label="按状态筛选训练记录"
+							value={status}
+							onChange={(e) => {
+								// 状态一改就回第一页：否则会停在过滤后的空页
+								onParamsChange([
+									[keys.status, e.currentTarget.value],
+									[keys.offset, ""],
+								]);
+							}}
+							style={{
+								fontSize: 12,
+								padding: "4px 6px",
+								borderRadius: 4,
+								border: "1px solid var(--mantine-color-default-border)",
+								background: "var(--mantine-color-body)",
+								color: "inherit",
+							}}
+						>
+							{RECORD_STATUS_OPTIONS.map((o) => (
+								<option key={o.value} value={o.value}>
+									{o.label}
+								</option>
+							))}
+						</select>
+					</Group>
+				</Box>
 			</CardHeader>
 			<CardContent>
 				{isError ? (

@@ -85,6 +85,12 @@ function parseTab(raw: string | null): ProfileTab {
 	return TABS.find((value) => value === raw) ?? TAB_OVERVIEW;
 }
 
+function positiveId(raw: string | null): number | null {
+	if (!raw) return null;
+	const parsed = Number(raw);
+	return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
 /** 记录详情的唯一入口：所有行（作业代表记录 / 训练记录）都进教师记录页。 */
 const recordHref = (recordId: number) => `/admin/records/${recordId}`;
 
@@ -117,6 +123,24 @@ export default function StudentLearningProfilePage() {
 	const tab = parseTab(searchParams.get("tab"));
 	const trainingStatus = searchParams.get("training_status") || "";
 	const trainingOffset = Math.max(0, parseInt(searchParams.get("training_offset") || "0", 10) || 0);
+	const caseId = positiveId(searchParams.get("case_id"));
+	const classId = positiveId(searchParams.get("class_id"));
+	const assignmentId = searchParams.get("assignment_id") || null;
+	const assignmentStatus = searchParams.get("assignment_status") || null;
+	// 直接打开档案默认看全部训练；从成绩榜进入时显式带 0/1，不改变上一屏口径。
+	const includeFree = searchParams.get("include_free") !== "0";
+
+	/** 返回成绩榜时带回来源筛选，避免回退后样本范围突然变化。 */
+	const scoreboardHref = useMemo(() => {
+		const params = new URLSearchParams();
+		if (caseId) params.set("case_id", String(caseId));
+		if (classId) params.set("class_id", String(classId));
+		if (assignmentId) params.set("assignment_id", assignmentId);
+		if (assignmentStatus) params.set("assignment_status", assignmentStatus);
+		if (includeFree) params.set("include_free", "1");
+		const query = params.toString();
+		return `/admin/scoreboard${query ? `?${query}` : ""}`;
+	}, [caseId, classId, assignmentId, assignmentStatus, includeFree]);
 
 	const setParam = useCallback(
 		(key: string, value: string) => {
@@ -137,12 +161,24 @@ export default function StudentLearningProfilePage() {
 
 	const params = useMemo<StudentLearningProfileParams>(
 		() => ({
-			include_free: true,
+			case_id: caseId,
+			class_id: classId,
+			assignment_id: assignmentId,
+			assignment_status: assignmentStatus,
+			include_free: includeFree,
 			training_status: trainingStatus || null,
 			training_offset: trainingOffset,
 			training_limit: TRAINING_LIMIT,
 		}),
-		[trainingStatus, trainingOffset],
+		[
+			caseId,
+			classId,
+			assignmentId,
+			assignmentStatus,
+			includeFree,
+			trainingStatus,
+			trainingOffset,
+		],
 	);
 
 	const { data, isLoading, isError, error, refetch } = useQuery({
@@ -159,14 +195,14 @@ export default function StudentLearningProfilePage() {
 					title="学生学习档案"
 					subtitle="趋势、作业与训练记录"
 					icon={IconUserCircle}
-					backTo="/admin/scoreboard"
+					backTo={scoreboardHref}
 				/>
 				<EmptyState
 					icon={IconUserCircle}
 					title="学生参数不合法"
 					description="请从成绩管理页选择一名学生后再打开档案"
 					action={
-						<Button variant="light" onClick={() => navigate("/admin/scoreboard")}>
+						<Button variant="light" onClick={() => navigate(scoreboardHref)}>
 							返回成绩管理
 						</Button>
 					}
@@ -178,7 +214,7 @@ export default function StudentLearningProfilePage() {
 	if (isLoading) {
 		return (
 			<Stack gap="lg">
-				<PageHeader title="学生学习档案" icon={IconUserCircle} backTo="/admin/scoreboard" />
+				<PageHeader title="学生学习档案" icon={IconUserCircle} backTo={scoreboardHref} />
 				<LoadingSkeleton variant="spinner" message="加载档案中…" />
 			</Stack>
 		);
@@ -187,7 +223,7 @@ export default function StudentLearningProfilePage() {
 	if (isError || !data) {
 		return (
 			<Stack gap="lg">
-				<PageHeader title="学生学习档案" icon={IconUserCircle} backTo="/admin/scoreboard" />
+				<PageHeader title="学生学习档案" icon={IconUserCircle} backTo={scoreboardHref} />
 				<ErrorState
 					title="学生档案加载失败"
 					error={error}
@@ -205,13 +241,13 @@ export default function StudentLearningProfilePage() {
 				title={student.display_name}
 				subtitle={[student.student_id, ...student.classes.map((c) => c.name)].filter(Boolean).join(" · ")}
 				icon={IconUserCircle}
-				backTo="/admin/scoreboard"
+				backTo={scoreboardHref}
 				actions={
 					<Button
 						variant="light"
 						size="sm"
 						leftSection={<IconChartHistogram size={15} />}
-						onClick={() => navigate("/admin/scoreboard")}
+						onClick={() => navigate(scoreboardHref)}
 					>
 						成绩管理
 					</Button>

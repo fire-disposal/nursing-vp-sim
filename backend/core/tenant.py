@@ -72,9 +72,14 @@ def resolve_scope(db: Session, user: User) -> TenantScope:
     """
     active_school = getattr(user, "active_school_id", None)
     if is_super_admin(user):
+        persona = persona_scope(user.active_persona)
+        if persona == "platform":
+            # 平台级视角（platform / ops）没有院校轴；顶栏残留的选校不能把它收窄成
+            # "某校的平台视图"，否则同一个运维页会随选校出现 403。
+            return TenantScope(school_id=None, class_ids=None, user_id=user.id)
         # 平台账号默认跨院校；顶栏选了一所学校时，工作视图收窄到该校。
         # 学生视角即使平台账号也只到本人（class_ids 空），不获得全校学生面。
-        class_ids = frozenset() if persona_scope(user.active_persona) == "self" else None
+        class_ids = frozenset() if persona == "self" else None
         return TenantScope(school_id=active_school, class_ids=class_ids, user_id=user.id)
     school_id = active_school if active_school is not None else getattr(user, "school_id", None)
     if school_id is None:

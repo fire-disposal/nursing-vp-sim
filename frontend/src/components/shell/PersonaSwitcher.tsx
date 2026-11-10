@@ -11,7 +11,12 @@ import {
 	toScopedSchool,
 	useSchoolScopeStore,
 } from "@/stores/schoolScopeStore";
-import { isPersonaId, personaLabel, sortPersonas } from "@/utils/personas";
+import {
+	isPersonaId,
+	isPlatformOnlyPersona,
+	personaLabel,
+	sortPersonas,
+} from "@/utils/personas";
 
 /**
  * 视角切换器 —— 只有被授予**多个**视角时才渲染（单视角用户看到一个只有一项的选择器
@@ -40,7 +45,11 @@ export function PersonaSwitcher({ variant = "auto" }: { variant?: "auto" | "comp
 		// 平台账号的非 platform 视角必须有具体学校：不允许对“全部院校”行使教师/学生/管理数据面。
 		// 只有一所院校 → 直接替用户选上（绝大多数部署都是单校，别让人多点一步）；
 		// 多所 → 把院校菜单打开，下一步就是选择，而不是只弹一句提示。
-		if (isPlatform && next !== "platform" && !useSchoolScopeStore.getState().school) {
+		if (isPlatform && isPlatformOnlyPersona(next)) {
+			// 平台 / 运维视角跨全部院校：残留的选校既不会收窄页面，也会让人误读当前范围。
+			useSchoolScopeStore.getState().setSchool(null);
+		} else if (isPlatform && !useSchoolScopeStore.getState().school) {
+			// 其他视角必须有具体学校：不允许对“全部院校”行使教师/学生/管理数据面。
 			if (schools.length === 1) {
 				useSchoolScopeStore.getState().setSchool(toScopedSchool(schools[0]));
 			} else {

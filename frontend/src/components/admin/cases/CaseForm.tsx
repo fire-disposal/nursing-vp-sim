@@ -444,6 +444,16 @@ export default function CaseFormPage({ caseId, startWithAiPanel = false }: Props
 
 	const isDirty = state.isDirty && JSON.stringify(state.json) !== state.initialJson;
 
+	useEffect(() => {
+		if (!isDirty) return;
+		const onBeforeUnload = (event: BeforeUnloadEvent) => {
+			event.preventDefault();
+			event.returnValue = "";
+		};
+		window.addEventListener("beforeunload", onBeforeUnload);
+		return () => window.removeEventListener("beforeunload", onBeforeUnload);
+	}, [isDirty]);
+
 	/** 返回到病例库：未保存时先确认，避免刷掉一整页编辑。 */
 	const handleBack = async () => {
 		if (isDirty) {
@@ -544,7 +554,6 @@ export default function CaseFormPage({ caseId, startWithAiPanel = false }: Props
 				title={title}
 				subtitle={subtitle}
 				icon={IconForms}
-				backTo={CASES_LIST_PATH}
 				actions={
 					<Group gap={8} wrap="wrap">
 						{caseId != null && loaded && !detailError && (

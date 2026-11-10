@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
@@ -49,6 +50,8 @@ class PersonaDef:
     permissions: tuple[str, ...]
     #: 该视角的数据可见范围（见 `PersonaScope`）。
     scope: PersonaScope
+    #: 只能授予平台账号（``users.is_platform``）。院校账号拿到它会跨过院校边界。
+    requires_platform_account: bool = False
 
 
 #: 视角预设。**只在这里加权限**，不要在别处枚举角色权限。
@@ -95,10 +98,13 @@ PERSONAS: dict[str, PersonaDef] = {
             "questionnaire_manage",
         ),
     ),
+    # 运维看的是跨院校的系统面（密钥、审计、成本、诊断），不是某校的教学数据。
+    # 院校账号持有它既解释不了作用域，也会在选校后四处 403；只授予平台账号。
     "ops": PersonaDef(
         key="ops",
         label="运维视角",
-        scope="tenant",
+        scope="platform",
+        requires_platform_account=True,
         permissions=(
             "llm_monitor",
             "api_manage",
@@ -114,6 +120,7 @@ PERSONAS: dict[str, PersonaDef] = {
         key="platform",
         label="平台视角",
         scope="platform",
+        requires_platform_account=True,
         permissions=(
             "school_manage",
             "api_manage",
@@ -138,6 +145,11 @@ def persona_permissions(key: str) -> frozenset[str]:
     if definition is None:
         return frozenset()
     return frozenset(definition.permissions)
+
+
+def platform_only_personas(personas: Iterable[str]) -> list[str]:
+    """请求集合里只能授予平台账号的视角（未知 key 不在此判定）。"""
+    return sorted({key for key in personas if PERSONAS.get(key) and PERSONAS[key].requires_platform_account})
 
 
 def persona_scope(key: str | None) -> PersonaScope | None:

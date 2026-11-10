@@ -164,6 +164,8 @@ class StudentAssignmentItem(BaseModel):
     id: str
     title: str
     case_name: str
+    #: 为真时 case_name 为空，前端显示“隐藏病例”，不得从病例目录反查
+    hide_case_info: bool
     start_time: datetime
     end_time: datetime
     status: str = "not_started"
@@ -226,10 +228,11 @@ class StudentAssignmentDetail(BaseModel):
     id: str
     title: str
     description: str | None = None
-    case_id: int
+    #: 隐藏病例时为 None，避免学生拿编号去病例目录反查
+    case_id: int | None
     #: ``behavior.hide_case_info`` 为真时不披露病例名（与训练入口的脱敏口径一致）
-    case_name: str = ""
-    hide_case_info: bool = False
+    case_name: str
+    hide_case_info: bool
     class_id: int
     class_name: str = ""
     teacher_name: str = ""

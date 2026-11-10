@@ -1778,6 +1778,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/questionnaires/responses/{template_id}/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Response Stats */
+        get: operations["response_stats_api_questionnaires_responses__template_id__stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/questionnaires/responses/{template_id}/{response_id}": {
         parameters: {
             query?: never;
@@ -1790,23 +1807,6 @@ export interface paths {
          * @description 单份答卷详情；不属于本校/本人名下学生的答卷一律 404。
          */
         get: operations["get_response_api_questionnaires_responses__template_id___response_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/questionnaires/responses/{template_id}/stats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Response Stats */
-        get: operations["response_stats_api_questionnaires_responses__template_id__stats_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4292,6 +4292,11 @@ export interface components {
              */
             permissions: string[];
             /**
+             * Requires Platform Account
+             * @default false
+             */
+            requires_platform_account: boolean;
+            /**
              * User Count
              * @default 0
              */
@@ -4561,11 +4566,6 @@ export interface components {
              * @default 0
              */
             total_completed: number;
-            /**
-             * Completion Rate
-             * @default 0
-             */
-            completion_rate: number;
             /**
              * Questions
              * @default []
@@ -5322,16 +5322,10 @@ export interface components {
             /** Description */
             description?: string | null;
             /** Case Id */
-            case_id: number;
-            /**
-             * Case Name
-             * @default
-             */
+            case_id: number | null;
+            /** Case Name */
             case_name: string;
-            /**
-             * Hide Case Info
-             * @default false
-             */
+            /** Hide Case Info */
             hide_case_info: boolean;
             /** Class Id */
             class_id: number;
@@ -5404,6 +5398,8 @@ export interface components {
             title: string;
             /** Case Name */
             case_name: string;
+            /** Hide Case Info */
+            hide_case_info: boolean;
             /**
              * Start Time
              * Format: date-time
@@ -7713,7 +7709,9 @@ export interface operations {
     admin_ops_diagnose_api_admin_ops_diagnose_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -7728,12 +7726,23 @@ export interface operations {
                     "application/json": unknown;
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     admin_ops_dashboard_api_admin_ops_dashboard_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -7746,6 +7755,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -10987,6 +11005,39 @@ export interface operations {
             };
         };
     };
+    response_stats_api_questionnaires_responses__template_id__stats_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path: {
+                template_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionnaireStatsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_response_api_questionnaires_responses__template_id___response_id__get: {
         parameters: {
             query?: never;
@@ -11008,39 +11059,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QuestionnaireResponseItem"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    response_stats_api_questionnaires_responses__template_id__stats_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                "X-School-Scope"?: string | null;
-            };
-            path: {
-                template_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QuestionnaireStatsResponse"];
                 };
             };
             /** @description Validation Error */

@@ -35,6 +35,7 @@ import {
 import { getUsers } from "@/api/admin/users";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
+import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import ErrorState from "@/components/ui/error-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
@@ -84,6 +85,8 @@ interface UserListResponse {
 
 export default function PersonasPage() {
 	const toast = useToast();
+	const { confirm } = useConfirm();
+	const currentUserId = useAuthStore((s) => s.user?.id);
 
 	// ── 预设（四张卡） ──
 	const presetsQuery = useQuery({
@@ -94,7 +97,10 @@ export default function PersonasPage() {
 	const presets = presetsQuery.data ?? [];
 	// 平台视角只能授予平台账号：非平台操作者不展示它（后端同样拒绝）
 	const isPlatformActor = useAuthStore((s) => s.user?.is_platform ?? false);
-	const visiblePresets = isPlatformActor ? presets : presets.filter((p) => p.key !== "platform");
+	// 平台专属视角（platform / ops）对院校操作者没有意义；展示出来只会让人勾选后被拒。
+	const visiblePresets = isPlatformActor
+		? presets
+		: presets.filter((p) => !p.requires_platform_account);
 	// 主从布局：左侧选一个预设，右侧看它的完整权限（一次只占用一屏，避免长列表堆叠）。
 	const [selectedKey, setSelectedKey] = useState<string | null>(null);
 	const selectedPreset =
@@ -119,7 +125,10 @@ export default function PersonasPage() {
 		enabled: search.length > 0,
 	});
 	const resultUsers = usersQuery.data?.items ?? [];
-	const selectableUsers = resultUsers.filter((user) => !user.is_platform);
+	// 平台账号派生全视角；自己的授予后端禁止修改（避免自锁/自提权），都不进批量目标。
+	const selectableUsers = resultUsers.filter(
+		(user) => !user.is_platform && user.id !== currentUserId,
+	);
 	const [selectedUsers, setSelectedUsers] = useState<Map<number, UserOption>>(new Map());
 	const [batchOpen, setBatchOpen] = useState(false);
 	const [batchDraft, setBatchDraft] = useState<string[]>([]);
@@ -229,9 +238,26 @@ export default function PersonasPage() {
 		const b = [...draft].sort();
 		return a.length !== b.length || a.some((v, i) => v !== b[i]);
 	}, [draft]);
+	const added = useMemo(
+		() => draft.filter((key) => !loaded.current.includes(key)),
+		[draft],
+	);
+	const removed = useMemo(
+		() => loaded.current.filter((key) => !draft.includes(key)),
+		[draft],
+	);
 
 	const save = async () => {
 		if (!target) return;
+		if (removed.length > 0) {
+			const ok = await confirm({
+				title: "收回视角",
+				message: `将收回：${removed.map((key) => labelByKey.get(key) ?? key).join("、")}。保存后该账号立即失去这些权限。`,
+				confirmLabel: "保存并收回",
+				danger: true,
+			});
+			if (!ok) return;
+		}
 		setSaving(true);
 		try {
 			await setUserPersonas(target.id, draft);
@@ -253,10 +279,15 @@ export default function PersonasPage() {
 		[presets],
 	);
 
-	// 平台视角跨院校，只能授予平台账号（后端同样拒绝）。目标不是平台账号时，
-	// 这张卡在弹窗里没有可执行意义，直接不展示。
+	// 平台专属视角（platform / ops）跨院校，只能授予平台账号（后端同样拒绝）。
+	// 目标不是平台账号时，这些卡在弹窗里没有可执行意义，直接不展示。
 	const grantOptions = visiblePresets.filter(
-		(preset) => target?.is_platform || preset.key !== "platform",
+		(preset) => target?.is_platform || !preset.requires_platform_account,
+	);
+	// 批量授予的目标只可能是院校账号（平台账号与当前账号已从选择集排除），
+	// 因此平台专属视角一律不可批量追加。
+	const batchGrantOptions = visiblePresets.filter(
+		(preset) => !preset.requires_platform_account,
 	);
 
 	return (
@@ -385,7 +416,7 @@ export default function PersonasPage() {
 								>
 									<Checkbox
 										checked={selectedUsers.has(user.id)}
-										disabled={user.is_platform}
+										disabled={user.is_platform || user.id === currentUserId}
 										onChange={(e) => toggleUser(user, e.currentTarget.checked)}
 										aria-label={`选择 ${user.display_name}`}
 									/>
@@ -405,6 +436,10 @@ export default function PersonasPage() {
 									{user.is_platform ? (
 										<Text size="xs" c="dimmed">
 											平台账号 · 派生全部视角，不可编辑
+										</Text>
+									) : user.id === currentUserId ? (
+										<Text size="xs" c="dimmed">
+											当前账号 · 请由另一位管理员修改
 										</Text>
 									) : (
 										<Button size="compact-sm" variant="light" onClick={() => openTarget(user)}>
@@ -455,7 +490,7 @@ export default function PersonasPage() {
 									const hint =
 										SCOPE_HINT[preset.scope as PersonaScope] ?? UNKNOWN_SCOPE;
 									const checked = draft.includes(preset.key);
-									const disabled = !preset.grantable;
+									const disabled = !preset.grantable && !checked;
 									return (
 										<Paper
 											key={preset.key}
@@ -494,9 +529,11 @@ export default function PersonasPage() {
 																.map((key) => PERMISSION_LABELS.get(key) ?? key)
 																.join(" · ")}
 														</Text>
-														{disabled && (
+														{!preset.grantable && (
 															<Text size="xs" c="orange" mt={4}>
-																超出你当前视角的权限，不能授予
+																{checked
+																	? "该视角不在你可授予范围；取消勾选并保存会移除它"
+																	: "超出你当前视角的权限，不能授予"}
 															</Text>
 														)}
 													</div>
@@ -522,12 +559,22 @@ export default function PersonasPage() {
 							</Group>
 						)}
 
-						<Group justify="space-between" mt="xs">
-							<Text size="xs" c="dimmed">
-								{target && draft.length > 0
-									? `将授予：${draft.map((k) => labelByKey.get(k) ?? k).join("、")}`
-									: "未选择视角"}
-							</Text>
+						<Group justify="space-between" mt="xs" align="flex-end" wrap="wrap">
+							<Group gap={6} wrap="wrap" style={{ maxWidth: 560 }}>
+								<Text size="xs" c="dimmed">
+									{dirty ? "变更：" : "未改动"}
+								</Text>
+								{added.map((key) => (
+									<Badge key={`add-${key}`} size="sm" variant="light" color="teal">
+										+ {labelByKey.get(key) ?? key}
+									</Badge>
+								))}
+								{removed.map((key) => (
+									<Badge key={`remove-${key}`} size="sm" variant="light" color="red">
+										− {labelByKey.get(key) ?? key}
+									</Badge>
+								))}
+							</Group>
 							<Group gap="xs">
 								<Button variant="default" onClick={closeModal} disabled={saving}>
 									取消
@@ -574,7 +621,7 @@ export default function PersonasPage() {
 						为已选的 {selectedUsers.size} 个账号追加视角；不会收回任何已有授予。
 					</Text>
 					<Stack gap="xs">
-						{grantOptions.map((preset) => {
+						{batchGrantOptions.map((preset) => {
 							const hint = SCOPE_HINT[preset.scope as PersonaScope] ?? UNKNOWN_SCOPE;
 							const checked = batchDraft.includes(preset.key);
 							const disabled = !preset.grantable;
@@ -711,6 +758,11 @@ function PresetDetail({ preset }: { preset: PersonaPreset }) {
 							<Badge variant="light" color={hint.color}>
 								{hint.zh}
 							</Badge>
+							{preset.requires_platform_account && (
+								<Badge variant="outline" color="grape">
+									平台账号专属
+								</Badge>
+							)}
 							{!preset.grantable && (
 								<Badge variant="outline" color="gray">
 									当前视角无权授予

@@ -42,7 +42,13 @@ from core.identity import (
     normalize_student_id,
 )
 from core.pagination import paginate
-from core.personas import PERSONA_KEYS, is_super_admin, persona_permissions, persona_scope
+from core.personas import (
+    PERSONA_KEYS,
+    is_super_admin,
+    persona_permissions,
+    persona_scope,
+    platform_only_personas,
+)
 from core.security import hash_password, require_permission
 from core.tenant import Scope, TenantScope, scope_query, visible_class, writable_school_id
 from core.unit_of_work import unit_of_work
@@ -328,8 +334,9 @@ class UserService:
         unknown = sorted(set(unique) - set(PERSONA_KEYS))
         if unknown:
             raise ValidationError(f"未知视角: {unknown}")
-        if "platform" in unique and not is_super_admin(target):
-            raise ValidationError("平台视角只能授予平台账号")
+        platform_only = platform_only_personas(unique)
+        if platform_only and not is_super_admin(target):
+            raise ValidationError(f"平台专属视角只能授予平台账号: {platform_only}")
         if not is_super_admin(actor):
             allowed = grantable_personas(actor)
             blocked = sorted(set(unique) - allowed)
@@ -1022,6 +1029,9 @@ class UserService:
         kwargs["school_id"] = self._target_school(kwargs.get("school_id"))
         kwargs["student_id"] = normalize_student_id(kwargs.get("student_id"))
         personas = list(kwargs.pop("personas", ["student"]))
+        platform_only = platform_only_personas(personas)
+        if platform_only and not kwargs.get("is_platform", False):
+            raise ValidationError(f"平台专属视角只能授予平台账号: {platform_only}")
         if STUDENT_PERSONA in personas:
             assert_student_identity_free(
                 self.db,

@@ -270,6 +270,33 @@ describe("学生作业详情页渲染", () => {
 		expect(screen.getAllByText("逾期提交").length).toBeGreaterThan(0);
 		expect(screen.getByRole("button", { name: /查看复盘/ })).toBeInTheDocument();
 	});
+
+	it("作业关闭后，已完成尝试仍可进入复盘", async () => {
+		getStudentAssignmentMock.mockResolvedValue({
+			data: baseDetail({
+				status: "closed",
+				lifecycle: "closed",
+				attempt_count: 1,
+				remaining_attempts: 0,
+				record_id: 12,
+				attempts: [
+					{
+						record_id: 12,
+						status: "completed",
+						scoring_status: "completed",
+						score_total: 88,
+						is_overdue: false,
+						start_time: "2026-11-02T10:00:00+08:00",
+						end_time: "2026-11-02T10:30:00+08:00",
+					},
+				],
+			}),
+		});
+		renderPage();
+
+		await waitFor(() => expect(screen.getAllByText("已关闭").length).toBeGreaterThan(0));
+		expect(screen.getAllByRole("link", { name: "查看复盘" }).length).toBeGreaterThan(0);
+	});
 });
 
 describe("公开训练要求文案（预计时限 / 操作 / 必交内容）", () => {

@@ -348,6 +348,15 @@ def test_requires_questionnaire_manage_permission(world, client):
     assert _list(client(world["student_a"]), world["template"].id).status_code == 403
 
 
+def test_export_requires_questionnaire_manage_not_just_export_data(world, client):
+    """运维式 ``export_data`` 不能越过问卷的查看/管理权限导出自由文本。"""
+    ops = _person(world["db"], "ops-a", world["school"], "ops")
+    assert ops.has_permission("export_data")
+    assert not ops.has_permission("questionnaire_manage")
+    resp = client(ops).post(f"/api/questionnaires/responses/{world['template'].id}/export")
+    assert resp.status_code == 403
+
+
 def test_stats_is_not_captured_by_response_detail_route(world, client):
     """静态 stats 必须先于 ``{response_id}``，否则 "stats" 会被当成整数 id。"""
     resp = client(world["teacher"]).get(f"/api/questionnaires/responses/{world['template'].id}/stats")

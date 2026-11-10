@@ -64,15 +64,15 @@ export function useDockPanes(): WorkspacePane[] {
 
 /**
  * 桌面首次进入优先展开问诊清单/引导提示；没有引导内容时保持工作区收起。
- * 移动端不调用此钩子，避免 Bottomsheet 首屏盖住患者对话。
+ * 只在桌面 rail 启用（调用方传 enabled）；移动底部面板不参与首屏自动展开，避免盖住患者对话。
  */
-export function useInitialActivityPanel() {
+export function useInitialActivityPanel(enabled = true) {
 	const panes = useWorkspacePanes();
 	const applyInitialPanel = useWorkspaceStore((state) => state.applyInitialPanel);
 	const hasInquiry = panes.some((pane) => pane.id === INQUIRY_PANEL_ID);
 	useEffect(() => {
-		if (hasInquiry) applyInitialPanel(INQUIRY_PANEL_ID);
-	}, [hasInquiry, applyInitialPanel]);
+		if (enabled && hasInquiry) applyInitialPanel(INQUIRY_PANEL_ID);
+	}, [enabled, hasInquiry, applyInitialPanel]);
 }
 
 /** 该 activity 的产物状态（`manifest.artifacts[artifact_kind]`）；无产物/未下发 → undefined。 */

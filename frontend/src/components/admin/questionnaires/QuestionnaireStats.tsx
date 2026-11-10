@@ -94,7 +94,7 @@ export default function QuestionnaireStats({ templateId }: QuestionnaireStatsPro
 								{stats.total_assigned}
 							</Text>
 							<Text size="xs" c="dimmed" mt={4}>
-								总分配数
+								绑定病例
 							</Text>
 						</Paper>
 						<Paper bg="var(--mantine-color-default-hover)" p="md" ta="center">
@@ -102,16 +102,15 @@ export default function QuestionnaireStats({ templateId }: QuestionnaireStatsPro
 								{stats.total_completed}
 							</Text>
 							<Text size="xs" c="dimmed" mt={4}>
-								已完成
+								已完成答卷
 							</Text>
 						</Paper>
 						<Paper bg="var(--mantine-color-default-hover)" p="md" ta="center">
 							<Text size="xl" fw={700} c="yellow">
-								{/* 后端 `completion_rate` 已是百分数（0–100），这里不再乘 100 */}
-								{stats.completion_rate.toFixed(1)}%
+								{stats.questions.length}
 							</Text>
 							<Text size="xs" c="dimmed" mt={4}>
-								完成率
+								题目数
 							</Text>
 						</Paper>
 					</SimpleGrid>

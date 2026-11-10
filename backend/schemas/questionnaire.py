@@ -139,7 +139,6 @@ class QuestionnaireStatsResponse(BaseModel):
     template_title: str = ""
     total_assigned: int = 0
     total_completed: int = 0
-    completion_rate: float = 0.0
     questions: list["QuestionStatsItem"] = []
 
 

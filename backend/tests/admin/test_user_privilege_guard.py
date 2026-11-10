@@ -22,6 +22,7 @@ from core.personas import persona_permissions
 from core.tenant import TenantScope, platform_scope
 from models import Class, ClassMembership, School, User, UserSchoolPersona
 from modules.admin.users import UserService
+from modules.auth.service import AuthService
 from schemas import UserMembershipUpdate, UserUpdateRequest
 from tests.conftest import ensure_school
 
@@ -94,18 +95,31 @@ class TestPersonaEscalation:
             UserService(db, _PLATFORM).update(target.id, UserUpdateRequest(personas=["platform"]), current_user=actor)
 
         assert exc.value.status_code == 400
-        assert "平台视角只能授予平台账号" in str(exc.value)
+        assert "平台专属视角只能授予平台账号" in str(exc.value)
         assert _granted(db, db.get(User, target.id)) == {"student"}
 
-    def test_admin_cannot_grant_persona_above_own_permissions(self, db):
-        """``admin`` 没有 ``api_manage``/``audit_view`` → 不能把 ``ops`` 授出去（否则自我提权）。"""
+    def test_admin_cannot_grant_ops_to_school_account(self, db):
+        """院校账号不能持有 ``ops``：运维页跨校，院校边界解释不了它。"""
         actor = _make_user(db, "actor-ops-grant", "admin")
         target = _make_user(db, "student-target-ops", "student")
 
-        with pytest.raises(AuthError) as exc:
+        with pytest.raises(ValidationError) as exc:
             UserService(db, _PLATFORM).update(target.id, UserUpdateRequest(personas=["ops"]), current_user=actor)
 
-        assert exc.value.status_code == 403
+        assert exc.value.status_code == 400
+        assert "平台专属视角只能授予平台账号" in str(exc.value)
+        assert _granted(db, db.get(User, target.id)) == {"student"}
+
+    def test_platform_actor_cannot_grant_ops_to_school_account(self, db):
+        """平台操作者也不能把 ``ops`` 降成院校级：目标账号不是平台账号就是 400。"""
+        actor = _make_user(db, "root-ops-grant", "platform")
+        target = _make_user(db, "student-target-ops-root", "student")
+
+        with pytest.raises(ValidationError) as exc:
+            UserService(db, _PLATFORM).update(target.id, UserUpdateRequest(personas=["ops"]), current_user=actor)
+
+        assert exc.value.status_code == 400
+        assert "平台专属视角只能授予平台账号" in str(exc.value)
         assert _granted(db, db.get(User, target.id)) == {"student"}
 
     def test_admin_can_grant_persona_within_own_permissions(self, db):
@@ -129,15 +143,23 @@ class TestPersonaEscalation:
         assert "未知视角" in str(exc.value)
         assert _granted(db, db.get(User, target.id)) == {"student"}
 
-    def test_platform_account_can_grant_any_persona(self, db):
+    def test_platform_account_can_grant_school_admin_persona(self, db):
         actor = _make_user(db, "root-actor", "platform")
         target = _make_user(db, "student-target3", "student")
 
-        view = UserService(db, _PLATFORM).update(
-            target.id, UserUpdateRequest(personas=["admin", "ops"]), current_user=actor
-        )
+        view = UserService(db, _PLATFORM).update(target.id, UserUpdateRequest(personas=["admin"]), current_user=actor)
 
-        assert view.personas == ["admin", "ops"]
+        assert view.personas == ["admin"]
+
+    def test_register_rejects_school_level_ops(self, db):
+        """注册入口是第二个写权限的地方：ops 没有 platform 时必须拒绝。"""
+        actor = _make_user(db, "root-register", "platform")
+
+        with pytest.raises(ValidationError) as exc:
+            AuthService(db)._validate_new_personas(["ops"], actor)
+
+        assert "平台专属视角只能授予平台账号" in str(exc.value)
+        assert AuthService(db)._validate_new_personas(["platform", "ops"], actor) == ["platform", "ops"]
 
     def test_cannot_change_own_personas(self, db):
         actor = _make_user(db, "root-actor2", "platform")

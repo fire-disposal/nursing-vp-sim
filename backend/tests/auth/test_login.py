@@ -54,6 +54,7 @@ def _user(username: str, password: str, *, active: bool = True):
         role=None,
         failed_login_count=0,
         locked_until=None,
+        last_login_at=None,
     )
 
 
@@ -64,6 +65,7 @@ async def test_login_returns_authenticated_active_user():
     actual = await AuthService(_FakeDb({"alice": user})).login("alice", "secret123")
 
     assert actual is user
+    assert user.last_login_at is not None
 
 
 @pytest.mark.asyncio

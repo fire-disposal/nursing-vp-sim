@@ -85,11 +85,6 @@ export default function UserForm({
   const isEdit = user !== null;
   // 单位下拉的数据形式只需要 id/name：调用方传院校列表，这里只做一次形状转换
   const schoolOptions = schools.map((s) => ({ value: String(s.id), label: s.name }));
-  // 只展示**能授予**的视角：超出调用者当前权限的档位后端会 403，
-  // 给出可选项等于让用户填完再被拒。平台视角另受"目标账号必须是平台账号"约束。
-  const grantablePersonas = personas.filter(
-    (p) => p.grantable && (isPlatform || p.value !== PLATFORM_PERSONA),
-  );
   // 平台账号已收窄到某一所院校时，新建账号默认落在该校（表单里锁住，避免两个答案）
   const scopedSchool = useSchoolScopeStore((s) => s.school);
 
@@ -125,6 +120,28 @@ export default function UserForm({
     },
     validate: schemaResolver(editUserSchema),
   });
+
+  // 只展示**能授予**的视角：超出调用者当前权限的档位后端会 403，
+  // 给出可选项等于让用户填完再被拒。platform / ops 只能属于平台账号：
+  // 编辑院校账号时不展示；新建时 platform 本身可选，ops 等需先选 platform。
+  const grantablePersonas = personas.filter(
+    (p) =>
+      p.grantable &&
+      (!p.requires_platform_account ||
+        (isEdit
+          ? Boolean(user?.is_platform)
+          : p.value === PLATFORM_PERSONA ||
+            regForm.values.personas.includes(PLATFORM_PERSONA))),
+  );
+  const platformOnlyKeys = new Set(
+    personas
+      .filter((p) => p.requires_platform_account && p.value !== PLATFORM_PERSONA)
+      .map((p) => p.value),
+  );
+  const withoutOrphanedPlatformOnly = (values: string[]) =>
+    values.includes(PLATFORM_PERSONA)
+      ? values
+      : values.filter((value) => !platformOnlyKeys.has(value));
 
   const [isResetting, setIsResetting] = useState(false);
   const [resetError, setResetError] = useState("");
@@ -254,6 +271,9 @@ export default function UserForm({
                 label="视角" withAsterisk
                 description="账号可被授予多个视角：登录后按当前生效视角决定权限与可见范围"
                 {...editForm.getInputProps("personas")}
+                onChange={(value) =>
+                  editForm.setFieldValue("personas", withoutOrphanedPlatformOnly(value))
+                }
                 data={grantablePersonas}
                 placeholder={personasPlaceholder(personas, personasFailed)}
                 searchable
@@ -364,6 +384,9 @@ export default function UserForm({
                   label="视角" withAsterisk
                   description="可多选；默认学生"
                   {...regForm.getInputProps("personas")}
+                  onChange={(value) =>
+                    regForm.setFieldValue("personas", withoutOrphanedPlatformOnly(value))
+                  }
                   data={grantablePersonas}
                   placeholder={personasPlaceholder(personas, personasFailed)}
                   searchable

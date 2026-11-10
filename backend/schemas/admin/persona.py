@@ -16,6 +16,8 @@ class PersonaCatalogItem(BaseModel):
     label: str
     scope: PersonaScope
     permissions: list[str] = []
+    #: 只能授予平台账号。前端对院校目标隐藏，避免"能勾但保存必 400"。
+    requires_platform_account: bool = False
     user_count: int = 0
     #: 调用者当前能否授予这一档（预设权限 ⊆ 调用者当前视角权限；平台账号恒为 true）。
     #: 前端据此禁用勾选，避免"能勾但保存必 403"。

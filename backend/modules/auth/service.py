@@ -22,7 +22,7 @@ from core.audit import (
 from core.config import LOGIN_LOCK_SECONDS, LOGIN_LOCKOUT_ENABLED, LOGIN_MAX_FAILED_ATTEMPTS
 from core.exceptions import AuthError, ConflictError, ValidationError
 from core.identity import assert_student_identity_free, normalize_student_id
-from core.personas import PERSONAS, is_super_admin
+from core.personas import PERSONAS, is_super_admin, platform_only_personas
 from core.security import create_access_token, hash_password, verify_password
 from core.tenant import resolve_scope, visible_class, writable_school_id
 from core.unit_of_work import unit_of_work
@@ -234,12 +234,14 @@ class AuthService:
                 payload={"reason": "inactive"},
             )
             raise AuthError(detail="账号已被禁用，请联系管理员", status_code=403)
-        # 成功登录 → 清零此前累计的失败计数与锁定期（只在确有残留时提交）。
-        if user.failed_login_count or user.locked_until is not None:
-            user.failed_login_count = 0
-            user.locked_until = None
-            with unit_of_work(self.db):
-                self.db.add(user)
+        # 成功登录 → 记录最后登录时间，并清零此前累计的失败计数与锁定期。
+        # 每次成功登录都要落一次时间戳：审计里的登录记录不是可查询字段，
+        # 运维判断“账号是否闲置”只能依赖这一列。
+        user.last_login_at = now
+        user.failed_login_count = 0
+        user.locked_until = None
+        with unit_of_work(self.db):
+            self.db.add(user)
         log.info(
             "登录成功: username=%s",
             username,
@@ -264,6 +266,9 @@ class AuthService:
             raise ValidationError(detail=f"未知视角: {unknown}")
         if "platform" in unique and not is_super_admin(actor):
             raise AuthError("无权创建平台账号", status_code=403)
+        platform_only = platform_only_personas(unique)
+        if platform_only and "platform" not in unique:
+            raise ValidationError(detail=f"平台专属视角只能授予平台账号: {platform_only}")
         granted = set(grantable_personas(actor))
         for key in unique:
             if key not in granted:

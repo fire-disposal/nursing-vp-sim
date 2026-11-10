@@ -232,7 +232,7 @@ def get_response(
 @router.post("/questionnaires/responses/{template_id}/export")
 def export_responses(
     template_id: int,
-    current_user: Annotated[User, Depends(require_permission("export_data"))],
+    current_user: Annotated[User, Depends(require_permission("questionnaire_manage"))],
     db: DbSession,
     scope: Scope,
     request: Request,

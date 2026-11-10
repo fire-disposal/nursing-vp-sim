@@ -75,6 +75,10 @@ interface BatchImportProps {
   onImport: (users: BatchUser[]) => Promise<BatchCreateResult>;
   /** 预检：只读，返回每行将被「新建 / 并入既有账号 / 跳过（原因）」。 */
   onPreview: (users: BatchUser[]) => Promise<BatchPreviewResult>;
+  /** 本批默认归入的班级：模板省略班级列，名单继承；行内冲突会拒绝。 */
+  targetClass?: ClassItem | null;
+  /** 清空当前回执并开始下一批，不整页刷新。 */
+  onReset?: () => void;
   /**
    * 有没有「未提交的输入」（粘贴文本、解析出的行或预检结果）。
    * 页面据此在离开时拦一道确认 —— 批量导入的内容重贴一次很贵。
@@ -89,7 +93,7 @@ interface BatchImportProps {
  * 一屏能看四行。搬到独立页后表格高度跟随视口，宽表也不再被 800px 的弹窗宽度压扁。
  * 解析/预检/提交三段仍在这里，页面只负责路由、页头与「返回用户列表」。
  */
-export default function BatchImport({ classes, onImport, onPreview, onDirtyChange }: BatchImportProps) {
+export default function BatchImport({ classes, targetClass, onImport, onPreview, onDirtyChange, onReset }: BatchImportProps) {
   const [batchText, setBatchText] = useState("");
   const [previewRows, setPreviewRows] = useState<PreviewRow[]>([]);
   const [plan, setPlan] = useState<BatchPreviewResult | null>(null);
@@ -186,9 +190,9 @@ export default function BatchImport({ classes, onImport, onPreview, onDirtyChang
         .filter(Boolean);
       const personas = [...new Set(personaKeys.length > 0 ? personaKeys : ["student"])];
       const studentId = cellOf(parts, "学号") || null;
-      const schoolName = cellOf(parts, "学校");
-      const cohortLabel = cellOf(parts, "届别");
-      const className = cellOf(parts, "班级名称");
+      const rowSchoolName = cellOf(parts, "学校");
+      const rowCohortLabel = cellOf(parts, "届别");
+      const rowClassName = cellOf(parts, "班级名称");
 
       if (!username || !password || !displayName) {
         issues.push({ line, message: `第${line}行(${username || "?"}): 用户名/密码/姓名不能为空` });
@@ -207,8 +211,25 @@ export default function BatchImport({ classes, onImport, onPreview, onDirtyChang
         continue;
       }
 
-      let classId: number | null = null;
-      if (className) {
+      if (
+        targetClass &&
+        ((rowClassName && rowClassName !== targetClass.name) ||
+          (rowCohortLabel && rowCohortLabel !== targetClass.cohort_label) ||
+          (rowSchoolName && rowSchoolName !== targetClass.school_name))
+      ) {
+        issues.push({
+          line,
+          message: `第${line}行(${username}): 本批已指定「${targetClass.name}」，该行的学校/届别/班级与目标班不一致`,
+        });
+        continue;
+      }
+
+      const schoolName = rowSchoolName || targetClass?.school_name || "";
+      const cohortLabel = rowCohortLabel || targetClass?.cohort_label || "";
+      const className = rowClassName || targetClass?.name || "";
+
+      let classId: number | null = targetClass?.id ?? null;
+      if (className && !targetClass) {
         const resolved = resolveClass(className, cohortLabel, schoolName);
         if (resolved.error) {
           issues.push({ line, message: `第${line}行(${username}): ${resolved.error}` });
@@ -258,20 +279,23 @@ export default function BatchImport({ classes, onImport, onPreview, onDirtyChang
   }
 
   function handleDownloadTemplate() {
-    // 模板只放「能直接改」的示例：学号是身份键（同校同学号会被并入而不是再建账号），
-    // 学校写「院校管理」里的全名，届别与班级名一起才唯一确定一个班。UTF-8 BOM 让 Excel
-    // 双击打开不乱码。
-    const csvContent =
-      BOM +
-      CSV_HEADERS.join(",") +
-      "\n" +
-      "student01,123456,张三,student,2024211102011,杭州师范大学,2024级,护理241\n" +
-      "student02,123456,李四,student,2024211102012,杭州师范大学,2024级,护理241\n";
+    // 有目标班级时模板不再让老师重复填写学校/届别/班级，避免手抄产生串班；
+    // 解析时这些字段由 targetClass 统一补入。UTF-8 BOM 让 Excel 双击不乱码。
+    const headers = targetClass
+      ? ["用户名", "密码", "姓名", "学号", "视角"]
+      : CSV_HEADERS;
+    const example = targetClass
+      ? "student01,123456,张三,2024211102011,student\nstudent02,123456,李四,2024211102012,student\n"
+      : "student01,123456,张三,student,2024211102011,杭州师范大学,2024级,护理241\nstudent02,123456,李四,student,2024211102012,杭州师范大学,2024级,护理241\n";
+    const csvContent = `${BOM}${headers.join(",")}\n${example}`;
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
+    const suffix = targetClass
+      ? `_${[targetClass.school_name, targetClass.cohort_label, targetClass.name].filter(Boolean).join("_")}`
+      : "";
     a.href = url;
-    a.download = "学生导入模板.csv";
+    a.download = `学生导入模板${suffix.replace(/[\\/:*?"<>|]/g, "-")}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -401,7 +425,7 @@ export default function BatchImport({ classes, onImport, onPreview, onDirtyChang
           <Button component={Link} to="/admin/users">
             返回用户列表
           </Button>
-          <Button variant="default" onClick={() => window.location.reload()}>
+          <Button variant="default" onClick={onReset}>
             再导入一批
           </Button>
         </Group>
@@ -411,20 +435,33 @@ export default function BatchImport({ classes, onImport, onPreview, onDirtyChang
 
   return (
     <Stack gap="md">
-      <Text size="xs" c="dimmed">
-        支持 CSV 文件上传或直接粘贴文本。表头行自动识别，无表头按位置匹配。
-        仅限创建<strong>学生视角</strong>账号；班级不存在时自动创建。
-        <br />
-        <strong>学号是身份键</strong>：本校同一学号已有学生账号时，这一行会「并入」那个账号并补上班级归属，
-        不新建第二个账号（训练历史跟着人走）；学号相同但姓名不同会跳过，交给人工核对。
-        「视角」列逗号分隔可多值，默认 student（批量导入只接受学生视角）；
-        「学校」列填「院校管理」里的院校名称：平台账号每行必须给出学校或已存在的班级之一；
-        院校管理员可留空（自动落本校），填了就必须是本校。
-        学校不存在、或学校与班级所属院校不一致时，该行报错丢弃。
-        同名班级存在于多个届别/院校时，必须补充「届别」或用「学校」消歧。
-        <br />
-        提交前先点「预检」：逐行告知将新建、并入（到哪个账号）还是跳过，预检不写任何数据。
-      </Text>
+      <Alert color="blue" variant="light" icon={<IconAlertCircle size={16} />} title="先预检，再导入">
+        <Text size="xs">
+          点「预检」后逐行显示将新建、并入还是跳过；预检不写任何数据，确认名单后再提交。
+        </Text>
+      </Alert>
+
+      <Paper withBorder p="md">
+        <Text fw={600} size="sm" mb="xs">导入规则</Text>
+        <Stack component="ul" gap={6} pl={18} style={{ margin: 0 }}>
+          <Text component="li" size="xs" c="dimmed">
+            <Text component="span" size="xs" fw={600} c="var(--mantine-color-text)">文件格式：</Text>
+            CSV 上传或直接粘贴，表头行自动识别；仅创建学生视角账号，不存在的班级会自动创建。
+          </Text>
+          <Text component="li" size="xs" c="dimmed">
+            <Text component="span" size="xs" fw={600} c="var(--mantine-color-text)">身份键：</Text>
+            学号。本校同学号会并入既有账号并补班级归属；学号相同但姓名不同会跳过，交给人工核对。
+          </Text>
+          <Text component="li" size="xs" c="dimmed">
+            <Text component="span" size="xs" fw={600} c="var(--mantine-color-text)">学校与班级：</Text>
+            平台账号必须提供学校或已有班级；院校管理员默认落本校。跨校、或同名班级无法按届别/学校消歧时，该行丢弃。
+          </Text>
+          <Text component="li" size="xs" c="dimmed">
+            <Text component="span" size="xs" fw={600} c="var(--mantine-color-text)">多视角列：</Text>
+            逗号分隔，可留空（默认 student）；批量导入只接受学生视角。
+          </Text>
+        </Stack>
+      </Paper>
 
       <Paper withBorder p="md">
         <Group gap={6} mb={8}>
@@ -483,7 +520,7 @@ export default function BatchImport({ classes, onImport, onPreview, onDirtyChang
             leftSection={<IconDownload size={14} />}
             onClick={handleDownloadTemplate}
           >
-            下载模板
+            下载{targetClass ? "本班" : ""}模板
           </Button>
         </Group>
       </Paper>

@@ -33,13 +33,13 @@ function LocationProbe() {
 	return <div data-testid="location">{location.pathname}</div>;
 }
 
-function renderPage() {
+function renderPage(path = "/admin/users/import") {
 	const client = new QueryClient({
 		defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
 	});
 	return render(
 		<QueryClientProvider client={client}>
-			<MemoryRouter initialEntries={["/admin/users/import"]}>
+			<MemoryRouter initialEntries={[path]}>
 				<Routes>
 					<Route
 						path="/admin/users/import"
@@ -180,5 +180,35 @@ describe("用户批量导入页", () => {
 		expect(await screen.findByText("还没有导入内容")).toBeVisible();
 		fireEvent.click(screen.getByRole("link", { name: "用户列表" }));
 		await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/admin/users"));
+	});
+
+	it("选定目标班级后，省略班级列的名单自动归入该班", async () => {
+		renderPage("/admin/users/import?class_id=7");
+		fireEvent.change(await screen.findByLabelText("批量导入文本"), {
+			target: {
+				value: "用户名,密码,姓名,学号,视角\nstudent09,123456,王五,S2024009,student",
+			},
+		});
+		expect(await screen.findByText("预览（1 名学生）")).toBeVisible();
+		fireEvent.click(screen.getByRole("button", { name: "预检" }));
+		await waitFor(() => expect(mocks.previewBatchUsers).toHaveBeenCalledTimes(1));
+		expect(mocks.previewBatchUsers.mock.calls[0][0][0]).toEqual(
+			expect.objectContaining({
+				username: "student09",
+				school_name: "杭州师范大学",
+				cohort_label: "2024级",
+				class_name: "护理241",
+				class_id: 7,
+			}),
+		);
+	});
+
+	it("目标班级已选定后，行内写其他班级会被拒绝而不是串班", async () => {
+		renderPage("/admin/users/import?class_id=7");
+		fireEvent.change(await screen.findByLabelText("批量导入文本"), {
+			target: { value: `用户名,密码,姓名,视角,学号,学校,届别,班级名称\n${ROW.replace("护理241", "护理242")}` },
+		});
+		expect(await screen.findByText(/该行的学校\/届别\/班级与目标班不一致/)).toBeVisible();
+		expect(screen.queryByText(/预览（/)).not.toBeInTheDocument();
 	});
 });

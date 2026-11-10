@@ -228,6 +228,25 @@ def _profile(client, student_id: int, **params):
     return client.get(f"/api/scoreboard/students/{student_id}/profile", params=params)
 
 
+def test_same_school_non_student_target_is_404(world, client):
+    """校级教师不能按 user_id 遍历同校管理员/教师的账号信息。"""
+    admin = _person(world["db"], "admin-a", world["school_a"], "admin")
+    resp = _profile(client(world["teacher"]), admin.id)
+    assert resp.status_code == 404
+
+
+def test_class_filter_rejects_student_outside_that_class(world, client):
+    """班级筛选是上下文，不是仅给趋势用的装饰：目标不在班内时整份档案 404。"""
+    other_class = _class(world["db"], world["school_a"], "护理2402")
+    resp = _profile(
+        client(world["teacher"]),
+        world["student"].id,
+        class_id=other_class.id,
+        include_free=True,
+    )
+    assert resp.status_code == 404
+
+
 def test_teacher_reads_profile_without_user_manage(world, client):
     """只有 ``assignment_manage`` 的教师能读：档案用的是成绩管理那道门。"""
     teacher = world["teacher"]
@@ -245,7 +264,7 @@ def test_teacher_reads_profile_without_user_manage(world, client):
 
 def test_profile_hides_account_and_security_fields(world, client):
     _record(world["db"], student=world["student"], case=world["case"], assignment=world["assignment"], total=81.0)
-    body = _profile(client(world["teacher"]), world["student"].id).json()
+    body = _profile(client(world["teacher"]), world["student"].id, include_free=True).json()
     assert FORBIDDEN_IDENTITY_KEYS.isdisjoint(body["student"])
 
     # 递归检查：嵌套块（趋势/作业/训练）也不得夹带账号面字段
@@ -296,7 +315,7 @@ def test_assignment_progress_uses_recipient_snapshot_and_representative(world, c
         status="in_progress",
         scoring_status=None,
     )
-    body = _profile(client(world["teacher"]), world["student"].id).json()
+    body = _profile(client(world["teacher"]), world["student"].id, include_free=True).json()
     (item,) = body["assignments"]
     assert item["assignment_id"] == assignment.id
     assert item["status"] == "in_progress"
@@ -313,7 +332,7 @@ def test_assignment_progress_uses_recipient_snapshot_and_representative(world, c
         reviewed=88.5,
         hours_ago=3,
     )
-    body = _profile(client(world["teacher"]), world["student"].id).json()
+    body = _profile(client(world["teacher"]), world["student"].id, include_free=True).json()
     (item,) = body["assignments"]
     assert item["status"] == "completed"
     assert item["record_id"] == done.id
@@ -323,7 +342,7 @@ def test_assignment_progress_uses_recipient_snapshot_and_representative(world, c
 
 
 def test_assignment_not_started_has_no_record(world, client):
-    body = _profile(client(world["teacher"]), world["student"].id).json()
+    body = _profile(client(world["teacher"]), world["student"].id, include_free=True).json()
     (item,) = body["assignments"]
     assert item["status"] == "not_started"
     assert item["record_id"] is None
@@ -346,7 +365,7 @@ def test_training_records_follow_teacher_record_grade_scope(world, client):
     )
     _record(db, student=world["student"], case=world["case"], status="abandoned", scoring_status=None, hours_ago=3)
 
-    body = _profile(client(world["teacher"]), world["student"].id).json()
+    body = _profile(client(world["teacher"]), world["student"].id, include_free=True).json()
     by_id = {r["record_id"]: r for r in body["training"]}
     assert by_id[reviewed.id]["score_total"] == 92.0
     assert by_id[reviewed.id]["score_source"] == "review"
@@ -365,7 +384,7 @@ def test_training_pagination_and_status_filter(world, client):
     for hours in range(1, 6):
         _record(db, student=world["student"], case=world["case"], total=60.0 + hours, hours_ago=hours)
     http = client(world["teacher"])
-    page = _profile(http, world["student"].id, training_limit=2, training_offset=0).json()
+    page = _profile(http, world["student"].id, training_limit=2, training_offset=0, include_free=True).json()
     assert len(page["training"]) == 2
     assert page["training_total"] == 5
     assert page["training_limit"] == 2
@@ -373,7 +392,7 @@ def test_training_pagination_and_status_filter(world, client):
     abandoned = _record(
         db, student=world["student"], case=world["case"], status="abandoned", scoring_status=None, hours_ago=9
     )
-    filtered = _profile(http, world["student"].id, training_status="abandoned").json()
+    filtered = _profile(http, world["student"].id, training_status="abandoned", include_free=True).json()
     assert [r["record_id"] for r in filtered["training"]] == [abandoned.id]
     assert filtered["training_total"] == 1
 

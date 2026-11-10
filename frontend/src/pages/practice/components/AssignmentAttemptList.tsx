@@ -50,11 +50,9 @@ export function scoringLabel(attempt: StudentAssignmentAttempt): string {
 
 interface AttemptListProps {
 	attempts: StudentAssignmentAttempt[];
-	/** 完成后可看复盘的尝试才可点：只有已完成记录有详情页 */
-	reviewable: boolean;
 }
 
-export default function AssignmentAttemptList({ attempts, reviewable }: AttemptListProps) {
+export default function AssignmentAttemptList({ attempts }: AttemptListProps) {
 	if (attempts.length === 0) {
 		return (
 			<EmptyState
@@ -69,7 +67,7 @@ export default function AssignmentAttemptList({ attempts, reviewable }: AttemptL
 		<Stack gap="xs">
 			{attempts.map((attempt, index) => {
 				const status = recordStatusMeta(attempt.status);
-				const canReview = reviewable && attempt.status === "completed";
+				const canReview = attempt.status === "completed";
 				return (
 					<Paper key={attempt.record_id} withBorder radius="md" p="sm">
 						<Group justify="space-between" gap="sm" wrap="wrap">
@@ -112,9 +110,9 @@ export default function AssignmentAttemptList({ attempts, reviewable }: AttemptL
 }
 
 /** 宽屏下的表格形态（同一份数据的另一种排布，不重复业务规则）。 */
-export function AssignmentAttemptTable({ attempts, reviewable }: AttemptListProps) {
+export function AssignmentAttemptTable({ attempts }: AttemptListProps) {
 	if (attempts.length === 0) {
-		return <AssignmentAttemptList attempts={attempts} reviewable={reviewable} />;
+		return <AssignmentAttemptList attempts={attempts} />;
 	}
 	return (
 		<Table.ScrollContainer minWidth={520}>
@@ -132,7 +130,7 @@ export function AssignmentAttemptTable({ attempts, reviewable }: AttemptListProp
 				<Table.Tbody>
 					{attempts.map((attempt, index) => {
 						const status = recordStatusMeta(attempt.status);
-						const canReview = reviewable && attempt.status === "completed";
+						const canReview = attempt.status === "completed";
 						return (
 							<Table.Tr key={attempt.record_id}>
 								<Table.Td>第 {attempts.length - index} 次</Table.Td>

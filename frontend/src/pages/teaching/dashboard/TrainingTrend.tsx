@@ -1,4 +1,4 @@
-import { Group, Table } from "@mantine/core";
+import { Group, Table, Text } from "@mantine/core";
 import { IconChartBar, IconClipboardList } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -152,7 +152,7 @@ export function TrainingTrend({ dateFrom, classId }: { dateFrom?: string; classI
 							<Table.Tbody>
 								{summary.map((s) => (
 									<Table.Tr key={s.user_id}>
-										<Table.Td><Link to={`/admin/students/${s.user_id}`} style={{ color: "inherit", fontWeight: 500 }}>{s.display_name}</Link></Table.Td>
+										<Table.Td><Text component={Link} to={`/admin/students/${s.user_id}`} size="sm" fw={500} c="brand">{s.display_name}</Text></Table.Td>
 										<Table.Td style={{ color: "var(--mantine-color-dimmed)" }}>{s.student_code}</Table.Td>
 										<Table.Td>{s.total_sessions}</Table.Td>
 										<Table.Td style={{ fontWeight: 600 }}>{s.total_minutes}</Table.Td>

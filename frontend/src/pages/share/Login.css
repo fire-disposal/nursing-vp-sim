@@ -1,0 +1,232 @@
+/*
+ * 登录页版式：临床记录式双栏。
+ *
+ * 左侧是品牌与训练流程，右侧只放表单；不使用插画/卡片堆叠/装饰渐变。
+ * 只有品牌标记与主按钮使用品牌色，其余靠字阶、留白与细分隔线建立层级。
+ */
+
+.login-page {
+	min-height: 100dvh;
+	background: var(--mantine-color-body);
+	color: var(--mantine-color-text);
+}
+
+.login-frame {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	width: 100%;
+	max-width: 1440px;
+	min-height: 100dvh;
+	margin: 0 auto;
+}
+
+.login-brand {
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	gap: 40px;
+	min-width: 0;
+	padding: 28px 24px 32px;
+	border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+.login-brand__name {
+	font-size: 14px;
+	font-weight: 650;
+	letter-spacing: -0.01em;
+	line-height: 1.3;
+}
+
+.login-brand__sub {
+	margin-top: 2px;
+	color: var(--mantine-color-dimmed);
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+.login-brand__copy {
+	max-width: 680px;
+	margin-top: 48px;
+}
+
+.login-eyebrow {
+	color: var(--mantine-color-dimmed);
+	font-family: var(--mantine-font-family-monospace);
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.16em;
+	line-height: 1.4;
+	text-transform: uppercase;
+}
+
+.login-headline {
+	margin: 14px 0 0;
+	font-size: clamp(2.5rem, 8vw, 3.5rem);
+	font-weight: 650;
+	letter-spacing: -0.055em;
+	line-height: 1.04;
+}
+
+.login-lede {
+	max-width: 30em;
+	margin-top: 20px;
+	color: var(--mantine-color-dimmed);
+	font-size: 15px;
+	line-height: 1.7;
+}
+
+.login-brand__foot {
+	display: flex;
+	flex-direction: column;
+	gap: 22px;
+}
+
+.login-ledger {
+	display: none;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.login-ledger__row {
+	display: grid;
+	grid-template-columns: 34px minmax(0, 1fr);
+	gap: 16px;
+	align-items: baseline;
+	padding: 13px 0;
+	border-top: 1px solid var(--mantine-color-default-border);
+}
+
+.login-ledger__row:last-child {
+	border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+.login-ledger__index {
+	color: var(--mantine-color-dimmed);
+	font-family: var(--mantine-font-family-monospace);
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: 0.08em;
+}
+
+.login-ledger__title {
+	font-size: 14px;
+	font-weight: 650;
+	line-height: 1.4;
+}
+
+.login-ledger__desc {
+	margin-top: 2px;
+	color: var(--mantine-color-dimmed);
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.login-meta {
+	color: var(--mantine-color-dimmed);
+	font-family: var(--mantine-font-family-monospace);
+	font-size: 10px;
+	font-weight: 600;
+	letter-spacing: 0.12em;
+	line-height: 1.5;
+	text-transform: uppercase;
+}
+
+.login-form-panel {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	padding: 36px 24px 48px;
+}
+
+.login-form-wrap {
+	display: flex;
+	flex-direction: column;
+	gap: 30px;
+	width: 100%;
+	max-width: 420px;
+	margin: 0 auto;
+}
+
+.login-form-title {
+	margin: 10px 0 0;
+	font-size: 28px;
+	font-weight: 650;
+	letter-spacing: -0.035em;
+	line-height: 1.15;
+}
+
+.login-form-lede {
+	margin-top: 8px;
+	color: var(--mantine-color-dimmed);
+	font-size: 14px;
+	line-height: 1.6;
+}
+
+.login-form {
+	margin-top: -2px;
+}
+
+.login-footnote {
+	padding-top: 16px;
+	border-top: 1px solid var(--mantine-color-default-border);
+	color: var(--mantine-color-dimmed);
+	font-size: 12px;
+	line-height: 1.65;
+}
+
+.login-sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+@media (min-width: 62em) {
+	.login-frame {
+		grid-template-columns: minmax(0, 1.08fr) minmax(420px, 0.92fr);
+	}
+
+	.login-brand {
+		padding: 44px 56px 40px;
+		border-right: 1px solid var(--mantine-color-default-border);
+		border-bottom: 0;
+	}
+
+	.login-brand__copy {
+		margin-top: 72px;
+	}
+
+	.login-headline {
+		font-size: clamp(3.25rem, 4.6vw, 4.8rem);
+	}
+
+	.login-ledger {
+		display: block;
+	}
+
+	.login-form-panel {
+		padding: 48px 56px;
+	}
+
+	.login-form-wrap {
+		gap: 34px;
+	}
+}
+
+@media (min-width: 90em) {
+	.login-brand {
+		padding-left: 72px;
+		padding-right: 72px;
+	}
+
+	.login-form-panel {
+		padding-left: 72px;
+		padding-right: 72px;
+	}
+}

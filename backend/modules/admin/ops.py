@@ -9,11 +9,12 @@ import logging
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from core.database import get_db
 from core.security import require_permission
+from core.tenant import Scope
 from infra.diagnose import get_diagnose_service
 from infra.diagnostics import (
     ERROR_COUNT_WINDOWS,
@@ -41,8 +42,14 @@ router = APIRouter()
 @router.get("/ops/diagnose")
 async def admin_ops_diagnose(
     current_user: Annotated[User, Depends(require_permission("api_manage"))],
+    scope: Scope,
     request: Request,
 ):
+    if not scope.is_global:
+        raise HTTPException(
+            status_code=403,
+            detail="运维诊断包含跨院校数据，仅平台级视图可访问；请切换到「全部院校」平台视角。",
+        )
     diag_svc = get_diagnose_service()
     return await diag_svc.get_diagnose()
 
@@ -65,8 +72,14 @@ def _feedback_block(db: Session) -> dict:
 async def admin_ops_dashboard(
     current_user: Annotated[User, Depends(require_permission("api_manage"))],
     db: Annotated[Session, Depends(get_db)],
+    scope: Scope,
     request: Request,
 ):
+    if not scope.is_global:
+        raise HTTPException(
+            status_code=403,
+            detail="运维仪表盘包含跨院校数据，仅平台级视图可访问；请切换到「全部院校」平台视角。",
+        )
     now = datetime.now(UTC)
     data = build_dashboard(db, now)
 

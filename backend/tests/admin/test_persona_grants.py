@@ -93,13 +93,16 @@ def test_platform_account_target_is_not_editable(pg_session):
         _service(pg_session, school, actor).replace(target.id, ["teacher"], actor=actor)
 
 
-def test_platform_persona_cannot_be_granted_to_school_account(pg_session):
+def test_platform_only_personas_cannot_be_granted_to_school_account(pg_session):
     school = _school(pg_session, "A")
-    actor = _actor(pg_session, school=school, perms=set(PERSONAS["admin"].permissions))
+    actor = _actor(pg_session, school=school, perms=set(PERSONAS["platform"].permissions))
     target = _target(pg_session, school)
+    service = _service(pg_session, school, actor)
 
-    with pytest.raises(ValidationError):
-        _service(pg_session, school, actor).replace(target.id, ["platform"], actor=actor)
+    for key in ("platform", "ops"):
+        with pytest.raises(ValidationError) as exc:
+            service.replace(target.id, [key], actor=actor)
+        assert "平台专属视角只能授予平台账号" in str(exc.value)
 
 
 def test_actor_cannot_grant_persona_above_own_permissions(pg_session):
@@ -122,7 +125,10 @@ def test_catalog_marks_which_personas_actor_can_grant(pg_session):
     assert catalog["teacher"].grantable is True
     assert catalog["admin"].grantable is False
     assert catalog["ops"].grantable is False
+    assert catalog["ops"].requires_platform_account is True
     assert catalog["platform"].grantable is False
+    assert catalog["platform"].requires_platform_account is True
+    assert catalog["teacher"].requires_platform_account is False
 
 
 def test_replace_grants_writes_rows_and_audit(pg_session):

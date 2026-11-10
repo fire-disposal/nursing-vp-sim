@@ -13,7 +13,7 @@ import {
 } from "@tabler/icons-react";
 import { isAxiosError } from "axios";
 import { useCallback, useMemo } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import EmptyState from "@/components/ui/empty-state";
 import ErrorState from "@/components/ui/error-state";
@@ -22,6 +22,7 @@ import PageHeader from "@/components/ui/page-header";
 import StatCard from "@/components/ui/stat-card";
 import { useClassDetailQuery, useClassSummaryQuery } from "@/hooks/useClasses";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
+import useAuthStore from "@/stores/authStore";
 import ClassAssignmentsTab from "./ClassAssignmentsTab";
 import ClassMembersTab from "./ClassMembersTab";
 import ClassRecordsTab from "./ClassRecordsTab";
@@ -46,6 +47,7 @@ export default function ClassDetailPage() {
 	const { classId } = useParams<{ classId: string }>();
 	const navigate = useNavigate();
 	const [searchParams, setSearchParams] = useSearchParams();
+	const canManageUsers = useAuthStore((s) => s.permissions.includes("user_manage"));
 	const cid = Number(classId);
 
 	const tab = parseClassTab(searchParams.get("tab"));
@@ -176,6 +178,18 @@ export default function ClassDetailPage() {
 						.filter(Boolean)
 						.join(" · ")}
 					backTo="/admin/classes"
+					actions={
+						canManageUsers ? (
+							<Button
+								component={Link}
+								to={`/admin/users/import?class_id=${cid}`}
+								variant="default"
+								size="sm"
+							>
+								批量导入学生
+							</Button>
+						) : undefined
+					}
 				/>
 
 				{/* 统计只属于概览：成员/作业/记录页签有自己的计数，避免两组数字互相解释不清 */}
@@ -192,8 +206,8 @@ export default function ClassDetailPage() {
 						/>
 						<StatCard
 							icon={IconTrendingUp}
-							label="完成率"
-							value={clsSummary?.completion_rate != null ? `${clsSummary.completion_rate}%` : "--"}
+							label="人均训练次数"
+							value={clsSummary?.completion_rate != null ? `${clsSummary.completion_rate} 次/人` : "--"}
 						/>
 					</SimpleGrid>
 				)}

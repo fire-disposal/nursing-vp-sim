@@ -1,10 +1,11 @@
 import { Center, Loader, Stack, Text } from "@mantine/core";
 import { ModalsProvider } from "@mantine/modals";
 import { Notifications } from "@mantine/notifications";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { MotionConfig } from "motion/react";
 import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Route, Routes, useNavigate } from "react-router-dom";
+import { queryClient } from "@/api/query-client";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { FeedbackHost } from "@/components/FeedbackProvider";
 import Layout from "@/components/Layout";
@@ -14,19 +15,6 @@ import { APP_ROUTES } from "@/components/shell/navigation";
 import { onForceLogout } from "@/events";
 import useAuthStore from "@/stores/authStore";
 import { installGlobalTelemetry, setTelemetryUserId } from "@/utils/telemetry";
-
-const queryClient = new QueryClient({
-	defaultOptions: {
-		queries: {
-			retry: 1,
-			staleTime: 30_000,
-			gcTime: 10 * 60_000,
-			// 窗口聚焦不自动 refetch：避免训练/问答页在切标签页回来时
-			// 因后台 refetch 触发 isFetching→骨架屏闪烁、打断流式与计时。
-			refetchOnWindowFocus: false,
-		},
-	},
-});
 
 const Login = lazy(() => import("@/pages/share/Login"));
 const Showcase = lazy(() => import("@/showcase/ShowcasePage"));

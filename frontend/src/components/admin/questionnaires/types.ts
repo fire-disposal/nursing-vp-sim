@@ -60,7 +60,6 @@ export interface ResponseStats {
 	template_title: string;
 	total_assigned: number;
 	total_completed: number;
-	completion_rate: number;
 	questions: QuestionStats[];
 }
 

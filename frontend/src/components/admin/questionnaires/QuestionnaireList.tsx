@@ -7,7 +7,7 @@ import {
 	IconFileText,
 	IconTrash,
 } from "@tabler/icons-react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import type { TemplateListItem } from "@/components/admin/questionnaires/types";
 import { TYPE_LABEL } from "@/components/admin/questionnaires/types";
 import DataTable, { type DataTableColumn } from "@/components/ui/data-table";
@@ -34,7 +34,6 @@ export default function QuestionnaireList({
 	onDelete,
 	onAssign,
 }: QuestionnaireListProps) {
-	const navigate = useNavigate();
 	const columns: DataTableColumn<TemplateListItem>[] = [
 		{
 			key: "title",
@@ -117,7 +116,8 @@ export default function QuestionnaireList({
 						size="sm"
 						variant="subtle"
 						color="gray"
-						onClick={() => navigate(`/admin/questionnaires/${t.id}/stats`)}
+						component={Link}
+						to={`/admin/questionnaires/${t.id}/stats`}
 						title="查看统计"
 						aria-label="查看统计"
 					>
@@ -127,7 +127,8 @@ export default function QuestionnaireList({
 						size="sm"
 						variant="subtle"
 						color="gray"
-						onClick={() => navigate(`/admin/questionnaires/${t.id}/responses`)}
+						component={Link}
+						to={`/admin/questionnaires/${t.id}/responses`}
 						title="查看答卷"
 						aria-label="查看答卷"
 					>

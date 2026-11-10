@@ -1,12 +1,22 @@
-import { Box, Button, Group, Paper, PasswordInput, Stack, Text, TextInput, ThemeIcon, Title } from "@mantine/core";
+import {
+	Box,
+	Button,
+	Group,
+	PasswordInput,
+	Stack,
+	Text,
+	TextInput,
+	ThemeIcon,
+	Title,
+} from "@mantine/core";
 import { schemaResolver, useForm } from "@mantine/form";
-import { IconBook2, IconChartBar, IconMessageCircle } from "@tabler/icons-react";
+import { IconArrowRight, IconStethoscope } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import FormMessageBanner from "@/components/ui/form-message-banner";
 import { type LoginFormValues, loginSchema } from "@/schemas/auth";
 import useAuthStore from "@/stores/authStore";
-import LoginIllustration from "./LoginIllustration";
+import "./Login.css";
 
 function isTokenExpired(token: string): boolean {
 	try {
@@ -23,24 +33,28 @@ function extractError(err: unknown): string {
 			response?: { data?: { detail?: string; message?: string } };
 			message?: string;
 		};
-		return axiosErr.response?.data?.detail
-			?? axiosErr.response?.data?.message
-			?? axiosErr.message
-			?? "登录失败，请检查网络连接";
+		return (
+			axiosErr.response?.data?.detail ??
+			axiosErr.response?.data?.message ??
+			axiosErr.message ??
+			"登录失败，请检查网络连接"
+		);
 	}
 	return "登录失败，请检查网络连接";
 }
 
-const FEATURES = [
-	{ icon: IconMessageCircle, title: "沉浸式问诊", desc: "与 AI 虚拟患者面对面采集病史" },
-	{ icon: IconChartBar, title: "多维评分", desc: "问诊覆盖、沟通技巧、护理诊断逐项评估" },
-	{ icon: IconBook2, title: "随时回放", desc: "完整对话回放与改进建议沉淀学习" },
+const TRAINING_LOOP = [
+	{ index: "01", title: "接诊", desc: "与虚拟患者完成一次完整问诊" },
+	{ index: "02", title: "评估", desc: "在情境中做出护理判断" },
+	{ index: "03", title: "复盘", desc: "按维度回看对话与评分" },
 ];
 
 export default function Login() {
 	const [error, setError] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const mountedRef = useRef(true);
+	const usernameRef = useRef<HTMLInputElement>(null);
+	const passwordRef = useRef<HTMLInputElement>(null);
 	const navigate = useNavigate();
 	const login = useAuthStore((s) => s.login);
 	const user = useAuthStore((s) => s.user);
@@ -87,131 +101,128 @@ export default function Login() {
 	};
 
 	return (
-		<Box
-			mih="100dvh"
-			style={{
-				position: "relative",
-				display: "flex",
-				justifyContent: "center",
-				// safe center：内容超过视口高度时退回顶端对齐并允许滚动，而不是被居中裁掉顶部
-				alignItems: "safe center",
-				overflowY: "auto",
-				overflowX: "hidden",
-				background:
-					"radial-gradient(1200px 600px at 85% -10%, var(--mantine-color-brand-light) 0%, transparent 55%), radial-gradient(900px 500px at -10% 110%, var(--mantine-color-brand-light) 0%, transparent 50%), var(--mantine-color-body)",
-			}}
-		>
-			{/* 外层 Stack 只负责纵向串联；gap 0，间距沿用 Group 的 py，大屏结构不变 */}
-			<Stack gap={0} align="center" w="100%">
-				{/* 品牌头（小屏）：大屏品牌区整块隐藏，窄屏用精简版补上系统标题 */}
-				<Stack hiddenFrom="lg" gap="sm" align="center" w="100%" maw={400} px="md">
-					<Stack gap={2} align="center">
-						<Title order={1} size={22} lh={1.2} ta="center">
-							虚拟患者系统
-						</Title>
-						<Text size="xs" c="dimmed" ta="center">
-							护理病史采集技能训练平台
-						</Text>
-					</Stack>
-				</Stack>
+		<Box className="login-page">
+			<main className="login-frame">
+				<section className="login-brand" aria-labelledby="login-title">
+					<div className="login-brand__top">
+						<Group gap={12} wrap="nowrap">
+							<ThemeIcon
+								className="login-mark"
+								size={42}
+								radius="md"
+								variant="filled"
+								color="brand"
+								aria-hidden="true"
+							>
+								<IconStethoscope size={21} strokeWidth={1.7} />
+							</ThemeIcon>
+							<div>
+								<Text className="login-brand__name">虚拟患者系统</Text>
+								<Text className="login-brand__sub">护理临床训练</Text>
+							</div>
+						</Group>
 
-				<Group
-					justify="center"
-					align="center"
-					gap={56}
-					wrap="nowrap"
-					w="100%"
-					maw={1080}
-					px="md"
-					py="lg"
-				>
-					{/* 品牌展示区（大屏） */}
-					<Box visibleFrom="lg" style={{ flex: 1, minWidth: 0, maxWidth: 480 }}>
-						<Stack gap="md" align="flex-start">
-							<Group gap={14} wrap="nowrap">
-								<Stack gap={0}>
-									<Title order={1} size={28} lh={1.2}>
-										虚拟患者系统
-									</Title>
-									<Text size="sm" c="dimmed" mt={2}>
-										护理病史采集技能训练平台
-									</Text>
-								</Stack>
-							</Group>
-	
-							<LoginIllustration />
-	
-							<Stack gap="xs" w="100%">
-								{FEATURES.map((f) => (
-									<Group key={f.title} gap={12} wrap="nowrap" align="flex-start">
-										<ThemeIcon size={34} radius="md" variant="light" color="brand" style={{ flexShrink: 0 }}>
-											<f.icon size={17} strokeWidth={1.8} />
-										</ThemeIcon>
-										<Box>
-											<Text size="sm" fw={600}>
-												{f.title}
-											</Text>
-											<Text size="xs" c="dimmed">
-												{f.desc}
-											</Text>
-										</Box>
-									</Group>
-								))}
-							</Stack>
-						</Stack>
-					</Box>
-	
-					{/* 登录卡 */}
-					<Paper
-						withBorder
-						radius="lg"
-						p={{ base: "lg", sm: "xl" }}
-						w="100%"
-						maw={400}
-						shadow="md"
-						style={{ background: "var(--mantine-color-body)" }}
-					>
+						<div className="login-brand__copy">
+							<Text className="login-eyebrow">Nursing clinical simulation</Text>
+							<Title id="login-title" order={1} className="login-headline">
+								把问诊，
+								<br />
+								练成判断。
+							</Title>
+							<Text className="login-lede">
+								在可复盘的对话里完成病史采集、护理评估与临床判断。
+							</Text>
+						</div>
+					</div>
+
+					<div className="login-brand__foot">
+						<ol className="login-ledger" aria-label="训练流程">
+							{TRAINING_LOOP.map((step) => (
+								<li key={step.index} className="login-ledger__row">
+									<Text className="login-ledger__index">{step.index}</Text>
+									<div>
+										<Text className="login-ledger__title">{step.title}</Text>
+										<Text className="login-ledger__desc">{step.desc}</Text>
+									</div>
+								</li>
+							))}
+						</ol>
+						<Text className="login-meta">病史采集 · 护理评估 · 评分复盘</Text>
+					</div>
+				</section>
+
+				<section className="login-form-panel" aria-labelledby="login-form-title">
+					<div className="login-form-wrap">
+						<div>
+							<Text className="login-eyebrow">Account access</Text>
+							<Title id="login-form-title" order={2} className="login-form-title">
+								登录
+							</Title>
+							<Text className="login-form-lede">使用院校分配的账号进入训练。</Text>
+						</div>
+
 						<FormMessageBanner type="error" message={error} />
-	
-						<form onSubmit={form.onSubmit(onSubmit)}>
-							<Stack gap="md">
+
+						<form
+							className="login-form"
+							onSubmit={form.onSubmit(onSubmit, (errors) => {
+								if (errors.username) usernameRef.current?.focus();
+								else if (errors.password) passwordRef.current?.focus();
+							})}
+						>
+							<Stack gap="lg">
 								<TextInput
+									ref={usernameRef}
 									type="text"
 									name="username"
-									aria-label="用户名"
+									label="用户名"
 									aria-required="true"
-									placeholder="用户名"
+									placeholder="输入用户名"
 									autoComplete="username"
 									autoFocus
-									size="lg"
+									size="md"
 									disabled={isSubmitting}
+									styles={{ label: { fontWeight: 600, marginBottom: 6 } }}
 									{...form.getInputProps("username")}
+									aria-invalid={Boolean(form.errors.username) || undefined}
 								/>
 								<PasswordInput
+									ref={passwordRef}
 									name="password"
-									aria-label="密码"
+									label="密码"
 									aria-required="true"
-									placeholder="密码"
+									placeholder="输入密码"
 									autoComplete="current-password"
-									size="lg"
+									size="md"
 									disabled={isSubmitting}
 									visibilityToggleFocusable
+									styles={{ label: { fontWeight: 600, marginBottom: 6 } }}
 									{...form.getInputProps("password")}
+									aria-invalid={Boolean(form.errors.password) || undefined}
 								/>
-								<Button type="submit" disabled={isSubmitting} size="lg" fullWidth mt="xs">
-									{isSubmitting ? "登录中…" : "登 录"}
+								<Button
+									type="submit"
+									size="md"
+									fullWidth
+									loading={isSubmitting}
+									rightSection={!isSubmitting && <IconArrowRight size={17} strokeWidth={1.8} />}
+								>
+									{isSubmitting ? "正在进入" : "进入系统"}
 								</Button>
 							</Stack>
 						</form>
-	
-						<Stack gap="sm">
-							<Text size="xs" c="dimmed" ta="center">
-								忘记密码？请联系教师或管理员重置
-							</Text>
-						</Stack>
-					</Paper>
-				</Group>
-			</Stack>
+
+						<div className="login-footnote">
+							<Text>账号由教师或管理员分配。</Text>
+							<Text>忘记密码请联系管理员重置。</Text>
+						</div>
+
+						<span className="login-sr-only" role="status" aria-live="polite">
+							{isSubmitting ? "正在登录" : ""}
+						</span>
+					</div>
+				</section>
+			</main>
 		</Box>
 	);
 }

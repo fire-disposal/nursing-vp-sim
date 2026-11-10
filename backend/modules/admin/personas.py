@@ -25,7 +25,7 @@ from core.access import replace_personas as replace_school_personas
 from core.audit import ACTION_USER_PERSONAS_UPDATED, TARGET_TYPE_USER, record
 from core.deps import DbSession
 from core.exceptions import AuthError, NotFoundError, ValidationError
-from core.personas import PERSONA_KEYS, PERSONAS, is_super_admin
+from core.personas import PERSONA_KEYS, PERSONAS, is_super_admin, platform_only_personas
 from core.security import require_permission
 from core.tenant import Scope, TenantScope, scope_query
 from core.unit_of_work import unit_of_work
@@ -60,6 +60,7 @@ class PersonaService:
                 label=definition.label,
                 scope=definition.scope,
                 permissions=list(definition.permissions),
+                requires_platform_account=definition.requires_platform_account,
                 user_count=counts.get(definition.key, 0),
                 grantable=grantable is None or definition.key in grantable,
             )
@@ -148,9 +149,11 @@ class PersonaService:
         unknown = sorted(set(unique) - set(PERSONA_KEYS))
         if unknown:
             raise ValidationError(f"未知视角: {unknown}")
-        # 平台级视角跨院校：只属于平台账号，绝不能被授予普通院校账号
-        if "platform" in unique and not is_super_admin(target):
-            raise ValidationError("平台视角只能授予平台账号")
+        # 平台级视角跨院校：只属于平台账号，绝不能被授予普通院校账号。
+        # （运维 ops 也算平台级：密钥/审计/诊断没有院校轴。）
+        platform_only = platform_only_personas(unique)
+        if platform_only and not is_super_admin(target):
+            raise ValidationError(f"平台专属视角只能授予平台账号: {platform_only}")
         active_school = self._grant_target_school(target, school_id, actor)
         grantable = self._grantable(actor)
         if grantable is not None:

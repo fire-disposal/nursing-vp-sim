@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import type { components } from "@/api/api-types.gen";
 import { getAssignments } from "@/api/assignments";
 import { queryKeys } from "@/api/query-keys";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import EmptyState from "@/components/ui/empty-state";
 import ErrorState from "@/components/ui/error-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
@@ -75,19 +75,17 @@ export default function ClassAssignmentsTab({
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle>
-					<Group gap={8} wrap="nowrap" justify="space-between" w="100%">
-						<Group gap={8} wrap="nowrap">
-							<IconClipboardList size={16} />
-							<Text component="span" fw={600} inherit>
-								本班作业
-							</Text>
-						</Group>
-						<Text size="xs" c="dimmed" className="tabular-nums">
-							{isError ? "—" : `共 ${total} 个`}
+				<Group gap={8} wrap="nowrap" justify="space-between" w="100%">
+					<Group gap={8} wrap="nowrap">
+						<IconClipboardList size={16} />
+						<Text component="span" size="md" fw={600} lh={1.35}>
+							本班作业
 						</Text>
 					</Group>
-				</CardTitle>
+					<Text size="xs" c="dimmed" className="tabular-nums">
+						{isError ? "—" : `共 ${total} 个`}
+					</Text>
+				</Group>
 			</CardHeader>
 			<CardContent>
 				{isError ? (

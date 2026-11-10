@@ -217,7 +217,7 @@ export default function AdminHome() {
 														style={{ flex: 1 }}
 													/>
 													<Text size="xs" c="dimmed" className="tabular-nums">
-														{cls.completion_rate.toFixed(1)}
+														{cls.completion_rate.toFixed(1)} 次/人
 													</Text>
 												</Group>
 											</Table.Td>

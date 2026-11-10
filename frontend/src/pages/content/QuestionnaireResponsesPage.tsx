@@ -1,7 +1,7 @@
 import { Anchor, Badge, Select, Text } from "@mantine/core";
 import { IconClipboardList } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { queryKeys } from "@/api/query-keys";
 import {
 	getQuestionnaireResponses,
@@ -42,7 +42,6 @@ export default function QuestionnaireResponsesPage() {
 	const { id } = useParams<{ id: string }>();
 	const templateId = Number(id);
 	const valid = Number.isInteger(templateId) && templateId > 0;
-	const navigate = useNavigate();
 
 	const list = useListFilters<ResponseFilters>(
 		{ status: "completed", trigger_event: "", search: "" },
@@ -82,7 +81,16 @@ export default function QuestionnaireResponsesPage() {
 			key: "user_name",
 			header: "作答人",
 			cellClassName: "font-medium",
-			render: (r) => r.user_name || `用户 #${r.user_id}`,
+			render: (r) => (
+				<Anchor
+					component={Link}
+					to={`/admin/questionnaires/${templateId}/responses/${r.id}`}
+					size="sm"
+					fw={500}
+				>
+					{r.user_name || `用户 #${r.user_id}`}
+				</Anchor>
+			),
 		},
 		{
 			key: "trigger_event",
@@ -141,7 +149,6 @@ export default function QuestionnaireResponsesPage() {
 						to={`/admin/records/${r.record_id}`}
 						size="sm"
 						data-testid={`record-link-${r.id}`}
-						onClick={(e) => e.stopPropagation()}
 					>
 						{`#${r.record_id}`}
 					</Anchor>
@@ -158,7 +165,7 @@ export default function QuestionnaireResponsesPage() {
 			header={
 				<PageHeader
 					title={template ? `${template.title} · 答卷` : "问卷答卷"}
-					subtitle="逐份查看学生作答；点击行进入详情"
+					subtitle="逐份查看学生作答；打开姓名进入详情"
 					icon={IconClipboardList}
 					backTo="/admin/questionnaires"
 				/>
@@ -234,9 +241,6 @@ export default function QuestionnaireResponsesPage() {
 						list.hasActiveFilters
 							? "当前筛选下没有答卷，试试清除筛选"
 							: "该问卷还没有学生提交"
-					}
-					onRowClick={(r) =>
-						navigate(`/admin/questionnaires/${templateId}/responses/${r.id}`)
 					}
 					stickyHeader={false}
 					bare

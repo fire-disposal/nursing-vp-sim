@@ -645,7 +645,6 @@ class QuestionnaireResponseService:
             template_title=t.title,
             total_assigned=cq_count,
             total_completed=total_completed,
-            completion_rate=(total_completed / cq_count * 100) if cq_count > 0 else 0.0,
             questions=q_stats,
         )
 

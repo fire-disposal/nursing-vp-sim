@@ -38,6 +38,7 @@ from models import (
     ScoreReview,
     TrainingRecord,
     User,
+    UserSchoolPersona,
 )
 from modules.assignments.progress import (
     Attempt,
@@ -184,7 +185,7 @@ class ScoreboardService:
         if scope.class_id is not None:
             visible_class(self.db, self.tenant, scope.class_id)
 
-    def _require_visible_student(self, user_id: int) -> User:
+    def _require_visible_student(self, user_id: int, scope: ScoreboardScope) -> User:
         """单学生详情只对作用域内学生开放；跨院校/非任教班一律 404。"""
         user = self.db.get(User, user_id)
         if user is None:
@@ -200,6 +201,29 @@ class ScoreboardService:
             )
             .first()
         ):
+            raise NotFoundError("学生不存在")
+        if self.tenant.class_ids is None and scope.class_id is not None:
+            in_selected_class = (
+                self.db.query(ClassMembership.id)
+                .filter(
+                    ClassMembership.user_id == user_id,
+                    ClassMembership.class_id == scope.class_id,
+                    ClassMembership.member_role == MEMBER_ROLE_STUDENT,
+                )
+                .first()
+            )
+            if in_selected_class is None:
+                raise NotFoundError("学生不存在")
+        # 校级作用域没有班级收窄，不能因此把同校管理员/教师当成“学生”遍历。
+        is_student = (
+            self.db.query(UserSchoolPersona)
+            .filter(
+                UserSchoolPersona.user_id == user_id,
+                UserSchoolPersona.persona == "student",
+            )
+            .first()
+        )
+        if is_student is None:
             raise NotFoundError("学生不存在")
         return user
 
@@ -510,7 +534,7 @@ class ScoreboardService:
         scope: ScoreboardScope,
         now: datetime | None = None,
     ) -> StudentTrendResponse:
-        user = self._require_visible_student(user_id)
+        user = self._require_visible_student(user_id, scope)
         self._require_visible_class(scope)
         now = now or datetime.now(UTC)
         conditions = self._scope_conditions(scope, now) + [TrainingRecord.user_id == user_id]
@@ -623,7 +647,7 @@ class ScoreboardService:
         可见性：目标学生必须在本作用域内（跨院校/非任教班一律 404），
         趋势与作业/训练三块共用同一个 ``_require_visible_student`` 判定。
         """
-        student = self._require_visible_student(user_id)
+        student = self._require_visible_student(user_id, scope)
         self._require_visible_class(scope)
         now = now or datetime.now(UTC)
 
@@ -673,7 +697,7 @@ class ScoreboardService:
             for c in rows
         ]
 
-    def _profile_assignment_query(self, user_id: int, scope: ScoreboardScope):
+    def _profile_assignment_query(self, user_id: int, scope: ScoreboardScope, now: datetime):
         """该生作为受众收到的作业（受众快照口径），并按作用域收窄班级。
 
         受众快照是作业可见性的唯一读口径（见 ``AssignmentService.recipient_ids``）：
@@ -689,13 +713,19 @@ class ScoreboardService:
         query = self._narrow_classes(query)
         if scope.class_id is not None:
             query = query.filter(Class.id == scope.class_id)
+        if scope.assignment_status == "active":
+            query = query.filter(Assignment.end_time >= now)
+        elif scope.assignment_status == "ended":
+            query = query.filter(Assignment.end_time < now)
         return query
 
     def _profile_assignments(
         self, user_id: int, scope: ScoreboardScope, now: datetime
     ) -> list[StudentProfileAssignmentItem]:
         assignments = (
-            self._profile_assignment_query(user_id, scope).order_by(Assignment.end_time.desc(), Assignment.id).all()
+            self._profile_assignment_query(user_id, scope, now)
+            .order_by(Assignment.end_time.desc(), Assignment.id)
+            .all()
         )
         if not assignments:
             return []
@@ -765,6 +795,16 @@ class ScoreboardService:
             query = query.filter(TrainingRecord.case_id == scope.case_id)
         if scope.assignment_id is not None:
             query = query.filter(TrainingRecord.assignment_id == scope.assignment_id)
+        if not scope.include_free:
+            query = query.filter(TrainingRecord.assignment_id.isnot(None))
+        if scope.assignment_status == "active":
+            query = query.join(Assignment, TrainingRecord.assignment_id == Assignment.id).filter(
+                Assignment.end_time >= datetime.now(UTC)
+            )
+        elif scope.assignment_status == "ended":
+            query = query.join(Assignment, TrainingRecord.assignment_id == Assignment.id).filter(
+                Assignment.end_time < datetime.now(UTC)
+            )
         if status:
             query = query.filter(TrainingRecord.status == status)
         return query

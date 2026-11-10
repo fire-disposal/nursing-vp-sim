@@ -46,7 +46,7 @@ export function ActivityRail() {
 	const host = useWorkspaceHost();
 	// 视口不到 lg 时用窄面板：横屏手机/窄窗口也要给对话区留位置
 	const wideViewport = useMediaQuery(`(min-width: ${WIDTH.rail}px)`);
-	useInitialActivityPanel();
+	useInitialActivityPanel(host === "rail" && !isMobile && !isShort);
 
 	const headerOffset = isShort || isMobile ? TRAINING_HEADER_HEIGHT.short : TRAINING_HEADER_HEIGHT.wide;
 	if (host !== "rail" || panes.length === 0) return null;

@@ -256,9 +256,9 @@ describe("单份答卷详情", () => {
 describe("问卷统计", () => {
 	it("深链直接打开就有数据，并能下钻到答卷列表", async () => {
 		renderAt("/admin/questionnaires/3/stats");
-		await waitFor(() => expect(screen.getByText("总分配数")).toBeInTheDocument());
-		// 后端 `completion_rate` 已是百分数（40 就是 40%）；旧代码又乘了 100 变成 4000%
-		expect(screen.getByText("40.0%")).toBeInTheDocument();
+		await waitFor(() => expect(screen.getByText("绑定病例")).toBeInTheDocument());
+		expect(screen.getByText("已完成答卷")).toBeInTheDocument();
+		expect(screen.queryByText("完成率")).not.toBeInTheDocument();
 
 		await userEvent.click(screen.getByRole("button", { name: /查看答卷/ }));
 		await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/admin/questionnaires/3/responses"));
@@ -269,12 +269,12 @@ describe("问卷统计", () => {
 		renderAt("/admin/questionnaires/3/stats");
 
 		await waitFor(() => expect(screen.getByText("统计数据加载失败")).toBeInTheDocument());
-		expect(screen.queryByText("总分配数")).not.toBeInTheDocument();
+		expect(screen.queryByText("绑定病例")).not.toBeInTheDocument();
 	});
 
 	it("页头返回按钮回到问卷管理列表", async () => {
 		renderAt("/admin/questionnaires/3/stats");
-		await waitFor(() => expect(screen.getByText("总分配数")).toBeInTheDocument());
+		await waitFor(() => expect(screen.getByText("绑定病例")).toBeInTheDocument());
 
 		await userEvent.click(screen.getByRole("button", { name: "返回" }));
 		await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/admin/questionnaires"));

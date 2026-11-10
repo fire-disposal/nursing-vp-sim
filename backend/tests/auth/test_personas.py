@@ -191,13 +191,13 @@ def _fresh_permission_cache():
 
 def test_no_header_uses_a_granted_persona(pg_session):
     user = _user(pg_session)
-    _grant(pg_session, user, "ops", "teacher")
+    _grant(pg_session, user, "admin", "teacher")
 
     persona, perms = _access(pg_session, user, None)
 
     # 无默认视角的院校账号：取已授予集合里排序最前的一个（确定性）
-    assert persona == "ops"
-    assert perms == frozenset(_OPS)
+    assert persona == "admin"
+    assert perms == frozenset(_ADMIN)
 
 
 def test_granted_header_persona_takes_effect(pg_session):
@@ -232,10 +232,16 @@ def test_platform_account_grants_all_personas_without_rows(pg_session):
     assert pg_session.query(UserSchoolPersona).filter(UserSchoolPersona.user_id == user.id).count() == 0
     assert granted_personas(pg_session, user) == frozenset(PERSONA_KEYS)
 
-    # 非 platform 视角必须有选校；平台账号不再默认拿到“所有学校”的教师/运维面
+    # 运维是平台级视角：平台账号无需选校即可使用（它看到的就是跨校系统面）
+    persona, perms = _access(pg_session, user, "ops")
+    assert persona == "ops"
+    assert perms == frozenset(_OPS)
+
+    # 非平台级视角仍必须有选校；平台账号不能对“所有学校”行使教师/学生面
     with pytest.raises(HTTPException) as exc:
-        _access(pg_session, user, "ops")
+        _access(pg_session, user, "teacher")
     assert exc.value.status_code == 403
+    assert exc.value.detail == "请先选择院校"
 
     # 无 header → 默认平台视角（跨院校的平台级功能）
     persona, perms = _access(pg_session, user, None)
@@ -268,11 +274,8 @@ def test_grant_snapshot_do_not_leak_between_users(pg_session):
 
 
 def test_granted_persona_is_selectable(pg_session):
-    """授权了就必须能选：被授予 `ops` 后，带 header 选 `ops` 生效。"""
-    user = _user(pg_session)
-    assert _access(pg_session, user, None) == (None, frozenset())
-
-    _grant(pg_session, user, "ops")
+    """授权了就必须能选：平台账号被授予 `ops` 后，带 header 选 `ops` 生效。"""
+    user = _user(pg_session, platform=True)
 
     persona, perms = _access(pg_session, user, "ops")
     assert persona == "ops"
@@ -280,15 +283,27 @@ def test_granted_persona_is_selectable(pg_session):
     assert "case_manage" not in perms
 
 
-def test_default_persona_must_be_within_granted_set(pg_session):
-    """授予了 student 与 ops：无 header 只能在已授予集合里取，不能落到 `platform`。"""
+def test_school_account_cannot_use_ops_even_with_legacy_grant(pg_session):
+    """历史库里残留的院校级 ops 行也不能再生效：读取侧同样失败关闭。"""
     user = _user(pg_session)
-    _grant(pg_session, user, "student", "ops")
+    _grant(pg_session, user, "ops")
+
+    for requested in ("ops", None):
+        with pytest.raises(HTTPException) as exc:
+            _access(pg_session, user, requested)
+        assert exc.value.status_code == 403
+        assert exc.value.detail == "视角不可用"
+
+
+def test_default_persona_must_be_within_granted_set(pg_session):
+    """授予了 student 与 admin：无 header 只能在已授予集合里取，不能落到 `platform`。"""
+    user = _user(pg_session)
+    _grant(pg_session, user, "student", "admin")
 
     persona, perms = _access(pg_session, user, None)
 
-    assert persona in {"ops", "student"}
-    assert perms == frozenset(_OPS if persona == "ops" else _STUDENT)
+    assert persona in {"admin", "student"}
+    assert perms == frozenset(_ADMIN if persona == "admin" else _STUDENT)
 
 
 # ── 审计：落操作时的视角 ─────────────────────────────────────────────────────
@@ -426,3 +441,8 @@ def test_platform_non_platform_persona_requires_selected_school(pg_session):
     platform.set_active_school(school.id)
     platform.set_active_persona("student")
     assert resolve_scope(pg_session, platform).school_id == school.id
+
+    # ops / platform 是跨院校作用域：顶栏残留的选校不能把运维页收窄成某校视图。
+    for persona in ("ops", "platform"):
+        platform.set_active_persona(persona)
+        assert resolve_scope(pg_session, platform).school_id is None

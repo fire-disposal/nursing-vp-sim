@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useSchoolsQuery } from "@/hooks/useSchools";
 import useAuthStore from "@/stores/authStore";
+import { isPlatformOnlyPersona } from "@/utils/personas";
 import { usePersonaStore } from "@/stores/personaStore";
 import { type ScopedSchool, SCHOOL_MENU_REQUEST_EVENT, toScopedSchool, useSchoolScopeStore } from "@/stores/schoolScopeStore";
 import PersonaSwitcher from "./PersonaSwitcher";
@@ -130,7 +131,9 @@ export default function ShellContextSwitchers({ variant = "card" }: { variant?: 
 		// authStore 会把刚选的学校又清掉。
 		const personaState = usePersonaStore.getState();
 		if (isPlatform) {
-			if (next == null && personaState.active !== "platform") {
+			// 切回“全部院校”时，院校视角失去作用域，需要落到 platform；
+			// 但 platform / ops 本身就是全局视角，不能把正在看的运维页切走。
+			if (next == null && !isPlatformOnlyPersona(personaState.active)) {
 				personaState.setAvailable(personaState.available, "platform");
 			}
 		} else if (next != null) {

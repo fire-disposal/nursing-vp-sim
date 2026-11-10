@@ -47,6 +47,11 @@ type CaseBrief = components["schemas"]["CaseBrief"];
 type TrainingRecordBrief = components["schemas"]["TrainingRecordBrief"];
 type TrainingNotificationItem = components["schemas"]["TrainingNotificationItem"];
 
+/** 作业隐藏病例时，名称不展示；继续显示空串会让卡片像加载失败。 */
+function assignmentCaseLabel(item: { case_name: string; hide_case_info?: boolean }): string {
+	return item.hide_case_info ? "隐藏病例" : item.case_name;
+}
+
 const DIFFICULTY_LABELS: Record<number, string> = { 1: "初级", 2: "中级", 3: "高级" };
 const LIMIT = 50;
 
@@ -178,7 +183,7 @@ export default function TrainingSelect({ tab = "home" }: { tab?: TrainingTab }) 
 	const inProgressRecords = inProgressData?.items ?? [];
 	const records = recentData?.items ?? [];
 	const assignments = (assignmentsData ?? []) as Array<{
-		id: string; title: string; case_name: string; status: string;
+		id: string; title: string; case_name: string; hide_case_info: boolean; status: string;
 		end_time: string; record_id?: number | null; score_total?: number | null;
 		is_overdue?: boolean; max_attempts?: number | null; attempt_count?: number;
 	}>;
@@ -498,7 +503,7 @@ export default function TrainingSelect({ tab = "home" }: { tab?: TrainingTab }) 
 								{primaryInProgress
 									? `当前未完成病例：${primaryInProgress.case_name}。先回到对话，再生成评分。`
 									: nextAssignment
-										? `待完成作业：${nextAssignment.title} · ${nextAssignment.case_name}`
+										? `待完成作业：${nextAssignment.title} · ${assignmentCaseLabel(nextAssignment)}`
 										: "选择一个病例进入沉浸式问诊，完成后查看评分和改进建议。"}
 							</Text>
 						</Box>
@@ -551,7 +556,7 @@ export default function TrainingSelect({ tab = "home" }: { tab?: TrainingTab }) 
 												<Box style={{ minWidth: 0 }}>
 													<Text size="sm" fw={500} truncate>{a.title}</Text>
 													<Text size="xs" c="dimmed" mt={4}>
-														{a.case_name}{a.end_time ? ` · ${new Date(a.end_time).toLocaleDateString("zh-CN", { timeZone: APP_TIME_ZONE, month: "numeric", day: "numeric" })} 截止` : ""}
+														{assignmentCaseLabel(a)}{a.end_time ? ` · ${new Date(a.end_time).toLocaleDateString("zh-CN", { timeZone: APP_TIME_ZONE, month: "numeric", day: "numeric" })} 截止` : ""}
 													</Text>
 												</Box>
 <Button variant="subtle" size="sm" onClick={() => a.status === "in_progress" && a.record_id
@@ -887,8 +892,9 @@ export default function TrainingSelect({ tab = "home" }: { tab?: TrainingTab }) 
 											to={`/assignments/${a.id}`}
 											size="sm"
 											fw={600}
+											c="brand"
 											truncate
-											style={{ flex: 1, color: "inherit", textDecoration: "none" }}
+											style={{ flex: 1 }}
 										>{a.title}</Text>
 											{isExpired && <Badge variant="light" color="red">已过期</Badge>}
 											{isClosed && <Badge variant="light" color="orange">已关闭</Badge>}
@@ -896,7 +902,7 @@ export default function TrainingSelect({ tab = "home" }: { tab?: TrainingTab }) 
 											{!isExpired && !isClosed && !isCompleted && <Badge variant="light" color="gray">待完成</Badge>}
 										</Group>
 										<Text size="xs" c="dimmed" mt={4}>
-											{a.case_name}
+											{assignmentCaseLabel(a)}
 											{a.score_total != null && <> · 得分 {a.score_total}</>}
 										</Text>
 										{(a.attempt_count ?? 0) > 0 && (

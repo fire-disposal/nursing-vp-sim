@@ -258,7 +258,13 @@ def test_hidden_case_assignment_does_not_leak_case_name(pg_session, client):
 
     assert body["hide_case_info"] is True
     assert body["case_name"] == ""
+    assert body["case_id"] is None
     assert body["mode"] == "assessment"
+
+    cards = client(student).get("/api/students/assignments").json()
+    card = next(item for item in cards if item["id"] == assignment.id)
+    assert card["hide_case_info"] is True
+    assert card["case_name"] == ""
 
 
 def test_closed_assignment_still_exposes_full_history(pg_session, client):

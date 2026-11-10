@@ -6,6 +6,7 @@ import {
 	refreshToken as apiRefreshToken,
 	getMe,
 } from "@/api";
+import { queryClient } from "@/api/query-client";
 import { dispatchForceLogout } from "@/events";
 import { usePersonaStore } from "@/stores/personaStore";
 import { useSchoolScopeStore } from "@/stores/schoolScopeStore";
@@ -95,6 +96,8 @@ const useAuthStore = create<ExtendedAuthState>()(
 
 			login: async (username: string, password: string): Promise<User> => {
 				const { data } = await apiLogin(username, password);
+				// 同一标签页内换账号：所有查询键都与用户无关，旧缓存必须先清空。
+				queryClient.clear();
 				// 换人登录不能带走上一账号的院校作用域/视角偏好（与 logout 对齐；
 				// 覆盖“会话过期后直接登录另一个账号、没走 logout”的路径）。
 				useSchoolScopeStore.getState().setSchool(null);
@@ -190,6 +193,7 @@ const useAuthStore = create<ExtendedAuthState>()(
 					console.warn("[authStore] refreshAuth 401 — 清除会话");
 					stopRefreshTimer();
 					set({ user: null, token: null, permissions: [] });
+					queryClient.clear();
 					usePersonaStore.getState().clear();
 				} else {
 					console.warn("[authStore] refreshAuth 网络/服务端错误 — 保持现有会话", err);
@@ -294,6 +298,7 @@ const useAuthStore = create<ExtendedAuthState>()(
 				stopRefreshTimer();
 				apiLogout().catch(() => {}).finally(() => { isLoggingOut = false; });
 				set({ user: null, token: null, permissions: [] });
+				queryClient.clear();
 				// 「当前院校」是上一个平台的偏好，换人登录不能带走（换账号后作用域必须回到全部院校）
 				useSchoolScopeStore.getState().setSchool(null);
 				// 视角同理：上一个账号的视角选择对下一个人没有意义，且可能不在其授予集合里

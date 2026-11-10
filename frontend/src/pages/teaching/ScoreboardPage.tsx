@@ -261,6 +261,17 @@ export default function ScoreboardPage() {
 		[caseId, classId, assignmentId, assignmentStatus, includeFree],
 	);
 
+	/** 档案必须继承当前排行榜的样本范围，否则趋势会突然变成全量数据。 */
+	const studentProfileHref = (userId: number) => {
+		const params = new URLSearchParams();
+		if (caseId) params.set("case_id", caseId);
+		if (classId) params.set("class_id", classId);
+		if (assignmentId) params.set("assignment_id", assignmentId);
+		if (assignmentStatus) params.set("assignment_status", assignmentStatus);
+		params.set("include_free", includeFree ? "1" : "0");
+		return `/admin/students/${userId}?${params.toString()}`;
+	};
+
 	const {
 		data,
 		isLoading,
@@ -450,7 +461,7 @@ export default function ScoreboardPage() {
 					variant="subtle" color="gray"
 					w={44} h={44} p={0}
 					title="查看学习档案"
-					onClick={() => navigate(`/admin/students/${r.user_id}`)}
+					onClick={() => navigate(studentProfileHref(r.user_id))}
 				>
 					<IconChartLine size={16} />
 				</Button>
@@ -647,7 +658,7 @@ export default function ScoreboardPage() {
 										variant="subtle" color="gray"
 										w={44} h={44} p={0}
 										title="查看学习档案"
-										onClick={() => navigate(`/admin/students/${r.user_id}`)}
+										onClick={() => navigate(studentProfileHref(r.user_id))}
 									>
 										<IconChartLine size={16} />
 									</Button>

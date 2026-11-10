@@ -17,8 +17,6 @@ export const WIDTH = {
 	phoneShell: 768,
 	/** 数据表降级为卡片列表。比 phoneShell 宽：平板仍宜用卡片读表。 */
 	tableCompact: 992,
-	/** 登录页插画（窄于此只留表单，避免插画挤掉表单可读宽度）。 */
-	loginIllustration: 1024,
 	/** 训练工作区：右侧栏常驻（低于此宽度改用竖屏抽屉）。 */
 	rail: 1200,
 } as const;

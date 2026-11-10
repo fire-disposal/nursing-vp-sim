@@ -153,7 +153,6 @@ export default function StudentAssignmentDetailPage() {
 	}
 
 	const status = statusMeta(data.status);
-	const reviewable = data.status === "completed";
 	const ctaDisabled = startMutation.isPending;
 
 	const primaryAction = () => {
@@ -313,10 +312,10 @@ export default function StudentAssignmentDetailPage() {
 				</Group>
 				{/* 窄屏用卡片列表（避免横向滚动），宽屏用表格 */}
 				<Box visibleFrom="sm">
-					<AssignmentAttemptTable attempts={data.attempts} reviewable={reviewable} />
+					<AssignmentAttemptTable attempts={data.attempts} />
 				</Box>
 				<Box hiddenFrom="sm">
-					<AssignmentAttemptList attempts={data.attempts} reviewable={reviewable} />
+					<AssignmentAttemptList attempts={data.attempts} />
 				</Box>
 			</Paper>
 

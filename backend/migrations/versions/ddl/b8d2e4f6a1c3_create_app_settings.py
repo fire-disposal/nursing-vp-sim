@@ -29,7 +29,6 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     )
-    op.execute("INSERT INTO app_settings (id, feedback_hint_enabled) VALUES (1, true)")
 
 
 def downgrade() -> None:

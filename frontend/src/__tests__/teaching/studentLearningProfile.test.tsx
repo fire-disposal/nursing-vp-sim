@@ -221,6 +221,25 @@ describe("学生学习档案页", () => {
 		});
 	});
 
+	it("继承成绩榜的病例/班级/作业/范围筛选", async () => {
+		getStudentLearningProfile.mockResolvedValue({ data: PROFILE });
+		renderPage(
+			"/admin/students/42?case_id=7&class_id=9&assignment_id=a-1&assignment_status=ended&include_free=0",
+		);
+		await waitFor(() => {
+			expect(getStudentLearningProfile).toHaveBeenCalledWith(
+				42,
+				expect.objectContaining({
+					case_id: 7,
+					class_id: 9,
+					assignment_id: "a-1",
+					assignment_status: "ended",
+					include_free: false,
+				}),
+			);
+		});
+	});
+
 	it("无训练学生：概览与训练页签都是空态而不是错误", async () => {
 		getStudentLearningProfile.mockResolvedValue({
 			data: {

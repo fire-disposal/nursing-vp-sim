@@ -21,8 +21,15 @@ export const PERSONA_ORDER: PersonaId[] = ["student", "teacher", "admin", "ops",
 
 const PERSONA_IDS = new Set<string>(PERSONA_ORDER);
 
+/** 只能属于平台账号、且作用域跨院校的视角（后端 `requires_platform_account`）。 */
+const PLATFORM_ONLY_PERSONAS: Record<string, true> = { ops: true, platform: true };
+
 export function isPersonaId(value: unknown): value is PersonaId {
 	return typeof value === "string" && PERSONA_IDS.has(value);
+}
+
+export function isPlatformOnlyPersona(value: string | null | undefined): boolean {
+	return value != null && PLATFORM_ONLY_PERSONAS[value] === true;
 }
 
 /**

@@ -13,6 +13,7 @@ import { queryKeys } from "@/api/query-keys";
 import TableScroll from "@/components/ui/table-scroll";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
+import ErrorState from "@/components/ui/error-state";
 import PageHeader from "@/components/ui/page-header";
 import StatCard from "@/components/ui/stat-card";
 import { formatShortDateTime } from "@/utils/date";
@@ -567,7 +568,7 @@ function FrontendErrorTable({ data }: { data: DiagnoseResponse }) {
 export default function SystemOpsPage() {
 	const [autoRefresh, setAutoRefresh] = useState(false);
 
-	const { data, isLoading, refetch } = useQuery({
+	const { data, isLoading, isError, error, refetch } = useQuery({
 		queryKey: queryKeys.diagnose,
 		queryFn: () => fetchDiagnose().then((r) => r.data),
 		staleTime: 15_000,
@@ -579,6 +580,15 @@ export default function SystemOpsPage() {
 	};
 
 	if (isLoading) return <LoadingSkeleton variant="card" />;
+	if (isError) {
+		return (
+			<ErrorState
+				title="运维仪表盘不可用"
+				error={error}
+				onRetry={() => refetch()}
+			/>
+		);
+	}
 	if (!data) return <Text c="dimmed" ta="center" py={32}>诊断数据不可用</Text>;
 
 	return (

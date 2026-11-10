@@ -149,12 +149,15 @@ class StudentService:
             attempts = [attempt_from_record(r) for r in records_by_assignment.get(a.id, [])]
             representative = pick_representative(attempts)
             closed = effective_status(a.is_closed, a.end_time, now) is AssignmentLifecycle.CLOSED
+            hide_case = bool((a.behavior or {}).get("hide_case_info"))
 
             items.append(
                 StudentAssignmentItem(
                     id=a.id,
                     title=a.title,
-                    case_name=a.case.name if a.case else "",
+                    # 与详情同一披露口径：隐藏病例时名称与编号都不下发给学生。
+                    case_name="" if hide_case else (a.case.name if a.case else ""),
+                    hide_case_info=hide_case,
                     start_time=a.start_time,
                     end_time=a.end_time,
                     status=AssignmentProgressStatus.CLOSED.value if closed else progress_status(representative),
@@ -218,16 +221,15 @@ class StudentService:
         remaining = None if not limit or limit <= 0 else max(limit - attempt_count, 0)
         required_activities, required_artifacts, time_limit = self._requirements(assignment)
 
+        hide_case = bool((assignment.behavior or {}).get("hide_case_info"))
         return StudentAssignmentDetail(
             id=assignment.id,
             title=assignment.title,
             description=assignment.description,
-            case_id=assignment.case_id,
+            case_id=None if hide_case else assignment.case_id,
             # 隐藏病例时连名称都不披露：作业页比训练入口更容易被截图转发
-            case_name=""
-            if (assignment.behavior or {}).get("hide_case_info")
-            else (assignment.case.name if assignment.case else ""),
-            hide_case_info=bool((assignment.behavior or {}).get("hide_case_info")),
+            case_name="" if hide_case else (assignment.case.name if assignment.case else ""),
+            hide_case_info=hide_case,
             class_id=assignment.class_id,
             class_name=assignment.class_.name if assignment.class_ else "",
             teacher_name=assignment.teacher.display_name if assignment.teacher else "",
