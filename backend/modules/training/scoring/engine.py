@@ -258,7 +258,9 @@ async def _stage_with_retry(
     deadline = time.monotonic() + budget_seconds
 
     async def _try_once(msgs: list[dict]) -> tuple[dict, bool]:
-        remaining = max(15.0, deadline - time.monotonic())
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError(f"Scoring stage budget exhausted: record_id={stage.record_id} purpose={purpose}")
         timeout = min(PER_STAGE_TIMEOUT_SEC, remaining)
         return await asyncio.wait_for(
             _stream_attempt(
@@ -700,10 +702,12 @@ def _postprocess_scoring_result(
 
 
 def _persist_score(result: dict, rubric: dict, record_id: int, db: Session) -> Score | None:
-    # Guard: timeout handler may have already marked scoring_status='failed'.
-    # Don't write an orphan Score that won't match the record status.
-    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).first()
-    if record and record.scoring_status not in (ScoringStatus.PROCESSING, ScoringStatus.PENDING, None):
+    # 成绩与完成状态共用一条行锁/事务：清扫不能插在 Score 提交与 completed 之间。
+    # pending 表示已有更新重试接管，本轮旧 worker 不得再写入。
+    record = db.query(TrainingRecord).filter(TrainingRecord.id == record_id).with_for_update().first()
+    if record is None:
+        return None
+    if record.scoring_status not in (ScoringStatus.PROCESSING, None):
         log.warning(
             "评分结果已过期（状态=%s），不写入孤儿 Score",
             record.scoring_status,
@@ -759,6 +763,8 @@ def _persist_score(result: dict, rubric: dict, record_id: int, db: Session) -> S
         score_meta=score_meta,
     )
     db.add(score)
+    record.scoring_status = ScoringStatus.COMPLETED
+    record.scoring_error = None
     db.commit()
     db.refresh(score)
     return score

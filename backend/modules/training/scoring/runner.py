@@ -420,7 +420,8 @@ async def run_scoring_background(
         if record.scoring_status == ScoringStatus.PENDING:
             log.info("评分被新重试请求取代，跳过完成状态更新", extra={"record_id": record_id})
             return None
-        if record.scoring_status != ScoringStatus.PROCESSING:
+        # `_persist_score` 已在同一事务置 completed；这里仍需继续发通知。
+        if record.scoring_status not in (ScoringStatus.PROCESSING, ScoringStatus.COMPLETED):
             log.info("评分状态已变更（%s），跳过完成状态更新", record.scoring_status, extra={"record_id": record_id})
             return None
 

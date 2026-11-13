@@ -757,7 +757,7 @@ export default function TrainingSelect({ tab = "home" }: { tab?: TrainingTab }) 
 							<SearchInput value={searchInput} onChange={(value) => { handleSearchChange(value); setOffset(0); }} placeholder="搜索病例…" />
 						</Box>
 					</Group>
-					<Paper withBorder px="md" py="sm" bg="brand.0" style={{ borderStyle: "dashed", borderColor: "var(--mantine-color-brand-3)" }}>
+					<Paper withBorder px="md" py="sm" bg="var(--mantine-color-brand-light)" style={{ borderStyle: "dashed", borderColor: "var(--mantine-color-brand-outline)" }}>
 						<Group justify="space-between" gap="sm" wrap="wrap">
 							<Box style={{ minWidth: 0 }}>
 								<Group gap={6} wrap="nowrap">

@@ -225,6 +225,9 @@ class _SingleRowSession:
     def filter(self, *_criteria: object) -> _SingleRowSession:
         return self
 
+    def with_for_update(self) -> _SingleRowSession:
+        return self
+
     def first(self) -> object | None:
         return self.record
 
@@ -265,7 +268,9 @@ def test_mapping_version_follows_the_single_policy_constant(monkeypatch):
     assert db.score is not None
     assert db.score.mapping_version == 7
 
-    db2 = _SingleRowSession(record)
+    db2 = _SingleRowSession(
+        TrainingRecord(id=2, user_id=1, status="completed", scoring_status=ScoringStatus.PROCESSING)
+    )
     _persist(None, db2)
     assert db2.score is not None
     assert db2.score.mapping_version == engine.LEGACY_VERSION
