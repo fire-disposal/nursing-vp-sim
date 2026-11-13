@@ -10,7 +10,7 @@
    ``validator.validate_case``（发布门禁零 error）。
 4. ``build_clinical_rubric``：锚点 → dimensions/items，raw_max = Σ item.max。
 5. 确定性评分：空运行态得 0 且理由非空；"全达成"得满分且每条都有 evidence_refs。
-6. LLM 输出过滤：非法 id 丢弃、超过 2 条整轮不记、非 must_communicate 丢弃。
+6. LLM 输出过滤：非法 id 丢弃、披露与沟通必须有原文引用、多条自然披露如实记录。
 """
 
 from __future__ import annotations
@@ -464,38 +464,66 @@ def test_filter_drops_illegal_and_non_inquiry_ids(case_data):
         {
             "reply": "家里新养了只猫……",
             # f.spo2 是 exam 途径，f.not_exist 不存在
-            "disclosed_finding_ids": ["f.trigger_cat", "f.spo2", "f.not_exist"],
+            "disclosed_findings": [
+                {"id": "f.trigger_cat", "quote": "新养了只猫"},
+                {"id": "f.spo2", "quote": "新养了只猫"},
+                {"id": "f.not_exist", "quote": "新养了只猫"},
+            ],
         },
         case_data=case_data,
         runtime_state={},
+        student_input="",
     )
     assert filtered.disclosed_ids == ["f.trigger_cat"]
-    assert filtered.overflow is False
 
 
-def test_filter_drops_everything_when_over_limit(case_data):
+def test_filter_records_every_quote_anchored_disclosure_without_quantity_cap(case_data):
     filtered = filter_reply(
         {
-            "reply": "嗯……",
-            "disclosed_finding_ids": ["f.trigger_cat", "f.local_rx_inhaled", "f.hormone_concern"],
+            "reply": "家里新养了猫……我三个月前停了吸入激素……也担心它会让人发胖。",
+            "disclosed_findings": [
+                {"id": "f.trigger_cat", "quote": "新养了猫"},
+                {"id": "f.local_rx_inhaled", "quote": "三个月前停了吸入激素"},
+                {"id": "f.hormone_concern", "quote": "担心它会让人发胖"},
+            ],
         },
         case_data=case_data,
         runtime_state={},
+        student_input="",
     )
-    assert filtered.overflow is True
-    assert filtered.disclosed_ids == []
+    assert filtered.disclosed_ids == ["f.trigger_cat", "f.local_rx_inhaled", "f.hormone_concern"]
 
 
-def test_filter_only_accepts_existing_communicate_objectives(case_data):
+def test_filter_only_accepts_communication_supported_by_student_input(case_data):
     filtered = filter_reply(
         {
             "reply": "好……我知道你一直在。",
-            "communicated_objective_ids": ["c.calming", "a.oxygen", "c.not_exist"],
+            "communicated_objectives": [
+                {"id": "c.calming", "quote": "我会一直在旁边处理"},
+                {"id": "a.oxygen", "quote": "我会一直在旁边处理"},
+                {"id": "c.not_exist", "quote": "我会一直在旁边处理"},
+            ],
         },
         case_data=case_data,
         runtime_state={},
+        student_input="我会一直在旁边处理，你先按我的节奏呼吸。",
     )
     assert filtered.communicated_ids == ["c.calming"]
+
+
+def test_filter_rejects_ids_without_matching_source_quote(case_data):
+    filtered = filter_reply(
+        {
+            "reply": "嗯……",
+            "disclosed_findings": [{"id": "f.trigger_cat", "quote": "家里新养了猫"}],
+            "communicated_objectives": [{"id": "c.calming", "quote": "我会一直在旁边处理"}],
+        },
+        case_data=case_data,
+        runtime_state={},
+        student_input="你现在感觉怎么样？",
+    )
+    assert filtered.disclosed_ids == []
+    assert filtered.communicated_ids == []
 
 
 def test_filter_does_not_repeat_already_observed(case_data):
@@ -505,20 +533,24 @@ def test_filter_does_not_repeat_already_observed(case_data):
         evidence=[evidence_entry(findings_index(case_data)["f.trigger_cat"], source="patient", message_id=3)],
     )
     filtered = filter_reply(
-        {"reply": "刚说过了……", "disclosed_finding_ids": ["f.trigger_cat"]},
+        {
+            "reply": "刚说过了，家里新养了猫……",
+            "disclosed_findings": [{"id": "f.trigger_cat", "quote": "家里新养了猫"}],
+        },
         case_data=case_data,
         runtime_state={STATE_KEY: state},
+        student_input="",
     )
     assert filtered.disclosed_ids == []
 
 
 def test_filter_empty_reply(case_data):
-    filtered = filter_reply({"disclosed_finding_ids": []}, case_data=case_data, runtime_state={})
+    filtered = filter_reply({"disclosed_findings": []}, case_data=case_data, runtime_state={}, student_input="")
     assert filtered.reply == ""
 
 
-def test_patient_prompt_contains_inquiry_facts_before_disclosure(case_data):
-    """患者必须知道尚未披露的自身病史，否则真实模型无法首次回答。"""
+def test_patient_prompt_contains_full_background_and_id_mapping_without_clinical_notes(case_data):
+    """患者既有完整生活背景，也能把自然表达准确映射到证据 id。"""
     ctx = SimpleNamespace(
         case_data=case_data,
         record=SimpleNamespace(runtime_state={}),
@@ -527,6 +559,40 @@ def test_patient_prompt_contains_inquiry_facts_before_disclosure(case_data):
     )
 
     messages = build_turn_messages(ctx)
+    system = messages[0]["content"]
 
-    assert "发作前正在换猫砂" in messages[0]["content"]
-    assert "f.trigger_cat" in messages[0]["content"]
+    assert "发作前正在换猫砂" in system
+    assert "[f.trigger_cat]" in system
+    assert "外卖配送员" in system
+    assert "舍不得送走" in system
+    assert "重症提示" not in system
+    assert "本次发作的根源之一" not in system
+
+
+def test_patient_prompt_separates_stable_persona_from_observed_actions(case_data):
+    """现场状态随回合变化，但人设与病例前缀保持逐字节稳定。"""
+    ctx = SimpleNamespace(
+        case_data=case_data,
+        record=SimpleNamespace(runtime_state={}),
+        messages=[],
+        student_input="现在给你吸氧，感觉怎么样？",
+    )
+    initial = build_turn_messages(ctx)
+
+    state = seed_state(case_data, None)
+    state = merge_state(
+        base=state,
+        evidence=[evidence_entry(findings_index(case_data)["f.spo2"], source="observation")],
+        completed=["a.oxygen"],
+        communicated=["c.calming"],
+    )
+    ctx.record.runtime_state = {STATE_KEY: state}
+    updated = build_turn_messages(ctx)
+
+    assert updated[0]["content"] == initial[0]["content"]
+    turn_state = updated[-2]["content"]
+    assert "SpO2 89%" in turn_state
+    assert "启动吸氧" in turn_state
+    assert "安抚患者的恐惧" in turn_state
+    assert "未吸氧状态下的低氧血症" not in turn_state
+    assert updated[-1]["content"].startswith("护士的发言或动作：")

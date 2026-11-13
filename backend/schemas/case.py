@@ -78,6 +78,7 @@ class CaseManageItem(BaseModel):
     difficulty: int = 1
     patient_personality: str = ""
     capabilities: dict[str, bool] = {}
+    workflow: WorkflowBrief | None = None
     is_open: bool = False
     created_at: datetime
     training_count: int = 0
@@ -148,3 +149,26 @@ class CaseGenerateResponse(BaseModel):
     elapsed_ms: int | None = None
     #: 过程提示（如「首次未过校验已自动修复」），供教师判断结果可信度
     warnings: list[str] | None = None
+
+
+class CaseSuggestionRequest(BaseModel):
+    """对当前工作副本做 AI 审阅；不需要先创建病例。"""
+
+    model_config = _REQ_CFG
+    workflow: str = Field(pattern="^(history_taking|clinical_reasoning)$")
+    current_case_data: dict[str, Any]
+    focus: str | None = Field(default=None, max_length=2000)
+
+
+class CaseSuggestionItem(BaseModel):
+    model_config = _RESP_CFG
+    field: str = ""
+    title: str
+    detail: str
+
+
+class CaseSuggestionResponse(BaseModel):
+    model_config = _RESP_CFG
+    suggestions: list[CaseSuggestionItem]
+    usage: dict[str, Any] | None = None
+    elapsed_ms: int | None = None

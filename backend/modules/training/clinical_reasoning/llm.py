@@ -3,12 +3,12 @@
 **不复用** ``history_taking`` 的五阶段 pipeline：那条链是"问诊评分"的闭包（情绪、
 主动追问、护理记录注入、问诊评分提示词）。这里只做这件事：
 
-1. 从**病例事实**装配患者视角的提示词（只含患者知道的事实、对话历史、沟通提示，
-   绝不含 rubric/权重/未观察证据的结论）；
+1. 从**病例事实**装配患者视角的提示词（人物经历、可说事实、对话历史、
+   已发生的现场状态；绝不含 rubric/权重/未观察证据的临床解释）；
 2. 一次 ``call_json``（purpose = ``clinical_reasoning_turn``，配置由 profile 提供）；
-3. **过滤**模型输出：只接受 ``initial.hidden_findings`` 里 ``obtainable_via`` 含
-   ``inquiry`` 的 finding、只接受已存在目标；每轮最多 2 条新证据（超出 = 本轮不记新
-   证据，只交付自然澄清回复），防止"一次问全"把整段任务清单一键满分；
+3. **过滤**模型输出：证据与沟通标记必须携带对应原文的逐字引用；只接受
+   ``initial.hidden_findings`` 里 ``obtainable_via`` 含 ``inquiry`` 的 finding、
+   只接受已存在目标。自然说出的内容如实记录，不用数量上限制造文本与状态分裂；
 4. 成功：患者消息 + 回合完成 + 证据/沟通状态在**同一事务**内提交；
    失败：``fail_turn``（学生消息保留，稳定错误码），绝不假装成功。
 
@@ -31,6 +31,11 @@ from fastapi import HTTPException
 
 from infra.llm.client import CallContext
 from infra.llm.profile import get_llm_config
+from modules.training.patient_ai.safety import (
+    SAFETY_BLOCKED_CODE,
+    SAFETY_BLOCKED_MESSAGE,
+    inspect_configured_patient_reply,
+)
 from modules.training.pipeline.context import STATE_TURN, PipelineContext
 from modules.training.pipeline.turn import (
     ERROR_INCOMPLETE,
@@ -65,10 +70,6 @@ log = logging.getLogger(__name__)
 #: 由父代理在 PROFILES 登记（不得在本模块硬编码温度/上限覆盖 profile）。
 PURPOSE = "clinical_reasoning_turn"
 
-#: 每轮最多记入的**新**证据条数。超过时本轮不记新证据（只交付澄清回复）——
-#: 否则"请把你所有不舒服都告诉我"一次问完就能把所有 must_notice 一键拿满。
-MAX_NEW_FINDINGS_PER_TURN = 2
-
 #: 对话历史进入提示词的最大条数（与本 workflow 的回合粒度匹配；不是 token 预算）
 HISTORY_LIMIT = 40
 
@@ -78,27 +79,40 @@ SOURCE_PATIENT = "patient"
 # ── 提示词装配 ─────────────────────────────────────────────────────────────
 
 
-def _known_facts(case_data: Mapping[str, Any], *, disclosed: set[str]) -> str:
-    """患者本人知道的全部问诊事实；已披露项只作标记，不从知识中删除。
+_BACKGROUND_FIELDS = (
+    ("present_illness", "本次发病经过"),
+    ("past_history", "既往经历"),
+    ("medication_history", "用药经历"),
+    ("allergy_history", "过敏经历"),
+    ("family_history", "家人健康状况"),
+    ("social_history", "生活、工作与家庭"),
+    ("deep_background", "你没有主动说但确实记得的顾虑与背景"),
+)
 
-    只有可见观察与 ``inquiry`` 候选进入患者知识；查体/检验结果不冒充患者自知。
-    是否记为学生证据由结构化回合和运行态决定，不靠对模型隐瞒事实实现。
-    """
-    index = findings_index(case_data)
-    visible, _ = initial_catalog(case_data)
-    inquiry = [str(f.get("id")) for f in _inquiry_candidates(case_data) if f.get("id")]
+
+def _patient_background(case_data: Mapping[str, Any]) -> str:
+    """患者可经历的完整背景；不塞入 finding.note 等教师视角解释。"""
+    sections: list[str] = []
+    for key, title in _BACKGROUND_FIELDS:
+        raw = case_data.get(key)
+        if isinstance(raw, str) and raw.strip():
+            sections.append(f"{title}：{raw.strip()}")
+        elif isinstance(raw, Mapping):
+            lines = [f"- {k!s}：{str(v).strip()}" for k, v in raw.items() if str(v).strip()]
+            if lines:
+                sections.append(title + "：\n" + "\n".join(lines))
+    return "\n\n".join(sections)
+
+
+def _known_facts(case_data: Mapping[str, Any]) -> str:
+    """可披露事实与其 id 的同处映射；note 是教学注释，不进入患者脑内。"""
     lines: list[str] = []
-    for fid in [*visible, *inquiry]:
-        finding = index.get(fid)
-        if finding is None:
-            continue
-        label = str(finding.get("label") or "")
-        note = str(finding.get("note") or "")
-        if not label:
-            continue
-        suffix = "（此前已说过，不要当作新证据重复披露）" if fid in disclosed else ""
-        lines.append(f"- {label}" + (f"（{note}）" if note else "") + suffix)
-    return "\n".join(dict.fromkeys(lines))
+    for finding in _inquiry_candidates(case_data):
+        fid = str(finding.get("id") or "")
+        label = str(finding.get("label") or "").strip()
+        if fid and label:
+            lines.append(f"- [{fid}] {label}")
+    return "\n".join(lines)
 
 
 def _inquiry_candidates(case_data: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -116,18 +130,12 @@ def _inquiry_candidates(case_data: Mapping[str, Any]) -> list[dict[str, Any]]:
     return out
 
 
-def _communication_cues(case_data: Mapping[str, Any]) -> str:
-    """沟通目标的口头指引（只给 cue 文本，不给权重/锚点/是否得分）。"""
-    items = objectives_of(case_data)["must_communicate"]
-    cues = [str(item.get("cue") or "").strip() for item in items if item.get("cue")]
-    cues = [cue for cue in cues if cue]
-    if not cues:
-        return ""
-    body = "\n".join(f"- {cue}" for cue in cues)
-    return (
-        "\n## 你可能需要被讲到的事\n\n"
-        "以下是学生需要向你讲清、你才会真正知情或安心的事。"
-        "如果学生没有讲到，你就保持不知情，不要主动替对方说出来。\n\n" + body + "\n"
+def _communication_markers(case_data: Mapping[str, Any]) -> str:
+    """沟通 id 与含义只对齐输出标记，不作为患者需要被讲到的内心提示。"""
+    return "\n".join(
+        f"- [{item.get('id')!s}] {str(item.get('cue')).strip()}"
+        for item in objectives_of(case_data)["must_communicate"]
+        if item.get("id") and str(item.get("cue") or "").strip()
     )
 
 
@@ -141,28 +149,49 @@ def _history_messages(ctx: PipelineContext) -> list[dict[str, str]]:
         if not content.strip():
             continue
         if role == "student":
-            out.append({"role": "user", "content": f"护士说：{content}"})
+            out.append({"role": "user", "content": f"护士的发言或动作：{content}"})
         elif role == "patient":
             out.append({"role": "assistant", "content": content})
     return out
 
 
-def build_turn_messages(ctx: PipelineContext) -> list[dict[str, str]]:
-    """装配一次患者回合的完整 LLM messages。
+def _turn_state(case_data: Mapping[str, Any], runtime_state: Mapping[str, Any] | None) -> str:
+    """把已经发生的现场事实放回患者下一轮上下文；不泄露尚未观察的结果。"""
+    stored = seed_state(case_data, read_state(runtime_state))
+    disclosed = [str(item.get("label")) for item in stored["evidence"] if item.get("source") == SOURCE_PATIENT]
+    observed = [str(item.get("label")) for item in stored["evidence"] if item.get("source") != SOURCE_PATIENT]
+    objectives = objectives_of(case_data)
+    actions = {
+        str(item.get("id")): str(item.get("action") or item.get("label") or "") for item in objectives["must_act"]
+    }
+    communications = {str(item.get("id")): str(item.get("label") or "") for item in objectives["must_communicate"]}
+    completed = [actions[oid] for oid in stored["completed_objectives"] if actions.get(oid)]
+    communicated = [communications[oid] for oid in stored["communicated_objectives"] if communications.get(oid)]
 
-    组成：system（病例事实 + 沟通引导 + JSON 契约）→ 历史 → 本轮学生发言。
-    不含 rubric、权重、锚点、未观察证据的结论。
-    """
+    sections = [
+        ("你已经说过", disclosed),
+        ("护士已经观察到", observed),
+        ("已经实际执行", completed),
+        ("已经沟通清楚", communicated),
+    ]
+    body = "\n".join(f"- {title}：{'；'.join(items)}" for title, items in sections if items)
+    if not body:
+        return ""
+    return (
+        "## 截至目前的现场状态\n\n"
+        "这些只用于保持感受与反应连续：临床术语是给你理解现场的，不要当作患者自述背诵。\n" + body
+    )
+
+
+def build_turn_messages(ctx: PipelineContext) -> list[dict[str, str]]:
+    """稳定人设/标记契约 → 原文历史 → 逐轮现场状态 → 本轮学生发言。"""
     case_data = ctx.case_data or {}
     patient_raw = case_data.get("patient_info")
     scenario_raw = case_data.get("scenario")
     patient: Mapping[str, Any] = patient_raw if isinstance(patient_raw, Mapping) else {}
     scenario: Mapping[str, Any] = scenario_raw if isinstance(scenario_raw, Mapping) else {}
-    stored = read_state(ctx.record.runtime_state)
-    disclosed = {str(item.get("finding_id")) for item in stored["evidence"] if item.get("source") == SOURCE_PATIENT}
     candidates = _inquiry_candidates(case_data)
     candidate_ids = [str(f.get("id")) for f in candidates if f.get("id")]
-    communicable = [str(item.get("id")) for item in objectives_of(case_data)["must_communicate"] if item.get("id")]
 
     system_text = render_system(
         patient_name=str(patient.get("name") or "患者"),
@@ -170,18 +199,21 @@ def build_turn_messages(ctx: PipelineContext) -> list[dict[str, str]]:
         patient_gender=str(patient.get("gender") or ""),
         setting=str(scenario.get("setting") or case_data.get("chief_complaint") or ""),
         communication_style=str(case_data.get("communication_style") or ""),
-        known_facts=_known_facts(case_data, disclosed=disclosed),
-        communication_cues=_communication_cues(case_data),
+        background=_patient_background(case_data),
+        known_facts=_known_facts(case_data),
     )
     contract = render_contract(
         disclosed_candidates=", ".join(candidate_ids),
-        communicable_objectives=", ".join(communicable),
+        communicable_objectives=_communication_markers(case_data),
     )
     messages: list[dict[str, str]] = [{"role": "system", "content": f"{system_text}\n\n{contract}"}]
     messages.extend(_history_messages(ctx))
+    turn_state = _turn_state(case_data, ctx.record.runtime_state)
+    if turn_state:
+        messages.append({"role": "system", "content": turn_state})
     student = (ctx.student_input or "").strip()
     if student:
-        messages.append({"role": "user", "content": f"护士说：{student}"})
+        messages.append({"role": "user", "content": f"护士的发言或动作：{student}"})
     return messages
 
 
@@ -191,7 +223,7 @@ def build_turn_messages(ctx: PipelineContext) -> list[dict[str, str]]:
 class FilteredReply:
     """LLM 原始输出经过**确定性过滤**后的可落库结果。"""
 
-    __slots__ = ("communicated_ids", "disclosed_ids", "overflow", "reply")
+    __slots__ = ("communicated_ids", "disclosed_ids", "reply")
 
     def __init__(
         self,
@@ -199,62 +231,61 @@ class FilteredReply:
         reply: str,
         disclosed_ids: list[str],
         communicated_ids: list[str],
-        overflow: bool,
     ) -> None:
         self.reply = reply
         self.disclosed_ids = disclosed_ids
         self.communicated_ids = communicated_ids
-        self.overflow = overflow
 
 
-def _string_list(raw: Any) -> list[str]:
+def _quoted_ids(raw: Any, *, source: str) -> list[str]:
+    """只接受同时给出合法 id 与对应原文连续子串的标记。"""
     if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
         return []
-    return [str(item).strip() for item in raw if isinstance(item, str) and item.strip()]
+    out: list[str] = []
+    for item in raw:
+        if not isinstance(item, Mapping):
+            continue
+        marker_id = item.get("id")
+        quote = item.get("quote")
+        if not isinstance(marker_id, str) or not isinstance(quote, str):
+            continue
+        marker_id = marker_id.strip()
+        quote = quote.strip()
+        if marker_id and quote and quote in source:
+            out.append(marker_id)
+    return out
 
 
 def filter_reply(
-    payload: Mapping[str, Any], *, case_data: Mapping[str, Any], runtime_state: Mapping[str, Any]
+    payload: Mapping[str, Any],
+    *,
+    case_data: Mapping[str, Any],
+    runtime_state: Mapping[str, Any],
+    student_input: str,
 ) -> FilteredReply:
-    """把模型 JSON 收敛成可落库的事实：非法 id 丢弃，超量则整轮不记新证据。
-
-    规则（确定性，不依赖模型自觉）：
+    """只落库能被本轮真实原文支持的标记；自然回复不设证据数量上限。
 
     * ``reply`` 为空/非字符串 → 空回复（由调用方按 ``ERROR_LLM_EMPTY_REPLY`` 失败）；
-    * ``disclosed_finding_ids`` 只保留「患者可以说出」且**尚未观察**的 id；
-    * 去重后超过 :data:`MAX_NEW_FINDINGS_PER_TURN` → ``overflow=True``，本轮不记任何新证据；
-    * ``communicated_objective_ids`` 只保留已存在的 ``must_communicate`` 目标，且必须是
-      **本轮新**完成的（已在 ``communicated_objectives`` 里的不重复记）。
+    * ``disclosed_findings`` 的 quote 必须逐字来自患者 reply，id 必须合法且尚未观察；
+    * ``communicated_objectives`` 的 quote 必须逐字来自本轮学生输入，且目标尚未完成。
     """
     reply = payload.get("reply")
     reply_text = reply.strip() if isinstance(reply, str) else ""
 
     allowed_findings = {str(f.get("id")) for f in _inquiry_candidates(case_data) if f.get("id")}
     observed = {str(item.get("finding_id")) for item in read_state(runtime_state)["evidence"]}
-    raw_findings = list(dict.fromkeys(_string_list(payload.get("disclosed_finding_ids"))))
+    raw_findings = list(dict.fromkeys(_quoted_ids(payload.get("disclosed_findings"), source=reply_text)))
     valid_findings = [fid for fid in raw_findings if fid in allowed_findings and fid not in observed]
-
-    overflow = len(valid_findings) > MAX_NEW_FINDINGS_PER_TURN
-    if overflow:
-        log.warning(
-            "Clinical turn disclosed too many findings at once (%d > %d); dropping disclosures this turn",
-            len(valid_findings),
-            MAX_NEW_FINDINGS_PER_TURN,
-        )
-        valid_findings = []
 
     communicable = {str(item.get("id")) for item in objectives_of(case_data)["must_communicate"] if item.get("id")}
     already = set(read_state(runtime_state)["communicated_objectives"])
-    valid_communicated = [
-        oid for oid in dict.fromkeys(_string_list(payload.get("communicated_objective_ids"))) if oid in communicable
-    ]
-    valid_communicated = [oid for oid in valid_communicated if oid not in already]
+    raw_communicated = list(dict.fromkeys(_quoted_ids(payload.get("communicated_objectives"), source=student_input)))
+    valid_communicated = [oid for oid in raw_communicated if oid in communicable and oid not in already]
 
     return FilteredReply(
         reply=reply_text,
         disclosed_ids=valid_findings,
         communicated_ids=valid_communicated,
-        overflow=overflow,
     )
 
 
@@ -352,9 +383,22 @@ async def run_clinical_reasoning_turn(ctx: PipelineContext) -> Any:
         _fail(ctx, claim, code=ERROR_LLM_UNAVAILABLE, message="LLM 返回内容格式不正确")
         return _failed_response(ctx, claim)
 
-    filtered = filter_reply(payload, case_data=ctx.case_data or {}, runtime_state=ctx.record.runtime_state)
+    filtered = filter_reply(
+        payload,
+        case_data=ctx.case_data or {},
+        runtime_state=ctx.record.runtime_state,
+        student_input=ctx.student_input or "",
+    )
     if not filtered.reply:
         _fail(ctx, claim, code=ERROR_LLM_EMPTY_REPLY, message="患者回复为空")
+        return _failed_response(ctx, claim)
+
+    # 红线在 filter 之后、persist 之前：命中就整轮失败，**不**把这段文本当 partial 落库，
+    # 也不推进任何证据/沟通状态（那些状态只随患者消息一起提交）。
+    violation = inspect_configured_patient_reply(filtered.reply, ctx.app_state)
+    if violation is not None:
+        log.warning("Clinical turn reply blocked by safety rules: record_id=%d code=%s", ctx.record.id, violation.code)
+        _fail(ctx, claim, code=SAFETY_BLOCKED_CODE, message=SAFETY_BLOCKED_MESSAGE, partial=None)
         return _failed_response(ctx, claim)
 
     try:
@@ -387,6 +431,7 @@ def _failed_response(ctx: PipelineContext, claim: TurnClaim) -> Any:
             "message": claim.error_message or "患者回合未完成，请重试",
             "turn_id": claim.turn_id,
             "request_id": claim.request_id,
+            "student_message_id": claim.student_message_id,
             "status": str(claim.status),
         },
     )

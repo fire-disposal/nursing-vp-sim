@@ -10,6 +10,7 @@ from core.security import require_permission
 from models import Case, User
 from modules.cases.gate import build_validation_report, validate_case_row
 from modules.cases.generation import generate_case as _generate_case
+from modules.cases.generation import suggest_case as _suggest_case
 from modules.cases.prompts import KNOWN_GENERATION_FIELDS
 from modules.cases.service import CaseListFilters, CaseService
 from modules.training.workflows import workflow_for_case
@@ -22,6 +23,8 @@ from schemas import (
     CaseManageItem,
     CasePublishResponse,
     CaseRevisionItem,
+    CaseSuggestionRequest,
+    CaseSuggestionResponse,
     CaseUpdateRequest,
     CaseValidationReport,
     DeleteResponse,
@@ -122,6 +125,15 @@ async def generate_case(
             detail="未知字段「{}」，允许的字段：{}".format(data.field, "、".join(sorted(KNOWN_GENERATION_FIELDS)))
         )
     return await _generate_case(data, db, current_user, request.app.state.llm_client)
+
+
+@router.post("/suggest", response_model=CaseSuggestionResponse)
+async def suggest_case(
+    data: CaseSuggestionRequest,
+    request: Request,
+    current_user: _CaseManager,
+):
+    return await _suggest_case(data, current_user, request.app.state.llm_client)
 
 
 # ── CRUD ──

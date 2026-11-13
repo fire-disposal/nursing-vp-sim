@@ -1,11 +1,10 @@
 /**
  * 临床判断训练（`workflow: "clinical_reasoning"`）的病例模板与字段提示。
  *
- * 为什么是模板而不是表单：临床判断病例的六个面（场景 / 证据目录 / 初始可见与隐藏 /
- * 未处置推进 / 三类目标 / 确定性锚点）是有引用关系的数据，做成逐字段表单会立刻变成第二个
- * schema owner（后端 `schemas/case_schema.py` + `modules/cases/validator.py` 才是唯一 owner）。
- * 这里只提供**一份可发布的骨架 + 期望字段清单**，作者在 JSON 视图里改，保存/发布时由
- * 服务端门禁给出字段级报告（`CaseValidationReportView` 直接渲染 errors[].field）。
+ * 为什么是模板而不是校验器：临床判断病例的六个面（场景 / 证据目录 / 初始可见与隐藏 /
+ * 未处置推进 / 三类目标 / 确定性锚点）有引用关系；教师表单只负责写入这些声明，
+ * 不在前端复制一套校验。后端 `schemas/case_schema.py` + `modules/cases/validator.py`
+ * 才是唯一规则 owner，保存/发布时由 `CaseValidationReportView` 渲染字段级报告。
  *
  * 骨架必须能过发布门禁：插入即可发布，再改内容 —— 模板本身不能是「填好再说」的半成品。
  */
@@ -16,7 +15,7 @@ import type { CaseJsonValue } from "./CaseEditorState";
 export const CLINICAL_REASONING_WORKFLOW_ID = "clinical_reasoning";
 
 /** 病例元数据键（只落 cases 列）：插入模板时保留作者已填的值。 */
-const METADATA_KEYS = ["name", "difficulty", "time_limit", "description"] as const;
+export const METADATA_KEYS = ["name", "difficulty", "time_limit", "description"] as const;
 
 export interface ClinicalReasoningFieldHint {
 	/** case_data 的 JSON 路径（与门禁报告里的 field 同名，便于对照）。 */

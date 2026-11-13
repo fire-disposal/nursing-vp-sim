@@ -32,7 +32,7 @@ export default function CasesPage() {
 								size="sm"
 								leftSection={<IconWand size={14} />}
 							>
-								AI 生成
+								AI 辅助
 							</Button>
 							<Button
 								component={Link}

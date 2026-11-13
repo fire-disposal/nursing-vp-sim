@@ -21,6 +21,7 @@ from modules.training.patient_ai.initiative import (
     generate_initiative_llm,
     mark_initiative_triggered,
 )
+from modules.training.patient_ai.safety import inspect_configured_patient_reply
 from schemas import InitiativeTriggerResponse
 
 router = APIRouter()
@@ -103,6 +104,12 @@ async def trigger_initiative(
         asked_so_far = f"{student_msg}\n{context_tail}"
         if has_identity_leak(msg) or find_hidden_topic_leaks(msg, case_data, asked_so_far):
             log.warning("Initiative message leaked, discarding: record_id=%d", record_id)
+            return {"triggered": False, "message": None}
+
+        # 主动追问同样绕过 llm_caller：外置红线命中就整条丢弃，且不确定为"已触发"
+        # （计时器/情绪代价都不该因为一条没能出口的话而变）。
+        if inspect_configured_patient_reply(msg, app_state) is not None:
+            log.warning("Initiative message blocked by safety rules, discarding: record_id=%d", record_id)
             return {"triggered": False, "message": None}
 
         now = datetime.now(UTC)

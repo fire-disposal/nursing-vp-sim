@@ -11,7 +11,7 @@
 | :mod:`state` | ``runtime_state["clinical_reasoning"]`` 读写契约 + **唯一**公有投影 ``PublicClinicalState`` |
 | :mod:`tools` | ``clinical_judgment`` Activity handler（``load`` / ``observe`` / ``act``） |
 | :mod:`llm` | 患者回合的独立 LLM 核心 :func:`run_clinical_reasoning_turn`（含输出过滤与同事务持久化） |
-| :mod:`prompts` | V2 患者提示词与 JSON 契约（只含病例事实/历史/沟通提示，不含评分权重） |
+| :mod:`prompts` | V2 患者提示词与原文锚定 JSON 契约（人物背景/历史/现场状态，不含评分材料） |
 | :mod:`rubric` | :func:`build_clinical_rubric`：病例锚点 → 现有 ``dimensions/items/raw_scale`` 结构 |
 | :mod:`scoring` | :func:`evaluate_clinical_reasoning`：同步**确定性**评分，落现有 ``Score`` |
 

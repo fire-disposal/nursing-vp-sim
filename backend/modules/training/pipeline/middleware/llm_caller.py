@@ -15,6 +15,11 @@ from modules.training.context.leak_guard import (
     get_hidden_topic_correction_note,
 )
 from modules.training.patient_ai.guards import get_identity_correction_note, has_identity_leak
+from modules.training.patient_ai.safety import (
+    SAFETY_BLOCKED_CODE,
+    SAFETY_BLOCKED_MESSAGE,
+    inspect_configured_patient_reply,
+)
 
 from ..context import (
     STATE_LEAK_CORRECTION_COUNT,
@@ -83,6 +88,22 @@ def _fail(ctx: PipelineContext, *, error_code: str, message: str = LLM_UNAVAILAB
     ctx.should_shortcut = True
 
 
+def _blocked_by_safety(ctx: PipelineContext, candidate: str) -> bool:
+    """最终候选（泄漏修正/重试之后）过外置红线；命中即清空回复并按安全失败短路。
+
+    必须在 SSE 入队与落库**之前**判定：清空 ``llm_reply`` 是这条契约的执行方式 ——
+    下游无论流式推送还是 ``persister`` 的 partial reply 分支，都再也拿不到这段文本。
+    规则库抛异常不在这里吞掉：输出边界被破坏时宁可整轮失败，也不悄悄放出这串文本。
+    """
+    violation = inspect_configured_patient_reply(candidate, ctx.app_state)
+    if violation is None:
+        return False
+    log.warning("Patient reply blocked by safety rules: record_id=%d code=%s", ctx.record.id, violation.code)
+    ctx.llm_reply = None
+    _fail(ctx, error_code=SAFETY_BLOCKED_CODE, message=SAFETY_BLOCKED_MESSAGE)
+    return True
+
+
 async def llm_caller(ctx: PipelineContext) -> None:
     if ctx.should_shortcut:
         return
@@ -132,29 +153,32 @@ async def _call_batch(ctx: PipelineContext) -> None:
         if count < 2:
             ctx.state[STATE_LEAK_CORRECTION_COUNT] = count + 1
             if ctx.llm_messages is None:
+                # 无提示词可加修正片段：只能沿用原回复，但仍要走到下面的候选检查。
                 ctx.llm_reply = reply
-                return
-            msgs = append_guard_fragments(list(ctx.llm_messages), corrections)
-            try:
-                retry = await llm_client.call(
-                    msgs,
-                    purpose="patient_chat",
-                    ctx=CallContext(
+            else:
+                msgs = append_guard_fragments(list(ctx.llm_messages), corrections)
+                try:
+                    retry = await llm_client.call(
+                        msgs,
                         purpose="patient_chat",
-                        user_id=ctx.current_user.id,
-                        record_id=ctx.record.id,
-                        case_id=ctx.record.case_id,
-                    ),
-                    **llm_cfg,
-                )
-                if retry.strip():
-                    ctx.llm_reply = retry
-            except Exception:
-                log.warning("Leak retry failed (batch): record_id=%d", ctx.record.id, exc_info=True)
+                        ctx=CallContext(
+                            purpose="patient_chat",
+                            user_id=ctx.current_user.id,
+                            record_id=ctx.record.id,
+                            case_id=ctx.record.case_id,
+                        ),
+                        **llm_cfg,
+                    )
+                    if retry.strip():
+                        ctx.llm_reply = retry
+                except Exception:
+                    log.warning("Leak retry failed (batch): record_id=%d", ctx.record.id, exc_info=True)
 
     if not ctx.llm_reply or not ctx.llm_reply.strip():
         _fail(ctx, error_code=ERROR_LLM_EMPTY_REPLY)
         return
+
+    _blocked_by_safety(ctx, ctx.llm_reply)
 
 
 async def _call_stream(ctx: PipelineContext) -> None:
@@ -228,6 +252,10 @@ async def _call_stream(ctx: PipelineContext) -> None:
 
     if not full_reply.strip():
         _fail(ctx, error_code=ERROR_LLM_EMPTY_REPLY)
+        return
+
+    # 红线在 SSE 入队之前：一旦命中，前端拿不到这段文本，persister 也没有 partial 可写。
+    if _blocked_by_safety(ctx, full_reply):
         return
 
     ctx.llm_reply = full_reply

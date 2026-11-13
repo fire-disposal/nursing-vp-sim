@@ -24,6 +24,7 @@ interface FailedTurnInfo {
 	code: string;
 	message: string;
 	requestId: string | null;
+	studentMessageId: number | null;
 }
 
 function readFailedTurn(error: unknown): FailedTurnInfo | null {
@@ -43,8 +44,16 @@ function readFailedTurn(error: unknown): FailedTurnInfo | null {
 		message: "message" in detail && typeof detail.message === "string" ? detail.message : "",
 		requestId:
 			"request_id" in detail && typeof detail.request_id === "string" ? detail.request_id : null,
+		studentMessageId:
+			"student_message_id" in detail && typeof detail.student_message_id === "number"
+				? detail.student_message_id
+				: null,
 	};
 }
+
+/** 服务端 503 但没给文案时的兜底（正常路径总会给，这里只是不显示空提示）。 */
+const DEFAULT_TURN_FAILED_MESSAGE =
+	"患者的这一轮回复生成失败（内容已保存为失败回合）。重试会作为新的一轮重新生成。";
 
 /** 一轮消息是否还能安全地复用原 request_id：只有"结果未知"可以。 */
 function isUnknownOutcome(error: unknown): boolean {
@@ -60,6 +69,8 @@ function isUnknownOutcome(error: unknown): boolean {
 export interface ClinicalOutboxEntry {
 	/** 本地稳定 id（不是服务端消息 id；两侧不会重合，因为本地从负数起算）。 */
 	id: number;
+	/** 成功响应返回的服务端消息 id；详情缓存包含它后即可移除本地副本。 */
+	persistedId: number | null;
 	role: "student" | "patient";
 	content: string;
 	sending: boolean;
@@ -80,7 +91,15 @@ export interface ClinicalSendError {
 	retryMode: "unknown" | "rejected";
 	/** 服务端给这次的 request_id（503 载荷里有）：用于展示/归因，不用于重试。 */
 	serverRequestId?: string;
+	/**
+	 * 服务端稳定错误码（503 载荷的 `detail.code`）。只有 `chat.safety_blocked` 会改变
+	 * 失败提示的交互：那一轮**不能**原样重发，要改原话。
+	 */
+	code?: string;
 }
+
+/** 红线拦截：患者这句没过安全检查，学生的话还在，改原话再发才是正确动作。 */
+export const SAFETY_BLOCKED_CODE = "chat.safety_blocked";
 
 export interface ClinicalActionError {
 	message: string;
@@ -241,7 +260,7 @@ export function useClinicalReasoning(
 				const createdId = studentId;
 				setOutbox((prev) => [
 					...prev,
-					{ id: createdId, role: "student", content, sending: true },
+					{ id: createdId, persistedId: null, role: "student", content, sending: true },
 				]);
 			} else {
 				const resentId = studentId;
@@ -255,35 +274,60 @@ export function useClinicalReasoning(
 				if (disposedRef.current) return false;
 				const replyId = outboxSeq.current;
 				outboxSeq.current -= 1;
+				const studentMessageId = reply.operation?.student_message_id;
+				const patientMessageId = reply.operation?.patient_message_id;
 				setOutbox((prev) => [
 					...prev.map((entry) =>
-						entry.id === settledId ? { ...entry, sending: false } : entry,
+						entry.id === settledId
+							? {
+									...entry,
+									sending: false,
+									persistedId: typeof studentMessageId === "number" ? studentMessageId : null,
+								}
+							: entry,
 					),
-					{ id: replyId, role: "patient", content: reply.content, sending: false },
+					{
+						id: replyId,
+						persistedId: typeof patientMessageId === "number" ? patientMessageId : null,
+						role: "patient",
+						content: reply.content,
+						sending: false,
+					},
 				]);
 				onRecordChanged?.();
 				return true;
 			} catch (err) {
 				if (!disposedRef.current) {
+					const failedTurn = readFailedTurn(err);
 					setOutbox((prev) =>
 						prev.map((entry) =>
-							entry.id === settledId ? { ...entry, sending: false } : entry,
+							entry.id === settledId
+								? {
+										...entry,
+										sending: false,
+										persistedId: failedTurn?.studentMessageId ?? entry.persistedId,
+									}
+								: entry,
 						),
 					);
 					failedOutboxIdRef.current = settledId;
-					const failedTurn = readFailedTurn(err);
 					const unknown = failedTurn === null && isUnknownOutcome(err);
 					// 明确失败的回合已经落库；这句学生消息归它所有 —— 重试是**新回合**，
 					// 已落库的那条不能再当作"本端尚未落库的气泡"再插一次。
 					if (failedTurn !== null) failedOutboxIdRef.current = null;
+					// 服务端给了明确的失败文案就用它（红线拦截必须说"改原话"，不是"重试"）。
+					const serverMessage = failedTurn?.message.trim();
 					setSendError({
-						message: failedTurn
-							? "患者的这一轮回复生成失败（内容已保存为失败回合）。重试会作为新的一轮重新生成。"
-							: getApiErrorMessage(err, "消息没能送达，请重试"),
+						message: serverMessage
+							? serverMessage
+							: failedTurn
+								? DEFAULT_TURN_FAILED_MESSAGE
+								: getApiErrorMessage(err, "消息没能送达，请重试"),
 						content,
 						requestId,
 						retryMode: unknown ? "unknown" : "rejected",
 						serverRequestId: failedTurn?.requestId ?? undefined,
+						code: failedTurn?.code,
 					});
 				}
 				return false;

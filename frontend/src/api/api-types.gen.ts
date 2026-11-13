@@ -1081,6 +1081,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cases/suggest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Suggest Case */
+        post: operations["suggest_case_api_cases_suggest_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cases/{case_id}": {
         parameters: {
             query?: never;
@@ -3267,6 +3284,7 @@ export interface components {
             capabilities: {
                 [key: string]: boolean;
             };
+            workflow?: components["schemas"]["WorkflowBrief"] | null;
             /**
              * Is Open
              * @default false
@@ -3311,6 +3329,43 @@ export interface components {
              * @default false
              */
             is_current: boolean;
+        };
+        /** CaseSuggestionItem */
+        CaseSuggestionItem: {
+            /**
+             * Field
+             * @default
+             */
+            field: string;
+            /** Title */
+            title: string;
+            /** Detail */
+            detail: string;
+        };
+        /**
+         * CaseSuggestionRequest
+         * @description 对当前工作副本做 AI 审阅；不需要先创建病例。
+         */
+        CaseSuggestionRequest: {
+            /** Workflow */
+            workflow: string;
+            /** Current Case Data */
+            current_case_data: {
+                [key: string]: unknown;
+            };
+            /** Focus */
+            focus?: string | null;
+        };
+        /** CaseSuggestionResponse */
+        CaseSuggestionResponse: {
+            /** Suggestions */
+            suggestions: components["schemas"]["CaseSuggestionItem"][];
+            /** Usage */
+            usage?: {
+                [key: string]: unknown;
+            } | null;
+            /** Elapsed Ms */
+            elapsed_ms?: number | null;
         };
         /** CaseUpdateRequest */
         CaseUpdateRequest: {
@@ -9470,6 +9525,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CaseGenerateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    suggest_case_api_cases_suggest_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseSuggestionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseSuggestionResponse"];
                 };
             };
             /** @description Validation Error */

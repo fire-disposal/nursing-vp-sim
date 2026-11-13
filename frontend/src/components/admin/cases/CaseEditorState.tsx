@@ -80,6 +80,7 @@ const DEFAULT_CASE_JSON: Record<string, CaseJsonValue> = {
 	difficulty: 1,
 	time_limit: 30,
 	description: "",
+	workflow: "history_taking",
 	patient_info: {
 		name: "",
 		age: 0,

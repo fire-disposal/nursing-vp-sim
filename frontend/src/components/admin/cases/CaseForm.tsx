@@ -15,7 +15,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { safeParse, z } from "zod";
-import { generateCase, getCaseDetail, getCaseValidation, getManageCases, publishReportOf } from "@/api";
+import { generateCase, getCaseDetail, getCaseValidation, getManageCases, publishReportOf, suggestCase } from "@/api";
 import type { components } from "@/api/api-types.gen";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
@@ -30,6 +30,13 @@ import {
 	Alert, Anchor, Badge, Box, Button, Checkbox, Grid, Group, Loader, MultiSelect,
 	Paper, ScrollArea, SegmentedControl, Stack, Table, Text, Textarea, Title } from "@mantine/core";
 import { type CaseJsonValue, getDefaultCaseJson, objField, useCaseEditor } from "./CaseEditorState";
+import { CaseGenerationSelector } from "./CaseGenerationSelector";
+import ClinicalReasoningEditor from "./ClinicalReasoningEditor";
+import {
+	generationOf,
+	type CaseWorkflowId,
+	withGenerationTemplate,
+} from "./case-generations";
 import { CaseStatusBadge } from "./CaseStatusBadge";
 import {
 	applyAcceptedChanges,
@@ -124,6 +131,9 @@ export default function CaseFormPage({ caseId, startWithAiPanel = false }: Props
 	const [aiReferenceText, setAiReferenceText] = useState("");
 	const [aiGenerating, setAiGenerating] = useState(false);
 	const [aiError, setAiError] = useState("");
+	const [aiSuggestions, setAiSuggestions] = useState<components["schemas"]["CaseSuggestionItem"][]>([]);
+	const [aiSuggesting, setAiSuggesting] = useState(false);
+	const [aiSuggestionError, setAiSuggestionError] = useState("");
 	// 生成结果先进暂存区，由教师逐项确认后再写入编辑态（此前直接整份覆盖，见审计 §7）
 	const [pendingAi, setPendingAi] = useState<{ changes: AiChange[] } | null>(null);
 	const [acceptedPaths, setAcceptedPaths] = useState<string[]>([]);
@@ -295,6 +305,18 @@ export default function CaseFormPage({ caseId, startWithAiPanel = false }: Props
 		dispatch({ type: "SET_JSON", json });
 	};
 
+	const handleGenerationChange = (workflow: CaseWorkflowId) => {
+		if (caseId != null || workflow === generationOf(String(state.json.workflow || "")).id) return;
+		dispatch({ type: "PUSH_SNAPSHOT" });
+		dispatch({ type: "SET_JSON", json: withGenerationTemplate(state.json, workflow) });
+		dispatch({ type: "SWITCH_MODE", mode: "form" });
+		setPendingAi(null);
+		setAcceptedPaths([]);
+		setAiSuggestions([]);
+		setAiError("");
+		setAiSuggestionError("");
+	};
+
 	const buildPayload = (extra: Record<string, unknown>) => {
 		const payload: Record<string, unknown> = {
 			mode: aiMode,
@@ -376,6 +398,30 @@ export default function CaseFormPage({ caseId, startWithAiPanel = false }: Props
 			abortRef.current = null;
 			setAiGenerating(false);
 			setAiWorking("");
+		}
+	};
+
+	const requestSuggestions = async () => {
+		setAiSuggestionError("");
+		setAiSuggesting(true);
+		try {
+			const workflow: CaseWorkflowId =
+				state.json.workflow === CLINICAL_REASONING_WORKFLOW_ID ? "clinical_reasoning" : "history_taking";
+			const { data } = await suggestCase({
+				workflow,
+				current_case_data: state.json,
+				focus: aiDescription.trim() || null,
+			});
+			setAiSuggestions(data.suggestions);
+			setLastMeta({
+				elapsedMs: data.elapsed_ms ?? 0,
+				usage: (data.usage as Record<string, number> | null) ?? null,
+				warnings: [],
+			});
+		} catch (err: unknown) {
+			setAiSuggestionError(getApiErrorMessage(err, "AI 建议失败，请稍后重试"));
+		} finally {
+			setAiSuggesting(false);
 		}
 	};
 
@@ -538,6 +584,7 @@ export default function CaseFormPage({ caseId, startWithAiPanel = false }: Props
 	);
 
 	const caseName = String(state.json.name ?? "").trim();
+	const isClinical = state.json.workflow === CLINICAL_REASONING_WORKFLOW_ID;
 	const title = caseId == null ? "新建病例" : loaded ? caseName || "病例工作台" : "病例工作台";
 	const subtitle =
 		caseId == null
@@ -622,6 +669,12 @@ export default function CaseFormPage({ caseId, startWithAiPanel = false }: Props
 						</Alert>
 					)}
 
+					<CaseGenerationSelector
+						workflow={String(state.json.workflow || "history_taking")}
+						onChange={handleGenerationChange}
+						readOnly={caseId != null}
+					/>
+
 					{/* ── Toolbar ── */}
 					<Group gap={8} wrap="wrap">
 						<Button
@@ -695,6 +748,9 @@ export default function CaseFormPage({ caseId, startWithAiPanel = false }: Props
 						/>
 					</Group>
 
+					<Grid gap="lg" align="start">
+						<Grid.Col span={{ base: 12, xl: showAiPanel ? 8 : 12 }}>
+							<Stack gap="md">
 					{/* ── 版本历史：页内面板（不再叠第二层 Modal） ── */}
 					{showRevisions && caseId != null && (
 						<Paper withBorder p="md">
@@ -796,10 +852,130 @@ export default function CaseFormPage({ caseId, startWithAiPanel = false }: Props
 						</Paper>
 					)}
 
+					{/* ── 病例预览（只读学生视角） ── */}
+					{showPreview && (
+						<Paper withBorder p="md">
+							<Text size="xs" fw={600} mb="xs">学生可见预览</Text>
+							<Grid gap="xs">
+								<Grid.Col span={{ base: 12, sm: 6 }}><Text size="xs"><Text component="span" c="dimmed">名称：</Text>{String(state.json.name ?? "") || "—"}</Text></Grid.Col>
+								<Grid.Col span={{ base: 12, sm: 6 }}><Text size="xs"><Text component="span" c="dimmed">患者：</Text>{preview.patient || "—"}</Text></Grid.Col>
+								<Grid.Col span={12}><Text size="xs"><Text component="span" c="dimmed">主诉：</Text>{preview.chief || "—"}</Text></Grid.Col>
+								<Grid.Col span={12}><Text size="xs"><Text component="span" c="dimmed">开场白：</Text>{preview.opening || "—"}</Text></Grid.Col>
+								<Grid.Col span={{ base: 12, sm: 6 }}><Text size="xs"><Text component="span" c="dimmed">必询要点：</Text>{preview.inquiries} 条</Text></Grid.Col>
+								<Grid.Col span={{ base: 12, sm: 6 }}><Text size="xs"><Text component="span" c="dimmed">隐藏信息：</Text>{preview.hidden} 条</Text></Grid.Col>
+							</Grid>
+						</Paper>
+					)}
+
+					{/* ── Editor area ── */}
+					<form onSubmit={handleSave}>
+						<Stack gap="md" pb={72}>
+							{isClinical && state.mode === "json" && (
+								<Alert variant="light" color="teal" title="临床判断训练病例：JSON 里需要哪些字段">
+									<Stack gap={4}>
+										{CLINICAL_REASONING_FIELD_HINTS.map((hint) => (
+											<Text key={hint.path} size="xs">
+												<Text component="span" fw={600} style={{ fontFamily: "var(--mantine-font-family-monospace)" }}>
+													{hint.path}
+												</Text>
+												{`（${hint.label}）：${hint.requirement}`}
+											</Text>
+										))}
+										<Text size="xs" c="dimmed" mt={4}>
+											保存与发布都会跑服务端门禁，错误按 JSON 路径列在上方；本页不重复实现一套校验。
+										</Text>
+									</Stack>
+								</Alert>
+							)}
+							{isClinical && state.mode === "form" ? (
+								<ClinicalReasoningEditor state={state} dispatch={dispatch} disabled={archived} />
+							) : state.mode === "json" ? (
+								<JsonView json={state.json} dispatch={dispatch} readOnly={archived} />
+							) : (
+								<FormView state={state} dispatch={dispatch} disabled={archived} />
+							)}
+
+							<Group
+								justify="flex-end"
+								gap={8}
+								pt="sm"
+								style={{ position: "sticky", bottom: 0, zIndex: 2, background: "var(--mantine-color-body)", borderTop: "1px solid var(--mantine-color-default-border)" }}
+							>
+								{caseId != null && revisionsQuery.data == null && !archived && (
+									<Text size="xs" c="dimmed" mr="auto">
+										{published ? `当前 v${revisionNo ?? 1}` : "草稿：发布后产生 v1"}
+									</Text>
+								)}
+								<Button type="button" variant="outline" size="sm" onClick={() => { void handleBack(); }}>取消</Button>
+								<Button
+									type="submit"
+									size="sm"
+									disabled={archived || loadFailed || createMutation.isPending || updateMutation.isPending}
+									title={
+										archived
+											? "已归档病例内容冻结，不可保存"
+											: loadFailed
+												? "病例数据加载失败，当前内容是默认骨架，重试成功前不可保存"
+												: undefined
+									}
+								>
+									{caseId != null
+										? updateMutation.isPending
+											? "保存中…"
+											: published
+												? "保存为新版本"
+												: "保存"
+										: createMutation.isPending
+											? "创建中…"
+											: "创建草稿"}
+								</Button>
+							</Group>
+						</Stack>
+					</form>
+
+							</Stack>
+						</Grid.Col>
+						{showAiPanel && (
+							<Grid.Col span={{ base: 12, xl: 4 }}>
+								<Box component="aside" aria-label="AI 病例助手" style={{ position: "sticky", top: 16 }}>
 					{/* ── AI 面板：两步向导 + 逐字段生成 ── */}
 					{showAiPanel && (
 						<Paper withBorder p="md" bg="var(--mantine-color-brand-light)" style={{ borderColor: "var(--mantine-color-brand-outline)" }} >
-							{/* 两步向导：用 Stepper 表达"当前步/已完成"，而不是两个绿/灰徽章 */}
+							<Stack gap="sm" mb="md" aria-live="polite">
+								<Group justify="space-between" align="flex-start" wrap="nowrap">
+									<div>
+										<Text size="sm" fw={600}>AI 审阅建议</Text>
+										<Text size="xs" c="dimmed" mt={2}>只指出值得修改的地方，不改写当前内容</Text>
+									</div>
+									<Button
+										size="compact-sm"
+										variant="light"
+										loading={aiSuggesting}
+										onClick={() => { void requestSuggestions(); }}
+									>
+										获取建议
+									</Button>
+								</Group>
+								{aiSuggestionError && <Text size="xs" c="red" role="alert">{aiSuggestionError}</Text>}
+								{!aiSuggesting && !aiSuggestionError && aiSuggestions.length === 0 && (
+									<Text size="xs" c="dimmed">可在下方写下关注重点；没有明确问题时，AI 也可以返回空建议。</Text>
+								)}
+								{aiSuggestions.map((suggestion, index) => (
+									<Paper key={`${suggestion.field}-${index}`} withBorder p="sm" bg="var(--mantine-color-body)">
+										<Text size="xs" fw={600}>{suggestion.title}</Text>
+										{suggestion.field && (
+											<Text size="xs" c="brand" mt={2} style={{ fontFamily: "var(--mantine-font-family-monospace)" }}>
+												{suggestion.field}
+											</Text>
+										)}
+										<Text size="xs" mt={4} lh={1.6}>{suggestion.detail}</Text>
+									</Paper>
+								))}
+							</Stack>
+
+							{/* ── V1 内容生成；V2 仅审阅，避免把问诊字段写进六面结构 ── */}
+							{!isClinical && (
+								<>
 							<Stepper
 								size="xs"
 								iconSize={22}
@@ -822,17 +998,20 @@ export default function CaseFormPage({ caseId, startWithAiPanel = false }: Props
 									{ value: "reference", label: "参考模板" },
 								]}
 							/>
+								</>
+							)}
 
 							<Textarea
+								label={isClinical ? "本次审阅重点（可选）" : "病例描述或审阅重点"}
 								value={aiDescription}
 								onChange={(e) => setAiDescription(e.currentTarget.value)}
-								placeholder="描述你想生成的病例场景（年龄、主诉、病情特点…）"
+								placeholder={isClinical ? "例如：重点看证据引用和患者知识边界" : "描述想生成的场景，或写明希望 AI 重点审阅什么"}
 								autosize
 								minRows={3}
 								mb="xs"
 							/>
 
-							{aiMode === "reference" && (
+							{!isClinical && aiMode === "reference" && (
 								<Stack gap={8} mb="xs">
 									<Text size="xs" c="dimmed">参考病例</Text>
 									<MultiSelect
@@ -864,6 +1043,8 @@ export default function CaseFormPage({ caseId, startWithAiPanel = false }: Props
 							)}
 
 							{/* 两步按钮 */}
+							{!isClinical && (
+								<>
 							{aiBusy && (
 								<Group gap={8} align="center" mb="xs">
 									<Text size="xs" c="dimmed">生成中，已用 {aiElapsed}s</Text>
@@ -928,6 +1109,8 @@ export default function CaseFormPage({ caseId, startWithAiPanel = false }: Props
 									))}
 								</Group>
 							</Stack>
+								</>
+							)}
 
 							{pendingAi && (
 								<Stack gap="xs" mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-brand-2)" }}>
@@ -988,84 +1171,10 @@ export default function CaseFormPage({ caseId, startWithAiPanel = false }: Props
 						</Paper>
 					)}
 
-					{/* ── 病例预览（只读学生视角） ── */}
-					{showPreview && (
-						<Paper withBorder p="md">
-							<Text size="xs" fw={600} mb="xs">学生可见预览</Text>
-							<Grid gap="xs">
-								<Grid.Col span={{ base: 12, sm: 6 }}><Text size="xs"><Text component="span" c="dimmed">名称：</Text>{String(state.json.name ?? "") || "—"}</Text></Grid.Col>
-								<Grid.Col span={{ base: 12, sm: 6 }}><Text size="xs"><Text component="span" c="dimmed">患者：</Text>{preview.patient || "—"}</Text></Grid.Col>
-								<Grid.Col span={12}><Text size="xs"><Text component="span" c="dimmed">主诉：</Text>{preview.chief || "—"}</Text></Grid.Col>
-								<Grid.Col span={12}><Text size="xs"><Text component="span" c="dimmed">开场白：</Text>{preview.opening || "—"}</Text></Grid.Col>
-								<Grid.Col span={{ base: 12, sm: 6 }}><Text size="xs"><Text component="span" c="dimmed">必询要点：</Text>{preview.inquiries} 条</Text></Grid.Col>
-								<Grid.Col span={{ base: 12, sm: 6 }}><Text size="xs"><Text component="span" c="dimmed">隐藏信息：</Text>{preview.hidden} 条</Text></Grid.Col>
-							</Grid>
-						</Paper>
-					)}
-
-					{/* ── Editor area ── */}
-					<form onSubmit={handleSave}>
-						<Stack gap="md" pb={72}>
-							{state.mode === "json" && state.json.workflow === CLINICAL_REASONING_WORKFLOW_ID && (
-								<Alert variant="light" color="teal" title="临床判断训练病例：JSON 里需要哪些字段">
-									<Stack gap={4}>
-										{CLINICAL_REASONING_FIELD_HINTS.map((hint) => (
-											<Text key={hint.path} size="xs">
-												<Text component="span" fw={600} style={{ fontFamily: "var(--mantine-font-family-monospace)" }}>
-													{hint.path}
-												</Text>
-												{`（${hint.label}）：${hint.requirement}`}
-											</Text>
-										))}
-										<Text size="xs" c="dimmed" mt={4}>
-											保存与发布都会跑服务端门禁，错误按 JSON 路径列在上方；本页不重复实现一套校验。
-										</Text>
-									</Stack>
-								</Alert>
-							)}
-							{state.mode === "json" ? (
-								<JsonView json={state.json} dispatch={dispatch} readOnly={archived} />
-							) : (
-								<FormView state={state} dispatch={dispatch} disabled={archived} />
-							)}
-
-							<Group
-								justify="flex-end"
-								gap={8}
-								pt="sm"
-								style={{ position: "sticky", bottom: 0, zIndex: 2, background: "var(--mantine-color-body)", borderTop: "1px solid var(--mantine-color-default-border)" }}
-							>
-								{caseId != null && revisionsQuery.data == null && !archived && (
-									<Text size="xs" c="dimmed" mr="auto">
-										{published ? `当前 v${revisionNo ?? 1}` : "草稿：发布后产生 v1"}
-									</Text>
-								)}
-								<Button type="button" variant="outline" size="sm" onClick={() => { void handleBack(); }}>取消</Button>
-								<Button
-									type="submit"
-									size="sm"
-									disabled={archived || loadFailed || createMutation.isPending || updateMutation.isPending}
-									title={
-										archived
-											? "已归档病例内容冻结，不可保存"
-											: loadFailed
-												? "病例数据加载失败，当前内容是默认骨架，重试成功前不可保存"
-												: undefined
-									}
-								>
-									{caseId != null
-										? updateMutation.isPending
-											? "保存中…"
-											: published
-												? "保存为新版本"
-												: "保存"
-										: createMutation.isPending
-											? "创建中…"
-											: "创建草稿"}
-								</Button>
-							</Group>
-						</Stack>
-					</form>
+								</Box>
+							</Grid.Col>
+						)}
+					</Grid>
 
 					{archived && (
 						<Group gap={8} wrap="wrap">

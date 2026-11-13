@@ -18,7 +18,10 @@ import { Composer } from "@/components/training/clinical-reasoning/Composer";
 import { ControlBar } from "@/components/training/clinical-reasoning/ControlBar";
 import { EvidenceChain, SceneBar } from "@/components/training/clinical-reasoning/EvidenceChain";
 import { PatientStage } from "@/components/training/clinical-reasoning/PatientStage";
-import type { ClinicalChatLine } from "@/components/training/clinical-reasoning/chat-lines";
+import {
+	type ClinicalChatLine,
+	mergeClinicalChatLines,
+} from "@/components/training/clinical-reasoning/chat-lines";
 import {
 	useClinicalReasoning,
 	type ClinicalActionError,
@@ -119,23 +122,10 @@ function ClinicalWorkbench({ recordId }: { recordId: string }) {
 	});
 	const clock = record?.remaining_seconds == null ? "--:--" : formatTime(record.remaining_seconds);
 
-	const lines = useMemo<ClinicalChatLine[]>(() => {
-		const persisted: ClinicalChatLine[] = (recordMessages ?? []).map((message) => ({
-			key: `record-message:${message.id}`,
-			role: message.role,
-			content: message.content,
-			sending: false,
-			messageId: message.id,
-		}));
-		const local: ClinicalChatLine[] = clinical.outbox.map((entry) => ({
-			key: `local:${entry.id}`,
-			role: entry.role,
-			content: entry.content,
-			sending: entry.sending,
-			messageId: null,
-		}));
-		return [...persisted, ...local];
-	}, [clinical.outbox, recordMessages]);
+	const lines = useMemo(
+		() => mergeClinicalChatLines(recordMessages ?? [], clinical.outbox),
+		[clinical.outbox, recordMessages],
+	);
 
 	// 联结：新证据 → 产出它的那句话（滚动过去 + 等时长强调）。
 	const anchorRef = useRef<HTMLDivElement | null>(null);

@@ -36,6 +36,16 @@ log = logging.getLogger(__name__)
 
 async def persister(ctx: PipelineContext) -> None:
     if ctx.state.get(STATE_CORRECTION_TARGET):
+        # 修正必须整体成立：没有可替换的新患者回复（安全拦截/空回复/失败）时，
+        # 宁可这一轮失败，也不能删掉原来那条消息对 —— 否则学生点一次"修改"
+        # 就永久丢掉了原本的问答。
+        if ctx.error or ctx.should_shortcut or not (ctx.llm_reply or "").strip():
+            log.warning(
+                "Correction aborted, original pair kept: record_id=%d code=%s",
+                ctx.record.id,
+                ctx.error_code,
+            )
+            return
         _persist_correction(ctx)
         return
 
@@ -48,6 +58,7 @@ async def persister(ctx: PipelineContext) -> None:
         return
 
     if ctx.error or ctx.should_shortcut:
+        # 安全拦截已把 ctx.llm_reply 清空，这里不能把候选文本当 partial 落库。
         _persist_failure(ctx, claim)
     else:
         _persist_success(ctx, claim)

@@ -5474,6 +5474,52 @@
         ]
       }
     },
+    "/api/cases/suggest": {
+      "post": {
+        "tags": [
+          "病例"
+        ],
+        "summary": "Suggest Case",
+        "operationId": "suggest_case_api_cases_suggest_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseSuggestionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseSuggestionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/cases/{case_id}": {
       "get": {
         "tags": [
@@ -13253,6 +13299,16 @@
             "title": "Capabilities",
             "default": {}
           },
+          "workflow": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkflowBrief"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "is_open": {
             "type": "boolean",
             "title": "Is Open",
@@ -13345,6 +13401,102 @@
         ],
         "title": "CaseRevisionItem",
         "description": "病例版本（不可变内容快照）—— 教师侧「版本」视图。"
+      },
+      "CaseSuggestionItem": {
+        "properties": {
+          "field": {
+            "type": "string",
+            "title": "Field",
+            "default": ""
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "detail"
+        ],
+        "title": "CaseSuggestionItem"
+      },
+      "CaseSuggestionRequest": {
+        "properties": {
+          "workflow": {
+            "type": "string",
+            "pattern": "^(history_taking|clinical_reasoning)$",
+            "title": "Workflow"
+          },
+          "current_case_data": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Current Case Data"
+          },
+          "focus": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Focus"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "workflow",
+          "current_case_data"
+        ],
+        "title": "CaseSuggestionRequest",
+        "description": "对当前工作副本做 AI 审阅；不需要先创建病例。"
+      },
+      "CaseSuggestionResponse": {
+        "properties": {
+          "suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/CaseSuggestionItem"
+            },
+            "type": "array",
+            "title": "Suggestions"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usage"
+          },
+          "elapsed_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elapsed Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "suggestions"
+        ],
+        "title": "CaseSuggestionResponse"
       },
       "CaseUpdateRequest": {
         "properties": {

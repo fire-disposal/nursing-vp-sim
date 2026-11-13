@@ -6,6 +6,7 @@ import Pagination from "@/components/ui/pagination";
 import { ACTIVITY_LABELS } from "@/config/activity-display";
 import type { components } from "@/api/api-types.gen";
 import { CaseStatusBadge } from "./CaseStatusBadge";
+import { generationOf } from "./case-generations";
 import { CASE_STATUS_FILTER_OPTIONS } from "./caseStatus";
 import { FilterToolbar } from "@/components/ui/filter-toolbar";
 import ListPage from "@/components/ui/list-page";
@@ -191,17 +192,22 @@ export default function CaseList({
 								return (
 									<Table.Tr key={c.id}>
 										<Table.Td>
-											<Anchor
-												component={Link}
-												to={caseHref(c.id)}
-												size="xs"
-												fw={500}
-												truncate
-												style={{ display: "block" }}
-												title={archived ? "查看已归档病例" : "打开病例工作台"}
-											>
-												{c.name}
-											</Anchor>
+											<Group gap={6} wrap="nowrap">
+												<Anchor
+													component={Link}
+													to={caseHref(c.id)}
+													size="xs"
+													fw={500}
+													truncate
+													style={{ display: "block", flex: 1, minWidth: 0 }}
+													title={archived ? "查看已归档病例" : "打开病例工作台"}
+												>
+													{c.name}
+												</Anchor>
+												<Badge size="xs" variant="light" color={c.workflow?.id === "clinical_reasoning" ? "teal" : "blue"}>
+													{generationOf(c.workflow?.id).generation}
+												</Badge>
+											</Group>
 											<Text size="xs" c="dimmed" truncate mt={2}>
 												{[c.patient_gender, c.patient_age != null ? `${c.patient_age}岁` : null].filter(Boolean).join(" · ")}
 											</Text>

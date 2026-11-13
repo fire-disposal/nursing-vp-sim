@@ -75,6 +75,16 @@ export const generateCase = (
 		config,
 	);
 
+export const suggestCase = (
+	data: Schemas["CaseSuggestionRequest"],
+	config?: AxiosRequestConfig,
+) =>
+	api.post<Schemas["CaseSuggestionResponse"]>(
+		"/cases/suggest" satisfies ApiPath as string,
+		data,
+		config,
+	);
+
 export const toggleCaseOpen = (id: number | string, open: boolean) =>
 	api.put<Schemas["CaseManageItem"]>(
 		`/cases/${id}/open?open=${open}`,

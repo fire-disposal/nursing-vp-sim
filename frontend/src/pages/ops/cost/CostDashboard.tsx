@@ -291,7 +291,7 @@ function UserCostBreakdown() {
 		staleTime: 2 * 60_000,
 	});
 	const items = (data?.items || []) as { user_id: number; user_name: string; total_cost: number; total_calls: number; purposes: Record<string, { calls: number; cost: number }> }[];
-	const purposeLabels: Record<string, string> = { patient_chat: "患者对话", scoring: "评分", scoring_feedback: "评分反馈", qa: "护理问答", case_generation: "病例生成", json: "结构化提取" };
+	const purposeLabels: Record<string, string> = { patient_chat: "患者对话", scoring: "评分", scoring_feedback: "评分反馈", qa: "护理问答", case_generation: "病例生成", case_review: "病例审阅", json: "结构化提取" };
 	if (items.length === 0 && !isLoading) return null;
 	return (
 		<Card>

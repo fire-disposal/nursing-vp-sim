@@ -9,7 +9,7 @@
  * 5. 新建保存成功后换成该病例的深链。
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -31,6 +31,7 @@ const {
 	updateCaseMock,
 	createCaseMock,
 	publishCaseMock,
+	suggestCaseMock,
 } = vi.hoisted(() => ({
 	getCaseDetailMock: vi.fn(),
 	getManageCasesMock: vi.fn(),
@@ -39,6 +40,7 @@ const {
 	updateCaseMock: vi.fn(),
 	createCaseMock: vi.fn(),
 	publishCaseMock: vi.fn(),
+	suggestCaseMock: vi.fn(),
 }));
 
 vi.mock("@/api", async (importOriginal) => {
@@ -52,6 +54,7 @@ vi.mock("@/api", async (importOriginal) => {
 		updateCase: updateCaseMock,
 		createCase: createCaseMock,
 		publishCase: publishCaseMock,
+		suggestCase: suggestCaseMock,
 	};
 });
 
@@ -115,6 +118,13 @@ beforeEach(() => {
 	});
 	updateCaseMock.mockResolvedValue({ data: manageItem() });
 	createCaseMock.mockResolvedValue({ data: manageItem() });
+	suggestCaseMock.mockResolvedValue({
+		data: {
+			suggestions: [{ field: "scenario", title: "补全场景边界", detail: "说明学生开局知道什么。" }],
+			elapsed_ms: 10,
+			usage: null,
+		},
+	});
 });
 
 describe("工作台路由地址", () => {
@@ -154,6 +164,56 @@ describe("病例工作台页", () => {
 		renderAt("/admin/cases/new?mode=ai");
 
 		await waitFor(() => expect(screen.getByRole("button", { name: /生成临床骨架/ })).toBeInTheDocument());
+	});
+
+	it("新建可选择 V2 模板，V3 仅作不可用的未来说明", async () => {
+		renderAt("/admin/cases/new?mode=ai");
+		const user = userEvent.setup();
+
+		const v3 = screen.getByRole("radio", { name: /V3/ });
+		expect(v3).toBeDisabled();
+		await user.click(screen.getByRole("radio", { name: /V2/ }));
+
+		expect(await screen.findByRole("tab", { name: /场景与患者/ })).toBeInTheDocument();
+		expect(screen.getByRole("tab", { name: /证据目录/ })).toBeInTheDocument();
+		expect(screen.getByRole("tab", { name: /评分锚点/ })).toBeInTheDocument();
+		expect(screen.queryByText(/JSON 里需要哪些字段/)).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /生成临床骨架/ })).not.toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "获取建议" }));
+		expect(await screen.findByText("补全场景边界")).toBeInTheDocument();
+		expect(suggestCaseMock).toHaveBeenCalledWith(
+			expect.objectContaining({ workflow: "clinical_reasoning" }),
+		);
+	});
+
+	it("V1 AI 审阅读取当前工作副本且不会自动应用建议", async () => {
+		renderAt("/admin/cases/new?mode=ai");
+		const user = userEvent.setup();
+
+		await user.click(await screen.findByRole("button", { name: "获取建议" }));
+
+		expect(await screen.findByText("说明学生开局知道什么。")).toBeInTheDocument();
+		expect(suggestCaseMock).toHaveBeenCalledWith(
+			expect.objectContaining({ workflow: "history_taking", current_case_data: expect.any(Object) }),
+		);
+		expect(createCaseMock).not.toHaveBeenCalled();
+	});
+
+	it("V2 教师表单编辑会写入对应代际的创建载荷", async () => {
+		renderAt("/admin/cases/new");
+		const user = userEvent.setup();
+
+		await user.click(screen.getByRole("radio", { name: /V2/ }));
+		fireEvent.change(screen.getByRole("textbox", { name: "病例名称" }), { target: { value: "术后低氧训练" } });
+		fireEvent.change(screen.getByRole("textbox", { name: "场景标题" }), { target: { value: "夜间术后低氧" } });
+		await user.click(screen.getByRole("button", { name: "创建草稿" }));
+
+		await waitFor(() => expect(createCaseMock).toHaveBeenCalledTimes(1));
+		expect(createCaseMock.mock.calls[0][0].case_data).toMatchObject({
+			workflow: "clinical_reasoning",
+			name: "术后低氧训练",
+			scenario: { title: "夜间术后低氧" },
+		});
 	});
 
 	it("版本历史是页内面板，不再打开第二层 Modal", async () => {

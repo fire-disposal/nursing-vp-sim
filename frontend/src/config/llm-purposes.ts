@@ -44,5 +44,6 @@ export const LLM_PURPOSES: LlmPurpose[] = [
 // 用途 value → 中文标签。含 "other" 兜底（调用日志中未知用途的显示）。
 export const LLM_PURPOSE_LABELS: Record<string, string> = {
 	...Object.fromEntries(LLM_PURPOSES.map((p) => [p.value, p.label])),
+	case_review: "病例审阅",
 	other: "其他",
 };

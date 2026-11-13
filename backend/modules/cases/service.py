@@ -42,6 +42,7 @@ from modules.cases.revisions import (
 from modules.cases.validator import CaseReport
 from modules.training.workflows import case_is_startable, workflow_for_case
 from schemas.case_schema import normalize_gender, strip_case_metadata, validate_case_data
+from schemas.common import WorkflowBrief
 
 log = logging.getLogger(__name__)
 
@@ -81,6 +82,7 @@ class CaseManageView:
     difficulty: int
     patient_personality: str
     capabilities: dict
+    workflow: WorkflowBrief
     is_open: bool
     created_at: datetime
     training_count: int
@@ -112,6 +114,7 @@ class CaseService:
         cd = case.case_data or {}
         info = cd.get("patient_info", {})
         personality = cd.get("personality", {})
+        workflow = workflow_for_case(case)
         return CaseManageView(
             id=case.id,
             name=case.name,
@@ -129,7 +132,8 @@ class CaseService:
             patient_personality=_personality_label(personality),
             # 能力由病例声明的 activities.* 解析（与学生端 /api/cases 同源），按病例
             # current revision 所属 workflow 解析，不读库里的存储字段、不读代码常量
-            capabilities=workflow_for_case(case).resolve_features(cd),
+            capabilities=workflow.resolve_features(cd),
+            workflow=WorkflowBrief(id=workflow.id, label=workflow.label, runtime_ready=workflow.runtime_ready),
             is_open=case.is_open,
             created_at=case.created_at,
             training_count=training_count,

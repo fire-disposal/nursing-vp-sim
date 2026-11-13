@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING
 
 from pydantic import ValidationError as PydanticValidationError
@@ -30,9 +30,15 @@ from infra.llm.client import CallContext, LLMClient
 from infra.llm.profile import get_llm_config
 from models import Case, User
 from modules.cases.prompt_format import format_case_for_prompt
-from modules.cases.prompts import build_field_instruction, build_system_prompt
+from modules.cases.prompts import build_field_instruction, build_review_prompt, build_system_prompt
 from modules.training.activities import ACTIVITY_CONFIG_KEY, CASE_ACTIVITIES_FIELD
-from schemas import CaseGenerateRequest, CaseGenerateResponse
+from schemas import (
+    CaseGenerateRequest,
+    CaseGenerateResponse,
+    CaseSuggestionItem,
+    CaseSuggestionRequest,
+    CaseSuggestionResponse,
+)
 from schemas.case_schema import validate_case_data
 
 if TYPE_CHECKING:
@@ -135,19 +141,20 @@ async def _call_json(
     messages: list[dict],
     current_user: User,
     description: str,
+    purpose: str = "case_generation",
 ) -> tuple[dict, dict | None]:
     """调用 LLM 取 JSON；同时回传本次 token 用量（由 CallContext 透出）。"""
     ctx = CallContext(
-        purpose="case_generation",
+        purpose=purpose,
         user_id=current_user.id,
         log_meta={"description": description[:200]},
     )
     try:
         result = await llm_client.call_json(
             messages,
-            purpose="case_generation",
+            purpose=purpose,
             ctx=ctx,
-            **get_llm_config("case_generation"),
+            **get_llm_config(purpose),
         )
         return result, ctx.usage
     except (LLMParseError, LLMRateLimited, LLMConcurrencyExceeded, NoProviderAvailable):
@@ -337,3 +344,53 @@ async def generate_case(
     response.usage = trace["usage"] or None
     response.warnings = trace["warnings"] or None
     return response
+
+
+async def suggest_case(
+    data: CaseSuggestionRequest,
+    current_user: User,
+    llm_client: LLMClient,
+) -> CaseSuggestionResponse:
+    """审阅未保存或已保存的工作副本；建议不直接写回病例。"""
+    started = time.perf_counter()
+    messages = [
+        {
+            "role": "system",
+            "content": build_review_prompt(
+                workflow=data.workflow,
+                case_data=data.current_case_data,
+                focus=data.focus,
+            ),
+        }
+    ]
+    result, usage = await _call_json(
+        llm_client,
+        messages,
+        current_user,
+        f"病例审阅建议（{data.workflow}）",
+        purpose="case_review",
+    )
+    raw = result.get("suggestions")
+    if not isinstance(raw, list):
+        raise ValidationError(detail="AI 建议响应缺少 suggestions 数组")
+    suggestions: list[CaseSuggestionItem] = []
+    for item in raw[:5]:
+        if not isinstance(item, Mapping):
+            continue
+        title = item.get("title")
+        detail = item.get("detail")
+        if not isinstance(title, str) or not title.strip() or not isinstance(detail, str) or not detail.strip():
+            continue
+        field = item.get("field")
+        suggestions.append(
+            CaseSuggestionItem(
+                field=field.strip() if isinstance(field, str) else "",
+                title=title.strip(),
+                detail=detail.strip(),
+            )
+        )
+    return CaseSuggestionResponse(
+        suggestions=suggestions,
+        usage=usage or None,
+        elapsed_ms=int((time.perf_counter() - started) * 1000),
+    )
