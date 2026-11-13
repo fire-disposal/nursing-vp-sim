@@ -83,7 +83,7 @@ const TARGET_LABELS: Record<string, string> = {
 	questionnaire_template: "问卷模板",
 	permission: "权限",
 	persona: "视角",
-	session: "会话",
+	session: "登录会话",
 	settings: "系统设置",
 };
 
@@ -91,6 +91,24 @@ function fmtTime(value: string | null): string {
 	if (!value) return "—";
 	const d = new Date(value);
 	return Number.isNaN(d.getTime()) ? value : d.toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE, hour12: false });
+}
+
+function auditDetail(r: AuditLogItem): { summary: string; tooltip: string } {
+	const payload = JSON.stringify(r.payload ?? {});
+	const request = [r.request_method, r.request_path].filter(Boolean).join(" ");
+	const status = r.response_status == null ? "HTTP 状态：未记录" : `HTTP ${r.response_status}`;
+	return {
+		summary:
+			payload !== "{}"
+				? payload
+				: r.error_detail || request || "无附加业务字段",
+		tooltip: [
+			status,
+			request || "请求路径：未记录",
+			payload === "{}" ? "无附加业务字段" : payload,
+			r.error_detail,
+		].filter(Boolean).join("\n"),
+	};
 }
 
 /**
@@ -184,16 +202,9 @@ export default function AuditLogsPage() {
 				key: "detail",
 				header: "详情",
 				render: (r) => {
-					const detail = JSON.stringify(r.payload ?? {});
-					if (!detail || detail === "{}") {
-						return (
-							<Text size="xs" c="dimmed">
-								—
-							</Text>
-						);
-					}
+					const detail = auditDetail(r);
 					return (
-						<Tooltip label={detail} multiline maw={420} openDelay={200}>
+						<Tooltip label={detail.tooltip} multiline maw={420} openDelay={200}>
 							<Code
 								style={{
 									display: "inline-block",
@@ -204,7 +215,7 @@ export default function AuditLogsPage() {
 									verticalAlign: "middle",
 								}}
 							>
-								{detail}
+								{detail.summary}
 							</Code>
 						</Tooltip>
 					);

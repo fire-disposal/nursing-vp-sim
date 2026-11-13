@@ -14,6 +14,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from core.audit import attach_response_status as audit_attach_status
 from core.config import (
     APP_VERSION,
     CORS_ORIGINS,
@@ -283,22 +284,42 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     return JSONResponse(status_code=500, content={"detail": "服务器内部错误"})
 
 
+#: 探针与诊断接口不写响应结果：前者高频，后者已有独立取证链。
+_RESPONSE_RESULT_SKIP_PATHS = frozenset({"/api/health", "/api/metrics", "/api/diagnose"})
+#: 进程指标只排除自身的探针端点；诊断请求仍属于正常 API 流量。
+_METRICS_SKIP_PATHS = frozenset({"/api/health", "/api/metrics"})
+
+
+def _should_record_response(path: str) -> bool:
+    """`/api/` 业务请求都记真实状态码；排除健康检查、指标与诊断接口。"""
+    return path.startswith("/api/") and path not in _RESPONSE_RESULT_SKIP_PATHS
+
+
 @app.middleware("http")
 async def _log_requests(request: Request, call_next):
     t0 = time.perf_counter()
+    path = request.url.path
     try:
         response = await call_next(request)
     except Exception:
         ms = int((time.perf_counter() - t0) * 1000)
-        log.exception("%s %s → 500 (unhandled exception) [%dms]", request.method, request.url.path, ms)
+        log.exception("%s %s → 500 (unhandled exception) [%dms]", request.method, path, ms)
+        if _should_record_response(path):
+            # 未捕获异常由外层 ServerErrorMiddleware 变成 500：这里没有 response 对象，
+            # 但这次的 500 恰恰最该留痕（审计事件同样不会被顺手丢掉）。
+            audit_attach_status(request, 500)
         raise
     ms = int((time.perf_counter() - t0) * 1000)
+    # 真实 HTTP 结果：等响应生成后补写（只插入，不改 audit_logs）。
+    # 失败只记日志，绝不影响业务响应。
+    if _should_record_response(path):
+        audit_attach_status(request, response.status_code)
     if response.status_code >= 500:
         log.error("%s %s → %d [%dms]", request.method, request.url.path, response.status_code, ms)
     elif response.status_code >= 400:
         log.warning("%s %s → %d [%dms]", request.method, request.url.path, response.status_code, ms)
     metrics = getattr(request.app.state, "metrics", None)
-    if metrics and request.url.path not in ("/api/metrics", "/api/health"):
+    if metrics and path not in _METRICS_SKIP_PATHS:
         metrics.record_request(response.status_code, ms, method=request.method, path=request.url.path)
     return response
 

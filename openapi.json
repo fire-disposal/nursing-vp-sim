@@ -12412,6 +12412,17 @@
               }
             ],
             "title": "Request Path"
+          },
+          "response_status": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Status"
           }
         },
         "type": "object",

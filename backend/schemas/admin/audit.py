@@ -30,3 +30,7 @@ class AuditLogItem(BaseModel):
     ip: str | None
     request_method: str | None
     request_path: str | None
+    #: 该审计事件对应的 HTTP 响应状态码（如 201/403/500）。
+    #: 来自 `audit_response_results`；历史行（或结果尚未写入）为 `None`。
+    #: 与 `outcome` 互相独立：`outcome` 是业务结果，不据状态码推断。
+    response_status: int | None = None

@@ -16,6 +16,9 @@ from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING, Any
+from uuid import uuid4
+
+import sqlalchemy as sa
 
 from models import AuditLog
 from models.audit import AUDIT_OUTCOME_DENIED, AUDIT_OUTCOME_FAILURE, AUDIT_OUTCOME_SUCCESS
@@ -131,6 +134,39 @@ def _request_fields(request: Request | None) -> dict[str, Any]:
     }
 
 
+#: `core.audit.record()` 把本次请求产生的事件挂到 `request.state` 的这个键上，
+#: 供 `main._log_requests` 在响应生成后补 `AuditResponseResult`（见 `attach_response_status`）。
+_REQUEST_ENTRIES_ATTR = "audit_entries"
+#: 本次请求的实例键（惰性生成，见 `request_key`）
+_REQUEST_KEY_ATTR = "audit_request_key"
+
+
+def _track_on_request(request: Request | None, entry: AuditLog) -> None:
+    """把事件登记到请求状态：**只登记，不改变事务语义**。
+
+    中间件拿它当"这次请求里有哪些审计事件"的候选清单，提交后再按 id 落结果；
+    被业务回滚掉的条目在库里没有行（也没有 id），自然不会产生结果。
+
+    这里必须在**提交前**读一次 id，而不是让中间件事后去读实例属性：业务 session 由
+    `get_db` 在响应返回时关闭，实例随之过期，读 `.id` 会抛 `DetachedInstanceError`。
+    """
+    if request is None:
+        return
+    try:
+        # `flush()`（而非 `commit()`）只是把 INSERT 发出去以拿到自增主键：
+        # 事务仍归调用方，回滚时这条事件连同 id 一起消失。
+        session = sa.inspect(entry).session
+        if session is not None and session.is_active:
+            session.flush([entry])
+        if entry.id is None:
+            return
+        # 只登记自增主键：中间件不需要（也不该）再碰 ORM 实例
+        entries = getattr(request.state, _REQUEST_ENTRIES_ATTR, None) or []
+        request.state.audit_entries = [*entries, entry.id]
+    except Exception:  # pragma: no cover - 防御：登记失败不得影响审计写入
+        log.exception("审计事件登记到 request.state 失败（request_id=%s）", getattr(request.state, "request_id", None))
+
+
 def _actor_from_request(request: Request | None, actor: User | None) -> dict[str, Any]:
     """`request.state.audit_actor` / `request.state.view_persona` 由
     `core.security.get_current_user` 写入（每个鉴权请求必经），`require_permission`
@@ -169,6 +205,7 @@ def record(
         **_request_fields(request),
     )
     db.add(entry)
+    _track_on_request(request, entry)
     return entry
 
 
@@ -212,9 +249,97 @@ def record_detached(
         db.close()
 
 
+def request_key(request: Request) -> str:
+    """本次请求的**实例键**：`request.state.audit_request_key`，不存在时惰性生成并写回。
+
+    为什么不用客户端的 `X-Request-ID` 做结果键：那是**关联** ID，客户端可以（也会）
+    重复发同一个值。状态码如果按它去重/归属，两个不同请求的结果就会串在一起。
+    这里的键由服务端在需要时生成，一个请求实例只有一个，重试/重放也不会复用。
+    """
+    key = getattr(request.state, _REQUEST_KEY_ATTR, None)
+    if not key:
+        key = uuid4().hex[:32]
+        request.state.audit_request_key = key
+    return key
+
+
+def attach_response_status(request: Request | None, status_code: int) -> int:
+    """为本次 `/api/` 请求写一行真实 HTTP 结果（**只插入**）。
+
+    调用点：`main._log_requests` 拿到 response 之后（此时业务事务已经结束）。语义：
+
+    - **先确认哪些事件真的提交了**：`request.state.audit_entries` 只是候选清单，
+      业务回滚时行已不存在（`audit_logs` 里查不到）；
+    - 有已提交事件：每个一行，`audit_log_id` 指向它（部分提交时只写提交的那几条）；
+    - 没有一个已提交事件（普通 GET / 纯读取 POST / **事件全部被回滚**）：
+      写**一行** `audit_log_id IS NULL`，即"这次请求本身"——请求确实发生了，
+      就必须能回答"它回了什么状态码"；
+    - 幂等：`(request_key, audit_log_id)` 联合唯一（`audit_log_id` 为 NULL 时靠 `request_key`），
+      重复 attach 只跳过，绝不追加第二行；**绝不 UPDATE `audit_logs`**，
+      `outcome` 与响应状态码互不推导；
+    - 独立 session 写入，失败只记日志 —— 审计结果不得改变业务响应，
+      且业务 session 在中间件里不能用（可能已被 `get_db` 关闭）。
+
+    返回新写入的行数（失败时为 0；调用方不需要据此做任何判断）。
+    """
+    if request is None:
+        return 0
+    # 候选主键：`record()` 写入时登记的（业务随后可能把它整个回滚掉）
+    candidate_ids = {audit_id for audit_id in getattr(request.state, _REQUEST_ENTRIES_ATTR, None) or []}
+    key = request_key(request)
+
+    from core.database import SessionLocal
+    from models import AuditLog, AuditResponseResult
+
+    db = SessionLocal()
+    try:
+        # 候选 ≠ 已提交：回滚掉的行在库里不存在，必须先按库里实况确认，
+        # 否则会拿一个不存在的 audit_log_id 去写结果（FK 失败 → 整批丢）。
+        committed_ids: set[int] = set()
+        if candidate_ids:
+            committed_ids = {row[0] for row in db.query(AuditLog.id).filter(AuditLog.id.in_(candidate_ids)).all()}
+        # 一个已提交事件都没有 → 用 None 表示"这次请求本身"这一行
+        targets: list[int | None] = [*sorted(committed_ids)] if committed_ids else [None]
+
+        existing_keys = {
+            (row[0], row[1])
+            for row in db.query(AuditResponseResult.request_key, AuditResponseResult.audit_log_id)
+            .filter(AuditResponseResult.request_key == key)
+            .all()
+        }
+        pending = [audit_id for audit_id in targets if (key, audit_id) not in existing_keys]
+        if not pending:
+            return 0
+        db.add_all(
+            [
+                AuditResponseResult(
+                    audit_log_id=audit_id,
+                    request_key=key,
+                    request_id=getattr(request.state, "request_id", None),
+                    request_method=(request.method or "")[:10] or None,
+                    request_path=str(request.url.path)[:200],
+                    status_code=status_code,
+                )
+                for audit_id in pending
+            ]
+        )
+        db.commit()
+        return len(pending)
+    except Exception:  # pragma: no cover - 审计结果不得影响业务响应
+        db.rollback()
+        log.exception(
+            "审计响应结果写入失败（不影响业务响应）：status=%s request_key=%s candidate_ids=%s",
+            status_code,
+            key,
+            sorted(candidate_ids),
+        )
+        return 0
+    finally:
+        db.close()
+
+
 __all__ = [
     "ACTION_ACCESS_DENIED",
-    "ACTION_AUTH_LOGIN_BLOCKED",
     "ACTION_AUTH_LOGIN_FAILED",
     "ACTION_AUTH_LOGIN_SUCCEEDED",
     "ACTION_CASE_ARCHIVED",
@@ -267,6 +392,8 @@ __all__ = [
     "TARGET_TYPE_SETTINGS",
     "TARGET_TYPE_TRAINING_RECORD",
     "TARGET_TYPE_USER",
+    "attach_response_status",
     "record",
     "record_detached",
+    "request_key",
 ]

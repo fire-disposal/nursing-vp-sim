@@ -12,6 +12,7 @@ from models.audit import (
     AUDIT_OUTCOME_SUCCESS,
     AUDIT_OUTCOMES,
     AuditLog,
+    AuditResponseResult,
 )
 from models.auth import User, UserSchoolPersona, UserSchoolProfile
 from models.budget import SchoolBudget, UserBudget
@@ -97,6 +98,7 @@ __all__ = [
     "Assignment",
     "AssignmentRecipient",
     "AuditLog",
+    "AuditResponseResult",
     "Case",
     "CaseQuestionnaire",
     "CaseRevision",

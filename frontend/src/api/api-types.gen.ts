@@ -2918,6 +2918,8 @@ export interface components {
             request_method: string | null;
             /** Request Path */
             request_path: string | null;
+            /** Response Status */
+            response_status?: number | null;
         };
         /** BatchCreateResult */
         BatchCreateResult: {

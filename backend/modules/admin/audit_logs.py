@@ -26,7 +26,7 @@ from core.exceptions import ValidationError
 from core.pagination import paginate
 from core.security import require_permission
 from infra.exporter import ColumnDef, ExportAudit, export_response
-from models import AuditLog, User
+from models import AuditLog, AuditResponseResult, User
 from schemas.admin import AuditLogItem
 from schemas.common import PaginatedResponse
 
@@ -87,6 +87,22 @@ class AuditLogService:
         q = self._filtered_query(filters).order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
         return paginate(q, offset, limit)
 
+    def response_statuses(self, rows: list[AuditLog]) -> dict[int, int]:
+        """本页审计事件的 HTTP 状态码（**一次查询**，不做 N+1）。
+
+        结果表按 `audit_log_id` 唯一；没查到的行（历史数据 / 结果未写入）不出现，
+        调用方按 `None` 处理。
+        """
+        audit_ids = [row.id for row in rows]
+        if not audit_ids:
+            return {}
+        pairs = (
+            self.db.query(AuditResponseResult.audit_log_id, AuditResponseResult.status_code)
+            .filter(AuditResponseResult.audit_log_id.in_(audit_ids))
+            .all()
+        )
+        return {audit_log_id: status_code for audit_log_id, status_code in pairs}
+
 
 def _parse_dt(value: str, field: str) -> datetime:
     try:
@@ -96,7 +112,7 @@ def _parse_dt(value: str, field: str) -> datetime:
     return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
 
 
-def _to_item(row: AuditLog) -> AuditLogItem:
+def _to_item(row: AuditLog, response_status: int | None = None) -> AuditLogItem:
     return AuditLogItem(
         id=row.id,
         created_at=row.created_at.isoformat() if row.created_at else None,
@@ -115,6 +131,7 @@ def _to_item(row: AuditLog) -> AuditLogItem:
         ip=row.ip,
         request_method=row.request_method,
         request_path=row.request_path,
+        response_status=response_status,
     )
 
 
@@ -136,8 +153,12 @@ def list_audit_logs(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ):
-    rows, total = AuditLogService(db).list_filtered(filters, offset=offset, limit=limit)
-    return PaginatedResponse(items=[_to_item(r) for r in rows], total=total, offset=offset, limit=limit)
+    service = AuditLogService(db)
+    rows, total = service.list_filtered(filters, offset=offset, limit=limit)
+    statuses = service.response_statuses(rows)
+    return PaginatedResponse(
+        items=[_to_item(r, statuses.get(r.id)) for r in rows], total=total, offset=offset, limit=limit
+    )
 
 
 @router.post("/export")
@@ -149,7 +170,10 @@ def export_audit_logs(
     format: str = Query("csv", pattern="^(csv|xlsx)$"),
 ):
     # 与列表同一筛选 DTO、同一服务入口；多取一条以便 export_response 统一判超限
-    rows, _total = AuditLogService(db).list_filtered(filters, offset=0, limit=MAX_EXPORT_ROWS + 1)
+    service = AuditLogService(db)
+    rows, _total = service.list_filtered(filters, offset=0, limit=MAX_EXPORT_ROWS + 1)
+    # 超限时 export_response 会统一 400，这里取的那批状态码随请求一起丢弃，不产生额外写
+    statuses = service.response_statuses(rows)
     columns = [
         ColumnDef("时间", value=lambda r: r.created_at.isoformat() if r.created_at else ""),
         ColumnDef("操作者", value=lambda r: r.actor_username or ""),
@@ -158,6 +182,7 @@ def export_audit_logs(
         ColumnDef("目标类型", key="target_type"),
         ColumnDef("目标", value=lambda r: r.target_label or r.target_id or ""),
         ColumnDef("结果", key="outcome"),
+        ColumnDef("HTTP 状态", value=lambda r: "" if r.id not in statuses else str(statuses[r.id])),
         ColumnDef("详情", value=lambda r: str(r.payload or {})),
         ColumnDef("IP", value=lambda r: r.ip or ""),
         ColumnDef("request_id", value=lambda r: r.request_id or ""),
