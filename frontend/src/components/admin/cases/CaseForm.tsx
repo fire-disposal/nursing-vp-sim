@@ -24,10 +24,11 @@ import ErrorState from "@/components/ui/error-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import PageHeader from "@/components/ui/page-header";
 import { getApiErrorMessage } from "@/utils/error";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 import {
 	Stepper,
-	Alert, Anchor, Badge, Box, Button, Checkbox, Grid, Group, Loader, MultiSelect,
+	Accordion, Alert, Anchor, Badge, Box, Button, Checkbox, Grid, Group, Loader, MultiSelect,
 	Paper, ScrollArea, SegmentedControl, Stack, Table, Text, Textarea, Title } from "@mantine/core";
 import { type CaseJsonValue, getDefaultCaseJson, objField, useCaseEditor } from "./CaseEditorState";
 import { CaseGenerationSelector } from "./CaseGenerationSelector";
@@ -125,6 +126,7 @@ export default function CaseFormPage({ caseId, startWithAiPanel = false }: Props
 	const { state, dispatch } = useCaseEditor(getDefaultCaseJson());
 	const [caseMsg, setCaseMsg] = useState("");
 	const [showAiPanel, setShowAiPanel] = useState(!!startWithAiPanel);
+	const [aiTask, setAiTask] = useState<"generate" | "review">("generate");
 	const [aiMode, setAiMode] = useState<"quick" | "reference">("quick");
 	const [aiDescription, setAiDescription] = useState("");
 	const [aiReferenceCaseIds, setAiReferenceCaseIds] = useState<number[]>([]);
@@ -163,6 +165,7 @@ export default function CaseFormPage({ caseId, startWithAiPanel = false }: Props
 	const [loaded, setLoaded] = useState(false);
 	const toast = useToast();
 	const { confirm } = useConfirm();
+	const stackAiFirst = useMediaQuery("(max-width: 87.99em)");
 
 	const createMutation = useCreateCase();
 	const updateMutation = useUpdateCase();
@@ -585,6 +588,9 @@ export default function CaseFormPage({ caseId, startWithAiPanel = false }: Props
 
 	const caseName = String(state.json.name ?? "").trim();
 	const isClinical = state.json.workflow === CLINICAL_REASONING_WORKFLOW_ID;
+	useEffect(() => {
+		if (isClinical) setAiTask("review");
+	}, [isClinical]);
 	const title = caseId == null ? "新建病例" : loaded ? caseName || "病例工作台" : "病例工作台";
 	const subtitle =
 		caseId == null
@@ -936,11 +942,24 @@ export default function CaseFormPage({ caseId, startWithAiPanel = false }: Props
 							</Stack>
 						</Grid.Col>
 						{showAiPanel && (
-							<Grid.Col span={{ base: 12, xl: 4 }}>
+							<Grid.Col span={{ base: 12, xl: 4 }} style={{ order: stackAiFirst ? -1 : 0 }}>
 								<Box component="aside" aria-label="AI 病例助手" style={{ position: "sticky", top: 16 }}>
 					{/* ── AI 面板：两步向导 + 逐字段生成 ── */}
 					{showAiPanel && (
 						<Paper withBorder p="md" bg="var(--mantine-color-brand-light)" style={{ borderColor: "var(--mantine-color-brand-outline)" }} >
+							<SegmentedControl
+								fullWidth
+								size="xs"
+								mb="md"
+								value={aiTask}
+								onChange={(value) => setAiTask(value as "generate" | "review")}
+								data={[
+									{ value: "generate", label: "内容生成", disabled: isClinical },
+									{ value: "review", label: "审阅建议" },
+								]}
+							/>
+							{aiTask === "review" && (
+								<>
 							<Stack gap="sm" mb="md" aria-live="polite">
 								<Group justify="space-between" align="flex-start" wrap="nowrap">
 									<div>
@@ -972,9 +991,19 @@ export default function CaseFormPage({ caseId, startWithAiPanel = false }: Props
 									</Paper>
 								))}
 							</Stack>
+							<Textarea
+								label="本次审阅重点（可选）"
+								value={aiDescription}
+								onChange={(e) => setAiDescription(e.currentTarget.value)}
+								placeholder="例如：重点看证据引用和患者知识边界"
+								autosize
+								minRows={3}
+							/>
+								</>
+							)}
 
 							{/* ── V1 内容生成；V2 仅审阅，避免把问诊字段写进六面结构 ── */}
-							{!isClinical && (
+							{aiTask === "generate" && !isClinical && (
 								<>
 							<Stepper
 								size="xs"
@@ -1001,17 +1030,19 @@ export default function CaseFormPage({ caseId, startWithAiPanel = false }: Props
 								</>
 							)}
 
-							<Textarea
-								label={isClinical ? "本次审阅重点（可选）" : "病例描述或审阅重点"}
-								value={aiDescription}
-								onChange={(e) => setAiDescription(e.currentTarget.value)}
-								placeholder={isClinical ? "例如：重点看证据引用和患者知识边界" : "描述想生成的场景，或写明希望 AI 重点审阅什么"}
-								autosize
-								minRows={3}
-								mb="xs"
-							/>
+							{aiTask === "generate" && !isClinical && (
+								<Textarea
+									label="病例描述"
+									value={aiDescription}
+									onChange={(e) => setAiDescription(e.currentTarget.value)}
+									placeholder="描述想生成的场景，例如年龄、主诉与病情特点…"
+									autosize
+									minRows={3}
+									mb="xs"
+								/>
+							)}
 
-							{!isClinical && aiMode === "reference" && (
+							{aiTask === "generate" && !isClinical && aiMode === "reference" && (
 								<Stack gap={8} mb="xs">
 									<Text size="xs" c="dimmed">参考病例</Text>
 									<MultiSelect
@@ -1032,18 +1063,18 @@ export default function CaseFormPage({ caseId, startWithAiPanel = false }: Props
 								</Stack>
 							)}
 
-							{aiError && <Text size="xs" c="red" mb="xs">{aiError}</Text>}
+							{aiTask === "generate" && aiError && <Text size="xs" c="red" mb="xs">{aiError}</Text>}
 
 							{lastMeta && (
 								<Text size="xs" c="dimmed" mb="xs">
-									上次生成：{(lastMeta.elapsedMs / 1000).toFixed(1)}s
+									{aiTask === "review" ? "上次审阅" : "上次生成"}：{(lastMeta.elapsedMs / 1000).toFixed(1)}s
 									{lastMeta.usage?.total_tokens ? ` · ${lastMeta.usage.total_tokens} tokens` : ""}
 									{lastMeta.warnings.length > 0 ? ` · ${lastMeta.warnings.join("；")}` : ""}
 								</Text>
 							)}
 
 							{/* 两步按钮 */}
-							{!isClinical && (
+							{aiTask === "generate" && !isClinical && (
 								<>
 							{aiBusy && (
 								<Group gap={8} align="center" mb="xs">
@@ -1070,7 +1101,13 @@ export default function CaseFormPage({ caseId, startWithAiPanel = false }: Props
 							</Group>
 
 							{/* 逐字段生成（分组） */}
-							<Stack gap={8} mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-brand-2)" }}>
+							<Accordion variant="unstyled" mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-brand-2)" }}>
+								<Accordion.Item value="fields">
+									<Accordion.Control px={0}>
+										<Text size="xs" fw={500}>高级：指定字段完善</Text>
+									</Accordion.Control>
+									<Accordion.Panel px={0}>
+							<Stack gap={8}>
 								<Text size="xs" c="dimmed">逐字段完善（以当前编辑内容为上下文，可反复生成）</Text>
 								<Group gap={6} wrap="wrap">
 									<Text size="xs" c="brand" style={{ flexShrink: 0, width: 56 }}>临床字段</Text>
@@ -1109,10 +1146,13 @@ export default function CaseFormPage({ caseId, startWithAiPanel = false }: Props
 									))}
 								</Group>
 							</Stack>
+									</Accordion.Panel>
+								</Accordion.Item>
+							</Accordion>
 								</>
 							)}
 
-							{pendingAi && (
+							{aiTask === "generate" && pendingAi && (
 								<Stack gap="xs" mt="md" pt="md" style={{ borderTop: "1px solid var(--mantine-color-brand-2)" }}>
 									<Group justify="space-between" align="center" wrap="wrap" gap="xs">
 										<Group gap={8} align="center">

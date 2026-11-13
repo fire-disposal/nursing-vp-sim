@@ -1,6 +1,6 @@
+import { Paper, Select, SimpleGrid, Text, Textarea } from "@mantine/core";
 import type { CaseDispatch, CaseEditorState } from "./CaseEditorState";
 import { stringField } from "./CaseEditorState";
-import { Paper, Select, SimpleGrid, Text, Textarea } from "@mantine/core";
 
 const PERSONALITY_OPTIONS = {
 	health_literacy: [
@@ -76,6 +76,7 @@ export function PersonalitySection({ state, dispatch, disabled }: Props) {
 								value={value}
 								onChange={(v) => set(`personality.${key}`, v ?? "normal")}
 								disabled={disabled}
+								aria-label={label}
 							/>
 						</div>
 					);
@@ -83,7 +84,7 @@ export function PersonalitySection({ state, dispatch, disabled }: Props) {
 			</SimpleGrid>
 			<div style={{ marginTop: 12 }}>
 				<Text size="xs" fw={600} c="dimmed" mb={4}>沟通风格描述</Text>
-				<Textarea value={communicationStyle} onChange={(e) => set("communication_style", e.currentTarget.value)} placeholder="用口语化、真实患者的口吻交流。" autosize minRows={3} disabled={disabled} />
+				<Textarea value={communicationStyle} onChange={(e) => set("communication_style", e.currentTarget.value)} placeholder="用口语化、真实患者的口吻交流。" autosize minRows={3} disabled={disabled} aria-label="沟通风格描述" />
 			</div>
 		</Paper>
 	);

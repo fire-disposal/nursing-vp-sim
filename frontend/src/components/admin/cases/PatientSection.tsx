@@ -1,6 +1,6 @@
+import { Group, NumberInput, Paper, Select, Text, TextInput } from "@mantine/core";
 import type { CaseDispatch, CaseEditorState } from "./CaseEditorState";
 import { numField, stringField } from "./CaseEditorState";
-import { Group, NumberInput, Paper, Select, Text, TextInput } from "@mantine/core";
 
 interface Props {
 	state: CaseEditorState;
@@ -23,11 +23,11 @@ export function PatientSection({ state, dispatch, disabled }: Props) {
 			<Group gap="sm" grow wrap="wrap">
 				<div style={{ flexGrow: 2 }}>
 					<Text size="xs" fw={600} c="dimmed" mb={4}>姓名<Text component="span" c="red">*</Text></Text>
-					<TextInput value={name} onChange={(e) => set("patient_info.name", e.currentTarget.value)} disabled={disabled} />
+					<TextInput value={name} onChange={(e) => set("patient_info.name", e.currentTarget.value)} disabled={disabled} aria-label="患者姓名" />
 				</div>
 				<div>
 					<Text size="xs" fw={600} c="dimmed" mb={4}>年龄<Text component="span" c="red">*</Text></Text>
-					<NumberInput min={0} max={120} value={age} onChange={(v) => set("patient_info.age", Number(v))} disabled={disabled} />
+					<NumberInput min={0} max={120} value={age} onChange={(v) => set("patient_info.age", Number(v))} disabled={disabled} aria-label="患者年龄" />
 				</div>
 				<div>
 					<Text size="xs" fw={600} c="dimmed" mb={4}>性别<Text component="span" c="red">*</Text></Text>
@@ -36,6 +36,7 @@ export function PatientSection({ state, dispatch, disabled }: Props) {
 						value={gender}
 						onChange={(v) => set("patient_info.gender", v ?? "男")}
 						disabled={disabled}
+						aria-label="患者性别"
 					/>
 				</div>
 			</Group>

@@ -152,6 +152,24 @@ describe("病例工作台页", () => {
 		expect(getCaseDetailMock).not.toHaveBeenCalled();
 	});
 
+	it("V1 默认收起教学分区，需要时展开人格与沟通", async () => {
+		renderAt("/admin/cases/new");
+		const user = userEvent.setup();
+
+		expect(screen.queryByText("人格配置")).not.toBeVisible();
+		await user.click(screen.getByRole("button", { name: /人格与沟通/ }));
+		expect(await screen.findByText("人格配置")).toBeInTheDocument();
+	});
+
+	it("逐字段 AI 操作默认收进高级区", async () => {
+		renderAt("/admin/cases/new?mode=ai");
+		const user = userEvent.setup();
+
+		expect(screen.queryByRole("button", { name: "主诉" })).not.toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "高级：指定字段完善" }));
+		expect(await screen.findByRole("button", { name: "主诉" })).toBeInTheDocument();
+	});
+
 	it("新建：不请求详情，显示默认骨架与「创建草稿」", async () => {
 		renderAt("/admin/cases/new");
 
@@ -190,6 +208,7 @@ describe("病例工作台页", () => {
 		renderAt("/admin/cases/new?mode=ai");
 		const user = userEvent.setup();
 
+		await user.click(screen.getByRole("radio", { name: "审阅建议" }));
 		await user.click(await screen.findByRole("button", { name: "获取建议" }));
 
 		expect(await screen.findByText("说明学生开局知道什么。")).toBeInTheDocument();
