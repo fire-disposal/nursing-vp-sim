@@ -8,11 +8,30 @@ ENV APP_VERSION=${APP_VERSION}
 RUN apt-get update && apt-get install -y --no-install-recommends curl postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
+# uv.lock 里的 wheel URL 指向清华镜像；GitHub runner 在境外，偶发单包下载超时（2026-11-13
+# deploy v2026.11.13-4 因 idna==3.16 超时整层失败）。单次 uv sync 失败即整层失败，
+# 这里每次同步给三次机会，并放宽 HTTP 超时。
+ENV UV_HTTP_TIMEOUT=120
+RUN printf '%s\n' \
+      '#!/bin/sh' \
+      'set -eu' \
+      'attempt=1' \
+      'while [ "$attempt" -le 3 ]; do' \
+      '  if uv sync "$@"; then exit 0; fi' \
+      '  if [ "$attempt" -eq 3 ]; then exit 1; fi' \
+      '  delay=$((attempt * 10))' \
+      '  echo "uv sync failed (attempt $attempt), retrying in ${delay}s" >&2' \
+      '  sleep "$delay"' \
+      '  attempt=$((attempt + 1))' \
+      'done' \
+    > /usr/local/bin/uv-sync \
+    && chmod 755 /usr/local/bin/uv-sync
+
 COPY backend/pyproject.toml backend/uv.lock ./
-RUN uv sync --frozen --no-dev --no-install-project
+RUN uv-sync --frozen --no-dev --no-install-project
 
 COPY backend/ .
-RUN uv sync --frozen --no-dev && mkdir -p /app/data
+RUN uv-sync --frozen --no-dev && mkdir -p /app/data
 
 ENV PATH="/app/.venv/bin:$PATH"
 
