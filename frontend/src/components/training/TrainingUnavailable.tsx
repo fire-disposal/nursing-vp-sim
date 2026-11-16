@@ -54,7 +54,7 @@ export function TrainingUnavailable({
 	const leaveLabel = trainingOriginLabel(from);
 
 	return (
-		<Center style={{ minHeight: "100dvh" }}>
+		<Center className="training-immersive-min">
 			<Stack align="center" gap="sm" p="xl" ta="center">
 				<Text fw={500}>{title}</Text>
 				{detail && (

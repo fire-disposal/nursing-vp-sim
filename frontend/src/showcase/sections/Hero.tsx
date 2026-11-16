@@ -1,4 +1,5 @@
 import { Badge, Box, Button, Group, Paper, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import { VIEWPORT_HEIGHT } from "@/utils/viewport";
 import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import LiveChatSimulation from "../components/LiveChatSimulation";
@@ -42,7 +43,7 @@ export default function Hero() {
 				ref={root}
 				pos="relative"
 				style={{
-					minHeight: "calc(100dvh - 64px)",
+					minHeight: `calc(${VIEWPORT_HEIGHT} - 64px)`,
 					display: "flex",
 					alignItems: "center",
 					justifyContent: "center",

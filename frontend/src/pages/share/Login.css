@@ -6,7 +6,7 @@
  */
 
 .login-page {
-	min-height: 100dvh;
+	min-height: 100vh;
 	background: var(--mantine-color-body);
 	color: var(--mantine-color-text);
 }
@@ -16,7 +16,7 @@
 	grid-template-columns: minmax(0, 1fr);
 	width: 100%;
 	max-width: 1440px;
-	min-height: 100dvh;
+	min-height: 100vh;
 	margin: 0 auto;
 }
 
@@ -228,5 +228,13 @@
 	.login-form-panel {
 		padding-left: 72px;
 		padding-right: 72px;
+	}
+}
+
+
+@supports (min-height: 100dvh) {
+	.login-page,
+	.login-frame {
+		min-height: 100dvh;
 	}
 }

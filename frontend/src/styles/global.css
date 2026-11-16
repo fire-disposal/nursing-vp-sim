@@ -313,3 +313,39 @@ h1, h2, h3 {
 .mantine-Notifications-notification {
 	pointer-events: auto;
 }
+
+/* ── 壳顶栏高度 ────────────────────────────────────────────────
+   AppShell 的 header.height 是「base / sm 两档」，吸顶元素（ListPage 筛选条）要跟着让位。
+   数值来源仍是 config/layout-scale 的 SHELL，由 ManageShell 以变量注入；这里只负责
+   按与 AppShell 相同的断点（48em）在两档之间切换。 */
+.shell-root {
+	--shell-header-height: var(--shell-header-height-base);
+}
+
+@media (min-width: 48em) {
+	.shell-root {
+		--shell-header-height: var(--shell-header-height-wide);
+	}
+}
+
+
+/* 沉浸页高度（训练页 / 推理页 / 失败态）。dvh 在旧内核里不被支持，
+   整条 `height:100dvh` 会被解析期丢弃 → 容器退化成内容高度、底部露白。
+   先给 vh 基线，再在 @supports 里换 dvh（不用重复声明，lint 也不允许）。 */
+.training-immersive {
+	height: 100vh;
+}
+
+.training-immersive-min {
+	min-height: 100vh;
+}
+
+@supports (height: 100dvh) {
+	.training-immersive {
+		height: 100dvh;
+	}
+
+	.training-immersive-min {
+		min-height: 100dvh;
+	}
+}

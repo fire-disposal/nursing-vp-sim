@@ -170,7 +170,7 @@ function ClinicalWorkbench({ recordId }: { recordId: string }) {
 	if (clinical.state === null) {
 		if (clinical.loading) {
 			return (
-				<Center mih="100dvh">
+				<Center className="training-immersive-min">
 					<Stack align="center" gap="sm">
 						<Loader size="sm" color="teal" />
 						<Text size="sm" c="var(--ns-ink-dim)">
@@ -189,7 +189,7 @@ function ClinicalWorkbench({ recordId }: { recordId: string }) {
 	}
 
 	return (
-		<Box style={{ display: "flex", flexDirection: "column", height: "100dvh", minHeight: 0 }}>
+		<Box className="training-immersive" style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
 			<ControlBar
 				state={clinical.state}
 				recordId={recordId}

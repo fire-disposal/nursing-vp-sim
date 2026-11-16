@@ -13,6 +13,7 @@ import { PersonaBadges } from "@/components/ui/persona-badges";
 import TableScroll from "@/components/ui/table-scroll";
 import type { ClassItem } from "@/types/store";
 import { getApiErrorDetail } from "@/utils/error";
+import { VIEWPORT_HEIGHT } from "@/utils/viewport";
 import type { BatchCreateResult, BatchPreviewResult, BatchUser } from "./types";
 
 const CSV_HEADERS = ["用户名", "密码", "姓名", "视角", "学号", "学校", "届别", "班级名称"];
@@ -560,7 +561,7 @@ export default function BatchImport({ classes, targetClass, onImport, onPreview,
             )}
           </Group>
           {/* 独立页不再被弹窗限高：表格在这里跟随视口纵向滚动，表头吸顶。 */}
-          <TableScroll minWidth={1000} style={{ maxHeight: "calc(100dvh - 320px)" }}>
+          <TableScroll minWidth={1000} style={{ maxHeight: `calc(${VIEWPORT_HEIGHT} - 320px)` }}>
             <Table stickyHeader>
               <Table.Thead>
                 <Table.Tr>

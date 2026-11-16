@@ -37,7 +37,8 @@
 
 	background: var(--ns-void);
 	color: var(--ns-ink);
-	min-height: 100dvh;
+	/* 旧内核不认 dvh 会整条丢弃：先给 100vh，支持的再用 dvh 覆盖。 */
+	min-height: 100vh;
 	font-variant-numeric: tabular-nums;
 }
 
@@ -782,5 +783,11 @@
 	}
 	.cr-dialogue-text {
 		max-height: 30vh;
+	}
+}
+
+@supports (min-height: 100dvh) {
+	.cr-workspace {
+		min-height: 100dvh;
 	}
 }

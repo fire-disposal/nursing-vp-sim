@@ -50,7 +50,7 @@ const NURSING_RECORD_ARTIFACT_KIND = "nursing_record";
 
 function TrainingBootSkeleton() {
 	return (
-		<Center h="100dvh">
+		<Center className="training-immersive-min">
 			<LoadingSkeleton variant="spinner" message="正在准备训练场景…" />
 		</Center>
 	);

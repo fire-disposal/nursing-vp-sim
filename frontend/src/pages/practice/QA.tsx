@@ -1,4 +1,5 @@
 import { APP_TIME_ZONE } from "@/utils/date";
+import { VIEWPORT_HEIGHT } from "@/utils/viewport";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	IconBook2,
@@ -269,7 +270,7 @@ export default function QA() {
 			component="main"
 			style={{
 				// 高度由壳暴露的变量推导：头部/底栏/内容内边距任何一个变了，这里自动跟随
-				height: "calc(100dvh - var(--app-shell-header-offset, 0px) - var(--app-shell-footer-offset, 0px) - var(--shell-content-pad, 0px) * 2)",
+				height: `calc(${VIEWPORT_HEIGHT} - var(--app-shell-header-offset, 0px) - var(--app-shell-footer-offset, 0px) - var(--shell-content-pad, 0px) * 2)`,
 				minHeight: "24rem",
 				display: "flex",
 				flexDirection: "column",

@@ -185,7 +185,7 @@ export default function TrainingEntry() {
 
 function TrainingSkeleton() {
 	return (
-		<Box style={{ height: "100dvh", display: "flex", flexDirection: "column" }}>
+		<Box className="training-immersive" style={{ display: "flex", flexDirection: "column" }}>
 			<Box p="sm" style={{ borderBottom: "1px solid var(--mantine-color-default-border)", flexShrink: 0 }}>
 				<LoadingSkeleton variant="stats" />
 			</Box>
