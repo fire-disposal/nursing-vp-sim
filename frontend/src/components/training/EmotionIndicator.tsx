@@ -319,7 +319,7 @@ export function EmotionIndicator({ bus, features, recordId, compact, trailing }:
 					>
 						{displayIcon}
 					</Text>
-					<Text size="xs" fw={600} c={displayColor}>
+					<Text size="sm" fw={600} c={displayColor}>
 						{displayLabel}
 					</Text>
 					<Box w={8} h={8} style={{ borderRadius: 999, background: displayDot }} />
@@ -344,7 +344,7 @@ export function EmotionIndicator({ bus, features, recordId, compact, trailing }:
 				{/* Initiative timer */}
 				{showInitiative && initPercent > 0 && (
 					<Group gap={6} wrap="nowrap" style={{ flexShrink: 0, maxWidth: 120 }}>
-						<Text size="xs" c="dimmed" style={{ flexShrink: 0 }} visibleFrom="sm">追问</Text>
+						<Text size="sm" c="dimmed" style={{ flexShrink: 0 }} visibleFrom="sm">追问</Text>
 						<Box style={{ flex: 1, height: 6, borderRadius: 999, background: "var(--mantine-color-default-hover)", overflow: "hidden", minWidth: 40 }}>
 							<Box
 								h="100%"

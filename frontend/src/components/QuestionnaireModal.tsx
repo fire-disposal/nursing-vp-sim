@@ -102,7 +102,8 @@ export function QuestionnaireModal({
 		return (
 			<Modal
 				opened={open}
-				onClose={() => {}}
+				// 必答问卷没有"跳过"；选答问卷的 ✕ 等价于跳过（旧实现 onClose 为空 → 死按钮）
+				onClose={checkResponse.is_required ? () => {} : onSkip}
 				title="问卷加载失败"
 				size={560}
 				centered
@@ -140,7 +141,14 @@ export function QuestionnaireModal({
 	}
 
 	return (
-		<Modal opened={open} onClose={() => {}} title={template.title} size={700} centered withinPortal>
+		<Modal
+			opened={open}
+			onClose={checkResponse.is_required ? () => {} : onSkip}
+			title={template.title}
+			size={700}
+			centered
+			withinPortal
+		>
 				<Stack gap="xl">
 					{template.description && (
 						<Text size="sm" c="dimmed">

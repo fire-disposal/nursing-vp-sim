@@ -1,4 +1,4 @@
-import { Badge, Button, Group, Paper, Text } from "@mantine/core";
+import { Badge, Button, Group, Paper, Stack, Text } from "@mantine/core";
 import type { components } from "@/api/api-types.gen";
 import TableScroll from "@/components/ui/table-scroll";
 import { Table } from "@mantine/core";
@@ -79,7 +79,7 @@ export default function SecretList({
 								const cost = Number(s.monthly_cost_used ?? 0);
 								const limit = s.monthly_cost_limit ?? null;
 								const isDisabled = s.status === "disabled";
-								const _recovery =
+								const recovery =
 									s.status === "degraded"
 										? recoveryText(s.degraded_until, s.degraded_reason)
 										: "";
@@ -114,10 +114,17 @@ export default function SecretList({
 												sk-...{s.key_suffix}
 											</Text>
 										</Table.Td>
-										<Table.Td style={{ whiteSpace: "nowrap" }}>
-											<Text component="span" size="xs" c="dimmed">
-												{isDisabled ? "已停用" : statusText(s.status)}
-											</Text>
+										<Table.Td>
+											<Stack gap={2}>
+												<Text component="span" size="xs" c={s.status === "degraded" ? "yellow.7" : "dimmed"}>
+													{isDisabled ? "已停用" : statusText(s.status)}
+												</Text>
+												{recovery && (
+													<Text component="span" size="xs" c="dimmed" lh={1.3}>
+														{recovery}
+													</Text>
+												)}
+											</Stack>
 										</Table.Td>
 										<Table.Td style={{ whiteSpace: "nowrap" }}>
 											<Text component="span" size="xs" className={costColorClass(cost, limit)}>

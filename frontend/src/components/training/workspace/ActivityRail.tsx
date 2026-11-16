@@ -63,8 +63,8 @@ export function ActivityRail() {
 				align="center"
 				w={RAIL_WIDTH}
 				h="100%"
-				bg="var(--mantine-color-body)"
-				style={{ flexShrink: 0, borderLeft: "1px solid var(--mantine-color-default-border)", overflowY: "auto" }}
+				bg="var(--stu-panel)"
+				style={{ flexShrink: 0, borderLeft: "1px solid var(--stu-line)", overflowY: "auto" }}
 				p="xs"
 				pt={headerOffset + 8}
 			>
@@ -82,7 +82,7 @@ export function ActivityRail() {
 			<Box
 				data-activity-aside
 				data-open={active ? "true" : "false"}
-				bg="var(--mantine-color-body)"
+				bg="var(--stu-panel)"
 				style={{
 					width: panelWidth,
 					flexShrink: 0,
@@ -91,7 +91,7 @@ export function ActivityRail() {
 					flexDirection: "column",
 					transition: `width ${ANIM_DURATION}ms ease-out`,
 					overflow: "hidden",
-					borderLeft: active ? "1px solid var(--mantine-color-default-border)" : undefined,
+					borderLeft: active ? "1px solid var(--stu-line)" : undefined,
 					paddingTop: headerOffset,
 				}}
 			>
@@ -120,7 +120,7 @@ function ActivityRailButton({
 			<ActionIcon
 				/* 触摸/点击目标 ≥44px：图标 + 命中区整体可点 */
 				size={44}
-				radius="md"
+				radius={10}
 				variant={active ? "filled" : "subtle"}
 				color={active ? "brand" : "gray"}
 				onClick={onClick}

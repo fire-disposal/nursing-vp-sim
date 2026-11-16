@@ -50,7 +50,7 @@ export function ExamResultCard({ result, className }: ExamResultCardProps) {
         wrap="nowrap"
         className={className}
         style={{
-          borderRadius: 12,
+          borderRadius: "var(--stu-radius)",
           border: "1px solid var(--mantine-color-default-border)",
           background: "var(--mantine-color-body)",
           boxShadow: "var(--mantine-shadow-xs)",
@@ -60,7 +60,7 @@ export function ExamResultCard({ result, className }: ExamResultCardProps) {
           w={36}
           h={36}
           style={{
-            borderRadius: 8,
+            borderRadius: "var(--stu-radius-sm)",
             background: "var(--mantine-color-default-hover)",
             display: "flex",
             alignItems: "center",

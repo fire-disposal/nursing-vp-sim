@@ -297,3 +297,12 @@ h1, h2, h3 {
 .sidebar-profile-entry:hover {
 	background: var(--mantine-color-default-hover);
 }
+
+/* ── Toast 位置 ────────────────────────────────────────────────
+   默认右下会盖住训练页的发送键与底部操作栏；改到右上后又会压住壳顶栏的
+   反馈/通知/退出按钮 —— 所以整体下移一个顶栏高度，落在内容区上沿。 */
+/* Mantine 把位置写在未分层的类里，本文件的规则同样未分层且在后 → 直接覆盖即可，
+   不需要 !important（根节点没有内联 top）。 */
+.mantine-Notifications-root {
+	top: 68px;
+}

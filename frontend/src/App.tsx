@@ -64,7 +64,7 @@ export default function App() {
 					<MotionConfig reducedMotion="user">
 						<ForceLogoutListener />
 						<TelemetryInit />
-						<Notifications />
+						<Notifications position="top-right" limit={3} />
 						<FeedbackHost />
 						<ErrorBoundary>
 							<Suspense fallback={<PageLoader />}>

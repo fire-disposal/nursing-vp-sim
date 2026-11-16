@@ -1,5 +1,5 @@
 import { IconArrowLeft, IconClipboardCheck, IconClock, IconEarOff, IconVolume2 } from "@tabler/icons-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ActionIcon, Badge, Box, Button, Group, Modal, Stack, Text } from "@mantine/core";
 
@@ -36,7 +36,6 @@ export function TrainingHeader({
 	const studentMsgCount = useTrainingStore(s => s.messages.filter(m => m.role === "student").length);
 	const ttsAutoPlay = useTrainingStore(s => s.ttsAutoPlay);
 	const recordId = useTrainingStore(s => s.recordId);
-	const bus = useTrainingStore(s => s.bus);
 	const isShort = useShortViewport();
 	const isMobile = useIsMobile();
 	const headerHeight = isShort || isMobile ? TRAINING_HEADER_HEIGHT.short : TRAINING_HEADER_HEIGHT.wide;
@@ -50,9 +49,6 @@ export function TrainingHeader({
 	const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
 	const endingRef = useRef(false);
 	const [leaving, setLeaving] = useState(false);
-	/** 服务端语音不可用 → 浏览器内置语音兜底时的实际供应商名（null = 未降级） */
-	const [ttsDegradedProvider, setTtsDegradedProvider] = useState<string | null>(null);
-	const ttsDegradedRef = useRef<string | null>(null);
 	const toast = useToast();
 	const initialRemaining = remainingSeconds;
 	const manifest = useSessionManifest();
@@ -64,12 +60,7 @@ export function TrainingHeader({
 	const completeEndLabel = completeAction?.label ?? "结束训练";
 	// 还缺几项才能交卷：数字只在未满足时出现，点按钮看逐条原因
 	const blockerCount = completionBlockers(manifest).length;
-	// 降级时按钮文案说明**当前实际用的是什么**，而不是只描述开/关（否则学生以为听到了服务端语音）
-	const ttsToggleLabel = ttsDegradedProvider
-		? `服务端语音暂不可用，已降级为「${ttsDegradedProvider}」朗读（点击${ttsAutoPlay ? "关闭" : "开启"}朗读）`
-		: ttsAutoPlay
-			? "关闭朗读"
-			: "开启朗读";
+	const ttsToggleLabel = ttsAutoPlay ? "关闭朗读" : "开启朗读";
 
 	const {
 		remaining,
@@ -104,28 +95,9 @@ export function TrainingHeader({
 		setEndConfirmOpen(true);
 	}, []);
 
-	// 语音降级信号：服务端 TTS 熔断/失败时 TTSManager 回落到浏览器内置语音，
-	// 并发出 `tts:degraded` —— 此前该事件没有任何消费者，学生只会听到音色悄悄变了。
-	// `tts:provider-status` 在每轮回复结束时上报实际使用的供应商：变回非降级供应商即视为恢复。
-	useEffect(() => {
-		if (!bus) return;
-		const offDegraded = bus.on("tts:degraded", (payload?: { provider?: string }) => {
-			const provider = payload?.provider ?? "浏览器内置语音";
-			if (ttsDegradedRef.current === provider) return;
-			ttsDegradedRef.current = provider;
-			setTtsDegradedProvider(provider);
-			toast.warning(`服务端语音暂不可用，已降级为「${provider}」朗读`);
-		});
-		const offStatus = bus.on("tts:provider-status", (payload?: { provider?: string }) => {
-			if (!payload?.provider || payload.provider === ttsDegradedRef.current) return;
-			ttsDegradedRef.current = null;
-			setTtsDegradedProvider(null);
-		});
-		return () => {
-			offDegraded();
-			offStatus();
-		};
-	}, [bus, toast]);
+	// 语音降级是**静默兜底**：服务端 TTS 熔断时 TTSManager 直接用浏览器内置语音（音色变了而已），
+	// 不再弹 toast、也不在顶栏挂「语音降级」徽标 —— 学生不需要为一次音色变化分心。
+	// 留证据的地方是控制台（TTSManager 的 console.warn），不是界面。
 
 	const executeLeave = useCallback(async () => {
 		if (leaving) return;
@@ -153,7 +125,7 @@ export function TrainingHeader({
 
 	const headerStyle = {
 		zIndex: 10,
-		background: "var(--mantine-color-body)",
+		background: "var(--stu-panel)",
 		paddingTop: "env(safe-area-inset-top, 0px)",
 		boxShadow: "var(--mantine-shadow-xs)",
 		height: headerHeight,
@@ -195,7 +167,7 @@ export function TrainingHeader({
 					{isHiddenCase ? (
 						<Group gap={8} wrap="nowrap" display={{ base: "none", sm: "flex" }} style={{ flex: 1, minWidth: 0 }}>
 							<Box>
-								<Text size="sm" fw={600} truncate lh={1.2}>
+								<Text size="md" fw={600} truncate lh={1.25}>
 									{mode === "blind_box" ? "盲盒训练" : "隐藏病例练习"}
 								</Text>
 								<Text size="xs" c="dimmed" truncate lh={1.2}>
@@ -206,10 +178,8 @@ export function TrainingHeader({
 					) : (
 						<Group gap={8} wrap="nowrap" display={{ base: "none", sm: "flex" }} style={{ flex: 1, minWidth: 0 }}>
 							<Box style={{ minWidth: 0 }}>
-								{/* 患者姓名/年龄由患者列（桌面）与患者条（手机）承担，这里只说"这是哪一次训练" */}
-								<Text size="sm" fw={600} truncate lh={1.2}>
-								</Text>
-								<Text size="xs" c="dimmed" truncate lh={1.2}>
+								{/* 病例名就是这次训练的名字：主标题给足字号，患者身份由患者列承担 */}
+								<Text size="md" fw={600} truncate lh={1.25}>
 									{patient.caseTitle || patient.chiefComplaint}
 								</Text>
 							</Box>
@@ -226,7 +196,7 @@ export function TrainingHeader({
 						py={4}
 						wrap="nowrap"
 						style={{
-							borderRadius: 6,
+							borderRadius: "var(--stu-radius-pill)",
 							fontSize: 13,
 							fontWeight: 700,
 							fontVariantNumeric: "tabular-nums",
@@ -241,8 +211,7 @@ export function TrainingHeader({
 					</Group>
 
 					<ActionIcon
-						variant={ttsDegradedProvider || ttsAutoPlay ? "light" : "default"}
-						color={ttsDegradedProvider ? "yellow" : undefined}
+						variant={ttsAutoPlay ? "light" : "default"}
 						size={isShort ? "md" : "lg"}
 						onClick={onTtsToggle}
 						title={ttsToggleLabel}
@@ -250,11 +219,6 @@ export function TrainingHeader({
 					>
 						{ttsAutoPlay ? <IconVolume2 size={isShort ? 14 : 16} /> : <IconEarOff size={isShort ? 14 : 16} />}
 					</ActionIcon>
-					{ttsDegradedProvider && (
-						<Text span size="xs" c="yellow.7" fw={700} title={ttsToggleLabel}>
-							语音降级
-						</Text>
-					)}
 					<Button
 						className="stu-finish"
 						// 两态都用 danger 色：这个按钮无论完成条件是否满足，都进入"结束训练"流程

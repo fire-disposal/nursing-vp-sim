@@ -19,11 +19,11 @@ const chipStyle = {
 	display: "flex",
 	alignItems: "center",
 	gap: 4,
-	padding: "2px 6px",
-	borderRadius: 6,
+	padding: "3px 8px",
+	borderRadius: "var(--stu-radius-pill, 999px)",
 	border: "1px solid var(--mantine-color-default-border)",
 	background: "var(--mantine-color-body)",
-	fontSize: 12,
+	fontSize: 13,
 	color: "var(--mantine-color-dimmed)",
 	cursor: "pointer",
 	flexShrink: 0,
@@ -80,7 +80,7 @@ export function InquiryProgressChip() {
 				style={chipStyle}
 				{...hover}
 			>
-				<IconBulb size={12} />
+				<IconBulb size={14} />
 				<Text component="span" size="sm" c="yellow.7" fw={600} style={{ fontVariantNumeric: "tabular-nums" }}>
 					提示 {hints.length}
 				</Text>
@@ -103,7 +103,7 @@ export function InquiryProgressChip() {
 			style={chipStyle}
 			{...hover}
 		>
-			<IconListCheck size={12} />
+			<IconListCheck size={14} />
 			<Text
 				component="span"
 				size="sm"

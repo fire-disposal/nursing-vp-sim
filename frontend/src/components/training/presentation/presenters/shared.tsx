@@ -32,7 +32,7 @@ export function avatarShapeStyle(ctx: PresentationContext): CSSProperties {
 		flexShrink: 0,
 		objectFit: "cover",
 		background: "var(--mantine-color-default-hover)",
-		borderRadius: ctx.rounded === "full" ? "999px" : "1rem",
+		borderRadius: ctx.rounded === "full" ? "999px" : "var(--stu-radius-sm, 12px)",
 		boxShadow: "0 0 0 1px var(--mantine-color-default-border)",
 	};
 }

@@ -30,6 +30,8 @@ import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
 import PageHeader from "@/components/ui/page-header";
+import { StatusStrip } from "@/components/ui/status-strip";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import ErrorState from "@/components/ui/error-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import Pagination from "@/components/ui/pagination";
@@ -137,6 +139,7 @@ export default function TrainingSelect({ tab = "home" }: { tab?: TrainingTab }) 
 	const [difficultyFilter, setDifficultyFilter] = useState(0);
 	const { searchInput, debouncedValue: search, handleSearchChange } = useDebouncedSearch("", 300);
 	const { data: quota } = useMyQuota();
+	const isOnline = useNetworkStatus();
 	const [offset, setOffset] = useState(0);
 	const navigate = useNavigate();
 	const location = useLocation();
@@ -395,8 +398,19 @@ export default function TrainingSelect({ tab = "home" }: { tab?: TrainingTab }) 
 		</Modal>
 	);
 
+	const llmLimit = quota?.llm.limit ?? 0;
+	const llmLimitHit = llmLimit > 0 && quota!.llm.used >= llmLimit;
+	const ttsLimit = quota?.tts.limit ?? 0;
+	const ttsLimitHit = ttsLimit > 0 && quota!.tts.used >= ttsLimit;
+
 	return (
 		<Stack gap="lg">
+			{llmLimitHit && isOnline && (
+				<StatusStrip tone="danger" center={false} icon={<IconAlertTriangle size={14} />}>
+					今日对话额度已用完（¥{quota!.llm.used.toFixed(2)} / ¥{llmLimit.toFixed(2)}），明天 0 点恢复；历史训练与成绩查看不受影响
+					{ttsLimitHit ? "，语音额度也已用完" : ""}
+				</StatusStrip>
+			)}
 			{tab === "home" && (
 				<Stack gap="lg">
 					{recentNotifs.length > 0 && (
@@ -486,7 +500,7 @@ export default function TrainingSelect({ tab = "home" }: { tab?: TrainingTab }) 
 						</ThemeIcon>
 
 						<Box style={{ position: "relative", maxWidth: 640 }}>
-							{quota && (quota.llm.limit > 0 || quota.tts.limit > 0) && (
+							{quota && !llmLimitHit && !ttsLimitHit && (quota.llm.limit > 0 || quota.tts.limit > 0) && (
 								<Text size="xs" c={quota.llm.limit > 0 && quota.llm.used / quota.llm.limit >= 0.8 ? "orange" : "dimmed"} mb={6}>
 									今日额度剩余：对话 ¥{Math.max(0, quota.llm.limit - quota.llm.used).toFixed(2)}
 									{quota.tts.limit > 0 ? ` · 语音 ¥${Math.max(0, quota.tts.limit - quota.tts.used).toFixed(2)}` : ""}

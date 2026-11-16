@@ -11,42 +11,34 @@ import { ConversationComposer } from "./ConversationComposer";
 import ActivityBar from "./workspace/ActivityBar";
 import { useWorkspacePanes } from "./workspace/useWorkspacePanes";
 import { useTrainingConnection } from "@/hooks/useNetworkStatus";
+import { StatusStrip } from "@/components/ui/status-strip";
 import { WelcomeScreen } from "./WelcomeScreen";
 
 /**
- * 连接状态横幅 —— 只说**实际受损**的能力。
+ * 连接状态条 —— 只说**实际受损**的能力，走全站同一张状态条（`StatusStrip`）。
  *
- * - 网络断开：对话(SSE)、工具(HTTP)、提交都会失败；
- * - 仅 WS 断开：只有服务端推送（评分进度 / 状态通知）暂停，对话与工具照常。
+ * - 断网：对话(SSE)、工具(HTTP)、交卷都会失败 → danger；
+ * - 仅 WS 断开：只有服务端推送（评分进度 / 状态通知）暂停 → warn。
  *
- * 旧实现把 WS 断开说成「工具暂不可用」，属归因错误：工具根本不走 WS。
+ * 训练页是沉浸壳、没有 `ManageShell` 的断网条，所以这一条在这里承担"全局状态"的职责；
+ * 反过来有壳的页面上由 `NetworkBanner` 承担，两者不会同时出现。
  */
 export function ConnectionNotice() {
 	const { degraded } = useTrainingConnection();
 	if (degraded === "none") return null;
 
 	const offline = degraded === "all";
-	const text = offline
-		? "网络已断开：消息发送、工具保存与提交都会失败，请恢复网络后继续"
-		: "实时推送连接中断：评分进度与状态通知暂停；对话与工具仍可用，正在自动重连…";
 
 	return (
-		<Group
-			role="status"
-			aria-live="polite"
-			gap={8}
-			justify="center"
-			wrap="nowrap"
-			px="md"
-			py={6}
-			bg={offline ? "red.6" : "yellow.6"}
-			style={{ flexShrink: 0 }}
+		<StatusStrip
+			tone={offline ? "danger" : "warn"}
+			center={false}
+			icon={offline ? <IconCloudOff size={14} /> : <IconPlugConnectedX size={14} />}
 		>
-			{offline ? <IconCloudOff size={14} color="#fff" /> : <IconPlugConnectedX size={14} color="#000" />}
-			<Text size="xs" fw={600} c={offline ? "white" : "black"}>
-				{text}
-			</Text>
-		</Group>
+			{offline
+				? "网络已断开：发送、工具保存与交卷都会失败；恢复后自动继续"
+				: "实时推送已断开：评分进度与状态通知暂停；对话与工具照常，正在自动重连…"}
+		</StatusStrip>
 	);
 }
 
@@ -122,25 +114,35 @@ export function ChatArea({
 						transition={{ duration: 0.2 }}
 						style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}
 					>
-						<Box miw={0} style={{ flex: 1, overflowY: "auto", overscrollBehavior: "contain" }}>
+						<Box
+							miw={0}
+							style={{
+								flex: 1,
+								overflowY: "auto",
+								overscrollBehavior: "contain",
+								display: "flex",
+								flexDirection: "column",
+							}}
+						>
 							{!messages.some((m) => m.role === "student") && (
 								<WelcomeScreen patient={patient} onQuickPrompt={onSend} />
 							)}
 							{greeting && (
-								<Box px="xs" mt="xs" mx="auto" w="100%" maw={800} miw={0}>
+								<Box px="xs" pt="md" mt="auto" mx="auto" w="100%" maw={800} miw={0}>
 									<Group justify="flex-start">
 										<Box
 											maw="80%"
 											px="md"
 											py={10}
 											style={{
-												borderRadius: 16,
+												borderRadius: "var(--stu-radius)",
 												borderBottomLeftRadius: 4,
-												background: "var(--mantine-color-default-hover)",
-												lineHeight: 1.6,
+												background: "var(--stu-panel)",
+												border: "1px solid var(--stu-line)",
+												lineHeight: 1.65,
 											}}
 										>
-											<Text size="sm">{greeting}</Text>
+											<Text size="md">{greeting}</Text>
 										</Box>
 									</Group>
 								</Box>

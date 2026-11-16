@@ -15,10 +15,8 @@ export function useNetworkStatus() {
 			onlineRef.current = true;
 		};
 		const onOffline = () => {
+			// 断网由状态条（StatusStrip）表达，不再叠一条 toast：同一事实一个渠道。
 			setIsOnline(false);
-			if (onlineRef.current) {
-				toast.warning("网络已断开");
-			}
 			onlineRef.current = false;
 		};
 		window.addEventListener("online", onOnline);

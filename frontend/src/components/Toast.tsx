@@ -10,12 +10,12 @@ type ToastOptions = {
 };
 
 interface ToastApi {
-	toast: (message: string, type?: ToastType, duration?: number, options?: ToastOptions) => number;
-	success: (msg: string, options?: ToastOptions & { duration?: number }) => number;
-	error: (msg: string, options?: ToastOptions & { duration?: number }) => number;
-	warning: (msg: string, options?: ToastOptions & { duration?: number }) => number;
-	info: (msg: string, options?: ToastOptions & { duration?: number }) => number;
-	apiError: (e: unknown, fallback?: string) => number;
+	toast: (message: string, type?: ToastType, duration?: number, options?: ToastOptions) => string;
+	success: (msg: string, options?: ToastOptions & { duration?: number }) => string;
+	error: (msg: string, options?: ToastOptions & { duration?: number }) => string;
+	warning: (msg: string, options?: ToastOptions & { duration?: number }) => string;
+	info: (msg: string, options?: ToastOptions & { duration?: number }) => string;
+	apiError: (e: unknown, fallback?: string) => string;
 }
 
 const COLOR: Record<ToastType, string> = {
@@ -25,16 +25,17 @@ const COLOR: Record<ToastType, string> = {
 	info: "blue",
 };
 
-let _nextId = 0;
-
+/**
+ * 同一 `type + message` 只保留一条：Mantine 用 id 去重，重复触发只刷新计时。
+ * 旧实现按自增序号发 id，同一个错误连点两次就变两条，队列上限 5 一满就开始挤掉真正的新消息。
+ */
 function show(
 	message: string,
 	type: ToastType = "info",
 	duration = 4000,
 	options?: ToastOptions,
-): number {
-	_nextId += 1;
-	const id = `toast-${_nextId}`;
+): string {
+	const id = `toast:${type}:${message}`;
 	const { description, action } = options ?? {};
 
 	const body =
@@ -69,7 +70,7 @@ function show(
 		autoClose: duration === 0 ? false : duration,
 		withCloseButton: true,
 	});
-	return _nextId;
+	return id;
 }
 
 export const toast: ToastApi = {

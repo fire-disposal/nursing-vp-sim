@@ -76,7 +76,7 @@ export const ChatBubble = memo(function ChatBubble({
 					}}
 				>
 					<IconInfoCircle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
-					<Text size="xs" style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
+					<Text size="sm" style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
 						{message.content}
 					</Text>
 				</Group>
@@ -105,17 +105,16 @@ export const ChatBubble = memo(function ChatBubble({
 					style={{
 						maxWidth: "88%",
 						padding: "10px 14px",
-						borderRadius: 16,
+						borderRadius: "var(--stu-radius)",
 						borderTopLeftRadius: 4,
 						borderStyle: "solid",
-						borderWidth: 2,
+						borderWidth: 1,
 						borderColor: emotionBorder,
-						lineHeight: 1.6,
+						lineHeight: 1.65,
 						wordBreak: "break-word",
-						fontSize: 14,
+						fontSize: 15,
 						background: "var(--mantine-color-body)",
 						color: "var(--mantine-color-text)",
-						boxShadow: "var(--mantine-shadow-xs)",
 						transition: "border-color 200ms ease, box-shadow 200ms ease",
 					}}
 				>
@@ -130,7 +129,7 @@ export const ChatBubble = memo(function ChatBubble({
 							<Loader size="sm" type="dots" color="gray" />
 						</Group>
 					) : message.streaming ? (
-						<Text style={{ whiteSpace: "pre-wrap", fontSize: 14, lineHeight: 1.6 }}>
+						<Text style={{ whiteSpace: "pre-wrap", fontSize: 15, lineHeight: 1.65 }}>
 							{message.content}
 							<span className="stream-cursor" aria-hidden="true" />
 						</Text>
@@ -175,7 +174,7 @@ export const ChatBubble = memo(function ChatBubble({
 					maw="88%"
 					p={10}
 					style={{
-						borderRadius: 16,
+						borderRadius: "var(--stu-radius)",
 						borderTopRightRadius: 4,
 						background: "var(--mantine-primary-color-light)",
 						border: "1px solid var(--mantine-primary-color-light-color)",
@@ -198,7 +197,7 @@ export const ChatBubble = memo(function ChatBubble({
 							<ActionIcon
 								variant="subtle"
 								color="gray"
-								radius="md"
+								radius={10}
 								onClick={() => {
 									setDraft(message.content);
 									setEditing(false);
@@ -209,7 +208,7 @@ export const ChatBubble = memo(function ChatBubble({
 							</ActionIcon>
 							<ActionIcon
 								variant="filled"
-								radius="md"
+								radius={10}
 								disabled={!canSubmitCorrection}
 								onClick={() => {
 									if (!canSubmitCorrection) return;
@@ -235,10 +234,10 @@ export const ChatBubble = memo(function ChatBubble({
 					style={{
 						maxWidth: "88%",
 						padding: "10px 14px",
-						borderRadius: 16,
+						borderRadius: "var(--stu-radius)",
 						borderTopRightRadius: 4,
-						fontSize: 14,
-						lineHeight: 1.6,
+						fontSize: 15,
+						lineHeight: 1.65,
 						wordBreak: "break-word",
 						// 学生面基调由 .stu-surface 的变量决定；这里只声明"取哪个变量"，
 						// 不用 !important 去抢内联样式（那是拼凑感的来源之一）。

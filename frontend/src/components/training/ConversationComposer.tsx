@@ -236,7 +236,7 @@ export function ConversationComposer({
 	return (
 		<Box
 			className="stu-composer"
-			style={{ borderColor: "var(--mantine-color-default-border)", background: "var(--mantine-color-body)" }}
+			style={{ borderColor: "var(--stu-line)", background: "var(--stu-panel)" }}
 			pb="env(safe-area-inset-bottom)"
 		>
 			<Box style={{ maxWidth: 768, margin: "0 auto", width: "100%" }}>
@@ -258,7 +258,7 @@ export function ConversationComposer({
 					autosize
 					minRows={1}
 					maxRows={5}
-					radius="md"
+					radius={10}
 					aria-label="对话输入"
 					leftSection={
 						<Tooltip label={micTooltip}>
@@ -266,7 +266,7 @@ export function ConversationComposer({
 								variant={micVariant}
 								color={micColor}
 								size="xl"
-								radius="sm"
+								radius={10}
 								disabled={micDisabled}
 								onPointerDown={handleMicDown}
 								onPointerUp={handleMicUp}
@@ -292,7 +292,7 @@ export function ConversationComposer({
 								variant="filled"
 								color="brand"
 								size="xl"
-								radius="sm"
+								radius={10}
 								disabled={!text.trim() || disabled || trainingEnded}
 								onClick={handleSend}
 								aria-label="发送"
@@ -312,7 +312,7 @@ export function ConversationComposer({
 								<Badge
 									key={key}
 									size="xs"
-									radius="sm"
+									radius={10}
 									variant={turn === key ? "filled" : "default"}
 									color={turn === key ? turnColor : undefined}
 									c={turn === key ? undefined : "dimmed"}

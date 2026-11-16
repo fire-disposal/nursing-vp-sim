@@ -49,7 +49,7 @@ export function ActivityPanelHost({
 						<Text size="sm" fw={500}>
 							{pane.label}暂无可用的界面组件
 						</Text>
-						<Text size="xs">未知 Activity “{pane.activity.id}”，请联系管理员</Text>
+						<Text size="sm">未知 Activity “{pane.activity.id}”，请联系管理员</Text>
 					</Stack>
 				);
 		}
@@ -64,13 +64,13 @@ export function ActivityPanelHost({
 				px="sm"
 				py={8}
 				style={{
-					borderBottom: "1px solid var(--mantine-color-default-border)",
-					background: "var(--mantine-color-default-hover)",
+					borderBottom: "1px solid var(--stu-line)",
+					background: "var(--stu-panel)",
 					flexShrink: 0,
 				}}
 			>
 				<Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
-					<Text size="xs" fw={600} truncate>
+					<Text size="sm" fw={700} truncate>
 						{pane.label}
 					</Text>
 					{pane.activity && <ActivityStatusBadge activity={pane.activity} artifact={artifact} />}

@@ -13,11 +13,14 @@
 	--stu-bg: #f6f5f2;
 	--stu-panel: #ffffff;
 	--stu-ink: #1b1f1e;
-	--stu-ink-dim: #6b7472;
-	--stu-line: rgba(24, 32, 30, 0.09);
-	--stu-line-strong: rgba(24, 32, 30, 0.16);
+	/* 辅助墨色提一档：原 #6b7472 在纸面上只有 ≈4.4:1，13px 正文经不起 */
+	--stu-ink-dim: #59635f;
+	--stu-line: rgba(24, 32, 30, 0.1);
+	--stu-line-strong: rgba(24, 32, 30, 0.18);
+	/* 圆角只有三档：面板 14 / 控件 10 / 药丸 999。出现第四种就是错的 */
 	--stu-radius: 14px;
 	--stu-radius-sm: 10px;
+	--stu-radius-pill: 999px;
 	--stu-gap: 12px;
 
 	background: var(--stu-bg);
@@ -75,6 +78,109 @@
 	box-shadow: none;
 }
 
+/* 步骤是**进度**不是按钮：编号点 + 名称，用连接线读成一串，而不是一排看起来可点的药丸 */
+.stu-flow {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 4px 0;
+	margin: 2px 0;
+}
+
+.stu-flow-step {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--stu-ink-dim);
+	font-size: 13px;
+	line-height: 1.4;
+}
+
+.stu-flow-step[data-state="current"] {
+	color: var(--stu-ink);
+	font-weight: 600;
+}
+
+.stu-flow-step[data-state="done"] {
+	color: var(--mantine-color-brand-8);
+}
+
+.stu-flow-num {
+	display: grid;
+	place-items: center;
+	width: 18px;
+	height: 18px;
+	border-radius: var(--stu-radius-pill);
+	border: 1px solid var(--stu-line-strong);
+	font-size: 12px;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	color: var(--stu-ink-dim);
+	background: var(--stu-panel);
+}
+
+.stu-flow-step[data-state="current"] .stu-flow-num {
+	border-color: var(--mantine-color-brand-7);
+	background: var(--mantine-color-brand-7);
+	color: #fff;
+}
+
+.stu-flow-step[data-state="done"] .stu-flow-num {
+	border-color: var(--mantine-color-brand-3);
+	background: var(--mantine-color-brand-1);
+	color: var(--mantine-color-brand-8);
+}
+
+/* 步骤之间的连接线：不用 gap 撑开，靠线把"顺序"说出来 */
+.stu-flow-sep {
+	width: 14px;
+	height: 1px;
+	margin: 0 8px;
+	background: var(--stu-line-strong);
+	flex: 0 0 auto;
+}
+
+/* 建议开场是可点的原话：药丸外形 + 一致的 34px 高度，长句自然折行 */
+.stu-suggest {
+	display: inline-flex;
+	align-items: center;
+	/* 建议开场按两列铺：长句折行而不是把整卡顶高，短句也不会孤零零占一行 */
+	flex: 1 1 240px;
+	min-height: 32px;
+	max-width: 100%;
+	padding: 5px 14px;
+	border-radius: var(--stu-radius-pill);
+	/* 亮/暗两套都由 Mantine 的 light 变体给出，别在这里写死 brand-0/9 */
+	border: 1px solid var(--mantine-color-brand-outline);
+	background: var(--mantine-color-brand-light);
+	color: var(--mantine-color-brand-light-color);
+	font-size: 13px;
+	line-height: 1.45;
+	text-align: left;
+	cursor: pointer;
+	transition:
+		background 120ms ease,
+		border-color 120ms ease;
+}
+
+.stu-suggest:hover {
+	border-color: var(--mantine-color-brand-6);
+}
+
+.stu-suggest:focus-visible {
+	outline: 2px solid var(--mantine-color-brand-6);
+	outline-offset: 2px;
+}
+
+/* ── 对话列：新消息永远贴着输入框生长 ────────────────────────
+   内容不足一屏时把它压在底部；否则开场只有一条消息时，屏中央会留出一大片空纸。 */
+.stu-chat-flow {
+	display: flex;
+	flex-direction: column;
+	min-height: 100%;
+	justify-content: flex-end;
+}
+
 /* ── 对话气泡：描边取代阴影，学生侧用浅色强调（不是实心深绿） ──
    深色实心底在长对话里会把整屏压暗，且和"我"对"患者"的语义没有关系。 */
 .stu-chat {
@@ -88,16 +194,27 @@
 }
 
 /* ── 输入区：一行提示 + 单个圆角输入框 ─────────────────────────
-   边框色由组件内联给（`borderColor`），这里只补底色与分隔线。 */
+   输入区是**同一张纸**的底边，不是浮在纸上的白块：底色取面板白、分隔线取发丝线。 */
 .stu-composer {
 	border-top: 1px solid var(--stu-line);
-	background: color-mix(in srgb, var(--stu-bg) 92%, transparent);
+	background: var(--stu-panel);
 }
 
 .stu-composer .stu-hint {
 	color: var(--stu-ink-dim);
-	font-size: 12px;
+	font-size: 13px;
 	letter-spacing: 0.01em;
+}
+
+/* 输入框描边走纸面线，聚焦才用主色 —— 与卡片、侧列的线保持同一支笔 */
+.stu-composer input,
+.stu-composer textarea {
+	border-color: var(--stu-line-strong);
+}
+
+.stu-composer input:focus,
+.stu-composer textarea:focus {
+	border-color: var(--mantine-color-brand-6);
 }
 
 /* ── 能力条：状态用圆点，不用徽标堆文字 ────────────────────────
@@ -107,4 +224,18 @@
 	background: var(--stu-panel);
 	padding: 6px 8px;
 	gap: 6px;
+}
+
+/* 徽标是辅助文字而不是装饰：学生面上统一 13px，跟正文同一支笔 */
+.stu-surface .mantine-Badge-label {
+	font-size: 13px;
+	text-transform: none;
+}
+
+/* 控件统一 10px 圆角：Mantine 默认按组件各给一套（4/8/16），学生面上只认一个档 */
+.stu-surface .mantine-Button-root,
+.stu-surface .mantine-ActionIcon-root,
+.stu-surface .mantine-Textarea-root,
+.stu-surface .mantine-TextInput-root {
+	border-radius: var(--stu-radius-sm);
 }

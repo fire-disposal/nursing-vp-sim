@@ -28,12 +28,9 @@ export class TTSManager {
 	private streamDone = false;
 	private replyDegraded = false;
 	private abortCtl: AbortController | null = null;
-	private replyStart = 0;
-	private firstChunkMs: number | null = null;
 	private started = false;
 	private replyFinished = false;
 	private replyAutoPlay = false;
-	private lastProvider = "volcengine-tts";
 	private publishedAnalyser: AnalyserNode | null = null;
 
 	constructor(config?: TTSManagerConfig) {
@@ -142,8 +139,6 @@ export class TTSManager {
 	private async processQueue(): Promise<void> {
 		if (this.processing) return;
 		this.processing = true;
-		this.replyStart = performance.now();
-		this.firstChunkMs = null;
 		try {
 			while (this.queue.length > 0) {
 				const sentence = this.queue.shift();
@@ -163,10 +158,6 @@ export class TTSManager {
 		if (!this.started) return;
 		this.started = false;
 		this.bus?.emit("tts:end", "");
-		this.bus?.emit("tts:provider-status", {
-			provider: this.lastProvider,
-			latencyMs: this.firstChunkMs ?? Math.round(performance.now() - this.replyStart),
-		});
 	}
 
 	private async speakSentence(sentence: string): Promise<void> {
@@ -181,13 +172,9 @@ export class TTSManager {
 				);
 				const bytes = await this.player.playStream(stream, () => {
 					gotAudio = true;
-					if (this.firstChunkMs === null) {
-						this.firstChunkMs = Math.round(performance.now() - this.replyStart);
-					}
 					this.markStarted(sentence);
 				});
 				if (bytes > 0) {
-					this.lastProvider = this.emotionProvider.providerName;
 					return;
 				}
 			} catch (err) {
@@ -198,8 +185,8 @@ export class TTSManager {
 				if (gotAudio) return; // partial audio already played — no replay
 			}
 		}
-		this.lastProvider = this.fallbackProvider.providerName;
-		this.bus?.emit("tts:degraded", { provider: this.fallbackProvider.providerName });
+		// 降级是静默的：只换音色，不弹 UI、不发通知事件。证据留在控制台，界面上不出现任何提示。
+		console.warn("[TTS] 服务端语音不可用，本次改用", this.fallbackProvider.providerName);
 		this.fallbackProvider.emotion = this.currentEmotion;
 		this.markStarted(sentence);
 		await this.fallbackProvider.speak(sentence);

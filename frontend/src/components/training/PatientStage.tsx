@@ -184,15 +184,15 @@ export default function PatientStage() {
 				gap="sm"
 				p="sm"
 				h="100%"
-				bg="var(--mantine-color-body)"
+				bg="var(--stu-panel)"
 				style={{
 					width: CONTEXT_COLUMN_WIDTH,
 					flexShrink: 0,
-					borderRight: "1px solid var(--mantine-color-default-border)",
+					borderRight: "1px solid var(--stu-line)",
 					overflowY: "auto",
 				}}
 			>
-				<Paper withBorder radius="lg" p={6} pos="relative" bg="gray.0">
+				<Paper withBorder p={6} pos="relative" bg="var(--stu-bg)" style={{ borderColor: "var(--stu-line)", borderRadius: "var(--stu-radius)" }}>
 					{/* 固定 4:5 容器 + 裁切：抠图是竖构图，拉成任意比例会显得像贴纸（评审 B4） */}
 					<Box pos="relative">
 						<UnstyledButton
@@ -200,7 +200,7 @@ export default function PatientStage() {
 							onClick={() => setPortraitOpen(true)}
 							aria-label={`查看患者${name}的大图`}
 							w="100%"
-							style={{ display: "block", aspectRatio: portraitAspect, overflow: "hidden", borderRadius: "var(--mantine-radius-sm)" }}
+							style={{ display: "block", aspectRatio: portraitAspect, overflow: "hidden", borderRadius: "var(--stu-radius-sm)" }}
 						>
 							<PatientPresenter presentation={presentation} fill speaking={speaking} envelope={envelope} />
 						</UnstyledButton>
@@ -210,7 +210,7 @@ export default function PatientStage() {
 								className="patient-speaking-ring"
 								pos="absolute"
 								inset={0}
-								style={{ borderRadius: "var(--mantine-radius-sm)", boxShadow: `0 0 0 2px var(--mantine-color-${accent})` }}
+								style={{ borderRadius: "var(--stu-radius-sm)", boxShadow: `0 0 0 2px var(--mantine-color-${accent})` }}
 							/>
 						)}
 						{speaking && (
@@ -222,7 +222,7 @@ export default function PatientStage() {
 										w={3}
 										h="100%"
 										bg={accent}
-										style={{ borderRadius: 2, animationDelay: `${i * 0.11}s` }}
+										style={{ borderRadius: 999, animationDelay: `${i * 0.11}s` }}
 									/>
 								))}
 							</Group>
@@ -241,36 +241,34 @@ export default function PatientStage() {
 					</Box>
 				</Paper>
 
-				<Stack gap={0}>
-					<Text size="sm" fw={700} truncate>
+				<Stack gap={2}>
+					<Text size="md" fw={700} truncate lh={1.3}>
 						{name}
 					</Text>
 					{identity && (
-						<Text size="xs" c="dimmed">
+						<Text size="sm" c="dimmed" lh={1.4}>
 							{identity}
 						</Text>
 					)}
 				</Stack>
 
 				{chiefComplaint && (
-					<Stack gap={2}>
-						<Text size="sm" fw={600} c="dimmed">
+					<Stack gap={3}>
+						<Text size="sm" fw={600} c="dimmed" lh={1.4}>
 							主诉
 						</Text>
-						<Text size="xs" lh={1.55} lineClamp={4}>
+						<Text size="sm" lh={1.65} lineClamp={4}>
 							{chiefComplaint}
 						</Text>
 					</Stack>
 				)}
 
-				<Box>
+				{/* 状态簇压在列底部：采集进度 / 呼吸 / 情绪都是「这位患者现在怎么样」 */}
+				<Stack gap="xs" mt="auto">
 					<InquiryProgressChip />
-				</Box>
-
-				{/* 呼吸节奏：只表达"快/慢"（在场可见信息），不印次数 —— 次数要靠床旁检查得到 */}
-				{breathSeconds !== null && (
+					{breathSeconds !== null && (
 					<Group gap={6} wrap="nowrap" align="center">
-						<Text size="11px" fw={600} c="dimmed">
+						<Text size="sm" fw={600} c="dimmed">
 							呼吸
 						</Text>
 						<Box
@@ -278,20 +276,17 @@ export default function PatientStage() {
 							w={4}
 							h={14}
 							bg={accent}
-							style={{ borderRadius: 2, animationDuration: `${breathSeconds}s` }}
+							style={{ borderRadius: 999, animationDuration: `${breathSeconds}s` }}
 						/>
 						<Text size="xs" c="dimmed">
 							{BREATH_LABELS[breathing ?? "normal"]}
 							{speaking ? " · 正在说话" : ""}
 						</Text>
 					</Group>
-				)}
+					)}
 
-				{bus && (
-					<Box mt="auto">
-						<EmotionIndicator bus={bus} features={features} recordId={recordId} compact />
-					</Box>
-				)}
+					{bus && <EmotionIndicator bus={bus} features={features} recordId={recordId} compact />}
+				</Stack>
 			</Stack>
 			{portrait}
 		</>

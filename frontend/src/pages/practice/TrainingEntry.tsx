@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { queryKeys } from "@/api/query-keys";
 import { QuestionnaireModal } from "@/components/QuestionnaireModal";
-import { TrainingUnavailable } from "@/components/training/TrainingUnavailable";
+import { TrainingUnavailable, trainingUnavailableCopy } from "@/components/training/TrainingUnavailable";
 import { useQuestionnaire } from "@/hooks/useQuestionnaire";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { getRecordDetail, pauseTraining, pauseTrainingOnHide, resumeTraining } from "@/api/training";
@@ -122,8 +122,8 @@ export default function TrainingEntry() {
 	if (error) {
 		return (
 			<TrainingUnavailable
-				title="加载训练记录失败"
-				detail={error instanceof Error ? error.message : String(error)}
+				{...trainingUnavailableCopy.loadFailed}
+				detail={error instanceof Error ? error.message : trainingUnavailableCopy.loadFailed.detail}
 				onRetry={() => refetch()}
 				retrying={isFetching}
 			/>
@@ -131,12 +131,7 @@ export default function TrainingEntry() {
 	}
 	if (!record) {
 		return (
-			<TrainingUnavailable
-				title="记录不存在"
-				detail="该训练记录可能已被删除，或你没有查看权限。"
-				onRetry={() => refetch()}
-				retrying={isFetching}
-			/>
+			<TrainingUnavailable {...trainingUnavailableCopy.missing} onRetry={() => refetch()} retrying={isFetching} />
 		);
 	}
 	// 会话一旦结束（本端交卷、他端结束、超时结算、患者中止），训练工作区就不再适用：
@@ -157,8 +152,7 @@ export default function TrainingEntry() {
 	if (!SceneComponent) {
 		return (
 			<TrainingUnavailable
-				title="该训练工作区尚未在此版本提供"
-				detail={`工作区：${manifest.workflow.label || manifest.workflow.id}`}
+				{...trainingUnavailableCopy.workspaceMissing(manifest.workflow.label || manifest.workflow.id)}
 				onRetry={() => refetch()}
 				retrying={isFetching}
 			/>

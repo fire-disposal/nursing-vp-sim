@@ -528,18 +528,18 @@ function TrainingTab({
 													{item.score_total}
 												</Text>
 											) : item.score_degraded ? (
-												<Text size="xs" c="red">
-													评分降级
-												</Text>
+												<Badge variant="light" color="red" size="sm">
+													系统降级
+												</Badge>
 											) : item.scoring_status === "pending" ||
 												item.scoring_status === "processing" ? (
 												<Badge variant="light" color="yellow" size="xs">
 													评分中
 												</Badge>
 											) : item.scoring_status === "failed" ? (
-												<Text size="xs" c="red">
+												<Badge variant="light" color="red" size="sm">
 													评分失败
-												</Text>
+												</Badge>
 											) : (
 												<Text size="sm" c="dimmed">
 													—

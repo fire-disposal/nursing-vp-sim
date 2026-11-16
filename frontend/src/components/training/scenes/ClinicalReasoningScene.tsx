@@ -7,7 +7,7 @@ import type { ClinicalJudgmentState } from "@/api/clinical-reasoning";
 import { endTraining } from "@/api/training";
 import { queryKeys } from "@/api/query-keys";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import { TrainingUnavailable } from "@/components/training/TrainingUnavailable";
+import { TrainingUnavailable, trainingUnavailableCopy } from "@/components/training/TrainingUnavailable";
 import { useToast } from "@/components/Toast";
 import { useTrainingTimer } from "@/hooks/useTrainingTimer";
 import { useShortViewport } from "@/hooks/useShortViewport";
@@ -77,8 +77,7 @@ export default function ClinicalReasoningScene({ recordId }: { recordId: string 
 			<ErrorBoundary
 				fallback={
 					<TrainingUnavailable
-						title="现场渲染失败"
-						detail="临床判断现场出错了，请重试或返回。已确认的证据与对话都保存在服务器上。"
+						{...trainingUnavailableCopy.renderCrashed}
 						onRetry={() => window.location.reload()}
 					/>
 				}
@@ -183,8 +182,7 @@ function ClinicalWorkbench({ recordId }: { recordId: string }) {
 		}
 		return (
 			<TrainingUnavailable
-				title={clinical.loadError ? "无法读取训练状态" : "训练状态不可用"}
-				detail={clinical.loadError ?? "服务器没有返回本次训练的场景与目标，请重试。"}
+				{...trainingUnavailableCopy.stateUnreadable(clinical.loadError)}
 				onRetry={() => void clinical.reload()}
 			/>
 		);

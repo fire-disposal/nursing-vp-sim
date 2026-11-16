@@ -49,9 +49,8 @@ export default function InquiryTool() {
 	if (hints.length > 0) {
 		return (
 			<Box p="sm">
-				<Group justify="space-between" mb={8} wrap="nowrap">
-					<Text size="xs" c="dimmed" fw={600}>引导提示（领域与评估意义）</Text>
-					<Text size="xs" c="dimmed" fw={700} style={{ fontVariantNumeric: "tabular-nums" }}>
+				<Group justify="flex-end" mb={8} wrap="nowrap">
+					<Text size="sm" c="dimmed" fw={700} style={{ fontVariantNumeric: "tabular-nums" }}>
 						{hints.length} 个领域
 					</Text>
 				</Group>
@@ -67,7 +66,7 @@ export default function InquiryTool() {
 									{hint.domain}
 								</Text>
 								{hint.significance && (
-									<Text size="xs" c="dimmed" lh={1.5} mt={2}>
+									<Text size="sm" c="dimmed" lh={1.55} mt={2}>
 										{hint.significance}
 									</Text>
 								)}
@@ -81,7 +80,7 @@ export default function InquiryTool() {
 					mt="md"
 					pt={8}
 					lh={1.6}
-					style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}
+					style={{ borderTop: "1px solid var(--stu-line)" }}
 				>
 					提示只说明还需弄清的领域及其意义，不指定问句、不要求按顺序提问，也不参与评分。
 				</Text>
@@ -101,31 +100,31 @@ export default function InquiryTool() {
 	return (
 		<Box p="sm">
 			<Box mb="md">
-				<Group justify="space-between" mb={4} wrap="nowrap">
-					<Text size="xs" c="dimmed">问诊任务清单（关键词自检）</Text>
-					<Text size="xs" fw={700} c={PROGRESS_TEXT[band]} style={{ fontVariantNumeric: "tabular-nums" }}>
+				<Group justify="space-between" align="center" mb={6} wrap="nowrap" gap={10}>
+					<Box
+						h={6}
+						flex={1}
+						role="progressbar"
+						aria-label="问诊任务完成度"
+						aria-valuenow={pct}
+						aria-valuemin={0}
+						aria-valuemax={100}
+						style={{ borderRadius: 999, background: "var(--stu-line-strong)", overflow: "hidden" }}
+					>
+						<Box
+							h="100%"
+							style={{
+								width: `${pct}%`,
+								borderRadius: 999,
+								transition: "all 500ms",
+								background: PROGRESS_BG[band],
+							}}
+						/>
+					</Box>
+					<Text size="sm" fw={700} c={PROGRESS_TEXT[band]} style={{ fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
 						{doneCount}/{total}
 					</Text>
 				</Group>
-				<Box
-					h={6}
-					role="progressbar"
-					aria-label="问诊任务完成度"
-					aria-valuenow={pct}
-					aria-valuemin={0}
-					aria-valuemax={100}
-					style={{ borderRadius: 999, background: "var(--mantine-color-default-hover)", overflow: "hidden" }}
-				>
-					<Box
-						h="100%"
-						style={{
-							width: `${pct}%`,
-							borderRadius: 999,
-							transition: "all 500ms",
-							background: PROGRESS_BG[band],
-						}}
-					/>
-				</Box>
 			</Box>
 
 			<Box>

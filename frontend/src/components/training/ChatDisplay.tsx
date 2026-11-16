@@ -178,7 +178,7 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 			style={{ height: "100%", overflowY: "auto", position: "relative" }}
 			onScroll={handleScroll}
 		>
-			<Stack gap="md" mx="auto" w="100%" maw={768} px="md" py="md">
+			<Stack gap="md" mx="auto" w="100%" maw={768} px="md" py="md" style={{ minHeight: "100%", justifyContent: "flex-end" }}>
 				{grouped.map((group, gi) => {
 					const firstMsg = group.messages[0];
 					if (firstMsg.role === "system" && firstMsg.examResult) {

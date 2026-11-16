@@ -142,7 +142,7 @@ function MiiCanvas({ payload, ctx }: { payload: MiiAvatarPayload; ctx: Presentat
 				aspectRatio: "1 / 1",
 				position: "relative",
 				overflow: "hidden",
-				borderRadius: ctx.rounded === "full" ? "999px" : "1rem",
+				borderRadius: ctx.rounded === "full" ? "999px" : "var(--stu-radius-sm, 12px)",
 				boxShadow: "0 0 0 1px var(--mantine-color-default-border)",
 			}}
 		>
@@ -196,7 +196,7 @@ function MiiStill({ payload, ctx }: { payload: MiiAvatarPayload; ctx: Presentati
 				width: ctx.fill ? "100%" : ctx.size,
 				aspectRatio: "1 / 1",
 				overflow: "hidden",
-				borderRadius: ctx.rounded === "full" ? "999px" : "1rem",
+				borderRadius: ctx.rounded === "full" ? "999px" : "var(--stu-radius-sm, 12px)",
 				boxShadow: "0 0 0 1px var(--mantine-color-default-border)",
 			}}
 		>

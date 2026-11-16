@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo } from "react";
+import { Fragment, type ReactNode, useMemo } from "react";
 import { Badge, Box, Group, Stack, Text } from "@mantine/core";
 import { Card } from "@/components/ui/card";
 import { availableActivities, requiredArtifacts } from "@/engine/manifest";
@@ -42,8 +42,8 @@ export function WelcomeScreen({ patient, onQuickPrompt }: WelcomeScreenProps) {
 
 	return (
 		<Box className="stu-welcome" px="xs" py="md" mx="auto" w="100%" maw={768}>
-			<Card p="md">
-				<Stack gap="sm">
+			<Card p={14}>
+				<Stack gap={8}>
 					<Text size="sm" c="dimmed" lh={1.6}>
 						你是本病例的
 						<Text component="span" fw={600} c="var(--mantine-color-text)">
@@ -52,38 +52,42 @@ export function WelcomeScreen({ patient, onQuickPrompt }: WelcomeScreenProps) {
 						：先与患者对话采集病史，再完成工作区里的内容；完成后点右上角「结束训练」交卷。
 					</Text>
 
-					<Group gap={8} wrap="wrap">
-						<FlowChip index={1} label="问诊采集" />
+					<Group className="stu-flow" gap={0} wrap="wrap" role="group" aria-label="本次训练步骤">
+						<FlowStep index={1} label="问诊采集" state="current" />
 						{flow.runnable.map((activity, i) => {
 							const artifact = activity.artifact_kind ? manifest?.artifacts[activity.artifact_kind] : undefined;
 							const status = activityStatus(activity, artifact);
 							return (
-								<FlowChip
-									key={activity.id}
-									index={i + 2}
-									label={activity.label}
-									badges={
-										<>
-											{activity.artifact_kind !== null && requiredKinds.includes(activity.artifact_kind) && (
-												<Badge variant="light" color="brand" size="xs">
-													必交
-												</Badge>
-											)}
-											{status && (
-												<Badge variant="light" color={status.color} size="xs">
-													{status.label}
-												</Badge>
-											)}
-										</>
-									}
-								/>
+								<Fragment key={activity.id}>
+									<span className="stu-flow-sep" aria-hidden />
+									<FlowStep
+										index={i + 2}
+										label={activity.label}
+										state={status ? (status.color === "green" ? "done" : "current") : "todo"}
+										badges={
+											<>
+												{activity.artifact_kind !== null && requiredKinds.includes(activity.artifact_kind) && (
+													<Badge variant="light" color="brand" size="xs">
+														必交
+													</Badge>
+												)}
+												{status && (
+													<Badge variant="light" color={status.color} size="xs">
+														{status.label}
+													</Badge>
+												)}
+											</>
+										}
+									/>
+								</Fragment>
 							);
 						})}
-						<FlowChip index={flow.runnable.length + 2} label="结束评分" />
+						<span className="stu-flow-sep" aria-hidden />
+						<FlowStep index={flow.runnable.length + 2} label="结束评分" state="todo" />
 					</Group>
 
 					{flow.unavailable.length > 0 && (
-						<Text size="xs" c="dimmed" lh={1.6}>
+						<Text size="sm" c="dimmed" lh={1.6}>
 							本次不可用：
 							{flow.unavailable
 								.map((activity) => `${activity.label}（${activityStatus(activity)?.label ?? "不可用"}）`)
@@ -92,13 +96,20 @@ export function WelcomeScreen({ patient, onQuickPrompt }: WelcomeScreenProps) {
 					)}
 
 					{showGuidance && onQuickPrompt && quickPrompts.length > 0 && (
-						<Stack gap={6}>
-							<Text size="xs" fw={600} c="dimmed">
+						<Stack gap={8}>
+							<Text size="sm" fw={600} c="dimmed">
 								建议开场
 							</Text>
 							<Group gap={8} wrap="wrap">
-							{quickPrompts.map((prompt) => (
-								<FlowChip key={prompt} label={prompt} onClick={() => onQuickPrompt(prompt)} />
+								{quickPrompts.map((prompt) => (
+									<button
+										key={prompt}
+										type="button"
+										className="stu-suggest"
+										onClick={() => onQuickPrompt(prompt)}
+									>
+										{prompt}
+									</button>
 								))}
 							</Group>
 						</Stack>
@@ -109,40 +120,25 @@ export function WelcomeScreen({ patient, onQuickPrompt }: WelcomeScreenProps) {
 	);
 }
 
-/** 流程芯片：序号 + 名称 +（可选）徽章；`onClick` 给出时是建议开场的可点问句。 */
-function FlowChip({
+/** 流程步骤：编号点 + 名称（+ 徽章）。它不是按钮 —— 按钮只有「建议开场」。 */
+function FlowStep({
 	index,
 	label,
+	state = "todo",
 	badges,
-	onClick,
 }: {
-	index?: number;
+	index: number;
 	label: string;
+	state?: "todo" | "current" | "done";
 	badges?: ReactNode;
-	onClick?: () => void;
 }) {
 	return (
-		<Badge
-			component={onClick ? "button" : "div"}
-			onClick={onClick}
-			variant={onClick ? "outline" : "light"}
-			color={onClick ? "brand" : "gray"}
-			size="lg"
-			radius="xl"
-			px={12}
-			style={onClick ? { cursor: "pointer", textTransform: "none" } : { textTransform: "none" }}
-		>
-			<Group gap={6} wrap="nowrap">
-				{index !== undefined && (
-					<Text component="span" size="xs" fw={700} c="dimmed">
-						{index}
-					</Text>
-				)}
-				<Text component="span" size="xs" fw={500}>
-					{label}
-				</Text>
-				{badges}
-			</Group>
-		</Badge>
+		<span className="stu-flow-step" data-state={state}>
+			<span className="stu-flow-num" aria-hidden>
+				{index}
+			</span>
+			{label}
+			{badges}
+		</span>
 	);
 }

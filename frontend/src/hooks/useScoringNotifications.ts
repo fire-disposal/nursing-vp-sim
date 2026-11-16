@@ -14,6 +14,10 @@ export function useScoringNotifications() {
 		location.pathname.startsWith("/record") ||
 		location.pathname.startsWith("/history") ||
 		location.pathname.startsWith("/admin/records");
+	// 训练页有评分遮罩、记录页有评分状态横幅 —— 这两处已经就地说了失败，不再叠 toast。
+	// 列表页没有内联面，失败只靠这条 toast 才看得见（渠道分工见 docs/ops/notification-channels.md）。
+	const hasInlineScoringSurface =
+		location.pathname.startsWith("/training") || location.pathname.startsWith("/record");
 
 	useTrainingWS((msg) => {
 		switch (msg.type) {
@@ -47,14 +51,16 @@ export function useScoringNotifications() {
 					message: payload.error || "评分失败",
 				});
 				queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
-				toast.error("评分失败", {
-					description: payload.error || "请稍后重试",
-					action: {
-						label: "查看",
-						onClick: () => navigate(`/record/${payload.record_id}`),
-					},
-					duration: 10000,
-				});
+				if (!hasInlineScoringSurface) {
+					toast.error("评分失败", {
+						description: payload.error || "请稍后重试",
+						action: {
+							label: "查看",
+							onClick: () => navigate(`/record/${payload.record_id}`),
+						},
+						duration: 10000,
+					});
+				}
 				break;
 			}
 			case "scoring_progress": {
