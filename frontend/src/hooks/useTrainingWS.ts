@@ -11,11 +11,14 @@
  * 「通知 + 失效查询缓存」（见 @/hooks/useScoringNotifications.ts），不构成第二份业务状态。
  * 每条连接鉴定用户身份后接入 backend PgRealtimeHub（见 backend/modules/training/router/ws.py）。
  *
- * 自愈策略：指数退避 + 抖动，退避耗尽后转入 30s 周期探测（永不放弃）；
- * 监听 online / visibilitychange 即时重连；4001 刷新失败降级为普通退避。
+ * 自愈策略：指数退避 + 抖动，退避耗尽后转入 30s 周期探测（永不放弃）；退避计数只在连接
+ * 存活过 10s 后才清零（服务端 101 后立刻关闭时不清零，否则退化成每秒重连）；监听
+ * online / visibilitychange 即时重连；4001 刷新失败降级为普通退避；视角或院校切换后换连接。
  */
 import { useEffect, useRef } from "react";
 import useAuthStore from "@/stores/authStore";
+import { usePersonaStore } from "@/stores/personaStore";
+import { useSchoolScopeStore } from "@/stores/schoolScopeStore";
 
 export interface TrainingWSMessage {
 	type: string;
@@ -25,8 +28,12 @@ export interface TrainingWSMessage {
 const _listeners = new Set<(msg: TrainingWSMessage) => void>();
 const _connListeners = new Set<(connected: boolean) => void>();
 let _ws: WebSocket | null = null;
+/** 当前（或最近一次）连接使用的 URL —— 视角/院校变了就要换连接。 */
+let _activeUrl = "";
 let _retryCount = 0;
 let _retryTimer: ReturnType<typeof setTimeout> | null = null;
+/** 连接存活计时器：只有活过这段时间，退避计数才清零。 */
+let _stableTimer: ReturnType<typeof setTimeout> | null = null;
 let _aborted = false;
 let _connected = false;
 let _refCount = 0;
@@ -50,8 +57,16 @@ export function subscribeWSConnection(fn: (connected: boolean) => void): () => v
 
 function buildWsUrl(): string {
 	const token = useAuthStore.getState().token ?? "";
+	const params = new URLSearchParams({ token });
+	// 视角/院校随连接带上：浏览器 WebSocket 不能自带请求头，服务端用查询参数按与
+	// HTTP 请求头（`X-View-Persona` / `X-School-Scope`）同一语义解析。不带时服务端回落
+	// 默认视角 —— 平台账号的默认视角是 `platform`，它没有 `training_access`，推送通道会被 4003 拒掉。
+	const persona = usePersonaStore.getState().active;
+	if (persona) params.set("persona", persona);
+	const scopedSchool = useSchoolScopeStore.getState().school;
+	if (scopedSchool) params.set("school", String(scopedSchool.id));
 	const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-	return `${proto}//${window.location.host}/api/training/ws?token=${encodeURIComponent(token)}`;
+	return `${proto}//${window.location.host}/api/training/ws?${params.toString()}`;
 }
 
 /** 网络恢复 / 回到前台时立即重连（若当前无活动连接） */
@@ -61,12 +76,28 @@ function _onNetworkBack() {
 	_connect();
 }
 
+/** 视角/院校变了 = 访问上下文变了：已连着的通道带着旧身份，必须换。 */
+function _onIdentityChange() {
+	if (_aborted) return;
+	if (_ws && _activeUrl === buildWsUrl()) return;
+	_retryCount = 0;
+	if (_retryTimer) {
+		clearTimeout(_retryTimer);
+		_retryTimer = null;
+	}
+	_connect();
+}
+
 function _installNetworkListeners() {
 	window.addEventListener("online", _onNetworkBack);
 	document.addEventListener("visibilitychange", _onNetworkBack);
+	const unsubPersona = usePersonaStore.subscribe(_onIdentityChange);
+	const unsubSchool = useSchoolScopeStore.subscribe(_onIdentityChange);
 	_removeNetworkListeners = () => {
 		window.removeEventListener("online", _onNetworkBack);
 		document.removeEventListener("visibilitychange", _onNetworkBack);
+		unsubPersona();
+		unsubSchool();
 	};
 }
 
@@ -93,6 +124,12 @@ function _connect() {
 	// gets one 4001→refresh chance (previously only reset in onopen, so a
 	// connection that immediately 4001'd never got a second chance).
 	_authRetried = false;
+	// 上一代 socket 的存活计时器只由它自己的 onclose 清理，而被替换的 socket 的
+	// onclose 下面会被摘掉 —— 不清就会在 10s 后把新一代的退避计数清零。
+	if (_stableTimer) {
+		clearTimeout(_stableTimer);
+		_stableTimer = null;
+	}
 	if (_ws) {
 		const old = _ws;
 		_ws = null;
@@ -103,11 +140,18 @@ function _connect() {
 		setTimeout(() => { try { old.close(); } catch { /* ignore */ } }, 0);
 	}
 
-	const ws = new WebSocket(buildWsUrl());
+	const url = buildWsUrl();
+	_activeUrl = url;
+	const ws = new WebSocket(url);
 	_ws = ws;
 	ws.onopen = () => {
-		_retryCount = 0;
 		_setConnected(true);
+		// 退避计数只在连接**存活**过之后才清零。服务端 101 之后立刻关闭（鉴权 4003 等）时
+		// 在 onopen 清零会让退避永远停在首次延迟 —— 旧实现就是这样退化成每秒一条重连。
+		_stableTimer = setTimeout(() => {
+			_stableTimer = null;
+			_retryCount = 0;
+		}, 10_000);
 		// 重连后不重放任何客户端消息：本通道只收服务端事件，客户端无业务命令可补发。
 		// （旧实现在此 flush 离线命令队列并广播 training-ws:reconnected —— 两者都无消费者，
 		// 场景同步改走会话详情投影。）
@@ -166,6 +210,10 @@ function _connect() {
 	const _origOnClose = ws.onclose;
 	ws.onclose = (ev) => {
 		clearInterval(pingTimer);
+		if (_stableTimer) {
+			clearTimeout(_stableTimer);
+			_stableTimer = null;
+		}
 		if (_origOnClose) _origOnClose.call(ws, ev);
 	};
 }
@@ -212,6 +260,7 @@ export function useTrainingWS(
 				_aborted = true;
 				_uninstallNetworkListeners();
 				if (_retryTimer) { clearTimeout(_retryTimer); _retryTimer = null; }
+				if (_stableTimer) { clearTimeout(_stableTimer); _stableTimer = null; }
 				if (_ws) { const old = _ws; _ws = null; old.onclose = null; setTimeout(() => { try { old.close(); } catch { /* ignore */ } }, 0); _setConnected(false); }
 			}
 		};

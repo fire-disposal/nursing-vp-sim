@@ -22,20 +22,28 @@ security = HTTPBearer()
 VIEW_PERSONA_HEADER = "X-View-Persona"
 
 
-def _set_user_permissions(user: User, db: Session, persona: str | None = None) -> None:
+def _set_user_permissions(
+    user: User,
+    db: Session,
+    persona: str | None = None,
+    school: str | None = None,
+) -> bool:
     """把生效权限挂到 `user.has_permission` 用的缓存上。
 
-    `persona is None` = 用默认视角（WebSocket 等不解析 header 的路径）；
-    解析失败（例如越权视角）时保持无权限而不是 500 —— 鉴权由调用方决定。
+    `persona` / `school` 缺省 = 不解析请求头的路径（refresh、未带上下文的调用）走默认视角
+    与家院校；WebSocket 拿不到请求头，用同样语义的查询参数喂进来（见
+    `modules/training/router/ws.py`）。解析失败（越权视角/越界院校）时保持无权限而不是
+    500 —— 鉴权由调用方决定；返回值说明是否解析成功。
     """
     if getattr(user, "_permissions_cache", None) is not None:
-        return
+        return True
     try:
-        context = resolve_access(db, user, None, persona)
+        context = resolve_access(db, user, school or None, persona or None)
     except HTTPException:
         user.set_permissions_cache(set())
-        return
+        return False
     user.set_permissions_cache(set(context.permissions))
+    return True
 
 
 def hash_password(password: str) -> str:

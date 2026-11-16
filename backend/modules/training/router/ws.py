@@ -2,6 +2,11 @@
 
 Protocol (JSON messages):
 
+  Connect (查询参数，与 HTTP 请求头同语义):
+    ?token=<jwt>&persona=<X-View-Persona>&school=<X-School-Scope>
+    —— 浏览器 WebSocket 不能自带请求头，视角/院校只能走查询参数；缺省时按默认视角解析，
+    平台账号会落到 `platform` 视角（无 `training_access` → 4003）。
+
   Client → Server:
     { "type": "ping" }                          — 连接保活；本通道唯一的出站客户端消息
 
@@ -74,6 +79,8 @@ async def _authenticate(token: str) -> User | None:
 async def training_ws(
     websocket: WebSocket,
     token: str = Query(default=""),
+    persona: str = Query(default=""),
+    school: str = Query(default=""),
 ):
     await websocket.accept()
     user = await _authenticate(token)
@@ -81,13 +88,23 @@ async def training_ws(
         log.warning("WS auth failed — closing with 4001")
         await websocket.close(code=4001)
         return
+    # 浏览器 WebSocket 不能自带请求头，故视角/院校以查询参数传入 —— 语义与 HTTP 的
+    # `X-View-Persona` / `X-School-Scope` 完全一致，走同一个 `resolve_access`。
+    # 缺省（旧客户端）解析默认视角：平台账号落到 `platform` 视角，它不带 `training_access`，
+    # 于是训练页的推送通道被 4003 拒掉并无限重连。
     db = SessionLocal()
     try:
-        _set_user_permissions(user, db)
+        resolved = _set_user_permissions(user, db, persona, school)
     finally:
         db.close()
-    if not user.has_permission("training_access"):
-        log.warning("WS auth: user %d lacks training_access", user.id)
+    if not resolved or not user.has_permission("training_access"):
+        log.warning(
+            "WS auth: user %d lacks training_access (persona=%r school=%r resolved=%s)",
+            user.id,
+            persona,
+            school,
+            resolved,
+        )
         await websocket.close(code=4003)
         return
 
