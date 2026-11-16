@@ -15,7 +15,6 @@ import {
 	IconStethoscope,
 	IconTarget,
 	IconTrendingUp,
-	IconX,
 } from "@tabler/icons-react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
@@ -26,21 +25,22 @@ import type { components } from "@/api/api-types.gen";
 import { getStudentAssignments, startAssignment } from "@/api/assignments";
 import { queryKeys } from "@/api/query-keys";
 import { getTrends } from "@/api/stats";
+import { NotificationRow } from "@/components/notifications/NotificationRow";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
 import EmptyState from "@/components/ui/empty-state";
-import PageHeader from "@/components/ui/page-header";
-import { StatusStrip } from "@/components/ui/status-strip";
-import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import ErrorState from "@/components/ui/error-state";
 import LoadingSkeleton from "@/components/ui/loading-skeleton";
+import PageHeader from "@/components/ui/page-header";
 import Pagination from "@/components/ui/pagination";
 import ScoreSourceBadge from "@/components/ui/score-source-badge";
 import { SearchInput } from "@/components/ui/search-input";
 import StatCard from "@/components/ui/stat-card";
+import { StatusStrip } from "@/components/ui/status-strip";
 import { ACTIVITY_LABELS } from "@/config/activity-display";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import { useMyQuota } from "@/hooks/useMyQuota";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import useAuthStore from "@/stores/authStore";
 import { APP_TIME_ZONE, shanghaiDateKey, shanghaiHour } from "@/utils/date";
 import { goTraining, openNotification } from "@/utils/training-nav";
@@ -419,55 +419,36 @@ export default function TrainingSelect({ tab = "home" }: { tab?: TrainingTab }) 
 								justify="space-between"
 								gap="sm"
 								px="md"
-								py="sm"
-								style={{ borderBottom: "1px solid var(--mantine-color-default-border)", background: "var(--mantine-color-brand-light)" }}
+								py={10}
+								wrap="nowrap"
+								style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}
 							>
-								<Group gap="xs">
-									<ThemeIcon size={32} radius="md" variant="light" color="brand">
-										<IconSpeakerphone size={16} />
+								<Group gap={8} wrap="nowrap" miw={0}>
+									<ThemeIcon size={28} radius="md" variant="light" color="brand">
+										<IconSpeakerphone size={15} />
 									</ThemeIcon>
-									<Box>
-										<Text size="sm" fw={600}>新的训练通知</Text>
-										<Text size="xs" c="dimmed">可关闭，关闭后会标记为已读</Text>
+									<Box miw={0}>
+										<Text size="sm" fw={600}>待读通知</Text>
+										<Text size="sm" c="dimmed" truncate>点行打开；眼睛标记已读后不再出现在这里</Text>
 									</Box>
 								</Group>
 								<Button variant="subtle" color="gray" size="sm" onClick={() => navigate("/notifications")}>
-									查看全部
+									全部通知
 								</Button>
 							</Group>
-							<Stack gap={0}>
-								{recentNotifs.map((n: TrainingNotificationItem) => (
-									<Group
-										key={n.id}
-										gap="sm"
-										align="flex-start"
-										px="md"
-										py="sm"
-										wrap="nowrap"
-										style={{ borderBottom: "1px solid var(--mantine-color-gray-2)" }}
-									>
-										<UnstyledButton
-											onClick={() => openNotification(navigate, n, trainingFrom)}
-											style={{ flex: 1, minWidth: 0, textAlign: "left" }}
-										>
-											<Text size="sm" fw={500} truncate>{n.title}</Text>
-											{n.body && (
-												<Text size="xs" c="dimmed" mt={4} lineClamp={2} lh={1.5}>{n.body}</Text>
-											)}
-										</UnstyledButton>
-										<Button
-											variant="subtle" color="gray"
-											size="sm" w={36} h={36} p={0}
-											style={{ flexShrink: 0 }}
-											onClick={() => dismissNotificationMutation.mutate(n.id)}
-											disabled={dismissNotificationMutation.isPending}
-											aria-label={`关闭通知：${n.title}`}
-										>
-											<IconX size={15} />
-										</Button>
-									</Group>
-								))}
-							</Stack>
+							{recentNotifs.map((n: TrainingNotificationItem, i: number) => (
+								<Box
+									key={n.id}
+									style={{ borderTop: i > 0 ? "1px solid var(--mantine-color-default-border)" : undefined }}
+								>
+									<NotificationRow
+										item={n}
+										compact
+										onOpen={() => openNotification(navigate, n, trainingFrom)}
+										onToggleRead={() => dismissNotificationMutation.mutate(n.id)}
+									/>
+								</Box>
+							))}
 						</Paper>
 					)}
 

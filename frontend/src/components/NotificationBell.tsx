@@ -1,7 +1,7 @@
-import { motion } from "motion/react";
+import { Box, Button, Center, Group, Loader, Text, } from "@mantine/core";
+import { IconBell, } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Box, Button, Center, Group, Loader, Text, UnstyledButton } from "@mantine/core";
-import { IconBell, IconEyeOff } from "@tabler/icons-react";
+import { motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { components } from "@/api/api-types.gen";
@@ -12,6 +12,7 @@ import {
 	markNotificationUnread,
 } from "@/api/notifications";
 import { queryKeys } from "@/api/query-keys";
+import { NotificationRow } from "@/components/notifications/NotificationRow";
 import { useToast } from "@/components/Toast";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { openNotification } from "@/utils/training-nav";
@@ -187,66 +188,17 @@ export default function NotificationBell() {
 					</Center>
 				) : items.length > 0 ? (
 					<Box style={{ marginLeft: -16, marginRight: -16, marginBottom: -16 }}>
-						<Box style={{ maxHeight: 288, overflowY: "auto", overflowX: "hidden" }}>
+						<Box style={{ maxHeight: 320, overflowY: "auto", overflowX: "hidden" }}>
 							{items.map((n, i) => (
-								<Box
-									key={n.id}
-									style={{
-										borderTop: i > 0 ? "1px solid var(--mantine-color-default-border)" : undefined,
-										opacity: n.is_read ? 0.5 : 1,
-									}}
-								>
-									<UnstyledButton
-										w="100%"
-										ta="left"
-										px="md"
-										py="sm"
-										onClick={() => handleClick(n)}
-									>
-										<Group gap={10} align="flex-start" wrap="nowrap">
-											{!n.is_read && (
-												<span
-													style={{
-														marginTop: 6,
-														width: 8,
-														height: 8,
-														borderRadius: "50%",
-														background: "var(--mantine-color-red-6)",
-														flexShrink: 0,
-													}}
-												/>
-											)}
-											<Box style={{ minWidth: 0, flex: 1 }}>
-												<Text size="sm" fw={500} style={{ lineHeight: 1.4, overflowWrap: "anywhere" }}>
-													{n.title}
-												</Text>
-												{n.body && (
-													<Text size="xs" c="dimmed" mt={2} lineClamp={2}>
-														{n.body}
-													</Text>
-												)}
-												<Text fz="xs" c="dimmed" mt={4} opacity={0.7}>
-													{n.created_at.slice(0, 16).replace("T", " ")}
-												</Text>
-											</Box>
-										</Group>
-									</UnstyledButton>
-									{n.is_read && (
-										<Box px="md" pb="xs">
-											<Button
-												type="button"
-												variant="transparent"
-												size="xs"
-												p={0}
-												onClick={(e) => {
-													e.stopPropagation();
-													markOneUnreadMutation.mutate(n.id);
-												}}
-											>
-												<IconEyeOff size={10} /> 标记未读
-											</Button>
-										</Box>
-									)}
+								<Box key={n.id} style={{ borderTop: i > 0 ? "1px solid var(--mantine-color-default-border)" : undefined }}>
+									<NotificationRow
+										item={n}
+										compact
+										onOpen={() => handleClick(n)}
+										onToggleRead={() =>
+											n.is_read ? markOneUnreadMutation.mutate(n.id) : markOneReadMutation.mutate(n.id)
+										}
+									/>
 								</Box>
 							))}
 						</Box>
