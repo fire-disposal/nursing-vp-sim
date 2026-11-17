@@ -1,5 +1,6 @@
 .phone-panel {
-	min-height: min(820px, calc(100dvh - 48px));
+	height: min(820px, calc(100dvh - 48px));
+	min-height: 560px;
 }
 
 .phone-heading {
@@ -12,6 +13,8 @@
 	gap: var(--mantine-spacing-xl);
 	align-items: stretch;
 	min-width: 0;
+	min-height: 0;
+	flex: 1;
 }
 
 .phone-visual {
@@ -44,7 +47,12 @@
 }
 
 .phone-data {
+	display: flex;
+	flex-direction: column;
 	min-width: 0;
+	min-height: 0;
+	height: 100%;
+	overflow: hidden;
 	align-content: start;
 }
 
@@ -94,6 +102,17 @@
 	background: var(--mantine-color-teal-0);
 }
 
+.phone-transcript-log {
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.phone-transcript-scroll {
+	flex: 1;
+	min-height: 0;
+}
+
 .phone-event-row {
 	display: grid;
 	grid-template-columns: 112px minmax(0, 1fr);
@@ -136,11 +155,13 @@
 
 @media (max-width: 48em) {
 	.phone-panel {
-		min-height: calc(100dvh - 32px);
+		height: calc(100dvh - 32px);
+		min-height: 0;
 	}
 
 	.phone-workspace {
 		grid-template-columns: 1fr;
+		grid-template-rows: auto minmax(0, 1fr);
 		gap: var(--mantine-spacing-md);
 	}
 

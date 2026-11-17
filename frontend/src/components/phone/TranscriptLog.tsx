@@ -62,8 +62,8 @@ export default function TranscriptLog({
 	}
 
 	return (
-		<Stack gap="sm">
-			<ScrollArea h={height} type="auto" data-testid="transcript" offsetScrollbars>
+		<Stack gap="sm" className="phone-transcript-log">
+			<ScrollArea className="phone-transcript-scroll" type="auto" data-testid="transcript" offsetScrollbars>
 				<Stack gap="sm" pr="sm" aria-live="polite">
 					{lines.length === 0 && (
 						<Box className="phone-conversation-empty">
