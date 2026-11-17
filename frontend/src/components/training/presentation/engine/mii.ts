@@ -381,6 +381,15 @@ function drawCheeks(ctx: CanvasRenderingContext2D, spec: CharacterSpec, expr: Ex
 }
 
 /**
+ * 闭口嘴的二次曲线控制点。
+ * smile > 0：嘴角高于中心（U）；smile < 0：嘴角低于中心（∩）。
+ */
+export function closedMouthCurve(smile: number, cy: number): { cornerY: number; controlY: number } {
+	const bend = Math.max(-1, Math.min(1, smile));
+	return { cornerY: cy - bend * 0.014, controlY: cy + bend * 0.014 };
+}
+
+/**
  * 嘴：四个手绘嘴型硬切（closed / small / mid / wide）。
  *
  * 形态共用一条「上沿几乎平、下沿是圆弧」的轮廓，只有宽高不同——这样切帧时嘴的位置不跳，
@@ -391,10 +400,13 @@ function drawMouth(ctx: CanvasRenderingContext2D, spec: CharacterSpec, expr: Exp
 	const half = (spec.mouth.w * expr.mouthWidth * frame.mouthWidth) / 2;
 
 	if (frame.mouthShape === "closed") {
-		const cornerY = cy - expr.smile * 0.016;
+		// smile > 0：嘴角上抬、中心下弯（U）；smile < 0：嘴角下撇、中心上拱（∩）。
+		// 旧公式用固定 +0.012 的中心控制点，负 smile 也会被抬成轻微上扬，
+		// 导致 defensive/withdrawn 看起来仍是中性嘴。
+		const { cornerY, controlY } = closedMouthCurve(expr.smile, cy);
 		ctx.beginPath();
 		ctx.moveTo(0.5 - half, cornerY);
-		ctx.quadraticCurveTo(0.5, cy + 0.012 + expr.smile * 0.006, 0.5 + half, cornerY);
+		ctx.quadraticCurveTo(0.5, controlY, 0.5 + half, cornerY);
 		ctx.strokeStyle = MOUTH_LINE;
 		ctx.lineWidth = 0.012;
 		ctx.lineCap = "round";
