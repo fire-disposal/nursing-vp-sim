@@ -115,42 +115,76 @@ export class EchoGate {
 		if (now >= this.calibrationUntil || this.micHistory.length >= 60) this.finishCalibration();
 	}
 
-	/** 取参考序列中离指定时间最近的帧；超出 120ms 视为缺失。 */
+	/** 取参考序列中离指定时间最近的帧；超出 50ms 视为缺失。 */
 	private refAt(time: number): number | null {
 		let best: { t: number; level: number } | null = null;
 		for (const item of this.refHistory) {
 			if (best === null || Math.abs(item.t - time) < Math.abs(best.t - time)) best = item;
 		}
-		if (best === null || Math.abs(best.t - time) > 120) return null;
+		if (best === null || Math.abs(best.t - time) > 50) return null;
 		return best.level;
 	}
 
-	/** 用 0–1s 的候选延迟，选增益最稳定的 lag（MAD 最小）。 */
+	/** 对三音符的开关包络做 0–1s 互相关；score 是相关系数，不是增益方差。 */
 	private finishCalibration(): void {
 		this.calibrating = false;
 		const mic = this.micHistory;
 		if (mic.length < ECHO_CALIBRATION_MIN_SAMPLES) return;
 
 		let best: { lagMs: number; gain: number; score: number } | null = null;
-		for (let lagMs = 0; lagMs <= 1000; lagMs += 50) {
+		for (let lagMs = 0; lagMs <= 1000; lagMs += 20) {
+			const pairs: Array<{ mic: number; ref: number }> = [];
 			const ratios: number[] = [];
 			for (const sample of mic) {
-				if (sample.level < ECHO_ABS_MIN) continue;
 				const ref = this.refAt(sample.t - lagMs);
-				if (ref === null || ref < ECHO_ABS_MIN) continue;
-				const ratio = sample.level / ref;
-				if (ratio >= 0.05 && ratio <= 3.5) ratios.push(ratio);
+				if (ref === null) continue;
+				pairs.push({ mic: sample.level, ref });
+				if (sample.level >= ECHO_ABS_MIN && ref >= ECHO_ABS_MIN) {
+					const ratio = sample.level / ref;
+					if (ratio >= 0.05 && ratio <= 3.5) ratios.push(ratio);
+				}
 			}
-			if (ratios.length < ECHO_CALIBRATION_MIN_SAMPLES) continue;
+			if (pairs.length < ECHO_CALIBRATION_MIN_SAMPLES || ratios.length < ECHO_CALIBRATION_MIN_SAMPLES) continue;
+			const meanMic = pairs.reduce((sum, pair) => sum + pair.mic, 0) / pairs.length;
+			const meanRef = pairs.reduce((sum, pair) => sum + pair.ref, 0) / pairs.length;
+			let numerator = 0;
+			let micVariance = 0;
+			let refVariance = 0;
+			for (const pair of pairs) {
+				const micDelta = pair.mic - meanMic;
+				const refDelta = pair.ref - meanRef;
+				numerator += micDelta * refDelta;
+				micVariance += micDelta * micDelta;
+				refVariance += refDelta * refDelta;
+			}
+			const denominator = Math.sqrt(micVariance * refVariance);
+			if (denominator < 1e-8) continue;
+			const score = numerator / denominator;
 			const sorted = [...ratios].sort((a, b) => a - b);
 			const gain = sorted[Math.floor(sorted.length / 2)];
-			const mad = ratios.reduce((sum, value) => sum + Math.abs(value - gain), 0) / ratios.length;
-			const score = mad / Math.max(gain, 0.01);
-			if (best === null || score < best.score) best = { lagMs, gain, score };
+			if (best === null || score > best.score) best = { lagMs, gain, score };
 		}
-		if (best !== null && best.score < 0.45 && best.gain >= 0.05 && best.gain <= 3.5) {
+
+		if (best !== null && best.score >= 0.5 && best.gain >= 0.05 && best.gain <= 3.5) {
 			this.delayMs = best.lagMs;
 			this.gain = best.gain;
+		} else if (best === null) {
+			// 没有包络变化时无法测延迟；仅在增益确实稳定时退回零延迟。
+			const ratios: number[] = [];
+			const refs: number[] = [];
+			for (const sample of mic) {
+				const ref = this.refAt(sample.t);
+				if (ref === null) continue;
+				refs.push(ref);
+				if (sample.level >= ECHO_ABS_MIN && ref >= ECHO_ABS_MIN) ratios.push(sample.level / ref);
+			}
+			const refSpread = refs.length ? Math.max(...refs) - Math.min(...refs) : 0;
+			if (ratios.length >= ECHO_CALIBRATION_MIN_SAMPLES && refSpread < 0.0001) {
+				const sorted = [...ratios].sort((a, b) => a - b);
+				const gain = sorted[Math.floor(sorted.length / 2)];
+				const mad = ratios.reduce((sum, value) => sum + Math.abs(value - gain), 0) / ratios.length;
+				if (gain >= 0.05 && gain <= 3.5 && mad / gain < 0.2) this.gain = gain;
+			}
 		}
 		if (import.meta.env.DEV) {
 			console.info("[echo] calibration", { delayMs: this.delayMs, gain: this.gain, score: best?.score ?? null });

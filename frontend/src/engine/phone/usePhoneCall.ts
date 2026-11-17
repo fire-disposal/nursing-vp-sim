@@ -206,15 +206,6 @@ export function usePhoneCall({
 	}, [pushLog]);
 
 	useEffect(() => {
-		const player = playerRef.current;
-		return () => {
-			activeTurnRef.current?.abort.abort();
-			player?.dispose();
-			playerRef.current = null;
-		};
-	}, []);
-
-	useEffect(() => {
 		callSeqRef.current += 1;
 		turnSeqRef.current += 1;
 		activeTurnRef.current?.abort.abort();
@@ -479,7 +470,8 @@ export function usePhoneCall({
 		});
 	}, [character, pushLog, setStage, speakWhole, voice]);
 
-	const stopCall = useCallback(() => {
+	/** 立即停止所有外部工作，并作废尚未落地的音频/文本回调。 */
+	const shutdown = useCallback(() => {
 		callSeqRef.current += 1;
 		turnSeqRef.current += 1;
 		ttsSeqRef.current += 1;
@@ -487,15 +479,29 @@ export function usePhoneCall({
 		activeTurnRef.current = null;
 		openingLineIdRef.current = null;
 		playerRef.current?.stop();
-		voice.stop();
+		voiceRef.current?.stop();
 		setSpeaking(false);
+	}, []);
+
+	const stopCall = useCallback(() => {
+		shutdown();
 		recentTtsRef.current = [];
 		lastPatientTextRef.current = "";
 		openingTextRef.current = "";
 		setStage("ended");
 		setDialed(false);
 		pushLog("system", "通话已结束");
-	}, [pushLog, setStage, voice]);
+	}, [pushLog, setStage, shutdown]);
+
+	useEffect(() => {
+		window.addEventListener("pagehide", stopCall);
+		return () => {
+			window.removeEventListener("pagehide", stopCall);
+			shutdown();
+			playerRef.current?.dispose();
+			playerRef.current = null;
+		};
+	}, [shutdown, stopCall]);
 
 	const runQuickTest = useCallback(
 		(kind: "greeting" | "interrupt" | "emotion") => {
