@@ -42,6 +42,11 @@ export const VAD_ASSET_PATH = "/vad/";
 export const VAD_WORKLET = "vad.worklet.bundle.min.js";
 export const VAD_MODEL = "silero_vad_v5.onnx";
 
+/** 生产用本地 /vad；开发用同版本 CDN，避开 Vite 对 public 下 .mjs 动态导入的限制。 */
+const ORT_RUNTIME_BASE = import.meta.env.DEV
+	? "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.31.1/dist/"
+	: VAD_ASSET_PATH;
+
 /** 轮次判定的 VAD 参数：短噪声（<450ms）不算说话，900ms 静音才收尾。 */
 export const VAD_TUNING = {
 	// Silero/vad-web 默认 0.3 对空调噪声、键盘声都太敏感；电话页要的是"人声够持续"。
@@ -148,7 +153,7 @@ export async function startVadSession(
 		vad = await createVad({
 			model: "v5",
 			baseAssetPath: VAD_ASSET_PATH,
-			onnxWASMBasePath: VAD_ASSET_PATH,
+			onnxWASMBasePath: ORT_RUNTIME_BASE,
 			...(audioContext ? { audioContext } : {}),
 			getStream: async () => {
 				if (stream) return stream;
