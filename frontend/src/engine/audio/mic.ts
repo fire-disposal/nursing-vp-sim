@@ -24,6 +24,8 @@ const ECHO_RATIO_MAX = 2.5;
 const ECHO_ABS_MIN = 0.0025;
 const ECHO_CALIBRATION_MS = 1800;
 const ECHO_CALIBRATION_MIN_SAMPLES = 12;
+/** 校准完成前也按常见声学延迟取参考，避免拿“当前帧”对“已到麦克风的旧回声”。 */
+const ECHO_FALLBACK_DELAY_MS = 120;
 
 export interface MicCaptureConstraintsOptions {
 	deviceId?: string;
@@ -168,6 +170,18 @@ export class EchoGate {
 		if (this.gain !== null) return ratio >= this.gain * 0.55 && ratio <= this.gain * 1.9;
 		return ratio >= ECHO_RATIO_MIN && ratio < ECHO_RATIO_MAX;
 	}
+
+	/** 这一帧麦克风能量是否可能来自患者回放。 */
+	isEcho(micLevel: number, now = performance.now()): boolean {
+		// 用延迟后的参考判断“此刻麦克风里是否还有 TTS”，而不是当前输出；
+		// 同时试 ±60ms，吸收 PCM 块缓冲和扬声器/房间造成的抖动。
+		const baseDelay = this.gain !== null ? this.delayMs : ECHO_FALLBACK_DELAY_MS;
+		for (const offset of [0, -60, 60]) {
+			const reference = this.refAt(now - baseDelay - offset) ?? (offset === 0 ? this.reference : null);
+			if (reference !== null && this.matches(micLevel, reference)) return true;
+		}
+		return false;
+	}
 }
 
 export interface MicCaptureOptions extends MicCaptureConstraintsOptions {
@@ -295,7 +309,7 @@ export class MicCapture {
 		for (let i = 0; i < pcm.length; i += 1) sum += pcm[i] * pcm[i];
 		const level = Math.sqrt(sum / pcm.length) / 32768;
 		this.latestMicLevel = level;
-		this.echo.observe(level);
+		// 校准只用 analyser 的实时帧；PCM 块带缓冲延迟，塞进延迟估计会引入偏差。
 		return this.echo.isEcho(level);
 	}
 

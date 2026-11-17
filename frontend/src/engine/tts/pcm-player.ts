@@ -109,6 +109,50 @@ export class PcmStreamPlayer {
 		return bytes;
 	}
 
+	/**
+	 * 接通校准音：880/1320 Hz 的三段短音，带静音间隔。
+	 * 既提示用户已接通，也让回声门能从电平包络中估出扬声器→麦克风的延迟。
+	 */
+	async playConnectTone(): Promise<void> {
+		const ctx = await this.prime();
+		const sampleRate = ctx.sampleRate;
+		const segments = [
+			{ freq: 0, ms: 100 },
+			{ freq: 880, ms: 160 },
+			{ freq: 0, ms: 90 },
+			{ freq: 1320, ms: 160 },
+			{ freq: 0, ms: 90 },
+			{ freq: 880, ms: 240 },
+		];
+		const total = segments.reduce((sum, segment) => sum + Math.round((segment.ms / 1000) * sampleRate), 0);
+		const buffer = ctx.createBuffer(1, total, sampleRate);
+		const data = buffer.getChannelData(0);
+		let cursor = 0;
+		for (const segment of segments) {
+			const length = Math.round((segment.ms / 1000) * sampleRate);
+			const fade = Math.min(Math.round(sampleRate * 0.008), Math.floor(length / 2));
+			for (let i = 0; i < length; i += 1) {
+				if (segment.freq === 0) continue;
+				const gain = Math.min(1, i / Math.max(1, fade), (length - i - 1) / Math.max(1, fade));
+				data[cursor + i] = Math.sin((2 * Math.PI * segment.freq * i) / sampleRate) * 0.18 * gain;
+			}
+			cursor += length;
+		}
+		const src = ctx.createBufferSource();
+		src.buffer = buffer;
+		src.connect(this.master ?? ctx.destination);
+		const at = Math.max(ctx.currentTime + 0.05, this.endTime);
+		src.start(at);
+		this.endTime = at + buffer.duration;
+		this.sources.add(src);
+		await new Promise<void>((resolve) => {
+			src.onended = () => {
+				this.sources.delete(src);
+				resolve();
+			};
+		});
+	}
+
 	/** 当前输出 RMS（0..1），供回声门判断麦克风能量是否来自本播放器。 */
 	outputLevel(): number {
 		const analyser = this.analyser;

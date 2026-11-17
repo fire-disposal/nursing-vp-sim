@@ -43,7 +43,7 @@ export const VAD_WORKLET = "vad.worklet.bundle.min.js";
 export const VAD_MODEL = "silero_vad_v5.onnx";
 
 /** 生产用本地 /vad；开发用同版本 CDN，避开 Vite 对 public 下 .mjs 动态导入的限制。 */
-const ORT_RUNTIME_BASE = import.meta.env.DEV
+export const VAD_ORT_WASM_BASE = import.meta.env.DEV
 	? "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.31.1/dist/"
 	: VAD_ASSET_PATH;
 
@@ -153,7 +153,7 @@ export async function startVadSession(
 		vad = await createVad({
 			model: "v5",
 			baseAssetPath: VAD_ASSET_PATH,
-			onnxWASMBasePath: ORT_RUNTIME_BASE,
+			onnxWASMBasePath: VAD_ORT_WASM_BASE,
 			...(audioContext ? { audioContext } : {}),
 			getStream: async () => {
 				if (stream) return stream;

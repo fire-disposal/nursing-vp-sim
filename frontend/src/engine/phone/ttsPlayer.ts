@@ -57,6 +57,7 @@ export type DemoTTSListener = (event:
 
 type DemoTTSPlayerCore = Pick<PcmStreamPlayer, "playStream" | "stop" | "prime" | "waitIdle" | "dispose"> & {
 	outputLevel?: () => number;
+	playConnectTone?: () => Promise<void>;
 };
 
 export interface DemoTTSConfig {
@@ -128,6 +129,11 @@ export class DemoTTSPlayer {
 		} catch {
 			return 0;
 		}
+	}
+
+	/** 接通校准音：先出声，再播开场白，给回声门留出延迟/增益样本。 */
+	async playConnectTone(): Promise<void> {
+		await this.player.playConnectTone?.().catch(() => undefined);
 	}
 
 	get usingFallback(): boolean {

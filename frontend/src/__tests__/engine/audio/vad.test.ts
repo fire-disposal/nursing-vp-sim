@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { startVadSession, VAD_ASSET_PATH, VAD_TUNING, type MicVadLike } from "@/engine/audio/vad";
+import { startVadSession, VAD_ASSET_PATH,
+	VAD_ORT_WASM_BASE, VAD_TUNING, type MicVadLike } from "@/engine/audio/vad";
 
 /**
  * VAD 接线：同一条流、不 stop 轨道、校准期抑制事件、跑不动就暂停。
@@ -74,7 +75,7 @@ describe("startVadSession 资源与参数", () => {
 		const { createVad } = await setup(32);
 		const options = createVad.mock.calls[0][0];
 		expect(options.baseAssetPath).toBe(VAD_ASSET_PATH);
-		expect(options.onnxWASMBasePath).toBe(VAD_ASSET_PATH);
+		expect(options.onnxWASMBasePath).toBe(VAD_ORT_WASM_BASE);
 		expect(options.model).toBe("v5");
 		expect(options).toMatchObject(VAD_TUNING);
 	});

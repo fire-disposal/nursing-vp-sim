@@ -163,6 +163,8 @@ export function usePhoneCall({
 	const patientLineIdRef = useRef<number | null>(null);
 	/** 轮次序号：打断/停止时递增 → 旧轮残留的 SSE 帧与 TTS 回调一律作废。 */
 	const turnSeqRef = useRef(0);
+	/** 一通电话的序号：挂断后，延迟的接通音/开场白不得再启动。 */
+	const callSeqRef = useRef(0);
 
 	// 换角色 = 重开一通电话。
 	useEffect(() => {
@@ -481,6 +483,7 @@ export function usePhoneCall({
 	const startCall = useCallback(() => {
 		const player = playerRef.current;
 		if (!character || !player) return;
+		const callSeq = ++callSeqRef.current;
 		const initial = character.initial;
 		emotionRef.current = initial;
 		setEmotion(initial);
@@ -501,13 +504,24 @@ export function usePhoneCall({
 		const opener = openingLine(character);
 		setPatientReplying(true);
 		setLines([{ id: ++lineSeqRef.current, role: "patient", text: opener }]);
-		void speakWhole(opener).finally(() => {
+		const finishGreeting = () => {
+			if (callSeqRef.current !== callSeq) return;
 			setPatientReplying(false);
 			settleStage();
-		});
+		};
+		const connectTone = player.playConnectTone?.();
+		if (!connectTone) {
+			void speakWhole(opener).finally(finishGreeting);
+		} else {
+			// 先播已知频率的接通音，让回声门在开场白之前拿到干净的延迟/增益样本。
+			void connectTone
+				.then(() => (callSeqRef.current === callSeq ? speakWhole(opener) : undefined))
+				.finally(finishGreeting);
+		}
 	}, [character, pushLog, settleStage, speakWhole, voice]);
 
 	const stopCall = useCallback(() => {
+		callSeqRef.current += 1;
 		turnSeqRef.current += 1;
 		turnAbortRef.current?.abort();
 		turnAbortRef.current = null;
