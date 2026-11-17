@@ -1,17 +1,18 @@
 import { useEffect, useRef } from "react";
 import { Box, Text } from "@mantine/core";
+import type { WaveRing } from "./waveRing";
 
 export interface AcousticWaveformProps {
 	title: string;
-	data: number[];
+	data: WaveRing;
 	color: string;
-	/** 显示最近多少秒；长窗口自动做像素级 min/max 降采样。 */
+	/** 固定显示最近多少秒；旧样本从左侧滚出。 */
 	seconds: number;
-	/** 数据变更计数：数组原地增长时也触发重绘。 */
+	/** 数据变更计数：环形缓冲原地变化时触发重绘。 */
 	version: number;
 }
 
-/** 轻量时域波形：数据来自真实 PCM，不用模拟动画。 */
+/** 轻量时域波形：固定时间窗 + 像素级 min/max，不做整段历史缩放。 */
 export default function AcousticWaveform({ title, data, color, seconds, version }: AcousticWaveformProps) {
 	const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -37,19 +38,18 @@ export default function AcousticWaveform({ title, data, color, seconds, version 
 		ctx.globalAlpha = 1;
 
 		const windowSamples = Math.max(1, Math.floor(seconds * 16_000));
-		const windowStart = data.length - windowSamples;
 		const samplesPerPixel = windowSamples / width;
 		ctx.beginPath();
 		for (let x = 0; x < width; x += 1) {
-			const fromTime = windowStart + x * samplesPerPixel;
-			const toTime = windowStart + (x + 1) * samplesPerPixel;
-			const from = Math.max(0, Math.ceil(fromTime));
-			const to = Math.min(data.length, Math.floor(toTime));
+			const ageStart = windowSamples - (x + 1) * samplesPerPixel;
+			const ageEnd = windowSamples - x * samplesPerPixel;
+			const from = Math.max(0, Math.floor(ageStart));
+			const to = Math.min(data.length, Math.ceil(ageEnd));
 			if (to <= from) continue;
 			let min = 1;
 			let max = -1;
-			for (let i = from; i < to; i += 1) {
-				const value = data[i] ?? 0;
+			for (let age = from; age < to; age += 1) {
+				const value = data.get(age);
 				if (value < min) min = value;
 				if (value > max) max = value;
 			}

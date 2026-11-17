@@ -8,16 +8,19 @@ import { useVoiceDialogue } from "@/hooks/useVoiceDialogue";
 import useAuthStore from "@/stores/authStore";
 import { accessHeaders } from "@/utils/accessContext";
 import AcousticWaveform from "./AcousticWaveform";
+import { WaveRing } from "./waveRing";
 import type { EchoCalibrationResult, EchoSuppressionResult } from "@/engine/audio/mic";
 import "./AcousticLabPanel.css";
 
 interface WaveHistory {
-	tts: number[];
-	mic: number[];
-	clean: number[];
+	tts: WaveRing;
+	mic: WaveRing;
+	clean: WaveRing;
 }
 
-const EMPTY_WAVES: WaveHistory = { tts: [], mic: [], clean: [] };
+function createWaves(): WaveHistory {
+	return { tts: new WaveRing(20), mic: new WaveRing(20), clean: new WaveRing(20) };
+}
 
 /** 实战声学面板：校准、TTS、ASR 与三路真实 PCM 波形共用一条链。 */
 export default function AcousticLabPanel() {
@@ -33,12 +36,21 @@ export default function AcousticLabPanel() {
 	const suppressionAtRef = useRef(0);
 	const playerRef = useRef<PcmStreamPlayer | null>(null);
 	const resultRef = useRef<EchoCalibrationResult | null>(null);
-	const waveRef = useRef<WaveHistory>(EMPTY_WAVES);
+	const waveRef = useRef<WaveHistory>(createWaves());
+	const waveRenderTimerRef = useRef<number | null>(null);
 	const [waveVersion, setWaveVersion] = useState(0);
 	const [spanSeconds, setSpanSeconds] = useState("10");
 	const runRef = useRef(0);
 	const readyRef = useRef<(() => void) | null>(null);
 	const calibrationRef = useRef<((result: EchoCalibrationResult) => void) | null>(null);
+
+	const scheduleWaveRender = useCallback(() => {
+		if (waveRenderTimerRef.current !== null) return;
+		waveRenderTimerRef.current = window.setTimeout(() => {
+			waveRenderTimerRef.current = null;
+			setWaveVersion((version) => version + 1);
+		}, 100);
+	}, []);
 
 	const onFrame = useCallback((channel: Float32Array, sampleRate: number) => {
 		const player = playerRef.current;
@@ -50,26 +62,17 @@ export default function AcousticLabPanel() {
 		const actual = player.readReference(referenceStart, data.length);
 		const ideal = idealMarkerReference(referenceStart, data.length, player.markerOnsets());
 		const current = waveRef.current;
-		for (let i = 0; i < data.length; i += 1) {
-			current.tts.push(ideal[i] !== 0 ? (ideal[i] ?? 0) : (actual[i] ?? 0));
-			current.mic.push(data[i] ?? 0);
-		}
-		const maxSamples = 16_000 * 20;
-		if (current.tts.length > maxSamples) {
-			const drop = current.tts.length - maxSamples;
-			current.tts.splice(0, drop);
-			current.mic.splice(0, drop);
-		}
-		setWaveVersion((version) => version + 1);
-	}, []);
+		const reference = new Float32Array(data.length);
+		for (let i = 0; i < data.length; i += 1) reference[i] = ideal[i] !== 0 ? (ideal[i] ?? 0) : (actual[i] ?? 0);
+		current.tts.push(reference);
+		current.mic.push(data);
+		scheduleWaveRender();
+	}, [scheduleWaveRender]);
 
 	const onCleanedPcm = useCallback((samples: Int16Array) => {
-		const current = waveRef.current;
-		for (let i = 0; i < samples.length; i += 1) current.clean.push((samples[i] ?? 0) / 32768);
-		const maxSamples = 16_000 * 20;
-		if (current.clean.length > maxSamples) current.clean.splice(0, current.clean.length - maxSamples);
-		setWaveVersion((version) => version + 1);
-	}, []);
+		waveRef.current.clean.push(samples, 1 / 32768);
+		scheduleWaveRender();
+	}, [scheduleWaveRender]);
 
 	const onEchoCalibration = useCallback((next: EchoCalibrationResult) => {
 		resultRef.current = next;
@@ -100,6 +103,7 @@ export default function AcousticLabPanel() {
 		echoReference: (startMs, length) => playerRef.current?.readReference(startMs, length) ?? new Float32Array(length),
 		markerOnsets: () => playerRef.current?.markerOnsets() ?? [],
 		onEchoSuppression,
+		onCleanedPcm,
 		onEchoCalibration,
 		onVoiceReady,
 		onFrame,
@@ -114,11 +118,14 @@ export default function AcousticLabPanel() {
 		playerRef.current?.dispose();
 		playerRef.current = null;
 		setRunning(false);
-		waveRef.current = { tts: [], mic: [], clean: [] };
+		waveRef.current = createWaves();
+		if (waveRenderTimerRef.current !== null) window.clearTimeout(waveRenderTimerRef.current);
+		waveRenderTimerRef.current = null;
 		setWaveVersion((version) => version + 1);
 	}, [voice]);
 
 	useEffect(() => () => {
+		if (waveRenderTimerRef.current !== null) window.clearTimeout(waveRenderTimerRef.current);
 		voiceStopRef.current();
 		playerRef.current?.dispose();
 	}, []);

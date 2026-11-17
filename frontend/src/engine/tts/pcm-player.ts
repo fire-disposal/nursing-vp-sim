@@ -224,6 +224,8 @@ export class PcmStreamPlayer {
 		}
 		this.sources.clear();
 		this.endTime = 0;
+		this.referenceChunks = [];
+		this.markerOnsetTimes = [];
 	}
 
 	/**
