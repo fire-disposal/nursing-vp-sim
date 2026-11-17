@@ -79,7 +79,7 @@ export default function CallStage({
 				</Text>
 			) : speaking ? (
 				<Text size="xs" c="dimmed">
-					开口即可打断
+					开口说话，识别确认后打断
 				</Text>
 			) : null}
 		</Stack>

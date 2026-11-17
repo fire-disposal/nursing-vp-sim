@@ -239,7 +239,7 @@ export default function PhonePanel({ character, onBack, reducedMotion = false }:
 									variant="light"
 									color="red"
 									size="lg"
-									onClick={call.handleBargeIn}
+									onClick={() => call.handleBargeIn("manual")}
 									disabled={!call.speaking}
 									aria-label="停播"
 								>

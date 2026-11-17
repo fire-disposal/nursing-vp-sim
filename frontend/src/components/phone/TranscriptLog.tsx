@@ -1,6 +1,6 @@
 import { Box, Flex, Group, ScrollArea, Stack, Text } from "@mantine/core";
 import type { PhoneCallLine, PhoneCallMetrics } from "@/engine/phone/usePhoneCall";
-import { PHONE_EMOTION_LABELS, type PhoneLogEntry } from "@/engine/phone/types";
+import { USER_INTENT_LABELS, type PhoneLogEntry } from "@/engine/phone/types";
 
 /**
  * TranscriptLog —— 实时转写 + 事件日志（中栏下半部分）。
@@ -69,14 +69,12 @@ export default function TranscriptLog({
 									</Text>
 									{line.tag && (
 										<Text size="xs" c="dimmed">
-											{line.tag in PHONE_EMOTION_LABELS
-												? PHONE_EMOTION_LABELS[line.tag as keyof typeof PHONE_EMOTION_LABELS]
-												: line.tag}
+											{USER_INTENT_LABELS[line.tag] ?? line.tag}
 										</Text>
 									)}
 									{line.interrupted && (
 										<Text size="xs" c="orange">
-											被打断
+											{line.interruptedBy === "manual" ? "手动停播" : "学生打断"}
 										</Text>
 									)}
 								</Group>

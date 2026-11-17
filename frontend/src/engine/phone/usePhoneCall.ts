@@ -34,8 +34,10 @@ export interface PhoneCallLine {
 	text: string;
 	/** 学生消息的意图标签（本地规则判定，纯展示）。 */
 	tag?: ScriptIntent;
-	/** 患者这句话被学生打断（只念出去前面一部分）。 */
+	/** 患者这句话被停播（只念出去前面一部分）。 */
 	interrupted?: boolean;
+	/** 停播来源：学生真实开口，或界面手动停播。 */
+	interruptedBy?: "user" | "manual";
 	/** 患者消息仍在流式生成。 */
 	streaming?: boolean;
 }
@@ -102,8 +104,8 @@ export interface UsePhoneCallResult {
 	stopCall: () => void;
 	/** 唯一语义出口：语音转写、快捷按钮、文本输入都走它。 */
 	handleUserText: (text: string) => void;
-	/** 学生有效打断（患者仍在生成/出声时开口）。 */
-	handleBargeIn: () => void;
+	/** 学生有效打断（患者仍在生成/出声时开口），或手动停播。 */
+	handleBargeIn: (reason?: "user" | "manual") => void;
 	/** 快捷测试按钮。 */
 	runQuickTest: (kind: "greeting" | "interrupt" | "emotion") => void;
 }
@@ -430,7 +432,7 @@ export function usePhoneCall({
 		[character, pushLog, runTurn],
 	);
 
-	const handleBargeIn = useCallback(() => {
+	const handleBargeIn = useCallback((reason: "user" | "manual" = "user") => {
 		const player = playerRef.current;
 		const at = performance.now();
 		interruptedRef.current = true;
@@ -449,7 +451,7 @@ export function usePhoneCall({
 			// 打断只标记状态，不吞掉已生成/未念完的文本：记录区要能复盘她原本要说什么。
 			return [
 				...prev.slice(0, -1),
-				{ ...last, interrupted: true, text: last.text || "（未收到回复内容）" },
+				{ ...last, interrupted: true, interruptedBy: reason, text: last.text || "（未收到回复内容）" },
 			];
 		});
 		settleStage();
@@ -469,7 +471,7 @@ export function usePhoneCall({
 		silenceMs: 900,
 		recordId: 0,
 		token,
-		onBargeIn: handleBargeIn,
+		onBargeIn: () => handleBargeIn("user"),
 		echoLevel: ttsEchoLevel,
 		bargeInGate: "asr",
 		bargeInGuard: isEchoLike,
