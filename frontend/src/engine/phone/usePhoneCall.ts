@@ -454,6 +454,7 @@ export function usePhoneCall({
 		interruptedRef.current = false;
 		pushLog("system", `接通：${character.name}`);
 		const opener = openingLine(character);
+		historyRef.current = [{ role: "assistant", content: opener }];
 		lastPatientTextRef.current = opener;
 		openingTextRef.current = opener;
 		openingLineIdRef.current = ++lineSeqRef.current;

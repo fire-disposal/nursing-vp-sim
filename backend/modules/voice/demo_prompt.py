@@ -152,8 +152,8 @@ def build_messages(
     """system + 本次页面会话的历史（服务端不保存，调用方每次带全）。
 
     ``history`` 来自请求体：``[{"role": "user"|"assistant", "content": "…"}]``。只保留
-    最近 ``MAX_HISTORY_TURNS`` 条、每条截断到 ``MAX_HISTORY_CHARS``，且必须以 ``user``
-    开头（LLM 不接受 system/assistant 打头或无用户输入的对话）。
+    最近 ``MAX_HISTORY_TURNS`` 条、每条截断到 ``MAX_HISTORY_CHARS``。开场白可以是
+    首条 assistant 消息；其后的用户消息照常保留，角色自己的开场不再从历史中消失。
     """
     messages: list[dict] = [
         {"role": "system", "content": build_system_prompt(character, emotion_state, long_response=long_response)}
@@ -164,6 +164,4 @@ def build_messages(
         if role not in ("user", "assistant") or not content:
             continue
         messages.append({"role": role, "content": content})
-    while len(messages) > 1 and messages[1]["role"] != "user":
-        messages.pop(1)
     return messages

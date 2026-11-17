@@ -930,13 +930,21 @@ def test_migration_chains_to_permission_merge():
     assert 'op.drop_table("voice_demo_logs")' in text
 
 
-def test_history_is_bounded_and_must_start_with_user():
+def test_history_preserves_opening_and_is_bounded():
     from modules.voice.demo_prompt import CHARACTERS, MAX_HISTORY_TURNS, build_messages
 
-    history = [{"role": "assistant", "content": "先说话的是我"}] + [
-        {"role": "user" if i % 2 == 0 else "assistant", "content": f"m{i}"} for i in range(60)
-    ]
+    opening = build_messages(
+        CHARACTERS["he-jianfeng"],
+        "neutral",
+        [
+            {"role": "assistant", "content": "先说话的是我"},
+            {"role": "user", "content": "发生什么了？"},
+        ],
+    )
+    assert opening[0]["role"] == "system"
+    assert opening[1] == {"role": "assistant", "content": "先说话的是我"}
+    assert opening[2]["role"] == "user"
+
+    history = [{"role": "user" if i % 2 == 0 else "assistant", "content": f"m{i}"} for i in range(60)]
     messages = build_messages(CHARACTERS["he-jianfeng"], "neutral", history)
-    assert messages[0]["role"] == "system"
-    assert messages[1]["role"] == "user"  # 首条非 system 必须是用户输入
     assert len(messages) - 1 <= MAX_HISTORY_TURNS
