@@ -190,7 +190,10 @@ export function usePhoneCall({
 	const isEchoLike = useCallback((text: string) => {
 		if (isTtsEcho(text, recentTtsRef.current)) return true;
 		if (!lastPatientTextRef.current || performance.now() - lastPatientAtRef.current > 8000) return false;
-		return similarSpeech(normalizeSpeech(text), normalizeSpeech(lastPatientTextRef.current));
+		const norm = normalizeSpeech(text);
+		const patient = normalizeSpeech(lastPatientTextRef.current);
+		if (norm.length >= 2 && patient.includes(norm)) return true;
+		return similarSpeech(norm, patient);
 	}, []);
 
 	useEffect(() => {
@@ -504,6 +507,9 @@ export function usePhoneCall({
 		void player.prime();
 		voice.start();
 		const opener = openingLine(character);
+		// 开场白不经过 appendPatientChunk，也要进入回录文本守卫。
+		lastPatientTextRef.current = opener;
+		lastPatientAtRef.current = performance.now();
 		setPatientReplying(true);
 		setLines([{ id: ++lineSeqRef.current, role: "patient", text: opener }]);
 		const finishGreeting = () => {

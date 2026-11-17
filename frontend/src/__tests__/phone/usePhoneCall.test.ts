@@ -138,6 +138,15 @@ describe("与训练链路无关", () => {
 		expect(tts.spoken[0]).toContain("周建国");
 		expect(chat.streamChat).not.toHaveBeenCalled();
 	});
+
+	it("drops an opening-line echo prefix before it reaches the model", () => {
+		const { result, voice, chat } = renderCall("lin-wanqing");
+		act(() => result.current.startCall());
+		const send = voice.harness.calls.at(-1)?.onSend;
+		act(() => send?.("喂，我这边几"));
+		expect(result.current.lines.some((line) => line.role === "user")).toBe(false);
+		expect(chat.streamChat).not.toHaveBeenCalled();
+	});
 });
 
 describe("handleUserText → LLM 流 → TTS", () => {
