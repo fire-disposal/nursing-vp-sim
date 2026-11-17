@@ -26,7 +26,7 @@ import {
 import { createMessageBus } from "./MessageBus";
 import type { ChatMessage } from "@/engine/types";
 import { getTrainingState } from "@/stores/trainingStore";
-import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { INQUIRY_PANEL_ID, useWorkspaceStore } from "@/stores/workspaceStore";
 import {
 	usePatientData,
 	useSessionManifest,
@@ -58,6 +58,7 @@ function TrainingBootSkeleton() {
 
 export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 	const recordNum = Number(recordId);
+	const isMobile = useIsMobile();
 	const { error: toastError, warning: toastWarning } = useToast();
 	const queryClient = useQueryClient();
 
@@ -111,10 +112,12 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 		messageCorrection, nursingRecordSeed,
 	]);
 
-	// 换记录 = 换会话：清空上一个会话留下的工作区面板状态
+	// 换记录时重置并选定默认面板；与 readyRecordId 同批提交，首个可见帧就是最终宽度。
 	useEffect(() => {
-		useWorkspaceStore.getState().resetWorkspace();
-	}, [recordId]);
+		const workspace = useWorkspaceStore.getState();
+		workspace.resetWorkspace();
+		if (!isMobile) workspace.applyInitialPanel(INQUIRY_PANEL_ID);
+	}, [recordId, isMobile]);
 
 	// ── TTS attach ──
 	useEffect(() => {
@@ -423,7 +426,6 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 	}, []);
 
 	const isShort = useShortViewport();
-	const isMobile = useIsMobile();
 
 	if (!patient || readyRecordId !== recordId || !toolBridgeReady) {
 		return <TrainingBootSkeleton />;

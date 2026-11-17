@@ -4,11 +4,28 @@ import { resolveLandingPath } from "@/components/shell/navigation";
 /**
  * 落地页契约：`/home` 必须把每个视角送到**它真的进得去**的第一页。
  *
- * 平台/运维视角没有 `stats_view`，旧口径按"有非学生权限就跳 /admin"会直接撞 403；
+ * 运维视角没有 `stats_view`，旧口径按"有非学生权限就跳 /admin"会直接撞 403；
  * 这组用例钉住"永远有落点、不循环、不走 403"。
  */
-const PLATFORM = ["school_manage", "api_manage", "audit_view", "audit_export", "llm_monitor", "export_data"];
-const OPS = ["llm_monitor", "api_manage", "audit_view", "audit_export", "feedback_review", "export_data"];
+/** `ops` = 原 ops ∪ 原 platform（唯一的跨院校视角）。 */
+const OPS = [
+	"school_manage",
+	"llm_monitor",
+	"api_manage",
+	"audit_view",
+	"audit_export",
+	"feedback_review",
+	"export_data",
+];
+/** 没有 `school_manage` 的运维（历史院校级授予）：仍要落到进得去的页面。 */
+const OPS_WITHOUT_SCHOOL_MANAGE = [
+	"llm_monitor",
+	"api_manage",
+	"audit_view",
+	"audit_export",
+	"feedback_review",
+	"export_data",
+];
 const TEACHER = [
 	"grade_class_manage",
 	"case_manage",
@@ -22,12 +39,17 @@ const TEACHER = [
 const STUDENT = ["training_access", "qa_access"];
 
 describe("resolveLandingPath", () => {
-	it("平台视角：进入平台总览", () => {
-		expect(resolveLandingPath(PLATFORM, "platform")).toBe("/admin/platform");
+	it("运维视角：进入运维总览（唯一的跨院校入口）", () => {
+		expect(resolveLandingPath(OPS, "ops")).toBe("/admin/ops");
 	});
 
-	it("运维视角：没有 stats_view → 运维仪表盘", () => {
-		expect(resolveLandingPath(OPS, "ops")).toBe("/admin/system-ops");
+	it("没有 school_manage 的运维：没有 stats_view → 运维仪表盘", () => {
+		expect(resolveLandingPath(OPS_WITHOUT_SCHOOL_MANAGE, "ops")).toBe("/admin/system-ops");
+	});
+
+	it("`platform` 不再是视角：按普通权限算，不落到 /admin/ops", () => {
+		// 旧客户端持久化残留的 key 不该复活一个已下线的入口
+		expect(resolveLandingPath(OPS_WITHOUT_SCHOOL_MANAGE, "platform")).toBe("/admin/system-ops");
 	});
 
 	it("教师/院校管理员：教学看板", () => {

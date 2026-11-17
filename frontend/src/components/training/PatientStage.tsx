@@ -11,7 +11,7 @@ import { InquiryProgressChip } from "./InquiryProgressChip";
 import PatientPresenter from "./presentation/PatientPresenter";
 
 /** 桌面上下文列宽度：够读，不抢对话区 */
-const CONTEXT_COLUMN_WIDTH = 248;
+const CONTEXT_COLUMN_WIDTH = 280;
 
 /** 可见呼吸状态 → 动画周期（秒）：只表达快慢，不给次数 */
 const BREATH_SECONDS: Record<string, number> = { normal: 3, rapid: 1.9, labored: 1.5 };
@@ -33,7 +33,7 @@ const ACCENT_BY_EMOTION: Record<string, string> = {
  *
  * 需求出发，而不是"一张占半屏的大图"：
  *
- * - 对话是主工作面，患者是**背景信息**：桌面 216px 常驻列（头像 / 姓名·年龄·性别 / 主诉 / 情绪），
+ * - 对话是主工作面，患者是**背景信息**：桌面固定窄列（头像 / 姓名·年龄·性别 / 主诉 / 情绪），
  *   不展开、不折叠、不挤压对话列；
  * - 手机（< 768px）：一条患者条（头像 + 姓名 + 主诉 + 情绪），纵向空间全留给对话；
  * - **大图按需**：点头像/患者条打开浮层看患者形象——观察训练需要的表情与体态在那里，不在常驻区；
@@ -79,8 +79,8 @@ export default function PatientStage() {
 	const breathSeconds = breathing ? (BREATH_SECONDS[breathing] ?? BREATH_SECONDS.normal) : null;
 
 	const presentation = usePatientPresentation(patient);
-	/** 程序化绘制是方构图；照片是竖构图的立绘，保持 4:5 裁切（评审 B4）。 */
-	const portraitAspect = presentation.kind === "mii" ? "1 / 1" : "4 / 5";
+	/** 照片与程序化形象共用固定比例，素材加载后不再改变患者列高度。 */
+	const portraitAspect = "4 / 5";
 
 	const accent = ACCENT_BY_EMOTION[emotion] ?? "brand.5";
 	const name = patient?.name ?? "患者";
@@ -263,30 +263,38 @@ export default function PatientStage() {
 					</Stack>
 				)}
 
-				{/* 状态簇压在列底部：采集进度 / 呼吸 / 情绪都是「这位患者现在怎么样」 */}
-				<Stack gap="xs" mt="auto">
-					<InquiryProgressChip />
-					{breathSeconds !== null && (
-					<Group gap={6} wrap="nowrap" align="center">
-						<Text size="sm" fw={600} c="dimmed">
-							呼吸
+				{/* 状态簇是「这位患者现在怎么样」：收进一张有层级的卡片，不再散成左下角小字。 */}
+				<Paper
+					withBorder
+					p="sm"
+					mt="auto"
+					className="stu-patient-status"
+					style={{ borderColor: "var(--stu-line)", borderRadius: "var(--stu-radius)" }}
+				>
+					<Stack gap="sm">
+						<Text size="xs" fw={700} c="dimmed" style={{ letterSpacing: "0.08em" }}>
+							当前状态
 						</Text>
-						<Box
-							className="patient-breath-bar"
-							w={4}
-							h={14}
-							bg={accent}
-							style={{ borderRadius: 999, animationDuration: `${breathSeconds}s` }}
-						/>
-						<Text size="xs" c="dimmed">
-							{BREATH_LABELS[breathing ?? "normal"]}
-							{speaking ? " · 正在说话" : ""}
-						</Text>
-					</Group>
-					)}
-
-					{bus && <EmotionIndicator bus={bus} features={features} recordId={recordId} compact />}
-				</Stack>
+						<InquiryProgressChip />
+						{breathSeconds !== null && (
+							<Group gap={8} wrap="nowrap" align="center">
+								<Text size="sm" fw={600}>呼吸</Text>
+								<Box
+									className="patient-breath-bar"
+									w={5}
+									h={18}
+									bg={accent}
+									style={{ borderRadius: 999, animationDuration: `${breathSeconds}s` }}
+								/>
+								<Text size="sm" c="dimmed">
+									{BREATH_LABELS[breathing ?? "normal"]}
+									{speaking ? " · 正在说话" : ""}
+								</Text>
+							</Group>
+						)}
+						{bus && <EmotionIndicator bus={bus} features={features} recordId={recordId} compact />}
+					</Stack>
+				</Paper>
 			</Stack>
 			{portrait}
 		</>

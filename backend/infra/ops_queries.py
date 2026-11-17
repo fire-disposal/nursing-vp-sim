@@ -145,7 +145,12 @@ def voice_window(
     *,
     school_id: int | None = None,
 ) -> dict[str, dict]:
-    """语音调用窗口统计，按 ``direction`` 分组（当前只有 ``tts``）。"""
+    """语音调用窗口统计，按 ``direction`` 分组（``tts`` 合成 / ``asr`` 识别）。
+
+    两个方向口径一致：调用数全量、成功/失败按 ``status`` 计数、费用取 ``cost_estimated``
+    全量（ASR 按音频小时折算，失败但已消耗时长同样计费）。``direction=None`` 返回全部
+    方向——调用方自己决定是否相加，别在这里预先把 TTS 和 ASR 合成一个数。
+    """
     q = db.query(
         VoiceCallLog.direction,
         func.count(VoiceCallLog.id).label("total"),

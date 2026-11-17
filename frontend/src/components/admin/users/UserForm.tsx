@@ -23,10 +23,10 @@ import type {
 } from "./types";
 
 /**
- * 平台视角：拥有它的账号跨院校，不属于任何院校，表单里不选单位。
- * 判定用视角键而不是退役的角色名。
+ * 平台专属视角（`ops`，跨院校的运维/院校管理）：拥有它的账号不属于任何院校，
+ * 表单里不选单位。判定用视角键而不是退役的角色名。
  */
-const PLATFORM_PERSONA = "platform";
+const OPS_PERSONA = "ops";
 
 interface UserFormProps {
   open: boolean;
@@ -101,7 +101,7 @@ export default function UserForm({
     validate: async (values) => {
       const errors = await schemaResolver(registerUserSchema)(values);
       // 非平台账号必须有单位：服务端没有「默认院校」，缺了就 404「需要指定院校」
-      if (isPlatform && !values.personas.includes(PLATFORM_PERSONA) && !values.school_id) {
+      if (isPlatform && !values.personas.includes(OPS_PERSONA) && !values.school_id) {
         errors.school_id = "请选择所属院校";
       }
       return errors;
@@ -122,26 +122,20 @@ export default function UserForm({
   });
 
   // 只展示**能授予**的视角：超出调用者当前权限的档位后端会 403，
-  // 给出可选项等于让用户填完再被拒。platform / ops 只能属于平台账号：
-  // 编辑院校账号时不展示；新建时 platform 本身可选，ops 等需先选 platform。
+  // 给出可选项等于让用户填完再被拒。平台专属视角（ops）只能属于平台账号：
+  // 编辑院校账号时不展示；新建时勾上它就是建平台账号，取消勾选则一并清掉。
   const grantablePersonas = personas.filter(
     (p) =>
       p.grantable &&
       (!p.requires_platform_account ||
         (isEdit
           ? Boolean(user?.is_platform)
-          : p.value === PLATFORM_PERSONA ||
-            regForm.values.personas.includes(PLATFORM_PERSONA))),
-  );
-  const platformOnlyKeys = new Set(
-    personas
-      .filter((p) => p.requires_platform_account && p.value !== PLATFORM_PERSONA)
-      .map((p) => p.value),
+          : p.value === OPS_PERSONA || regForm.values.personas.includes(OPS_PERSONA))),
   );
   const withoutOrphanedPlatformOnly = (values: string[]) =>
-    values.includes(PLATFORM_PERSONA)
+    values.includes(OPS_PERSONA)
       ? values
-      : values.filter((value) => !platformOnlyKeys.has(value));
+      : values.filter((value) => !personas.find((p) => p.value === value)?.requires_platform_account);
 
   const [isResetting, setIsResetting] = useState(false);
   const [resetError, setResetError] = useState("");
@@ -180,12 +174,12 @@ export default function UserForm({
     }
   }, [open, user, isPlatform, scopedSchool]);
 
-  // 平台账号不属于任何院校：勾上「平台」视角时把已选单位清空，避免提交出「平台 + 院校」
+  // 平台账号不属于任何院校：勾上「运维」视角时把已选单位清空，避免提交出「运维 + 院校」
   useEffect(() => {
-    if (regForm.values.personas.includes(PLATFORM_PERSONA) && regForm.values.school_id) {
+    if (regForm.values.personas.includes(OPS_PERSONA) && regForm.values.school_id) {
       regForm.setFieldValue("school_id", "");
     }
-    if (editForm.values.personas.includes(PLATFORM_PERSONA) && editForm.values.school_id) {
+    if (editForm.values.personas.includes(OPS_PERSONA) && editForm.values.school_id) {
       editForm.setFieldValue("school_id", "");
     }
   }, [
@@ -198,7 +192,7 @@ export default function UserForm({
   // 选了班级就以班级所在院校为准（服务端注册同样是「班级优先」）：表单里不能同时存在
   // 两个互相矛盾的答案，否则账号会落进和学生所选院校不同的院校。
   const regClassSchoolId =
-    isPlatform && !regForm.values.personas.includes(PLATFORM_PERSONA)
+    isPlatform && !regForm.values.personas.includes(OPS_PERSONA)
       ? classes.find((c) => String(c.id) === regForm.values.memberships[0]?.class_id)?.school_id
       : undefined;
   useEffect(() => {
@@ -285,7 +279,7 @@ export default function UserForm({
                   {...editForm.getInputProps("school_id")}
                   data={schoolOptions}
                   placeholder={
-                    editForm.values.personas.includes(PLATFORM_PERSONA)
+                    editForm.values.personas.includes(OPS_PERSONA)
                       ? "平台账号（不属于任何院校）"
                       : "选择所属院校"
                   }
@@ -293,11 +287,11 @@ export default function UserForm({
                   // 已收窄到某校时跨校搬迁需要先切到「全部院校」，否则只会得到 404
                   disabled={
                     isSaving ||
-                    editForm.values.personas.includes(PLATFORM_PERSONA) ||
+                    editForm.values.personas.includes(OPS_PERSONA) ||
                     scopedSchool !== null
                   }
                   description={
-                    scopedSchool !== null && !editForm.values.personas.includes(PLATFORM_PERSONA)
+                    scopedSchool !== null && !editForm.values.personas.includes(OPS_PERSONA)
                       ? "跟随当前院校；如需跨院校调整，先切到「全部院校」"
                       : undefined
                   }
@@ -403,23 +397,23 @@ export default function UserForm({
                 <Box flex={1} miw={140}>
                   <Select
                     label="院校"
-                    withAsterisk={!regForm.values.personas.includes(PLATFORM_PERSONA)}
+                    withAsterisk={!regForm.values.personas.includes(OPS_PERSONA)}
                     {...regForm.getInputProps("school_id")}
                     data={schoolOptions}
                     placeholder={
-                      regForm.values.personas.includes(PLATFORM_PERSONA) ? "平台账号" : "选择所属院校"
+                      regForm.values.personas.includes(OPS_PERSONA) ? "平台账号" : "选择所属院校"
                     }
                     // 选了班级（班级决定院校）或已收窄到某校时，这里不再让人另选一个答案
                     disabled={
                       isSaving ||
-                      regForm.values.personas.includes(PLATFORM_PERSONA) ||
+                      regForm.values.personas.includes(OPS_PERSONA) ||
                       regClassSchoolId != null ||
                       scopedSchool !== null
                     }
                     description={
                       regClassSchoolId != null
                         ? "由所选班级决定"
-                        : scopedSchool !== null && !regForm.values.personas.includes(PLATFORM_PERSONA)
+                        : scopedSchool !== null && !regForm.values.personas.includes(OPS_PERSONA)
                           ? "跟随当前院校"
                           : undefined
                     }

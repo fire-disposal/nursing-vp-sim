@@ -84,7 +84,7 @@ def resolve_ws_access(
 ) -> bool:
     """按查询参数解析视角/院校，并判断是否具备 ``training_access``。
 
-    缺省（旧客户端）走默认视角 —— 平台账号会落到 ``platform`` 视角、无 ``training_access``，
+    缺省（旧客户端）走默认视角 —— 平台账号会落到 ``ops`` 视角、无 ``training_access``，
     与 HTTP 请求不带 ``X-View-Persona`` 时一致。
     """
     db: Session = SessionLocal()

@@ -42,11 +42,11 @@ export function PersonaSwitcher({ variant = "auto" }: { variant?: "auto" | "comp
 
 	const onChange = async (next: string) => {
 		if (next === active) return;
-		// 平台账号的非 platform 视角必须有具体学校：不允许对“全部院校”行使教师/学生/管理数据面。
+		// 平台账号的非跨院校视角必须有具体学校：不允许对“全部院校”行使教师/学生/管理数据面。
 		// 只有一所院校 → 直接替用户选上（绝大多数部署都是单校，别让人多点一步）；
 		// 多所 → 把院校菜单打开，下一步就是选择，而不是只弹一句提示。
 		if (isPlatform && isPlatformOnlyPersona(next)) {
-			// 平台 / 运维视角跨全部院校：残留的选校既不会收窄页面，也会让人误读当前范围。
+			// 运维视角跨全部院校：残留的选校既不会收窄页面，也会让人误读当前范围。
 			useSchoolScopeStore.getState().setSchool(null);
 		} else if (isPlatform && !useSchoolScopeStore.getState().school) {
 			// 其他视角必须有具体学校：不允许对“全部院校”行使教师/学生/管理数据面。
@@ -62,10 +62,10 @@ export function PersonaSwitcher({ variant = "auto" }: { variant?: "auto" | "comp
 		// 换视角 = 换了权限口径：所有查询结果都不再成立
 		queryClient.clear();
 		// 权限集合是**按视角算的**：必须等 `/auth/me` 回话再决定落地页，
-		// 否则 `/home` 仍按旧视角重定向（从平台切到管理会落到学生训练页）。
+		// 否则 `/home` 仍按旧视角重定向（从运维切到管理会落到学生训练页）。
 		// refreshUser 内部只清 401 会话，网络错误保留现有会话。
 		await useAuthStore.getState().refreshUser();
-		// 平台工作视图只在具备 `school_manage` 的视角里成立。切到院校视角后若继续带
+		// 平台工作视图只在具备 `school_manage` 的视图里成立。切到院校视角后若继续带
 		// `X-School-Scope`，会被后端静默收窄到某校，但顶栏已不再显示院校切换器——
 		// 用户会以为在看全局。这里清掉，作用域与新视角的口径保持一致。
 		// 平台账号的院校工作视图跨视角保留（A 校管理员 → B 校教师靠“先选校、再换视角”

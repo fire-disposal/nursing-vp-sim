@@ -34,7 +34,7 @@ export default function SchoolPersonasModal({
 			.then((r) =>
 				setPresets(
 					r.data
-						// 平台专属视角（platform / ops）只属于平台账号（目标在这里必然不是）；
+						// 跨院校运维视角（ops）只属于平台账号（目标在这里必然不是）；
 						// 超出调用者权限的档位后端会 403，前端也不该给出可勾选项。
 						.filter((p) => !p.requires_platform_account && p.grantable)
 						.map((p) => ({ value: p.key, label: p.label })),

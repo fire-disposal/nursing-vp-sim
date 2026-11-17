@@ -34,7 +34,7 @@ class TokenResponse(BaseModel):
     permissions: list[str] = []
     #: 该账号被授予的视角（超管 = 全部）；前端据此渲染视角切换器
     personas: list[str] = []
-    #: 登录后默认生效的视角（平台账号 = platform；其余由授予集合决定）
+    #: 登录后默认生效的视角（平台账号 = ops；其余由授予集合决定）
     active_persona: str | None = None
     is_platform: bool = False
     gender: str | None = None

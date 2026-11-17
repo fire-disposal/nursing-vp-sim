@@ -110,6 +110,17 @@ PROFILES: dict[str, LLMProfile] = {
         semaphore=100,
         response_format={"type": "json_object"},
     ),
+    # 语音实验室（学生「电话」页）：与 patient_chat 共享同一模型/超时/重试基础，但
+    # **独立用途**——日志与成本按 purpose 分别落库，演示消耗永远不会混进训练统计。
+    # 温度略高、输出上限更大：演示追求自然口语与可打断的长句（long_response）。
+    "voice_demo": LLMProfile(
+        model="deepseek-v4-flash",
+        timeout=30,
+        max_tokens=1024,
+        temperature=0.8,
+        max_retries=2,
+        semaphore=200,
+    ),
 }
 
 # Default profile for unknown purposes — uses flash, conservative settings

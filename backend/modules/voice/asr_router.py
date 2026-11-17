@@ -1,7 +1,13 @@
 """流式语音识别 WebSocket —— 浏览器 PCM ↔ 豆包 SAUC 双向桥。
 
-同源路径：``GET /api/asr/stream?token=<jwt>&record_id=<id>``（浏览器 WS 不能带
-请求头，故 JWT 走查询参数，与训练事件通道一致）。
+同源路径（浏览器 WS 不能带请求头，故 JWT 走查询参数，与训练事件通道一致）::
+
+    GET /api/asr/stream?token=<jwt>&record_id=<id>   训练：本人记录，写 record_id
+    GET /api/voice-demo/asr?token=<jwt>              演示：只要 training_access，
+                                                     不校验记录，日志 record_id=NULL
+
+两条路径共用同一个 ``_run_stream``（同一座桥、同一计费口径），差别只在鉴权时是否
+校验记录归属与日志里的 ``record_id``。
 
 Server → Browser（JSON）::
 
@@ -140,8 +146,12 @@ async def _forward(session: AsrSession, websocket: WebSocket, state: dict[str, A
             return
 
 
-async def _authorize(websocket: WebSocket, token: str, record_id: int) -> tuple[int, str] | None:
-    """鉴权 + 权限 + 记录归属 + 取密钥。失败时已按关闭码关闭连接，返回 ``None``。"""
+async def _authorize(websocket: WebSocket, token: str, record_id: int | None) -> tuple[int, str] | None:
+    """鉴权 + 权限 +（训练路径）记录归属 + 取密钥。失败时已按关闭码关闭连接。
+
+    ``record_id is None`` 是语音演示路径：只需要 ``training_access``，不校验训练
+    记录归属；训练路径（``record_id >= 1``）的校验与失败码保持原样。
+    """
     identity = await asyncio.to_thread(authenticate_ws_token, token)
     if identity is None:
         await websocket.close(code=WS_CLOSE_UNAUTHORIZED)
@@ -149,32 +159,33 @@ async def _authorize(websocket: WebSocket, token: str, record_id: int) -> tuple[
     if not await asyncio.to_thread(resolve_ws_access, identity.user_id):
         await websocket.close(code=WS_CLOSE_FORBIDDEN)
         return None
-    if record_id <= 0:
+    if record_id is not None and record_id <= 0:
         await websocket.close(code=WS_CLOSE_BAD_REQUEST)
         return None
 
     db = SessionLocal()
     try:
-        assert_record_owner(db, record_id, identity.user_id)
+        if record_id is not None:
+            assert_record_owner(db, record_id, identity.user_id)
         return identity.user_id, load_asr_api_key(db)
     except AsrForbiddenError:
         await websocket.close(code=WS_CLOSE_FORBIDDEN)
     except AsrNotConfiguredError:
         await websocket.close(code=WS_CLOSE_NOT_CONFIGURED)
     except (OSError, RuntimeError) as e:
-        log.warning("ASR: config/ownership check failed record_id=%d error=%s", record_id, type(e).__name__)
+        log.warning("ASR: config/ownership check failed record_id=%s error=%s", record_id, type(e).__name__)
         await websocket.close(code=WS_CLOSE_UPSTREAM)
     finally:
         db.close()
     return None
 
 
-@router.websocket("/api/asr/stream")
-async def asr_stream(
-    websocket: WebSocket,
-    token: str = Query(default=""),
-    record_id: int = Query(default=0),
-):
+async def _run_stream(websocket: WebSocket, token: str, record_id: int | None) -> None:
+    """一条 ASR 连线的完整生命周期：鉴权 → 连接上游 → 双向桥 → 计费日志 → 关闭。
+
+    ``record_id is None`` 为语音演示：同样的上游桥接与计费口径，但日志
+    ``record_id`` 写 NULL（``VoiceCallLog.record_id`` 可空），不涉及训练记录。
+    """
     await websocket.accept()
 
     authorized = await _authorize(websocket, token, record_id)
@@ -197,7 +208,7 @@ async def asr_stream(
             await session.connect()
             await session.send_full_request()
         except AsrUpstreamError as e:
-            log.warning("ASR upstream unavailable: record_id=%d error=%s", record_id, e)
+            log.warning("ASR upstream unavailable: record_id=%s error=%s", record_id, e)
             await _send(websocket, state["send_lock"], {"type": "error", "message": str(e)})
             return
 
@@ -209,10 +220,10 @@ async def asr_stream(
     except (WebSocketDisconnect, RuntimeError):
         pass
     except AsrUpstreamError as e:
-        log.warning("ASR stream failed: record_id=%d error=%s", record_id, e)
+        log.warning("ASR stream failed: record_id=%s error=%s", record_id, e)
         await _send(websocket, state["send_lock"], {"type": "error", "message": str(e)})
     except (OSError, ValueError) as e:
-        log.warning("ASR stream crashed: record_id=%d error=%s", record_id, type(e).__name__)
+        log.warning("ASR stream crashed: record_id=%s error=%s", record_id, type(e).__name__)
         await _send(websocket, state["send_lock"], {"type": "error", "message": "语音识别失败"})
     finally:
         await session.close()
@@ -226,6 +237,25 @@ async def asr_stream(
         )
         with contextlib.suppress(RuntimeError, WebSocketDisconnect, OSError):
             await websocket.close()
+
+
+@router.websocket("/api/asr/stream")
+async def asr_stream(
+    websocket: WebSocket,
+    token: str = Query(default=""),
+    record_id: int = Query(default=0),
+):
+    """训练路径：必须带本人 record_id（``0``/缺失 → 4000 提前关闭）。"""
+    await _run_stream(websocket, token, record_id)
+
+
+@router.websocket("/api/voice-demo/asr")
+async def voice_demo_asr(
+    websocket: WebSocket,
+    token: str = Query(default=""),
+):
+    """语音演示路径：同源 ASR 桥，只要求 ``training_access``；不需要 record_id。"""
+    await _run_stream(websocket, token, None)
 
 
 async def _next_client_message(receive_task: asyncio.Task, download_task: asyncio.Task) -> dict[str, Any] | None:
@@ -258,7 +288,7 @@ async def _bridge(websocket: WebSocket, session: AsrSession, state: dict[str, An
             if chunk:
                 state["audio_bytes"] += len(chunk)
                 if state["audio_bytes"] > _MAX_AUDIO_BYTES:
-                    log.warning("ASR: audio cap reached (record_id=%d)", state["record_id"])
+                    log.warning("ASR: audio cap reached (record_id=%s)", state["record_id"])
                     break
                 _offer(outbox, chunk)
                 receive_task = asyncio.create_task(websocket.receive())

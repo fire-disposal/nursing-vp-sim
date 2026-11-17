@@ -15,8 +15,44 @@ export interface VoiceUsageItem {
 export interface VoiceUsageResponse {
 	tts_today: VoiceUsageItem;
 	tts_month: VoiceUsageItem;
+	/** ASR 独立统计（按小时计费，与 TTS 的字符预算互不相干）。 */
+	asr_today: VoiceUsageItem;
+	asr_month: VoiceUsageItem;
 	monthly_budget: number;
+	/** 只含 TTS 的当月花费——预算口径是 TTS 字符预算，不含 ASR。 */
 	monthly_used: number;
+}
+
+// ── ASR 配置（独立凭据） ──
+
+export interface VoiceConfigResponse {
+	id: number;
+	provider: string;
+	api_key_masked: string;
+	api_key_suffix: string;
+	/** ASR 独立 Key：响应里只有掩码与尾 4 位，完整 Key 不出后端。 */
+	asr_api_key_masked: string;
+	asr_api_key_suffix: string;
+	tts_resource_id: string;
+	tts_speaker: string;
+	tts_model: string;
+	tts_sample_rate: number;
+	tts_format: string;
+	tts_timeout: number;
+	monthly_budget: number;
+	is_active: boolean;
+	speaker_library?: Record<string, string> | null;
+	created_at: string;
+	updated_at: string;
+}
+
+/** ``POST /admin/voice/config/test-asr``：只验证「连得上 + 配置帧被接受」，不发音频。 */
+export interface AsrStatusResponse {
+	provider: string;
+	asr_online: boolean;
+	last_error: string | null;
+	last_error_at: string | null;
+	resource_id: string;
 }
 
 // ── Cost Dashboard ──
@@ -87,6 +123,27 @@ export interface CostExportRow {
 export type CostExportResponse = CostExportRow[];
 
 // ── API Functions ──
+
+export type VoiceConfigUpdatePayload = Partial<VoiceConfigResponse> & {
+	api_key?: string | null;
+	asr_api_key?: string | null;
+};
+
+/** 读语音配置（TTS + ASR 两个 Key 的掩码都在这里，只有一份）。 */
+export const fetchVoiceConfig = () =>
+	api.get<VoiceConfigResponse>("/admin/voice/config").then((r) => r.data);
+
+/**
+ * 写语音配置。后端 `VoiceConfigUpdateRequest` 里除 `api_key`/`asr_api_key` 外都有默认值，
+ * PUT 会整份覆盖——所以这里只接受「要改的字段」，调用方各自只带自己那部分
+ * （ASR 卡只发 `asr_api_key`，不得捎带 TTS 字段）。
+ */
+export const updateVoiceConfig = (payload: VoiceConfigUpdatePayload) =>
+	api.put<VoiceConfigResponse>("/admin/voice/config", payload).then((r) => r.data);
+
+/** ASR 连通性测试：只连接并发配置帧，不发送音频。 */
+export const testAsrConnection = () =>
+	api.post<AsrStatusResponse>("/admin/voice/config/test-asr").then((r) => r.data);
 
 export const fetchVoiceUsage = () =>
 	api.get<VoiceUsageResponse>("/admin/costs/usage");

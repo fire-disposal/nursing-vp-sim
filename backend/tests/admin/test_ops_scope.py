@@ -27,4 +27,3 @@ def test_tenant_ops_cannot_read_global_dashboard_or_diagnose():
     for path in ("/api/admin/ops/dashboard", "/api/admin/ops/diagnose"):
         resp = client.get(path)
         assert resp.status_code == 403, (path, resp.text)
-        assert "平台级" in resp.json()["detail"]

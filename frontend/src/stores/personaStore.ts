@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { sortPersonas } from "@/utils/personas";
+import { normalizePersona, sortPersonas } from "@/utils/personas";
 
 /**
  * 视角状态：`available` = 当前会话被授予的视角集合（来自 `/auth/me` 或登录/刷新响应），
@@ -61,7 +61,16 @@ export const usePersonaStore = create<PersonaState>()(
 			// 只持久化「选择」：`available` 是服务端授权，冷启动时以 /auth/me 为准，
 			// 留着旧快照只会让切换器短暂显示已撤销的视角。
 			partialize: (state): Pick<PersonaState, "active"> => ({ active: state.active }),
-			version: 1,
+			// v1 → v2：`platform` 视角已并入 `ops`。旧版本持久化下来的选择不能被带去
+			// 请求头（后端不再认识这个 key，会 403），在这里归一到 `ops`。
+			version: 2,
+			migrate: (persisted, version) => {
+				const state = persisted as Partial<Pick<PersonaState, "active">> | undefined;
+				if (version < 2 && state?.active) {
+					return { ...state, active: normalizePersona(state.active) };
+				}
+				return state as Pick<PersonaState, "active">;
+			},
 		},
 	),
 );

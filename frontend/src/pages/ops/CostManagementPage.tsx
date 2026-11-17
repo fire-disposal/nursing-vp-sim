@@ -5,12 +5,14 @@ import MonitorTab from "@/components/admin/monitor/MonitorTab";
 import PageHeader from "@/components/ui/page-header";
 import CostDashboard from "@/pages/ops/cost/CostDashboard";
 import CostExportTab from "@/pages/ops/cost/CostExportTab";
+import VoiceASRTab from "@/pages/ops/cost/VoiceASRTab";
 import VoiceTTSTab from "@/pages/ops/cost/VoiceTTSTab";
 
 const COST_TABS = [
 	{ key: "dashboard", label: "总览仪表盘" },
 	{ key: "monitor", label: "调用监控" },
 	{ key: "tts", label: "TTS 管理" },
+	{ key: "asr", label: "ASR 管理" },
 	{ key: "export", label: "导出与检查" },
 ] as const;
 
@@ -36,7 +38,7 @@ export default function CostManagementPage() {
 		<>
 			<PageHeader
 				title="成本管理"
-				subtitle="费用总览 · 调用监控 · TTS · 数据导出"
+				subtitle="费用总览 · 调用监控 · TTS · ASR · 数据导出"
 				icon={IconCoins}
 			/>
 			<SegmentedControl data={COST_TABS.map((t) => ({ value: t.key, label: t.label }))} value={tab} onChange={setTab} />
@@ -47,6 +49,7 @@ export default function CostManagementPage() {
 			)}
 			{tab === "monitor" && <MonitorTab />}
 			{tab === "tts" && <VoiceTTSTab />}
+			{tab === "asr" && <VoiceASRTab />}
 			{tab === "export" && <CostExportTab />}
 		</>
 	);

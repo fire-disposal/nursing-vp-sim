@@ -18,9 +18,10 @@ import {
 } from "@tabler/icons-react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { abandonRecord, getCases, getNotifications, getRecords, markNotificationRead, startBlindBox, startTraining } from "@/api";
+import { getRecordDetail } from "@/api/training";
 import type { components } from "@/api/api-types.gen";
 import { getStudentAssignments, startAssignment } from "@/api/assignments";
 import { queryKeys } from "@/api/query-keys";
@@ -158,6 +159,18 @@ export default function TrainingSelect({ tab = "home" }: { tab?: TrainingTab }) 
 		staleTime: 5 * 60_000, placeholderData: keepPreviousData, enabled: tab === "self",
 	});
 
+	// 首页静默预取病例目录：点击「选择病例」时直接呈现完整卡片，不闪骨架。
+	useEffect(() => {
+		if (tab !== "home") return;
+		void import("@/pages/practice/TrainingEntry");
+		void import("@/components/training/scenes/HistoryTakingScene");
+		void queryClient.prefetchQuery({
+			queryKey: queryKeys.cases.list({ difficulty: 0, offset: 0, search: "" }),
+			queryFn: () => getCases({ offset: 0, limit: LIMIT }).then((r) => r.data),
+			staleTime: 5 * 60_000,
+		});
+	}, [tab, queryClient]);
+
 	// 失败必须能重试：作业列表此前只判 `!data` → 请求失败会永远停在骨架上，用户以为网络还没回。
 	const { data: assignmentsData, isPending: assignmentsLoading, isError: isAssignmentsError, error: assignmentsError, refetch: refetchAssignments } = useQuery({
 		queryKey: queryKeys.assignments.student(),
@@ -273,8 +286,17 @@ export default function TrainingSelect({ tab = "home" }: { tab?: TrainingTab }) 
 	type StartResponse = components["schemas"]["TrainingStartResponse"];
 	const startMutation = useMutation({
 		mutationFn: ({ caseId, timeLimit }: { caseId: number; timeLimit: number }) => startTraining(caseId, {}, timeLimit),
-		onSuccess: (res) => {
+		onSuccess: async (res) => {
 			const data: StartResponse = res.data;
+			try {
+				await queryClient.prefetchQuery({
+					queryKey: queryKeys.training.detail(data.record_id),
+					queryFn: () => getRecordDetail(data.record_id).then((r) => r.data),
+					staleTime: 5 * 60_000,
+				});
+			} catch {
+				// 预取失败不阻断开局，训练页自己的查询会重试。
+			}
 			goTraining(navigate, data.record_id, trainingFrom);
 		},
 		onError: (err: unknown) => {

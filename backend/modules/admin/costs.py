@@ -81,9 +81,12 @@ class CostService:
         budget_row = self._school_budget()
         monthly_budget = budget_row.tts_monthly_limit if budget_row else 0.0
         month_tts = self._voice_usage("tts", month_start)
+        # TTS 与 ASR 各报各的：ASR 按小时计费，不参与 TTS 的字符预算。
         return VoiceUsageResponse(
             tts_today=self._voice_usage("tts", today_start),
             tts_month=month_tts,
+            asr_today=self._voice_usage("asr", today_start),
+            asr_month=self._voice_usage("asr", month_start),
             monthly_budget=monthly_budget,
             monthly_used=round(month_tts.cost_estimated, 6),
         )
@@ -120,13 +123,13 @@ class CostService:
             .all()
         )
         llm_map = {str(r[0]): float(r[1]) for r in llm_rows}
-        tts_rows = (
+        # 语音成本曲线覆盖全部 direction（tts + asr）：成本趋势里漏掉 ASR 会让真实
+        # 花费凭空消失。字段名沿用 ``tts_cost``（前端契约不变），口径是「语音总成本」。
+        voice_rows = (
             scope_by_school(
                 self.db.query(
                     local_date(VoiceCallLog.created_at).label("date"),
-                    func.coalesce(
-                        func.sum(VoiceCallLog.cost_estimated).filter(VoiceCallLog.direction == "tts"), 0
-                    ).label("tts_cost"),
+                    func.coalesce(func.sum(VoiceCallLog.cost_estimated), 0).label("tts_cost"),
                 ).filter(VoiceCallLog.created_at >= since),
                 VoiceCallLog,
                 self.school_id,
@@ -134,7 +137,7 @@ class CostService:
             .group_by("date")
             .all()
         )
-        tts_map = {str(r[0]): float(r[1]) for r in tts_rows}
+        tts_map = {str(r[0]): float(r[1]) for r in voice_rows}
         series = []
         for i in range(days - 1, -1, -1):
             d = now - timedelta(days=i)

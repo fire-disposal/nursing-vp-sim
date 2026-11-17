@@ -26,7 +26,7 @@ from modules.auth.service import AuthService
 from schemas import UserMembershipUpdate, UserUpdateRequest
 from tests.conftest import ensure_school
 
-# 本文件验的是权限闸门而非院校边界 → 平台视角（跨院校），作用域过滤恒为真。
+# 本文件验的是权限闸门而非院校边界 → 跨院校作用域（ops），作用域过滤恒为真。
 _PLATFORM = platform_scope()
 
 _TABLES = [
@@ -54,9 +54,10 @@ def db(pg_session):
 def _make_user(db: Session, username: str, persona: str = "student", *, platform: bool = False) -> User:
     """建一个账号：权限只来自视角授予；平台账号用 ``is_platform`` 标记。
 
-    ``persona`` 既是授予的视角也是当前生效视角（``"platform"`` 隐含平台账号）。
+    ``persona`` 既是授予的视角也是当前生效视角（``"ops"`` 隐含平台账号：它是唯一的
+    跨院校视角，只授予平台账号）。
     """
-    is_platform = platform or persona == "platform"
+    is_platform = platform or persona == "ops"
     user = User(
         username=username,
         password_hash="not-a-real-hash",
@@ -86,13 +87,13 @@ def _granted(db: Session, user: User) -> set[str]:
 
 
 class TestPersonaEscalation:
-    def test_admin_cannot_grant_platform_persona(self, db):
-        """``platform`` 视角只能授予平台账号 —— 即便请求体里写死了也不行。"""
+    def test_admin_cannot_grant_ops_persona(self, db):
+        """``ops``（唯一的跨院校视角）只能授予平台账号 —— 即便请求体里写死了也不行。"""
         actor = _make_user(db, "admin-actor", "admin")
         target = _make_user(db, "student-target", "student")
 
         with pytest.raises(ValidationError) as exc:
-            UserService(db, _PLATFORM).update(target.id, UserUpdateRequest(personas=["platform"]), current_user=actor)
+            UserService(db, _PLATFORM).update(target.id, UserUpdateRequest(personas=["ops"]), current_user=actor)
 
         assert exc.value.status_code == 400
         assert "平台专属视角只能授予平台账号" in str(exc.value)
@@ -112,7 +113,7 @@ class TestPersonaEscalation:
 
     def test_platform_actor_cannot_grant_ops_to_school_account(self, db):
         """平台操作者也不能把 ``ops`` 降成院校级：目标账号不是平台账号就是 400。"""
-        actor = _make_user(db, "root-ops-grant", "platform")
+        actor = _make_user(db, "root-ops-grant", "ops", platform=True)
         target = _make_user(db, "student-target-ops-root", "student")
 
         with pytest.raises(ValidationError) as exc:
@@ -144,25 +145,36 @@ class TestPersonaEscalation:
         assert _granted(db, db.get(User, target.id)) == {"student"}
 
     def test_platform_account_can_grant_school_admin_persona(self, db):
-        actor = _make_user(db, "root-actor", "platform")
+        actor = _make_user(db, "root-actor", "ops", platform=True)
         target = _make_user(db, "student-target3", "student")
 
         view = UserService(db, _PLATFORM).update(target.id, UserUpdateRequest(personas=["admin"]), current_user=actor)
 
         assert view.personas == ["admin"]
 
-    def test_register_rejects_school_level_ops(self, db):
-        """注册入口是第二个写权限的地方：ops 没有 platform 时必须拒绝。"""
-        actor = _make_user(db, "root-register", "platform")
+    def test_register_rejects_platform_only_personas_from_school_actor(self, db):
+        """注册入口是第二个写权限的地方：非平台账号授予 ops 时必须拒绝。"""
+        actor = _make_user(db, "root-register", "admin")
 
-        with pytest.raises(ValidationError) as exc:
+        with pytest.raises(AuthError) as exc:
             AuthService(db)._validate_new_personas(["ops"], actor)
 
-        assert "平台专属视角只能授予平台账号" in str(exc.value)
-        assert AuthService(db)._validate_new_personas(["platform", "ops"], actor) == ["platform", "ops"]
+        assert exc.value.status_code == 403
+        # 平台账号自己可以建平台账号（ops 是唯一一档跨院校视角）
+        root = _make_user(db, "root-register-ok", "ops", platform=True)
+        assert AuthService(db)._validate_new_personas(["ops"], root) == ["ops"]
+
+    def test_platform_persona_is_no_longer_a_valid_persona(self, db):
+        """已下线的 `platform` key 在写权限的地方就是未知视角（400），不能被静默接受。"""
+        actor = _make_user(db, "root-retired", "ops", platform=True)
+
+        with pytest.raises(ValidationError) as exc:
+            AuthService(db)._validate_new_personas(["platform"], actor)
+
+        assert "未知视角" in str(exc.value)
 
     def test_cannot_change_own_personas(self, db):
-        actor = _make_user(db, "root-actor2", "platform")
+        actor = _make_user(db, "root-actor2", "ops", platform=True)
 
         with pytest.raises(Exception) as exc:
             UserService(db, _PLATFORM).update(actor.id, UserUpdateRequest(personas=["student"]), current_user=actor)
@@ -173,7 +185,7 @@ class TestPersonaEscalation:
 class TestPasswordResetScope:
     def test_admin_cannot_reset_platform_password(self, db):
         actor = _make_user(db, "admin-actor3", "admin")
-        target = _make_user(db, "root-target", "platform")
+        target = _make_user(db, "root-target", "ops", platform=True)
         before = db.get(User, target.id).password_hash
 
         with pytest.raises(AuthError) as exc:
@@ -208,7 +220,7 @@ class TestMembershipReplacement:
     """
 
     def test_memberships_replaced_as_a_whole(self, db):
-        actor = _make_user(db, "root-actor3", "platform")
+        actor = _make_user(db, "root-actor3", "ops", platform=True)
         target = _make_user(db, "student-multi", "student")
         first = _make_class(db, "1班")
         second = _make_class(db, "2班")
@@ -230,7 +242,7 @@ class TestMembershipReplacement:
         assert db.query(ClassMembership).filter(ClassMembership.user_id == target.id).count() == 1
 
     def test_all_memberships_are_reported_not_just_the_first(self, db):
-        actor = _make_user(db, "root-actor4", "platform")
+        actor = _make_user(db, "root-actor4", "ops", platform=True)
         target = _make_user(db, "student-multi2", "student")
         first = _make_class(db, "1班", "2027级")
         second = _make_class(db, "2班", "2026级")
@@ -254,7 +266,7 @@ class TestMembershipReplacement:
         assert db.query(ClassMembership).filter(ClassMembership.user_id == target.id).count() == 2
 
     def test_unknown_class_is_rejected(self, db):
-        actor = _make_user(db, "root-actor5", "platform")
+        actor = _make_user(db, "root-actor5", "ops", platform=True)
         target = _make_user(db, "student-multi3", "student")
 
         with pytest.raises(ValidationError):
@@ -265,7 +277,7 @@ class TestMembershipReplacement:
             )
 
     def test_duplicate_class_in_payload_is_rejected(self, db):
-        actor = _make_user(db, "root-actor6", "platform")
+        actor = _make_user(db, "root-actor6", "ops", platform=True)
         target = _make_user(db, "student-multi4", "student")
         cls = _make_class(db, "3班")
 
@@ -282,7 +294,7 @@ class TestMembershipReplacement:
             )
 
     def test_omitting_memberships_leaves_them_untouched(self, db):
-        actor = _make_user(db, "root-actor7", "platform")
+        actor = _make_user(db, "root-actor7", "ops", platform=True)
         target = _make_user(db, "student-multi5", "student")
         cls = _make_class(db, "4班")
         UserService(db, _PLATFORM).update(
@@ -308,7 +320,7 @@ class TestHighPrivilegeAccountLifecycle:
 
     def test_admin_cannot_deactivate_platform_account(self, db):
         actor = _make_user(db, "admin-deact", "admin")
-        target = _make_user(db, "root-deact", "platform")
+        target = _make_user(db, "root-deact", "ops", platform=True)
 
         with pytest.raises(AuthError) as exc:
             UserService(db, _PLATFORM).update(target.id, UserUpdateRequest(is_active=False), current_user=actor)
@@ -319,7 +331,7 @@ class TestHighPrivilegeAccountLifecycle:
     def test_platform_account_cannot_be_deleted_at_all(self, db):
         """政策：平台账号不可删除（收回权限走停用）。此前无守卫，只是被外键撞成 500。"""
         actor = _make_user(db, "admin-del", "admin")
-        target = _make_user(db, "root-del", "platform")
+        target = _make_user(db, "root-del", "ops", platform=True)
 
         with pytest.raises(ValidationError) as exc:
             UserService(db, _PLATFORM).delete(target.id, actor)
@@ -335,7 +347,7 @@ class TestHighPrivilegeAccountLifecycle:
         而能把目标停用的操作者本身必是启用的平台账号、且不计入 ``remaining`` —— 所以
         该场景在可达输入下不可触发。"自己停自己"是实际存在的自毁路径，这里钉住它。
         """
-        target = _make_user(db, "root-only", "platform")
+        target = _make_user(db, "root-only", "ops", platform=True)
 
         # 自停用始终是 400（与"最后一个"守卫无关，但同样堵住自毁路径）
         with pytest.raises(ValidationError) as exc:
@@ -346,9 +358,9 @@ class TestHighPrivilegeAccountLifecycle:
 
     def test_platform_account_not_deletable_even_with_peer_present(self, db):
         """即使还有别的平台账号，也不允许删除某个平台账号（政策是无条件不可删）。"""
-        actor = _make_user(db, "platform-actor2", "platform")
-        _make_user(db, "root-other", "platform")
-        target = _make_user(db, "root-only2", "platform")
+        actor = _make_user(db, "platform-actor2", "ops", platform=True)
+        _make_user(db, "root-other", "ops", platform=True)
+        target = _make_user(db, "root-only2", "ops", platform=True)
 
         with pytest.raises(ValidationError) as exc:
             UserService(db, _PLATFORM).delete(target.id, actor)
@@ -370,8 +382,8 @@ class TestHighPrivilegeAccountLifecycle:
 
     def test_platform_account_can_deactivate_peer_while_oneself_active(self, db):
         # 正对照：还有别的启用平台账号时，平台账号之间停用不应被兜底守卫挡住
-        actor = _make_user(db, "root-a", "platform")
-        peer = _make_user(db, "root-b", "platform")
+        actor = _make_user(db, "root-a", "ops", platform=True)
+        peer = _make_user(db, "root-b", "ops", platform=True)
 
         UserService(db, _PLATFORM).update(peer.id, UserUpdateRequest(is_active=False), current_user=actor)
 
@@ -396,7 +408,7 @@ class TestSchoolAssignment:
     """
 
     def test_platform_admin_can_move_user_between_schools(self, db):
-        actor = _make_user(db, "root-actor-school", "platform")
+        actor = _make_user(db, "root-actor-school", "ops", platform=True)
         target = _make_user(db, "student-school-1", "student")
         other = _make_school(db, "另一院校")
 
@@ -407,7 +419,7 @@ class TestSchoolAssignment:
         assert db.get(User, target.id).school_id == other.id
 
     def test_omitting_school_leaves_it_untouched(self, db):
-        actor = _make_user(db, "root-actor-school2", "platform")
+        actor = _make_user(db, "root-actor-school2", "ops", platform=True)
         target = _make_user(db, "student-school-2", "student")
         before = db.get(User, target.id).school_id
 
@@ -428,7 +440,7 @@ class TestSchoolAssignment:
 
     def test_user_with_class_in_old_school_cannot_be_moved(self, db):
         """单校不变量：账号还在原院校的班里时先解除归属，不静默搬人。"""
-        actor = _make_user(db, "root-actor-school3", "platform")
+        actor = _make_user(db, "root-actor-school3", "ops", platform=True)
         target = _make_user(db, "student-school-4", "student")
         cls = _make_class(db, "5班")
         UserService(db, _PLATFORM).update(
@@ -445,8 +457,8 @@ class TestSchoolAssignment:
         assert db.get(User, target.id).school_id == cls.school_id
 
     def test_platform_role_cannot_be_given_a_school(self, db):
-        actor = _make_user(db, "root-actor-school4", "platform")
-        target = _make_user(db, "root-target-school", "platform")
+        actor = _make_user(db, "root-actor-school4", "ops", platform=True)
+        target = _make_user(db, "root-target-school", "ops", platform=True)
         other = _make_school(db, "另一院校")
 
         with pytest.raises(ValidationError) as exc:
@@ -456,7 +468,7 @@ class TestSchoolAssignment:
         assert db.get(User, target.id).school_id is None
 
     def test_unknown_school_is_rejected(self, db):
-        actor = _make_user(db, "root-actor-school5", "platform")
+        actor = _make_user(db, "root-actor-school5", "ops", platform=True)
         target = _make_user(db, "student-school-5", "student")
         before = db.get(User, target.id).school_id
 

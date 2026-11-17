@@ -4341,6 +4341,34 @@
         ]
       }
     },
+    "/api/admin/voice/config/test-asr": {
+      "post": {
+        "tags": [
+          "管理",
+          "语音管理"
+        ],
+        "summary": "Test Asr",
+        "description": "ASR 连通性测试：连接 + 发送配置帧，不发音频，不产生计费时长。",
+        "operationId": "test_asr_api_admin_voice_config_test_asr_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsrStatusResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/admin/voice/config/test-stream": {
       "post": {
         "tags": [
@@ -11311,6 +11339,132 @@
           }
         ]
       }
+    },
+    "/api/voice-demo/characters": {
+      "get": {
+        "tags": [
+          "Voice Demo"
+        ],
+        "summary": "List Characters",
+        "description": "四个虚构角色（人设与音色的唯一来源）。",
+        "operationId": "list_characters_api_voice_demo_characters_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/VoiceDemoCharacterItem"
+                  },
+                  "type": "array",
+                  "title": "Response List Characters Api Voice Demo Characters Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/voice-demo/chat/stream": {
+      "post": {
+        "tags": [
+          "Voice Demo"
+        ],
+        "summary": "Chat Stream",
+        "description": "一轮自由语音对话（SSE）。校验全部在 200 之前完成，**不写任何数据库行**。",
+        "operationId": "chat_stream_api_voice_demo_chat_stream_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceDemoChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/voice-demo/tts/stream": {
+      "post": {
+        "tags": [
+          "Voice Demo"
+        ],
+        "summary": "Synthesize Demo Stream",
+        "description": "逐句流式合成：PCM 24kHz mono 分块下发，与 ``/api/tts/stream`` 同协议。",
+        "operationId": "synthesize_demo_stream_api_voice_demo_tts_stream_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceDemoTTSRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "audio/pcm": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -11646,6 +11800,54 @@
           "feedback_hint_enabled"
         ],
         "title": "AppSettingsUpdateRequest"
+      },
+      "AsrStatusResponse": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "asr_online": {
+            "type": "boolean",
+            "title": "Asr Online"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "last_error_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error At"
+          },
+          "resource_id": {
+            "type": "string",
+            "title": "Resource Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "asr_online",
+          "last_error",
+          "last_error_at",
+          "resource_id"
+        ],
+        "title": "AsrStatusResponse",
+        "description": "``POST /admin/voice/config/test-asr``：只验证「连得上 + 配置帧被接受」，不发音频。"
       },
       "AssignmentAudience": {
         "properties": {
@@ -21180,6 +21382,14 @@
             "type": "string",
             "title": "Api Key Suffix"
           },
+          "asr_api_key_masked": {
+            "type": "string",
+            "title": "Asr Api Key Masked"
+          },
+          "asr_api_key_suffix": {
+            "type": "string",
+            "title": "Asr Api Key Suffix"
+          },
           "tts_resource_id": {
             "type": "string",
             "title": "Tts Resource Id"
@@ -21243,6 +21453,8 @@
           "provider",
           "api_key_masked",
           "api_key_suffix",
+          "asr_api_key_masked",
+          "asr_api_key_suffix",
           "tts_resource_id",
           "tts_speaker",
           "tts_model",
@@ -21274,6 +21486,18 @@
               }
             ],
             "title": "Api Key"
+          },
+          "asr_api_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asr Api Key"
           },
           "tts_resource_id": {
             "type": "string",
@@ -21342,6 +21566,164 @@
         "additionalProperties": false,
         "type": "object",
         "title": "VoiceConfigUpdateRequest"
+      },
+      "VoiceDemoCharacterItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "personality": {
+            "type": "string",
+            "title": "Personality"
+          },
+          "tone": {
+            "type": "string",
+            "title": "Tone"
+          },
+          "speaker": {
+            "type": "string",
+            "title": "Speaker"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "role",
+          "personality",
+          "tone",
+          "speaker"
+        ],
+        "title": "VoiceDemoCharacterItem"
+      },
+      "VoiceDemoChatRequest": {
+        "properties": {
+          "character_id": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Character Id"
+          },
+          "session_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Session Id"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/VoiceDemoHistoryItem"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "History"
+          },
+          "emotion_state": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Emotion State",
+            "default": "neutral"
+          },
+          "test_mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "long_response"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Mode"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "character_id",
+          "session_id"
+        ],
+        "title": "VoiceDemoChatRequest",
+        "description": "``POST /api/voice-demo/chat/stream``：自由语音对话的一轮。\n\n只要 ``character_id``：角色定义（姓名/性格/语气/音色）以服务端为准，前端传 ID\n即选人，传不认识的 ID 是 422/400——绝不由前端注入人设文本。"
+      },
+      "VoiceDemoHistoryItem": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role"
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Content"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "role",
+          "content"
+        ],
+        "title": "VoiceDemoHistoryItem",
+        "description": "当前页面会话里的一条历史消息（服务端不持久化，由前端每次带回）。"
+      },
+      "VoiceDemoTTSRequest": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Text"
+          },
+          "emotion_state": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Emotion State"
+          },
+          "section_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Section Id"
+          },
+          "speaker": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speaker"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text",
+          "emotion_state",
+          "section_id"
+        ],
+        "title": "VoiceDemoTTSRequest",
+        "description": "``POST /api/voice-demo/tts/stream``：演示台词合成，不关联任何训练记录。\n\n情绪由前端直接给出（演示脚本里每个角色自带四维状态机），不再从训练记录反查，\n因此这里没有任何 ``record_id`` 字段——请求里带上也不会被读取。"
       },
       "VoiceStatusResponse": {
         "properties": {
@@ -21506,6 +21888,12 @@
           "tts_month": {
             "$ref": "#/components/schemas/VoiceUsageItem"
           },
+          "asr_today": {
+            "$ref": "#/components/schemas/VoiceUsageItem"
+          },
+          "asr_month": {
+            "$ref": "#/components/schemas/VoiceUsageItem"
+          },
           "monthly_budget": {
             "type": "number",
             "title": "Monthly Budget"
@@ -21519,6 +21907,8 @@
         "required": [
           "tts_today",
           "tts_month",
+          "asr_today",
+          "asr_month",
           "monthly_budget",
           "monthly_used"
         ],

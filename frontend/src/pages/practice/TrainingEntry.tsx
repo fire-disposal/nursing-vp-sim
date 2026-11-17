@@ -1,12 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { Box, Text } from "@mantine/core";
+import { Box, Flex, Stack, Text } from "@mantine/core";
 import { useEffect, useRef, useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { queryKeys } from "@/api/query-keys";
 import { QuestionnaireModal } from "@/components/QuestionnaireModal";
 import { TrainingUnavailable, trainingUnavailableCopy } from "@/components/training/TrainingUnavailable";
 import { useQuestionnaire } from "@/hooks/useQuestionnaire";
-import LoadingSkeleton from "@/components/ui/loading-skeleton";
 import { getRecordDetail, pauseTraining, pauseTrainingOnHide, resumeTraining } from "@/api/training";
 import { TRAINING_SCENES } from "@/components/training/scenes/scene-registry";
 import { TrainingDataProvider } from "@/engine/TrainingDataContext";
@@ -184,14 +183,41 @@ export default function TrainingEntry() {
 }
 
 function TrainingSkeleton() {
+	const block = { background: "var(--mantine-color-default-hover)", borderRadius: 10 } as const;
 	return (
-		<Box className="training-immersive" style={{ display: "flex", flexDirection: "column" }}>
-			<Box p="sm" style={{ borderBottom: "1px solid var(--mantine-color-default-border)", flexShrink: 0 }}>
-				<LoadingSkeleton variant="stats" />
+		<Box className="training-immersive stu-surface" aria-busy="true" aria-label="正在载入训练" style={{ display: "flex", flexDirection: "column" }}>
+			<Box h={56} px="md" style={{ borderBottom: "1px solid var(--stu-line)", flexShrink: 0 }}>
+				<Box h={14} w={220} mt={21} style={{ ...block, borderRadius: 7 }} />
 			</Box>
-			<Box p="md" style={{ flex: 1, overflow: "hidden" }}>
-				<LoadingSkeleton variant="card" />
-			</Box>
+			<Flex flex={1} mih={0}>
+				<Box w={280} p="sm" style={{ borderRight: "1px solid var(--stu-line)", flexShrink: 0 }}>
+					<Box h={330} style={block} />
+					<Box h={18} w={84} mt="md" style={block} />
+					<Box h={13} w={132} mt={10} style={block} />
+					<Box h={13} w={210} mt={14} style={block} />
+					<Box h={13} w={186} mt={8} style={block} />
+				</Box>
+				<Flex direction="column" flex={1} miw={0}>
+					<Stack gap="md" p="md" style={{ flex: 1 }}>
+						<Box h={14} w="72%" mt={28} style={block} />
+						<Box h={54} w="68%" mt={18} style={block} />
+						<Box h={14} w="48%" mt={40} style={{ ...block, alignSelf: "flex-end" }} />
+						<Box h={54} w="58%" mt={12} style={{ ...block, alignSelf: "flex-end" }} />
+					</Stack>
+					<Box h={112} p="md" style={{ borderTop: "1px solid var(--stu-line)", flexShrink: 0 }}>
+						<Box h={54} w="78%" mx="auto" style={block} />
+					</Box>
+				</Flex>
+				<Box w={400} p="md" style={{ borderLeft: "1px solid var(--stu-line)", flexShrink: 0 }}>
+					<Box h={20} w={92} style={block} />
+					<Box h={8} mt="md" style={block} />
+					<Stack gap={14} mt="xl">
+						{Array.from({ length: 9 }).map((_, index) => (
+							<Box key={index} h={13} w={index % 3 === 0 ? "82%" : "70%"} style={block} />
+						))}
+					</Stack>
+				</Box>
+			</Flex>
 		</Box>
 	);
 }

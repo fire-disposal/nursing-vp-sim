@@ -112,7 +112,7 @@ export const ChatBubble = memo(function ChatBubble({
 						borderColor: emotionBorder,
 						lineHeight: 1.65,
 						wordBreak: "break-word",
-						fontSize: 15,
+						fontSize: 18,
 						background: "var(--mantine-color-body)",
 						color: "var(--mantine-color-text)",
 						transition: "border-color 200ms ease, box-shadow 200ms ease",
@@ -129,7 +129,7 @@ export const ChatBubble = memo(function ChatBubble({
 							<Loader size="sm" type="dots" color="gray" />
 						</Group>
 					) : message.streaming ? (
-						<Text style={{ whiteSpace: "pre-wrap", fontSize: 15, lineHeight: 1.65 }}>
+						<Text style={{ whiteSpace: "pre-wrap", fontSize: 18, lineHeight: 1.65 }}>
 							{message.content}
 							<span className="stream-cursor" aria-hidden="true" />
 						</Text>
@@ -236,7 +236,7 @@ export const ChatBubble = memo(function ChatBubble({
 						padding: "10px 14px",
 						borderRadius: "var(--stu-radius)",
 						borderTopRightRadius: 4,
-						fontSize: 15,
+						fontSize: 18,
 						lineHeight: 1.65,
 						wordBreak: "break-word",
 						// 学生面基调由 .stu-surface 的变量决定；这里只声明"取哪个变量"，

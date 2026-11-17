@@ -4,6 +4,8 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const apiTarget = process.env.VPSIM_API_TARGET ?? "http://127.0.0.1:8000";
+const apiHost = new URL(apiTarget).host;
 
 export default defineConfig({
 	plugins: [react()],
@@ -57,14 +59,14 @@ export default defineConfig({
 		},
 		proxy: {
 			"/api": {
-				target: "http://127.0.0.1:8000",
+				target: apiTarget,
 				changeOrigin: true,
 				ws: true,
 				proxyTimeout: 10_000, // 10s — backend down → 504 instead of hang
 				timeout: 10_000,
 				configure: (proxy) => {
 					proxy.on("proxyReq", (_proxyReq, req) => {
-						req.headers.host = "127.0.0.1:8000";
+						req.headers.host = apiHost;
 					});
 				},
 			},

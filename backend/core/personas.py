@@ -37,7 +37,7 @@ DEFAULT_PERSONA_BY_ROLE: dict[str, str] = {
     "student": "student",
     "teacher": "teacher",
     "admin": "admin",
-    SUPER_ADMIN_ROLE: "platform",
+    SUPER_ADMIN_ROLE: "ops",
 }
 
 
@@ -82,7 +82,7 @@ PERSONAS: dict[str, PersonaDef] = {
     ),
     "admin": PersonaDef(
         key="admin",
-        label="管理员视角",
+        label="管理视角",
         scope="tenant",
         permissions=(
             "user_manage",
@@ -98,35 +98,21 @@ PERSONAS: dict[str, PersonaDef] = {
             "questionnaire_manage",
         ),
     ),
-    # 运维看的是跨院校的系统面（密钥、审计、成本、诊断），不是某校的教学数据。
+    # 运维看的是跨院校的系统面（院校管理、密钥、审计、成本、诊断），不是某校的教学数据。
     # 院校账号持有它既解释不了作用域，也会在选校后四处 403；只授予平台账号。
+    # 这里同时承载原先的 `platform` 视角：平台账号的默认与其全部跨院校管理能力。
     "ops": PersonaDef(
         key="ops",
         label="运维视角",
         scope="platform",
         requires_platform_account=True,
         permissions=(
+            "school_manage",
             "llm_monitor",
             "api_manage",
             "audit_view",
             "audit_export",
             "feedback_review",
-            "export_data",
-        ),
-    ),
-    # 平台级：跨院校的管理页面与功能（院校管理、密钥、审计、成本、版本归因…）。
-    # 只授予平台账号；`resolve_scope` 对它返回全局，院校切换器对它无意义。
-    "platform": PersonaDef(
-        key="platform",
-        label="平台视角",
-        scope="platform",
-        requires_platform_account=True,
-        permissions=(
-            "school_manage",
-            "api_manage",
-            "audit_view",
-            "audit_export",
-            "llm_monitor",
             "export_data",
         ),
     ),
@@ -175,7 +161,7 @@ def is_super_admin(user: User) -> bool:
 
 
 def default_persona_for(user: User) -> str | None:
-    """默认视角：平台账号 → ``platform``；系统角色按 `DEFAULT_PERSONA_BY_ROLE`。
+    """默认视角：平台账号 → ``ops``；系统角色按 `DEFAULT_PERSONA_BY_ROLE`。
 
     返回 None 表示"没有角色给出的默认视角"，此时 `core/access.resolve_access` 取
     已授予视角里的第一个；两者都没有 → 无视角（无权限）。

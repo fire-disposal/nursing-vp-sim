@@ -8,8 +8,8 @@ describe("loginRedirectPath", () => {
 	});
 
 	it("深链接保留完整回跳目标", () => {
-		expect(loginRedirectPath("/admin/platform", "?tab=overview", "#top")).toBe(
-			"/login?next=%2Fadmin%2Fplatform%3Ftab%3Doverview%23top",
+		expect(loginRedirectPath("/admin/ops", "?tab=overview", "#top")).toBe(
+			"/login?next=%2Fadmin%2Fops%3Ftab%3Doverview%23top",
 		);
 	});
 });

@@ -35,6 +35,7 @@ from core.personas import (
     default_persona_for,
     grants_all_personas,
     persona_permissions,
+    persona_scope,
 )
 from models import AuditLog, School, User, UserSchoolPersona
 
@@ -64,7 +65,9 @@ _ADMIN = {
     "export_data",
     "questionnaire_manage",
 }
+#: `ops` = 原 ops ∪ 原 platform：跨院校的管理面（院校管理、密钥、审计、成本、诊断）。
 _OPS = {
+    "school_manage",
     "llm_monitor",
     "api_manage",
     "audit_view",
@@ -72,24 +75,19 @@ _OPS = {
     "feedback_review",
     "export_data",
 }
-_PLATFORM = {
-    "school_manage",
-    "api_manage",
-    "audit_view",
-    "audit_export",
-    "llm_monitor",
-    "export_data",
-}
 
 
-def test_persona_keys_are_exactly_the_five_contracted_ones():
-    assert set(PERSONA_KEYS) == {"student", "teacher", "admin", "ops", "platform"}
+def test_persona_keys_are_exactly_the_four_contracted_ones():
+    assert set(PERSONA_KEYS) == {"student", "teacher", "admin", "ops"}
     assert set(PERSONAS) == set(PERSONA_KEYS)
+    # `platform` 已并入 ops：它不能再是有效视角（否则等于复活一个越权入口）
+    assert "platform" not in PERSONAS
+    assert persona_permissions("platform") == frozenset()
 
 
 @pytest.mark.parametrize(
     ("persona", "expected"),
-    [("student", _STUDENT), ("teacher", _TEACHER), ("admin", _ADMIN), ("ops", _OPS), ("platform", _PLATFORM)],
+    [("student", _STUDENT), ("teacher", _TEACHER), ("admin", _ADMIN), ("ops", _OPS)],
 )
 def test_persona_presets_match_contract_exactly(persona: str, expected: set[str]):
     """预设是权限包的全部内容：**不多不少**（多的就是越权，少的会 403）。"""
@@ -123,8 +121,8 @@ def test_platform_account_derives_all_personas():
     assert grants_all_personas(_stub_user(platform=False)) is False
 
 
-def test_default_persona_is_platform_for_platform_account_only():
-    assert default_persona_for(_stub_user(platform=True)) == "platform"
+def test_default_persona_is_ops_for_platform_account_only():
+    assert default_persona_for(_stub_user(platform=True)) == "ops"
 
 
 def test_default_persona_is_none_for_school_account():
@@ -232,7 +230,7 @@ def test_platform_account_grants_all_personas_without_rows(pg_session):
     assert pg_session.query(UserSchoolPersona).filter(UserSchoolPersona.user_id == user.id).count() == 0
     assert granted_personas(pg_session, user) == frozenset(PERSONA_KEYS)
 
-    # 运维是平台级视角：平台账号无需选校即可使用（它看到的就是跨校系统面）
+    # 运维是跨院校视角：平台账号无需选校即可使用（它看到的就是跨校系统面）
     persona, perms = _access(pg_session, user, "ops")
     assert persona == "ops"
     assert perms == frozenset(_OPS)
@@ -243,10 +241,10 @@ def test_platform_account_grants_all_personas_without_rows(pg_session):
     assert exc.value.status_code == 403
     assert exc.value.detail == "请先选择院校"
 
-    # 无 header → 默认平台视角（跨院校的平台级功能）
+    # 无 header → 默认 ops（跨院校的运维/院校管理功能）
     persona, perms = _access(pg_session, user, None)
-    assert persona == "platform"
-    assert perms == frozenset(_PLATFORM)
+    assert persona == "ops"
+    assert perms == frozenset(_OPS)
 
 
 def test_user_without_grants_can_login_but_has_no_permissions(pg_session):
@@ -296,7 +294,7 @@ def test_school_account_cannot_use_ops_even_with_legacy_grant(pg_session):
 
 
 def test_default_persona_must_be_within_granted_set(pg_session):
-    """授予了 student 与 admin：无 header 只能在已授予集合里取，不能落到 `platform`。"""
+    """授予了 student 与 admin：无 header 只能在已授予集合里取，不能落到 `ops`。"""
     user = _user(pg_session)
     _grant(pg_session, user, "student", "admin")
 
@@ -442,7 +440,96 @@ def test_platform_non_platform_persona_requires_selected_school(pg_session):
     platform.set_active_persona("student")
     assert resolve_scope(pg_session, platform).school_id == school.id
 
-    # ops / platform 是跨院校作用域：顶栏残留的选校不能把运维页收窄成某校视图。
-    for persona in ("ops", "platform"):
-        platform.set_active_persona(persona)
-        assert resolve_scope(pg_session, platform).school_id is None
+    # ops 是跨院校作用域：顶栏残留的选校不能把运维页收窄成某校视图。
+    platform.set_active_persona("ops")
+    assert resolve_scope(pg_session, platform).school_id is None
+
+    # `platform` 已下线：残留该 key 的会话得不到 platform 作用域（失败关闭，退回院校边界）
+    platform.set_active_persona("platform")
+    assert resolve_scope(pg_session, platform).school_id is not None
+
+
+# ── 权限融合：ops = 原 ops ∪ 原 platform ────────────────────────────────────
+#
+# `platform` 视角并入 `ops` 后，唯一要求是**不丢能力、不多给权限**：
+# - ops 拿到原 platform 的 school_manage（院校管理 / 跨院校页面）；
+# - ops 保留原 ops 的 feedback_review 等系统面权限；
+# - admin 只有展示名变了（「管理员视角」→「管理视角」），权限一个键都不许动；
+# - `users.is_platform`（账号身份）与 `PersonaScope.platform`（数据作用域）保持原义。
+
+
+def test_ops_is_the_union_of_the_old_ops_and_platform_presets():
+    old_ops = {"llm_monitor", "api_manage", "audit_view", "audit_export", "feedback_review", "export_data"}
+    old_platform = {"school_manage", "api_manage", "audit_view", "audit_export", "llm_monitor", "export_data"}
+
+    assert set(PERSONAS["ops"].permissions) == old_ops | old_platform
+    # 合并不该顺手放大：并集之外的键一个都不能有
+    assert set(PERSONAS["ops"].permissions) - (old_ops | old_platform) == set()
+
+
+def test_ops_keeps_platform_scope_and_platform_account_requirement():
+    definition = PERSONAS["ops"]
+    assert definition.scope == "platform"
+    assert definition.requires_platform_account is True
+    # 数据作用域仍是 platform：跨院校页面与"全部院校"视图照旧
+    assert persona_scope("ops") == "platform"
+
+
+def test_admin_only_renamed_not_repowered():
+    """admin 只改展示名；权限与作用域保持原样（改错一个键就是整档管理员越权）。"""
+    definition = PERSONAS["admin"]
+    assert definition.label == "管理视角"
+    assert definition.scope == "tenant"
+    assert definition.requires_platform_account is False
+    assert set(definition.permissions) == _ADMIN
+
+
+def test_super_admin_role_defaults_to_ops():
+    from core.personas import DEFAULT_PERSONA_BY_ROLE, SUPER_ADMIN_ROLE
+
+    assert SUPER_ADMIN_ROLE == "super_admin"
+    assert DEFAULT_PERSONA_BY_ROLE[SUPER_ADMIN_ROLE] == "ops"
+
+
+def test_platform_account_default_persona_is_ops_with_cross_school_scope(pg_session):
+    """平台账号默认落 ops：无选校时作用域是全局（跨院校），不需要先选院校。"""
+    from core.access import resolve_access
+    from core.tenant import resolve_scope
+
+    user = _user(pg_session, platform=True)
+    ctx = resolve_access(pg_session, user, None, None)
+    assert (ctx.school_id, ctx.persona) == (None, "ops")
+    assert ctx.permissions == frozenset(_OPS)
+    # 原 platform 专属的院校管理能力必须随 ops 可用
+    assert "school_manage" in ctx.permissions
+
+    user.set_active_school(None)
+    user.set_active_persona("ops")
+    assert resolve_scope(pg_session, user).school_id is None
+
+
+def test_ops_cross_school_grants_still_work_for_platform_account(pg_session):
+    """ops 仍能跨院校：用户/院校查询的外校目标不受院校边界限制（原 platform 行为）。"""
+    from core.access import resolve_access
+    from core.tenant import resolve_scope
+
+    user = _user(pg_session, platform=True)
+    school = School(name=f"跨校-{uuid.uuid4().hex[:6]}")
+    pg_session.add(school)
+    pg_session.flush()
+
+    ctx = resolve_access(pg_session, user, str(school.id), "ops")
+    assert (ctx.school_id, ctx.persona) == (school.id, "ops")
+    # 作用域仍是 platform：选了哪所学校都不改变"跨院校"这个数据面
+    user.set_active_school(school.id)
+    user.set_active_persona("ops")
+    assert resolve_scope(pg_session, user).school_id is None
+
+
+def test_platform_scope_literal_survives_for_data_scopes():
+    """`PersonaScope.platform` 是**数据作用域**，与账号标记 `users.is_platform` 一起保留。"""
+    from typing import get_args
+
+    from core.personas import PersonaScope
+
+    assert set(get_args(PersonaScope)) == {"platform", "tenant", "self"}

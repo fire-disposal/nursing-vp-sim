@@ -389,6 +389,7 @@ from modules.scoreboard import router as _scoreboard
 from modules.training.router import router as _training
 from modules.training.router.chat import router as _chat
 from modules.voice.asr_router import router as _asr
+from modules.voice.demo_router import router as _voice_demo
 from modules.voice.router import router as _tts
 
 _exports, _rubrics, _schools_public, _stats, _settings_public = get_top_level_routers()
@@ -413,5 +414,6 @@ for r in (
     _telemetry,
     _training,
     _tts,
+    _voice_demo,
 ):
     app.include_router(r)

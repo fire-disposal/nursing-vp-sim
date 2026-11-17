@@ -187,13 +187,13 @@ describe("院校详情", () => {
 		expect(screen.getByText("不限（未设月度上限）")).toBeVisible();
 		// 额度入口
 		expect(screen.getByRole("button", { name: "调整额度" })).toBeVisible();
-		// 班级摘要：纯文本（无 grade_class_manage 的平台视角点进班级只会 403），并显示总数
+		// 班级摘要：纯文本（无 grade_class_manage 的运维视角点进班级只会 403），并显示总数
 		expect(screen.getByText("甲一班")).toBeVisible();
 		expect(screen.queryByRole("link", { name: "甲一班" })).not.toBeInTheDocument();
 		expect(screen.getByText("显示前 1 / 共 2 个")).toBeVisible();
 		// 主行动唯一：页头只有一个「进入管理」，页尾不再重复
 		expect(screen.getAllByRole("button", { name: "进入管理" })).toHaveLength(1);
-		// 平台视角不具备的权限页面一律不出链接
+		// 运维视角不具备的权限页面一律不出链接
 		expect(screen.queryByRole("link", { name: "成本与用量" })).not.toBeInTheDocument();
 		expect(screen.queryByRole("link", { name: "全部班级" })).not.toBeInTheDocument();
 		expect(screen.queryByRole("button", { name: "返回院校管理" })).not.toBeInTheDocument();

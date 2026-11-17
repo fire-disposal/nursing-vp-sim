@@ -108,7 +108,7 @@ export default function PlatformOverviewPage() {
 	return (
 		<Stack gap="lg">
 			<PageHeader
-				title="平台总览"
+				title="运维总览"
 				subtitle="跨院校的规模、运行状态与本月资源使用"
 				icon={IconBuildingCommunity}
 				actions={actions}
@@ -118,7 +118,7 @@ export default function PlatformOverviewPage() {
 				<LoadingSkeleton variant="stats" />
 			) : schoolsQuery.isError ? (
 				<ErrorState
-					title="平台数据加载失败"
+					title="运维总览数据加载失败"
 					error={schoolsQuery.error}
 					onRetry={() => void schoolsQuery.refetch()}
 				/>
@@ -147,7 +147,7 @@ export default function PlatformOverviewPage() {
 						<StatCard
 							icon={IconCoins}
 							value={costValue}
-							label="本月 LLM + TTS 成本"
+							label="本月 LLM + ASR + TTS 成本"
 							color="blue"
 							onClick={() => navigate("/admin/costs")}
 						/>
@@ -279,7 +279,7 @@ export default function PlatformOverviewPage() {
 							<EmptyState
 								icon={IconBuildingCommunity}
 								title="还没有院校"
-								description="创建第一所院校后，平台总览会显示规模与运行数据"
+								description="创建第一所院校后，运维总览会显示规模与运行数据"
 							/>
 						) : (
 							<TableScroll minWidth={620}>

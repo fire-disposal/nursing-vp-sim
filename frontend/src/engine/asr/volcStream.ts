@@ -56,7 +56,7 @@ export function closeReason(code: number, hadOpen: boolean): VolcAsrCloseReason 
 export function buildAsrUrl(base: string, token: string, recordId: number): string {
 	const url = new URL(base, window.location.href);
 	url.searchParams.set("token", token);
-	url.searchParams.set("record_id", String(recordId));
+	if (recordId > 0) url.searchParams.set("record_id", String(recordId));
 	if (url.protocol === "http:") url.protocol = "ws:";
 	else if (url.protocol === "https:") url.protocol = "wss:";
 	return url.toString();

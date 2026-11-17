@@ -20,7 +20,7 @@ export interface ScopedSchool {
 }
 
 interface SchoolScopeState {
-	/** null = 全部院校（平台视角） */
+	/** null = 全部院校（跨院校视图） */
 	school: ScopedSchool | null;
 	setSchool: (school: ScopedSchool | null) => void;
 }

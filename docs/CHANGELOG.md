@@ -13,6 +13,10 @@
 
 **代理统一**：前端运行镜像从 Nginx 迁移到 Caddy，宿主与容器使用同一代理栈。SPA、SSE、ASR WebSocket、静态缓存、真实 IP 透传和扫描拦截均保留，旧 Nginx 配置与操作指引已清理。
 
+**视角收敛**：`platform` 视角并入 `ops`（`ops` = 原 ops ∪ 原 platform，取得 `school_manage`），预设从五档降到四档；平台账号默认落 `ops`，总览入口统一为「运维总览」`/admin/ops`。`users.is_platform`（账号身份）与 `PersonaScope.platform`（数据作用域）保持不变；`admin` 仅展示名改为「管理视角」，权限不变。存量授予由 `c5a8e1f3d7b2` 迁移，改动行记入辅助表以便降级精确还原。
+
+**电话实验室**：学生侧四位虚构角色自由对话，真实 LLM 独立用途 `voice_demo`，四维情绪驱动 TTS。角色选择、程序化角色形象、VAD/ASR/TTS 状态、转写与打断测试不关联训练业务；实验采集使用独立 `voice_demo_logs`，不提供日志查看 UI。
+
 ## 2026.05 — 项目奠基
 
 **PostgreSQL 迁移** 从 SQLite 全量迁至 PostgreSQL 15，含连接池、TIMESTAMPTZ、psycopg3。

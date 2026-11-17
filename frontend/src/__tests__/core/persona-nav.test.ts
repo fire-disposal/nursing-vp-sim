@@ -27,8 +27,8 @@ const NAV_GROUP_PERSONAS = Object.fromEntries(
 ) as unknown as Record<NavGroupKey, readonly string[]>;
 
 describe("视角导航过滤", () => {
-	it("视角取值与后端预设一致：student/teacher/admin/ops/platform", () => {
-		expect([...PERSONA_ORDER]).toEqual(["student", "teacher", "admin", "ops", "platform"]);
+	it("视角取值与后端预设一致：student/teacher/admin/ops（platform 已并入 ops）", () => {
+		expect([...PERSONA_ORDER]).toEqual(["student", "teacher", "admin", "ops"]);
 	});
 
 	it("学生：看不到教学 / 教学资源 / 人员 / 运维分组", () => {
@@ -59,24 +59,24 @@ describe("视角导航过滤", () => {
 			expect(groups, `管理视角缺少 ${key} 分组`).toContain(key);
 		}
 		// 运维分组对管理开放，后续权限过滤只保留成本、密钥与系统反馈。
-		expect(NAV_GROUP_PERSONAS.system).toEqual(["admin", "ops", "platform"]);
+		expect(NAV_GROUP_PERSONAS.system).toEqual(["admin", "ops"]);
 	});
 
-	it("运维：只剩运维分组，教学/人员/教学资源一律不可见", () => {
+	it("运维：保留院校资源与运维入口，不显示教学日常入口", () => {
 		const groups = groupsOf("ops");
 		expect(groups).toContain("system");
-		for (const hidden of ["teaching", "content", "people"] as const) {
-			expect(groups, `运维视角不该看到 ${hidden} 分组`).not.toContain(hidden);
-		}
+		expect(groups).not.toContain("teaching");
 		const labels = labelsOf("ops");
-		for (const teaching of ["教学看板", "批改工作台", "作业管理", "成绩管理", "班级管理", "病例库", "用户管理"]) {
+		for (const teaching of ["教学看板", "批改工作台", "作业管理", "成绩管理"]) {
 			expect(labels).not.toContain(teaching);
 		}
+		expect(labels).toContain("班级管理");
+		expect(labels).toContain("病例库");
 		expect(labels).toContain("审计日志");
 	});
 
-	it("「系统反馈」对教师 / 管理 / 运维 / 平台可见，对学生不可见", () => {
-		for (const persona of ["teacher", "admin", "ops", "platform"]) {
+	it("「系统反馈」对教师 / 管理 / 运维可见，对学生不可见", () => {
+		for (const persona of ["teacher", "admin", "ops"]) {
 			expect(labelsOf(persona), `${persona} 应看到系统反馈`).toContain("系统反馈");
 		}
 		expect(labelsOf("student")).not.toContain("系统反馈");
@@ -84,9 +84,9 @@ describe("视角导航过滤", () => {
 
 	it("条目级 personas 覆盖分组口径（是取代，不是并集）", () => {
 		const feedback = NAV_ITEMS.find((item) => item.label === "系统反馈");
-		expect(feedback?.personas).toEqual(["teacher", "admin", "ops", "platform"]);
-		// 分组本身给管理 + 运维 + 平台；管理最终只显示其权限允许的成本与密钥。
-		expect(NAV_GROUP_PERSONAS.system).toEqual(["admin", "ops", "platform"]);
+		expect(feedback?.personas).toEqual(["teacher", "admin", "ops"]);
+		// 分组本身给管理 + 运维；管理最终只显示其权限允许的成本与密钥。
+		expect(NAV_GROUP_PERSONAS.system).toEqual(["admin", "ops"]);
 		// 此处只验视角裁剪；院校管理员的权限过滤由导航矩阵测试覆盖。
 		const visible = itemsOf("admin")
 			.filter((item) => item.group === "system" && !item.personas)
@@ -94,15 +94,25 @@ describe("视角导航过滤", () => {
 		expect(visible).toEqual(["运维仪表盘", "成本管理", "审计日志", "系统通知", "API 密钥", "版本归因"]);
 	});
 
-	it("平台：人员 / 教学资源 / 运维可见，教学分组不可见", () => {
-		const groups = groupsOf("platform");
+	it("运维并入原平台：人员 / 教学资源 / 运维可见，教学分组不可见", () => {
+		const groups = groupsOf("ops");
 		expect(groups).toContain("people");
 		expect(groups).toContain("content");
 		expect(groups).toContain("system");
 		expect(groups).not.toContain("teaching");
-		const labels = labelsOf("platform");
+		const labels = labelsOf("ops");
 		expect(labels).toContain("院校管理");
 		expect(labels).toContain("审计日志");
+		expect(labels).toContain("运维总览");
+		// 平台总览改名为运维总览：路由与入口都只剩一个
+		expect(labels).not.toContain("平台总览");
+		expect(itemsOf("ops").map((item) => item.to)).toContain("/admin/ops");
+	});
+
+	it("已下线的 platform 视角不再存在：路由里没有 /admin/platform", () => {
+		const paths = NAV_ITEMS.map((item) => item.to);
+		expect(paths).not.toContain("/admin/platform");
+		expect(paths).toContain("/admin/ops");
 	});
 
 	it("每个视角都至少留下一个入口（不允许把侧栏过滤成空）", () => {

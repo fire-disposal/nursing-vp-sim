@@ -10,7 +10,7 @@ import os
 from datetime import UTC, datetime
 from pathlib import Path
 
-from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
+from core.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, VOLC_ASR_API_KEY, VOLC_TTS_API_KEY
 from core.database import SessionLocal
 from core.security import hash_password
 from core.time_limits import DEFAULT_TIME_LIMIT_MINUTES
@@ -306,27 +306,45 @@ def _seed_llm() -> None:
         db.close()
 
 
+def _apply_voice_env_seed(vc: VoiceConfig) -> bool:
+    """每个通道最多用 ENV 初始化一次；管理页之后的修改或清空均不覆盖。"""
+    changed = False
+    if VOLC_TTS_API_KEY and not vc.tts_env_seeded:
+        if not vc.api_key:
+            vc.api_key = VOLC_TTS_API_KEY
+        vc.tts_env_seeded = True
+        changed = True
+    if VOLC_ASR_API_KEY and not vc.asr_env_seeded:
+        if not vc.asr_api_key:
+            vc.asr_api_key = VOLC_ASR_API_KEY
+        vc.asr_env_seeded = True
+        changed = True
+    return changed
+
+
 def _seed_voice() -> None:
     db = SessionLocal()
     try:
         active = db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
-        if not active:
-            db.add(
-                VoiceConfig(
-                    provider="volcengine",
-                    api_key="",
-                    tts_resource_id="seed-tts-2.0",
-                    tts_speaker="zh_female_vv_uranus_bigtts",
-                    tts_model="seed-tts-2.0-standard",
-                    tts_sample_rate=24000,
-                    tts_format="mp3",
-                    tts_timeout=8,
-                    monthly_budget=200.0,
-                    is_active=True,
-                )
+        created = active is None
+        if created:
+            active = VoiceConfig(
+                provider="volcengine",
+                api_key="",
+                tts_resource_id="seed-tts-2.0",
+                tts_speaker="zh_female_vv_uranus_bigtts",
+                tts_model="seed-tts-2.0-standard",
+                tts_sample_rate=24000,
+                tts_format="mp3",
+                tts_timeout=8,
+                monthly_budget=200.0,
+                is_active=True,
             )
+            db.add(active)
+        changed = _apply_voice_env_seed(active)
+        if created or changed:
             db.commit()
-            log.info("VoiceConfig seed: no active config found, created placeholder")
+            log.info("VoiceConfig seed: created=%s env_channels_initialized=%s", created, changed)
     except Exception:
         log.exception("VoiceConfig 种子失败")
         db.rollback()

@@ -50,9 +50,9 @@ function visibleLabels(permissions: string[], isPlatform = false): string[] {
 const ALL_PERMISSIONS: string[] = [...PERMISSION_KEYS];
 
 describe("角色导航矩阵", () => {
-	it("学生：训练 / 病例 / 作业 / 记录 / 问答 / 我的", () => {
+	it("学生：训练 / 病例 / 作业 / 记录 / 电话 / 问答 / 我的", () => {
 		expect(visibleLabels(ROLE_PERMISSIONS.student)).toEqual(
-			["我的", "问答", "记录", "训练", "病例", "作业"].sort(),
+			["我的", "问答", "记录", "电话", "训练", "病例", "作业"].sort(),
 		);
 	});
 

@@ -48,12 +48,22 @@
 
 ## 运维账号 = 平台账号
 
-`ops`（运维）不是院校角色：它看的密钥、审计、成本、诊断都跨院校。因此只有
+`ops`（运维）不是院校角色：它看的院校管理、密钥、审计、成本、诊断都跨院校。因此只有
 `users.is_platform = true` 的账号能持有 `ops`；院校账号即使历史库里残留授予，读取与保存也会拒绝。
 
 平台账号的不变量：`school_id IS NULL`、没有 `user_school_personas` / `user_school_profiles` 行、
-不是任何班级成员。`platform` / `ops` 视角即使请求头带了院校，作用域仍是全部院校（院校选择只影响
+不是任何班级成员。`ops` 视角即使请求头带了院校，作用域仍是全部院校（院校选择只影响
 切换后的教师/管理视角）。
+
+**2026-11 起 `platform` 视角并入 `ops`**：库里不再有第五档预设，`ops` = 原 ops ∪ 原 platform
+（`school_manage, llm_monitor, api_manage, audit_view, audit_export, feedback_review, export_data`），
+平台账号的默认视角也就是 `ops`。`users.is_platform`（账号身份）与 `PersonaScope.platform`
+（数据作用域）仍是两个独立概念，都保留。前端唯一总览入口是 `/admin/ops`（「运维总览」）。
+
+存量授予由 `c5a8e1f3d7b2` 迁移：同 `(user, school)` 已有 `ops` 的 `platform` 行被删除（并集无损失），
+其余 `UPDATE` 成 `ops`；被改动的行记进 `persona_platform_merge_log`，`downgrade` 据此**只**把由
+platform 来的行还原，辅助表随降级删除。缺辅助表的降级是 no-op —— 宁可少回退，也不把真正的运维
+授予错回成 `platform`。
 
 2026-11 的 `d0c4e6a8b2f1` 只处理历史上持有 `ops` 的账号：把它们整体升为平台账号，并清理这些账号
 残留的院校归属、显式授予、学号档案与班级成员关系。其它平台账号不在迁移范围内。

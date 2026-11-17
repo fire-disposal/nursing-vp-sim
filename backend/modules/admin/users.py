@@ -329,7 +329,7 @@ class UserService:
             raise AuthError(f"无权{action}：目标账号拥有你没有的权限 {exceeded}", status_code=403)
 
     def _replace_personas(self, target: User, personas: list[str], *, actor: User) -> list[str]:
-        """全量替换授予：未知视角 400；平台视角只能给平台账号；不能授予自己没有的权限。"""
+        """全量替换授予：未知视角 400；平台作用域视角（ops）只能给平台账号；不能授予自己没有的权限。"""
         unique = list(dict.fromkeys(personas))
         unknown = sorted(set(unique) - set(PERSONA_KEYS))
         if unknown:

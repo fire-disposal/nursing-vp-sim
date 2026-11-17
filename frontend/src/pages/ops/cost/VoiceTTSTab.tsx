@@ -1,84 +1,12 @@
-import { Box, Group, Progress, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Group, Progress, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { IconCurrencyDollar, IconHash, IconPercentage, IconVolume2 } from "@tabler/icons-react";
 import { fetchVoiceUsage } from "@/api/admin/voice-cost";
 import { queryKeys } from "@/api/query-keys";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import EmptyState from "@/components/ui/empty-state";
 import StatCard from "@/components/ui/stat-card";
-import { Table } from "@mantine/core";
 import VoiceTokenCard from "./VoiceTokenCard";
-
-function TTSUsageTable() {
-	const { data: usage } = useQuery({
-		queryKey: queryKeys.voice.usage,
-		queryFn: () => fetchVoiceUsage().then((r) => r.data),
-		staleTime: 60_000,
-	});
-
-	const ttsData = usage
-		? [
-				{ label: "今日", ...usage.tts_today },
-				{ label: "本月", ...usage.tts_month },
-			]
-		: [];
-
-	return (
-		<Card>
-			<CardHeader>
-				<Text fw={600} size="md" lh={1.35}>TTS 使用统计</Text>
-			</CardHeader>
-			<CardContent>
-				{ttsData.length === 0 ? (
-					<EmptyState icon={IconVolume2} title="暂无数据" />
-				) : (
-					<>
-						<Box visibleFrom="sm">
-							<Table>
-								<Table.Thead>
-									<Table.Tr>
-										<Table.Th>周期</Table.Th>
-										<Table.Th style={{ textAlign: "right" }}>调用</Table.Th>
-										<Table.Th style={{ textAlign: "right" }}>成功</Table.Th>
-										<Table.Th style={{ textAlign: "right" }}>失败</Table.Th>
-										<Table.Th style={{ textAlign: "right" }}>字符</Table.Th>
-										<Table.Th style={{ textAlign: "right" }}>费用</Table.Th>
-									</Table.Tr>
-								</Table.Thead>
-								<Table.Tbody>
-									{ttsData.map((row) => (
-										<Table.Tr key={row.label}>
-											<Table.Td style={{ fontWeight: 500 }}>{row.label}</Table.Td>
-											<Table.Td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{row.calls_total}</Table.Td>
-											<Table.Td style={{ textAlign: "right", color: "var(--mantine-color-green-6)", fontVariantNumeric: "tabular-nums" }}>{row.calls_success}</Table.Td>
-											<Table.Td style={{ textAlign: "right", color: "var(--mantine-color-red-6)", fontVariantNumeric: "tabular-nums" }}>{row.calls_error}</Table.Td>
-											<Table.Td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{row.total_chars.toLocaleString()}</Table.Td>
-											<Table.Td style={{ textAlign: "right", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>¥{row.cost_estimated.toFixed(4)}</Table.Td>
-										</Table.Tr>
-									))}
-								</Table.Tbody>
-							</Table>
-						</Box>
-						<Stack gap={8} hiddenFrom="sm">
-							{ttsData.map((row) => (
-								<Stack key={row.label} gap={4} style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 8, padding: 12 }}>
-									<Text size="sm" fw={500}>{row.label}</Text>
-									<Group gap={16} wrap="wrap">
-										<Text size="xs" c="dimmed">调用 {row.calls_total}</Text>
-										<Text size="xs" c="green">成功 {row.calls_success}</Text>
-										<Text size="xs" c="red">失败 {row.calls_error}</Text>
-										<Text size="xs" c="dimmed">字符 {row.total_chars.toLocaleString()}</Text>
-										<Text size="xs" fw={500}>¥{row.cost_estimated.toFixed(4)}</Text>
-									</Group>
-								</Stack>
-							))}
-						</Stack>
-					</>
-				)}
-			</CardContent>
-		</Card>
-	);
-}
+import VoiceUsageTable from "./VoiceUsageTable";
 
 export default function VoiceTTSTab() {
 	const { data: usage } = useQuery({
@@ -129,7 +57,7 @@ export default function VoiceTTSTab() {
 
 			<VoiceTokenCard />
 
-			<TTSUsageTable />
+			<VoiceUsageTable direction="tts" title="TTS 使用统计" icon={IconVolume2} />
 		</Stack>
 	);
 }

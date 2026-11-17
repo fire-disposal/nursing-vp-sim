@@ -37,7 +37,8 @@
 	@real_ip_present header X-Real-IP *
 	@real_ip_missing not header X-Real-IP *
 
-	handle /api/asr/stream {
+	@asr_streams path /api/asr/stream /api/voice-demo/asr
+	handle @asr_streams {
 		reverse_proxy backend:8000 {
 			header_up @real_ip_present X-Real-IP {http.request.header.X-Real-IP}
 			header_up @real_ip_missing X-Real-IP {remote_host}

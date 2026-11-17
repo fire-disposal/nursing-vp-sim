@@ -18,7 +18,11 @@ class VoiceUsageItem(BaseModel):
 class VoiceUsageResponse(BaseModel):
     tts_today: VoiceUsageItem
     tts_month: VoiceUsageItem
+    #: ASR（direction='asr'）独立统计：ASR 按小时计费，与 TTS 的按字符预算互不相干。
+    asr_today: VoiceUsageItem
+    asr_month: VoiceUsageItem
     monthly_budget: float
+    #: 只统计 TTS 的当月花费——预算口径是 TTS 字符预算，不含 ASR。
     monthly_used: float
 
 

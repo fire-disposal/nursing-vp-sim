@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  *
  * 两个线上可观察的行为：
  * 1. 连接 URL 必须带「当前视角 + 当前院校」——浏览器 WebSocket 不能带请求头，缺了它服务端
- *    按默认视角解析，平台账号落到 `platform` 视角（无 `training_access`）→ 4003 → 训练页
+ *    按默认视角解析，平台账号落到 `ops` 视角（无 `training_access`）→ 4003 → 训练页
  *    横幅「实时推送连接中断」且永不恢复。
  * 2. 服务端 101 后立刻关闭时退避不得清零，否则退化成每 0.5–1s 一条重连的抖动。
  */
@@ -79,7 +79,7 @@ describe("useTrainingWS", () => {
 	it("连接 URL 带当前视角与院校，切视角即换连接", async () => {
 		const { usePersonaStore, useSchoolScopeStore, authStore, useTrainingWS } = await loadModules();
 		authStore.setState({ token: "tok-1" });
-		usePersonaStore.setState({ available: ["student", "platform"], active: "student" });
+		usePersonaStore.setState({ available: ["student", "ops"], active: "student" });
 		useSchoolScopeStore.getState().setSchool({
 			id: 7,
 			name: "测试院校",
@@ -98,10 +98,10 @@ describe("useTrainingWS", () => {
 		expect(first.searchParams.get("school")).toBe("7");
 
 		act(() => {
-			usePersonaStore.getState().setActive("platform");
+			usePersonaStore.getState().setActive("ops");
 		});
 		expect(FakeSocket.instances).toHaveLength(2);
-		expect(new URL(FakeSocket.instances[1].url).searchParams.get("persona")).toBe("platform");
+		expect(new URL(FakeSocket.instances[1].url).searchParams.get("persona")).toBe("ops");
 
 		unmount();
 	});

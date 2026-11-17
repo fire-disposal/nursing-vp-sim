@@ -1,7 +1,7 @@
 """训练 WS 的访问上下文（``modules/training/router/ws.py``）。
 
 回归：平台账号在训练页用「学生视角」训练时，WS 连接若不带视角/院校，服务端会按**默认视角**
-解析 —— 平台账号的默认视角是 ``platform``，它没有 ``training_access``，于是连接被 4003 关掉，
+解析 —— 平台账号的默认视角是 ``ops``，它没有 ``training_access``，于是连接被 4003 关掉，
 前端横幅「实时推送连接中断」并持续重连。视角/院校必须随连接传入，语义同 HTTP 请求头
 （``X-View-Persona`` / ``X-School-Scope``）。
 """
@@ -35,7 +35,7 @@ class _StubHub:
 
 @pytest.fixture
 def platform_user():
-    """平台账号：派生全部视角，默认视角却是 ``platform``（无 ``training_access``）。"""
+    """平台账号：派生全部视角，默认视角却是 ``ops``（无 ``training_access``）。"""
     db = SessionLocal()
     now = datetime.now(UTC)
     school = School(name=f"ws-access-{uuid4().hex[:8]}", created_at=now)
@@ -78,7 +78,7 @@ def test_persona_and_school_context_is_accepted(platform_user) -> None:
 
 
 def test_default_persona_without_context_has_no_training_access(platform_user) -> None:
-    """不带视角/院校 = 默认 ``platform`` 视角 → 4003（这是修复前的线上行为）。"""
+    """不带视角/院校 = 默认 ``ops`` 视角 → 4003（这是修复前的线上行为）。"""
     _user, _school, token = platform_user
     client = _client()
     with (

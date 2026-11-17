@@ -33,7 +33,9 @@ export default function ListPage({ header, toolbar, footer, children, padded = t
 			<Box
 				style={{
 					position: "sticky",
-					top: 0,
+					// 顶栏是 fixed 的（高度见 config/layout-scale 的 SHELL.headerHeight）：
+					// 吸顶偏移必须让开它，否则滚动后筛选条上半截会钻到顶栏底下。
+					top: "var(--shell-header-height, 0px)",
 					zIndex: 3,
 					background: "var(--mantine-color-body)",
 					borderBottom: "1px solid var(--mantine-color-default-border)",

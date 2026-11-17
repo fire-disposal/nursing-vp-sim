@@ -5,7 +5,7 @@
 - `schools` 是租户表；`classes.school_id` 必填；`users.school_id` 可空 —— **NULL = 平台角色**
   （`super_admin`），跨院校可见。其余角色一律非空。
 - 判定只有一处：`backend/core/tenant.py` 的 `resolve_scope`
-  - `users.school_id IS NULL` → 跨院校（平台视角）
+  - `users.school_id IS NULL` → 跨院校（运维视角 `ops`）
   - 有 `user_manage` → 本校全部
   - 否则 → 只看自己任教的班（`class_ids`）
 - 越权访问返回 **404**（不暴露存在性），只有缺权限才是 403。理由：租户隔离是安全属性，

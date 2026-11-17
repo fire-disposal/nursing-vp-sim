@@ -1,9 +1,9 @@
-"""视角授予的三道闸：租户边界、平台视角、提权上限，以及授予留痕。
+"""视角授予的三道闸：租户边界、平台专属视角、提权上限，以及授予留痕。
 
 这些规则不写在端点里而是服务里（`PersonaService`），所以直接测服务：
 - 跨校目标 → 404（不暴露存在性）；
 - 目标是平台账号 → 400（派生全视角，不可编辑）；
-- 平台视角只能授予平台账号；
+- 平台专属视角（ops）只能授予平台账号；
 - 调用者只能授予自己当前视角权限覆盖得到的视角（403）；
 - 成功替换后写 `user_school_personas` 并留下 `user.personas_updated`。
 """
@@ -95,14 +95,19 @@ def test_platform_account_target_is_not_editable(pg_session):
 
 def test_platform_only_personas_cannot_be_granted_to_school_account(pg_session):
     school = _school(pg_session, "A")
-    actor = _actor(pg_session, school=school, perms=set(PERSONAS["platform"].permissions))
+    actor = _actor(pg_session, school=school, perms=set(PERSONAS["ops"].permissions))
     target = _target(pg_session, school)
     service = _service(pg_session, school, actor)
 
-    for key in ("platform", "ops"):
+    for key in ("ops",):
         with pytest.raises(ValidationError) as exc:
             service.replace(target.id, [key], actor=actor)
         assert "平台专属视角只能授予平台账号" in str(exc.value)
+
+    # `platform` 已并入 ops：它不再是视角，按未知视角拒绝
+    with pytest.raises(ValidationError) as exc:
+        service.replace(target.id, ["platform"], actor=actor)
+    assert "未知视角" in str(exc.value)
 
 
 def test_actor_cannot_grant_persona_above_own_permissions(pg_session):
@@ -126,8 +131,7 @@ def test_catalog_marks_which_personas_actor_can_grant(pg_session):
     assert catalog["admin"].grantable is False
     assert catalog["ops"].grantable is False
     assert catalog["ops"].requires_platform_account is True
-    assert catalog["platform"].grantable is False
-    assert catalog["platform"].requires_platform_account is True
+    assert "platform" not in catalog
     assert catalog["teacher"].requires_platform_account is False
 
 

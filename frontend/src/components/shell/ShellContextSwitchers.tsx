@@ -51,7 +51,7 @@ export default function ShellContextSwitchers({ variant = "card" }: { variant?: 
 	const queryClient = useQueryClient();
 	const location = useLocation();
 	const navigate = useNavigate();
-	// 平台账号在"全部院校"下点非平台视角时，由 PersonaSwitcher 请求打开院校菜单，
+	// 平台账号在"全部院校"下点院校作用域的视角时，由 PersonaSwitcher 请求打开院校菜单，
 	// 把"先选院校"从一句 toast 变成直接可操作的下一步。
 	const [schoolMenuOpen, setSchoolMenuOpen] = useState(false);
 	useEffect(() => {
@@ -131,10 +131,10 @@ export default function ShellContextSwitchers({ variant = "card" }: { variant?: 
 		// authStore 会把刚选的学校又清掉。
 		const personaState = usePersonaStore.getState();
 		if (isPlatform) {
-			// 切回“全部院校”时，院校视角失去作用域，需要落到 platform；
-			// 但 platform / ops 本身就是全局视角，不能把正在看的运维页切走。
+			// 切回“全部院校”时，院校视角失去作用域，需要落到 ops（唯一的跨院校视角）；
+			// 已经在 ops 上时不动，否则会把正在看的运维页切走。
 			if (next == null && !isPlatformOnlyPersona(personaState.active)) {
-				personaState.setAvailable(personaState.available, "platform");
+				personaState.setAvailable(personaState.available, "ops");
 			}
 		} else if (next != null) {
 			const target = user?.school_personas?.find((grant) => grant.school_id === next.id);

@@ -4,14 +4,26 @@
 
 语音链路采用商业 ASR、现有 LLM 患者管线和商业 TTS，不在 `yecaoyun` 部署推理模型。
 豆包流式语音识别 2.0 使用小时版资源 `volc.seedasr.sauc.duration`。当前官方后付费为
-1 元/小时，SeedTTS 2.0 为 3 元/万字符。试用阶段按量付费，不预购资源包。
+1 元/小时，SeedTTS 2.0 为 3 元/万字符。初期按量付费或购买小规格资源包，不做大额预付。
 
-2026-11-17 已在火山控制台创建 `vp-sim-asr` API Key 并确认启用。创建 Key 不等于完成
-ASR 商品开通或账户充值；生产启用前仍需在控制台确认语音识别 2.0 已开通且余额可用。
-
-后端从当前启用的 `VoiceConfig.api_key` 同时读取 TTS 与 ASR 凭证，因此录入的 Key 必须
-同时具备两项服务权限。不要把 Key 写进仓库、前端环境变量或日志。ASR 调用以
+2026-11-17 已在火山控制台创建 `vp-sim-asr` API Key 并确认启用，随后购入 30 小时
+流式 ASR 2.0 资源包。TTS 与 ASR 分别使用 `VoiceConfig.api_key` 和
+`VoiceConfig.asr_api_key`，在成本管理的 TTS/ASR 页签独立配置，避免互相覆盖。
+不要把 Key 写进仓库、前端环境变量或日志。ASR 调用以
 `voice_call_logs.direction="asr"` 记录，成本按实际上行 PCM 秒数估算，最终以火山账单为准。
+管理页的 ASR 连接测试只发送配置帧，不发送音频。
+
+学生侧“电话”页是独立的全双工实验室，不写训练记录。四位虚构角色使用真实 LLM，
+独立用途 `voice_demo` 复用 Provider 路由、密钥与成本统计；本地四维情绪状态机驱动
+长回复打断、VAD/ASR 状态和 TTS 情绪表现。对话历史只留在当前页面，另设
+`voice_demo_logs` 仅用于实验采集，不提供日志查看 UI，也不作为正式训练档案。
+`/api/voice-demo/asr` 与 `/api/voice-demo/tts/stream` 仅要求 `training_access`，不读取或
+写入训练业务数据；语音调用日志的 `record_id` 为 NULL，费用仍按真实 ASR/TTS 用量产生。
+
+首次部署可在后端 `.env` 设置 `VOLC_TTS_API_KEY` 与 `VOLC_ASR_API_KEY`。每个通道只在
+数据库对应 Key 为空且从未完成 ENV 初始化时写入一次，并分别记录初始化状态。管理页之后
+修改或清空 Key 不会被后续重启回写；另一通道以后仍可通过 ENV 独立补配。生产 `.env` 由
+`env_file` 注入后端容器，不需要把密钥写进镜像或 GitHub Actions 日志。
 
 官方资料：
 

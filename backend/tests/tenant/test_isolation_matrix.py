@@ -34,11 +34,11 @@ def _school(db, name: str) -> School:
 
 
 def _user(db, username: str, persona: str, school_id: int | None) -> User:
-    """建账号并授予 ``persona``（``"platform"`` = 平台账号，不再落授予行）。
+    """建账号并授予 ``persona``（``"ops"`` + ``school_id=None`` = 平台账号，不再落授予行）。
 
     模拟 ``get_current_user``：装载生效视角与对应权限（作用域由视角声明决定）。
     """
-    is_platform = persona == "platform"
+    is_platform = persona == "ops" and school_id is None
     user = User(
         username=username,
         password_hash="x",
@@ -80,7 +80,7 @@ def world(pg_session):
     school_b = _school(db, "乙学院")
     admin_a = _user(db, "admin-a", "admin", school_a.id)
     admin_b = _user(db, "admin-b", "admin", school_b.id)
-    platform_user = _user(db, "platform-root", "platform", None)
+    platform_user = _user(db, "platform-root", "ops", None)
     class_a = _class(db, "甲班", school_a.id)
     class_b = _class(db, "乙班", school_b.id)
     stu_a = _user(db, "stu-a", "student", school_a.id)

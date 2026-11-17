@@ -149,8 +149,8 @@ class PersonaService:
         unknown = sorted(set(unique) - set(PERSONA_KEYS))
         if unknown:
             raise ValidationError(f"未知视角: {unknown}")
-        # 平台级视角跨院校：只属于平台账号，绝不能被授予普通院校账号。
-        # （运维 ops 也算平台级：密钥/审计/诊断没有院校轴。）
+        # 平台作用域视角（ops）跨院校：只属于平台账号，绝不能被授予普通院校账号。
+        # 密钥/审计/诊断没有院校轴。
         platform_only = platform_only_personas(unique)
         if platform_only and not is_super_admin(target):
             raise ValidationError(f"平台专属视角只能授予平台账号: {platform_only}")

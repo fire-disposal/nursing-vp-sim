@@ -13,15 +13,13 @@ import {
 	type WorkspacePane,
 	useActivityArtifact,
 	useDockPanes,
-	useInitialActivityPanel,
 	useWorkspacePanes,
 } from "./useWorkspacePanes";
 
 /** 工具列宽度：只放图标（标签由 Tooltip 与面板头承担），把宽度留给对话列 */
 const RAIL_WIDTH = 48;
-/** 面板宽度：窄视口 360，宽视口且面板需要更宽时 560 */
-const PANEL_WIDTH = { narrow: 360, wide: 560 };
-const ANIM_DURATION = 200;
+/** 面板宽度：窄视口 400，宽视口且面板需要更宽时 560 */
+const PANEL_WIDTH = { narrow: 400, wide: 560 };
 
 /**
  * 桌面工作区：**工具列 + 常驻面板（Aside）**（宽度 ≥ lg，或横屏）。
@@ -46,7 +44,6 @@ export function ActivityRail() {
 	const host = useWorkspaceHost();
 	// 视口不到 lg 时用窄面板：横屏手机/窄窗口也要给对话区留位置
 	const wideViewport = useMediaQuery(`(min-width: ${WIDTH.rail}px)`);
-	useInitialActivityPanel(host === "rail" && !isMobile && !isShort);
 
 	const headerOffset = isShort || isMobile ? TRAINING_HEADER_HEIGHT.short : TRAINING_HEADER_HEIGHT.wide;
 	if (host !== "rail" || panes.length === 0) return null;
@@ -89,7 +86,6 @@ export function ActivityRail() {
 					height: "100%",
 					display: "flex",
 					flexDirection: "column",
-					transition: `width ${ANIM_DURATION}ms ease-out`,
 					overflow: "hidden",
 					borderLeft: active ? "1px solid var(--stu-line)" : undefined,
 					paddingTop: headerOffset,

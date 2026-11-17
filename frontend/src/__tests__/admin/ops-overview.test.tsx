@@ -79,9 +79,9 @@ function renderPage() {
 	});
 	return render(
 		<QueryClientProvider client={client}>
-			<MemoryRouter initialEntries={["/admin/platform"]}>
+			<MemoryRouter initialEntries={["/admin/ops"]}>
 				<Routes>
-					<Route path="/admin/platform" element={<PlatformOverviewPage />} />
+					<Route path="/admin/ops" element={<PlatformOverviewPage />} />
 				</Routes>
 			</MemoryRouter>
 		</QueryClientProvider>,
@@ -92,11 +92,11 @@ beforeEach(() => {
 	vi.clearAllMocks();
 });
 
-describe("平台总览", () => {
+describe("运维总览", () => {
 	it("展示跨院校规模、运行状态与成本", async () => {
 		renderPage();
 
-		expect(await screen.findByRole("heading", { name: "平台总览" })).toBeInTheDocument();
+		expect(await screen.findByRole("heading", { name: "运维总览" })).toBeInTheDocument();
 		expect(await screen.findByText("甲大学")).toBeInTheDocument();
 		expect(screen.getByText("¥12.50")).toBeInTheDocument();
 		expect(screen.getByText("运行正常")).toBeInTheDocument();
@@ -104,7 +104,7 @@ describe("平台总览", () => {
 		expect(screen.getByRole("link", { name: "成本管理" })).toBeInTheDocument();
 
 		await waitFor(() => {
-			expect(screen.getByText("本月 LLM + TTS 成本")).toBeInTheDocument();
+			expect(screen.getByText("本月 LLM + ASR + TTS 成本")).toBeInTheDocument();
 		});
 	});
 });

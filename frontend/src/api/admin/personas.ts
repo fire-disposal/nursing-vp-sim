@@ -2,7 +2,7 @@ import { api } from "../client";
 
 /**
  * 视角（Persona）——权限预设包。与旧「角色」的区别：角色是自建的一组权限，
- * 视角是**固定的五档预设 + 数据作用域（platform/tenant/self）**，账号可被授予多个视角，
+ * 视角是**固定的四档预设 + 数据作用域（platform/tenant/self）**，账号可被授予多个视角，
  * 请求头 `X-View-Persona` 选择当前生效的那一个。
  */
 export type PersonaScope = "platform" | "tenant" | "self";

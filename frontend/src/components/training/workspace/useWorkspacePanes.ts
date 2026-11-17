@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { type ManifestActivity, type ManifestArtifact, availableActivities } from "@/engine/manifest";
 import { useRecordMeta, useSessionManifest, useTrainingData } from "@/engine/TrainingDataContext";
 import { INQUIRY_PANEL_ID } from "@/stores/workspaceStore";
@@ -60,19 +60,6 @@ export function useWorkspacePanes(): WorkspacePane[] {
  */
 export function useDockPanes(): WorkspacePane[] {
 	return useWorkspacePanes().filter((pane) => pane.id !== INQUIRY_PANEL_ID);
-}
-
-/**
- * 桌面首次进入优先展开问诊清单/引导提示；没有引导内容时保持工作区收起。
- * 只在桌面 rail 启用（调用方传 enabled）；移动底部面板不参与首屏自动展开，避免盖住患者对话。
- */
-export function useInitialActivityPanel(enabled = true) {
-	const panes = useWorkspacePanes();
-	const applyInitialPanel = useWorkspaceStore((state) => state.applyInitialPanel);
-	const hasInquiry = panes.some((pane) => pane.id === INQUIRY_PANEL_ID);
-	useEffect(() => {
-		if (enabled && hasInquiry) applyInitialPanel(INQUIRY_PANEL_ID);
-	}, [enabled, hasInquiry, applyInitialPanel]);
 }
 
 /** 该 activity 的产物状态（`manifest.artifacts[artifact_kind]`）；无产物/未下发 → undefined。 */

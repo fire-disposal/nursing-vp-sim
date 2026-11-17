@@ -77,7 +77,7 @@ class TestRecordOwnership:
 
 class TestLoadApiKey:
     def test_returns_active_key(self):
-        db = _FakeSession(config=SimpleNamespace(api_key="sk-asr"))
+        db = _FakeSession(config=SimpleNamespace(asr_api_key="sk-asr"))
         assert load_asr_api_key(db) == "sk-asr"
 
     def test_missing_config_raises_not_configured(self):
@@ -86,7 +86,7 @@ class TestLoadApiKey:
 
     def test_empty_key_raises_not_configured(self):
         with pytest.raises(AsrNotConfiguredError):
-            load_asr_api_key(_FakeSession(config=SimpleNamespace(api_key="")))
+            load_asr_api_key(_FakeSession(config=SimpleNamespace(asr_api_key="")))
 
 
 # ── 计费估算 ──
@@ -276,7 +276,7 @@ class TestResolveAccess:
         user = _fake_user()
         monkeypatch.setattr("core.websocket_auth.SessionLocal", lambda: _AuthSession(user))
         monkeypatch.setattr("core.websocket_auth._set_user_permissions", lambda u, db, p, s: False)
-        assert resolve_ws_access(12, persona="platform") is False
+        assert resolve_ws_access(12, persona="ops") is False
 
     def test_unknown_user_denied(self, monkeypatch):
         monkeypatch.setattr("core.websocket_auth.SessionLocal", lambda: _AuthSession(None))

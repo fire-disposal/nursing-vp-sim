@@ -1,4 +1,3 @@
-import { motion } from "motion/react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Stack } from "@mantine/core";
 import { ChatBubble } from "@/components/training/ChatBubble";
@@ -111,10 +110,13 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 	}, []);
 
 	const scrollToBottom = useCallback((force = false) => {
-		if (force || isNearBottomRef.current) {
-			bottomRef.current?.scrollIntoView({
-				behavior: force ? "auto" : "smooth",
-			});
+		const el = scrollRef.current;
+		if (el && (force || isNearBottomRef.current)) {
+			if (typeof el.scrollTo === "function") {
+				el.scrollTo({ top: el.scrollHeight, behavior: force ? "auto" : "smooth" });
+			} else {
+				el.scrollTop = el.scrollHeight;
+			}
 		}
 	}, []);
 
@@ -142,7 +144,14 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 			if (chunkScrollRafRef.current) return;
 			chunkScrollRafRef.current = requestAnimationFrame(() => {
 				chunkScrollRafRef.current = 0;
-				bottomRef.current?.scrollIntoView({ behavior: "auto" });
+				const el = scrollRef.current;
+				if (el) {
+					if (typeof el.scrollTo === "function") {
+						el.scrollTo({ top: el.scrollHeight, behavior: "auto" });
+					} else {
+						el.scrollTop = el.scrollHeight;
+					}
+				}
 			});
 		});
 		return () => {
@@ -175,22 +184,19 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 		<Box
 			ref={scrollRef}
 			className="stu-chat"
-			style={{ height: "100%", overflowY: "auto", position: "relative" }}
+			style={{ flex: 1, minHeight: 0, overflowY: "auto", position: "relative" }}
 			onScroll={handleScroll}
 		>
-			<Stack gap="md" mx="auto" w="100%" maw={768} px="md" py="md" style={{ minHeight: "100%", justifyContent: "flex-end" }}>
+			<Stack gap="md" mx="auto" w="100%" maw={900} px="md" py="md" style={{ minHeight: "100%", justifyContent: "flex-end" }}>
 				{grouped.map((group, gi) => {
 					const firstMsg = group.messages[0];
 					if (firstMsg.role === "system" && firstMsg.examResult) {
 						return <ExamResultCard key={gi} result={firstMsg.examResult} />;
 					}
 					return (
-						<motion.div
+						<Box
 							key={gi}
 							style={{ display: "flex", flexDirection: "column", gap: 4 }}
-							initial={{ opacity: 0, y: 8 }}
-							animate={{ opacity: 1, y: 0 }}
-							transition={{ duration: 0.2, ease: "easeOut" }}
 						>
 							{group.messages.map((msg, mi) => {
 								const canCorrect =
@@ -226,7 +232,7 @@ const ChatDisplayInner = memo(function ChatDisplayInner({
 									/>
 								);
 							})}
-						</motion.div>
+						</Box>
 					);
 				})}
 				{displayedExamResults

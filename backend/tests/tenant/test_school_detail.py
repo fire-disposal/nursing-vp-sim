@@ -68,7 +68,7 @@ def world(pg_session):
     clear_access_cache()
     school_a = _school(db, "甲大学")
     school_b = _school(db, "乙学院")
-    platform_user = _user(db, "platform-root", "platform", None)
+    platform_user = _user(db, "platform-root", "ops", None)
     admin_a = _user(db, "admin-a", "admin", school_a.id)
     admin_b = _user(db, "admin-b", "admin", school_b.id)
     class_a1 = _class(db, "甲一班", school_a.id)

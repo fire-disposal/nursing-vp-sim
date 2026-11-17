@@ -30,6 +30,11 @@
 	--stu-radius-sm: 10px;
 	--stu-radius-pill: 999px;
 	--stu-gap: 12px;
+	/* 1080p 训练与录屏共用可读性基线；只覆盖学生面，不改后台主题。 */
+	--mantine-font-size-xs: 14px;
+	--mantine-font-size-sm: 16px;
+	--mantine-font-size-md: 18px;
+	--mantine-font-size-lg: 20px;
 
 	background: var(--stu-bg);
 	color: var(--stu-ink);
@@ -201,6 +206,28 @@
    深色实心底在长对话里会把整屏压暗，且和"我"对"患者"的语义没有关系。 */
 .stu-chat {
 	background: var(--stu-bg);
+	scrollbar-gutter: stable;
+}
+
+.stu-welcome-scroll {
+	scrollbar-gutter: stable;
+}
+
+.stu-patient-status .stu-emotion-compact {
+	border-bottom: 0;
+	padding: 0;
+}
+
+.stu-patient-status .stu-emotion-compact > div {
+	flex-wrap: wrap;
+}
+
+.stu-trust-bar {
+	width: 40px;
+}
+
+.stu-patient-status .stu-trust-bar {
+	width: 72px;
 }
 
 .stu-chat [data-role="patient"] > div:first-child {

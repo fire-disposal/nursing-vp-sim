@@ -20,8 +20,10 @@ from typing import TYPE_CHECKING
 from fastapi import HTTPException, status
 
 from core.personas import (
+    DEFAULT_PERSONA_BY_ROLE,
     PERSONA_KEYS,
     PERSONAS,
+    SUPER_ADMIN_ROLE,
     default_persona_for,
     grants_all_personas,
     persona_permissions,
@@ -173,7 +175,7 @@ def resolve_access(
 ) -> AccessContext:
     """解析请求身份。兼容旧 header 字符串；越界/未授予一律 403。
 
-    平台账号：platform 视角可全局或选校；其他视角**必须有选校**（不再拿全局数据面）。
+    平台账号：platform 作用域的视角（ops）可全局或选校；其他视角**必须有选校**（不再拿全局数据面）。
     普通账号：只能在家院校/已授予附加院校内选择；没有选校时默认家院校。
     """
     is_platform = grants_all_personas(user)
@@ -216,7 +218,7 @@ def resolve_access(
         elif granted:
             desired = next(iter(sorted(granted)))
         elif is_platform:
-            desired = "platform"
+            desired = DEFAULT_PERSONA_BY_ROLE[SUPER_ADMIN_ROLE]
         else:
             desired = None
     desired_def = PERSONAS.get(desired) if desired else None
@@ -224,7 +226,7 @@ def resolve_access(
         # 显式选择与“默认落到 ops”都必须受同一道闸门约束。
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="视角不可用")
     if is_platform and desired is not None and persona_scope(desired) != "platform" and active_school is None:
-        # 平台的非 platform 视角不能对“所有学校”生效：先选学校。
+        # 平台账号的非跨院校视角（教师/学生/管理）不能对“所有学校”生效：先选学校。
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="请先选择院校")
     return AccessContext(
         user_id=user.id,

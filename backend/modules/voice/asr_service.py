@@ -29,7 +29,7 @@ _COST_PER_HOUR = 1.0
 
 
 class AsrNotConfiguredError(RuntimeError):
-    """没有可用的 active VoiceConfig（或 api_key 为空）。"""
+    """没有可用的 active VoiceConfig（或 asr_api_key 为空）。"""
 
 
 class AsrForbiddenError(RuntimeError):
@@ -37,15 +37,16 @@ class AsrForbiddenError(RuntimeError):
 
 
 def load_asr_api_key(db: Session) -> str:
-    """取当前 active VoiceConfig 的 api_key。
+    """取当前 active VoiceConfig 的**独立 ASR 凭据** ``asr_api_key``。
 
     ``app_state.tts_config`` 里只有非敏感字段，密钥直接查库；调用方用完即弃，
-    不缓存到任何全局位置。
+    不缓存到任何全局位置。绝不回退到 TTS 的 ``api_key``：两个服务是两份独立
+    开通的凭据，混用会在一边欠费/被停用时让另一边以难以排障的方式失败。
     """
     vc = db.query(VoiceConfig).filter(VoiceConfig.is_active == True).first()
-    if vc is None or not vc.api_key:
-        raise AsrNotConfiguredError("ASR 未配置")
-    return vc.api_key
+    if vc is None or not vc.asr_api_key:
+        raise AsrNotConfiguredError("ASR 未配置（缺少独立的 ASR API Key）")
+    return vc.asr_api_key
 
 
 def assert_record_owner(db: Session, record_id: int, user_id: int) -> None:
@@ -68,7 +69,7 @@ def estimate_cost(audio_bytes: int, status: str) -> float:
 def write_asr_log(
     *,
     user_id: int,
-    record_id: int,
+    record_id: int | None,
     audio_bytes: int,
     text_length: int,
     latency_ms: int,
@@ -78,6 +79,9 @@ def write_asr_log(
 
     与 ``TTSService._write_log`` 同理由：请求会话只 close 不 commit，且流式路径会
     中途 rollback，日志必须自带事务才能落库。
+
+    ``record_id is None`` 表示语音演示调用：``voice_call_logs.record_id`` 可空，
+    写 NULL 表示「不属于任何训练记录」，成本仍按音频时长照常入账。
     """
     try:
         with SessionLocal() as log_db:

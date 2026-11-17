@@ -1,4 +1,3 @@
-import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import { Box, Group, Stack, Text } from "@mantine/core";
 import { IconCloudOff, IconPlugConnectedX } from "@tabler/icons-react";
@@ -102,33 +101,21 @@ export function ChatArea({
   }, [bus]);
 
 	return (
-		// 顶部退避由 TrainingEngine 统一负责，本层不得重复让位——重复会让对话列比患者列低一个顶栏高度
+		// 顶栏退避由 TrainingEngine 负责；这里只保留一个主内容宿主，不再切换两棵带位移动画的树。
 		<Stack gap={0} flex={1} mih={0} miw={0}>
-			<AnimatePresence mode="wait">
+			<Box style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
 				{!hasConversationActivity ? (
-					<motion.div
-						key="welcome"
-						initial={{ opacity: 0 }}
-						animate={{ opacity: 1 }}
-						exit={{ opacity: 0, y: -16 }}
-						transition={{ duration: 0.2 }}
-						style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}
-					>
+					<>
 						<Box
 							miw={0}
-							style={{
-								flex: 1,
-								overflowY: "auto",
-								overscrollBehavior: "contain",
-								display: "flex",
-								flexDirection: "column",
-							}}
+							className="stu-welcome-scroll"
+							style={{ flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain" }}
 						>
 							{!messages.some((m) => m.role === "student") && (
 								<WelcomeScreen patient={patient} onQuickPrompt={onSend} />
 							)}
 							{greeting && (
-								<Box px="xs" pt="md" mt="auto" mx="auto" w="100%" maw={800} miw={0}>
+								<Box px="xs" pt="md" mt="auto" mx="auto" w="100%" maw={900} miw={0}>
 									<Group justify="flex-start">
 										<Box
 											maw="80%"
@@ -148,40 +135,29 @@ export function ChatArea({
 								</Box>
 							)}
 						</Box>
-						{/* 欢迎态也给出 manifest 能力入口：首条消息前即可打开随堂测验/床旁能力 */}
 						<ActivityBar />
-					</motion.div>
+					</>
 				) : (
-					<motion.div
-						key="chat"
-						initial={{ opacity: 0 }}
-						animate={{ opacity: 1 }}
-						transition={{ duration: 0.2 }}
-						style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}
-					>
-						<Box miw={0} style={{ flex: 1, overflowY: "auto", overscrollBehavior: "contain" }}>
-							<ChatDisplay
-								messages={messages}
-								patient={patient}
-								bus={bus}
-								initiativeMsgs={initiativeMsgs}
-								hasStreaming={sending}
-								onCorrectLast={onCorrectLast}
-								onRetry={onRetrySend}
-							/>
-						</Box>
+					<>
+						<ChatDisplay
+							messages={messages}
+							patient={patient}
+							bus={bus}
+							initiativeMsgs={initiativeMsgs}
+							hasStreaming={sending}
+							onCorrectLast={onCorrectLast}
+							onRetry={onRetrySend}
+						/>
 						<ActivityBar />
-					</motion.div>
+					</>
 				)}
-			</AnimatePresence>
+			</Box>
 			<ConnectionNotice />
 			{!hasWorkspacePane && (
 				<Text size="xs" c="dimmed" ta="center" py={6}>
 					本病例未配置床旁能力，本次训练以护患对话为主
 				</Text>
 			)}
-			{/* 交卷门禁不再常驻输入框上方：计数在顶栏结束按钮的徽标，逐条清单在结束确认弹窗
-			    （CompletionChecklist）。对话列只保留"降级时可见"的连接横幅。 */}
 			<ConversationComposer
 				onSend={onSend}
 				disabled={sending || trainingEnded}
@@ -190,7 +166,6 @@ export function ChatArea({
 				bus={bus}
 				onBargeIn={onBargeIn}
 			/>
-
 		</Stack>
 	);
 }

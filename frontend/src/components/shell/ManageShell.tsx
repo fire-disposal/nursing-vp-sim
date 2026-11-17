@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { ActionIcon, AppShell, Box, Burger, Button, Group, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { IconLogout, IconMessageCirclePlus, IconStethoscope, IconX } from "@tabler/icons-react";
@@ -112,8 +113,17 @@ export default function ManageShell({
 	// 它曾挂在壳之外，在 100dvh 的沉浸训练页上把内容顶出视口 27px。
 	const showMobileHint = isAdmin && !mobileHintDismissed && pathname.startsWith("/admin");
 
+	// 吸顶元素（ListPage 的筛选条）要知道顶栏多高：AppShell 的 header.height 是「base / sm 两档」，
+	// 这里把两档都暴露成变量，由 global.css 的媒体查询决定取哪一档 —— 组件里不写像素字面量。
+	const shellStyle = {
+		"--shell-header-height-base": `${SHELL.headerHeight}px`,
+		"--shell-header-height-wide": `${isShort ? SHELL.headerHeightShort : SHELL.headerHeight}px`,
+	} as CSSProperties;
+
 	return (
 		<AppShell
+			className="shell-root"
+			style={shellStyle}
 			header={{ height: { base: SHELL.headerHeight, sm: isShort ? SHELL.headerHeightShort : SHELL.headerHeight } }}
 			navbar={{
 				width: SHELL.sidebarWidth,

@@ -62,6 +62,11 @@ describe("buildAsrUrl", () => {
 		const url = buildAsrUrl("/api/asr/stream", "abc", 7);
 		expect(url).toBe("ws://localhost:3000/api/asr/stream?token=abc&record_id=7");
 	});
+
+	it("recordId=0 uses the demo path without a training record", () => {
+		const url = buildAsrUrl("/api/voice-demo/asr", "abc", 0);
+		expect(url).toBe("ws://localhost:3000/api/voice-demo/asr?token=abc");
+	});
 });
 
 describe("closeReason", () => {

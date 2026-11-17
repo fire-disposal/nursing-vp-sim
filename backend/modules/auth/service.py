@@ -264,11 +264,9 @@ class AuthService:
         unknown = sorted(set(unique) - set(PERSONAS))
         if unknown:
             raise ValidationError(detail=f"未知视角: {unknown}")
-        if "platform" in unique and not is_super_admin(actor):
-            raise AuthError("无权创建平台账号", status_code=403)
         platform_only = platform_only_personas(unique)
-        if platform_only and "platform" not in unique:
-            raise ValidationError(detail=f"平台专属视角只能授予平台账号: {platform_only}")
+        if platform_only and not is_super_admin(actor):
+            raise AuthError("无权创建平台账号", status_code=403)
         granted = set(grantable_personas(actor))
         for key in unique:
             if key not in granted:
@@ -286,7 +284,8 @@ class AuthService:
         personas = self._validate_new_personas(req.personas, current_user)
         # 平台账号不属于任何院校/班级。班级优先级曾排在平台判定之前，带 class_id 的
         # 请求会让平台号落进某校班级（从花名册/统计里冒出来），这里直接拒绝。
-        if "platform" in personas and req.class_id is not None:
+        is_platform_account = bool(platform_only_personas(personas))
+        if is_platform_account and req.class_id is not None:
             raise ValidationError("平台账号不能加入班级")
 
         # 院校归属：班级优先（班级自带院校），否则取显式 school_id。
@@ -295,7 +294,7 @@ class AuthService:
         cls = visible_class(self.db, scope, req.class_id) if req.class_id is not None else None
         if cls is not None:
             school_id = cls.school_id
-        elif "platform" in personas:
+        elif is_platform_account:
             school_id = None
         else:
             school_id = writable_school_id(scope, req.school_id)
@@ -308,7 +307,7 @@ class AuthService:
         user = User(
             username=req.username,
             password_hash=hash_password(req.password),
-            is_platform="platform" in personas,
+            is_platform=is_platform_account,
             school_id=school_id,
             display_name=req.display_name,
             student_id=student_id,

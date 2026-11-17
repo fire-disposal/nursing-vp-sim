@@ -5,7 +5,7 @@
  * 那一个（未授予 → 403）。前端只需要「有哪些、叫什么、怎么排序」，权限判定仍然走
  * `permissions`（由后端按当前视角算好），这里**不做权限推断**。
  */
-export type PersonaId = "student" | "teacher" | "admin" | "ops" | "platform";
+export type PersonaId = "student" | "teacher" | "admin" | "ops";
 
 /** 侧栏/切换器的展示名（与后端预设一一对应，见 backend/core/personas.py）。 */
 export const PERSONA_LABELS: Record<PersonaId, string> = {
@@ -13,19 +13,29 @@ export const PERSONA_LABELS: Record<PersonaId, string> = {
 	teacher: "教师",
 	admin: "管理",
 	ops: "运维",
-	platform: "平台",
 };
 
 /** 展示顺序：从窄到宽（学生 → 教师 → 管理 → 运维）。 */
-export const PERSONA_ORDER: PersonaId[] = ["student", "teacher", "admin", "ops", "platform"];
+export const PERSONA_ORDER: PersonaId[] = ["student", "teacher", "admin", "ops"];
 
 const PERSONA_IDS = new Set<string>(PERSONA_ORDER);
 
 /** 只能属于平台账号、且作用域跨院校的视角（后端 `requires_platform_account`）。 */
-const PLATFORM_ONLY_PERSONAS: Record<string, true> = { ops: true, platform: true };
+const PLATFORM_ONLY_PERSONAS: Record<string, true> = { ops: true };
+
+/** 已并入 `ops` 的旧视角：客户端持久化的选择与旧书签里仍可能出现，统一归一。 */
+const RETIRED_PERSONA_ALIASES: Record<string, PersonaId> = { platform: "ops" };
 
 export function isPersonaId(value: unknown): value is PersonaId {
 	return typeof value === "string" && PERSONA_IDS.has(value);
+}
+
+/**
+ * 把已下线的视角 key 归一到现役 key（`platform` → `ops`）。
+ * 后端不再有 `platform` 预设，残留它只会让请求头被 403。
+ */
+export function normalizePersona(value: string): string {
+	return RETIRED_PERSONA_ALIASES[value] ?? value;
 }
 
 export function isPlatformOnlyPersona(value: string | null | undefined): boolean {

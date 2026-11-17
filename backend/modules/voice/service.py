@@ -22,7 +22,7 @@ from core.exceptions import AuthError, NotFoundError
 from core.gender import normalize_gender
 from infra.tts.circuit import CircuitOpenError, TTSCircuitBreaker
 from infra.tts.client import TTSRequest
-from infra.tts.mapper import resolve_context_texts, resolve_voice_type
+from infra.tts.mapper import DEFAULT_SPEAKER, resolve_context_texts, resolve_voice_type
 from models import Case, TrainingRecord, VoiceCallLog
 
 log = logging.getLogger(__name__)
@@ -190,7 +190,7 @@ class TTSService:
         self,
         *,
         user_id: int,
-        record_id: int,
+        record_id: int | None,
         emotion_state: str,
         text_length: int,
         latency_ms: int,
@@ -201,6 +201,9 @@ class TTSService:
         调用日志不能挂在请求会话上：``get_db()`` 只 close 不 commit，流式路径还会
         中途 rollback，挂在请求会话里的行会被一起回滚 → 运营面板与成本统计恒为零。
         与 ``infra/llm/logging.py`` 的 LLM 调用日志同约定：独立 session + commit。
+
+        ``record_id is None`` 表示语音演示：``voice_call_logs.record_id`` 可空，
+        写 NULL 表示「不属于任何训练记录」，计价仍按计费字符数照常入账。
         """
         cost = round(text_length * _COST_PER_CHAR, 6) if status == "success" else 0.0
         try:
@@ -296,6 +299,72 @@ class TTSService:
         tts_req = self._resolve_request(
             record_id, text, voice_type, user_id, emotion_state, STREAM_FORMAT, STREAM_SAMPLE_RATE, speaker_library
         )
+        return await self._stream_from_request(
+            tts_req,
+            pool=pool,
+            user_id=user_id,
+            record_id=record_id,
+            text=text,
+            emotion_state=emotion_state,
+            timeout=timeout,
+        )
+
+    async def stream_synthesize_demo(
+        self,
+        *,
+        text: str,
+        emotion_state: str,
+        section_id: str,
+        user_id: int,
+        pool: TTSConnectionProvider | None,
+        timeout: int,
+        speaker: str | None = None,
+        default_speaker: str | None = None,
+    ) -> tuple[TTSStreamInfo, AsyncIterator[bytes]]:
+        """语音演示的流式合成：不碰训练记录，也不读训练上下文。
+
+        与 ``stream_synthesize`` 共用同一段流式逻辑（首块延迟、中断 abort、usage
+        计费），唯一差别是请求的构造：情绪由演示脚本直接给出，``section_id`` 由前端
+        提供（空则用 ``demo-<user_id>`` 兜底），音色取显式 ``speaker``——原样透传，
+        与 ``/admin/voice/config/test-stream`` 同约定，不按病例人口学推断，也不用
+        人群音色表校验（演示角色是虚构人物，音色直接写在上游能接受的语音 ID 上）。
+        """
+        if pool is None:
+            raise NotFoundError("TTS 服务未配置（请先在管理面板添加语音配置）")
+
+        tts_req = TTSRequest(
+            text=text,
+            speaker=speaker or default_speaker or DEFAULT_SPEAKER,
+            fmt=STREAM_FORMAT,
+            sample_rate=STREAM_SAMPLE_RATE,
+            context_texts=resolve_context_texts(emotion_state),
+            section_id=section_id.strip() or f"demo-{user_id}",
+        )
+        return await self._stream_from_request(
+            tts_req,
+            pool=pool,
+            user_id=user_id,
+            record_id=None,
+            text=text,
+            emotion_state=emotion_state,
+            timeout=timeout,
+        )
+
+    async def _stream_from_request(
+        self,
+        tts_req: TTSRequest,
+        *,
+        pool: TTSConnectionProvider,
+        user_id: int,
+        record_id: int | None,
+        text: str,
+        emotion_state: str,
+        timeout: int,
+    ) -> tuple[TTSStreamInfo, AsyncIterator[bytes]]:
+        """Eager-open a pooled session and return the chunk generator.
+
+        训练与演示共用：``record_id=None`` 时调用日志写 NULL，成本口径不变。
+        """
         info = TTSStreamInfo(speaker=tts_req.speaker, emotion=emotion_state, sample_rate=STREAM_SAMPLE_RATE)
 
         t0 = time.perf_counter()

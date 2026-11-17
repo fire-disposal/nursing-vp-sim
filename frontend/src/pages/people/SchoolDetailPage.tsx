@@ -303,7 +303,7 @@ export default function SchoolDetailPage() {
 									wrap="nowrap"
 									style={{ minWidth: 0 }}
 								>
-									{/* 纯文本，不是链接：平台视角（platform）没有 grade_class_manage，
+									{/* 纯文本，不是链接：运维视角（ops）没有 grade_class_manage，
 									    指到班级详情只会 403。班级管理在「进入管理」之后的视角里。 */}
 									<Text size="sm" truncate>
 										{c.name}

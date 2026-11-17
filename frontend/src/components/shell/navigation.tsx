@@ -10,6 +10,7 @@ import {
 	IconFileText,
 	IconKey,
 	IconMessageCircle,
+	IconPhone,
 	IconRobot, // lucide `Bot` 无同名 tabler icon，语义等价为机器人
 	IconSchool,
 	IconShield,
@@ -37,6 +38,7 @@ const TeacherRecordDetail = lazy(() => import("@/pages/teaching/TeacherRecordDet
 const ReviewWorkbench = lazy(() => import("@/pages/teaching/ReviewWorkbench"));
 const RecordDetail = lazy(() => import("@/pages/practice/RecordDetail"));
 const QA = lazy(() => import("@/pages/practice/QA"));
+const PhonePage = lazy(() => import("@/pages/practice/phone/Phone"));
 const AdminSecrets = lazy(() => import("@/pages/ops/SecretsPage"));
 const MyFeedbackPage = lazy(() => import("@/pages/share/MyFeedback"));
 const NotificationInboxPage = lazy(() => import("@/pages/share/NotificationInboxPage"));
@@ -116,9 +118,9 @@ export const NAV_GROUPS: NavGroupDef[] = [
 	{ key: "personal", label: "我的训练", icon: IconStethoscope, defaultOpen: false, personas: ["student"] },
 	// 教学 = 日常查看与操作（看板/作业/成绩/记录）；教学资源 = 低频配置（病例/问卷/标准）
 	{ key: "teaching", label: "教学", icon: IconSchool, defaultOpen: true, personas: ["teacher", "admin"] },
-	{ key: "content", label: "教学资源", icon: IconBook2, defaultOpen: false, personas: ["teacher", "admin", "platform"] },
-	{ key: "people", label: "人员", icon: IconUsers, defaultOpen: false, personas: ["teacher", "admin", "platform"] },
-	{ key: "system", label: "运维", icon: IconActivity, defaultOpen: false, personas: ["admin", "ops", "platform"] },
+	{ key: "content", label: "教学资源", icon: IconBook2, defaultOpen: false, personas: ["teacher", "admin", "ops"] },
+	{ key: "people", label: "人员", icon: IconUsers, defaultOpen: false, personas: ["teacher", "admin", "ops"] },
+	{ key: "system", label: "运维", icon: IconActivity, defaultOpen: false, personas: ["admin", "ops"] },
 ];
 
 /**
@@ -217,7 +219,7 @@ export const APP_ROUTES: AppRoute[] = [
 	{
 		path: "/history",
 		element: <History />,
-		// 记录是"我的训练档案"：没有训练权限的视角（平台/运维）不该在侧栏看到它，
+		// 记录是"我的训练档案"：没有训练权限的视角（运维）不该在侧栏看到它，
 		// 否则入口存在、点进去只有空档案，还会成为落地页候选。
 		permission: "training_access",
 		activity: "manage",
@@ -237,6 +239,20 @@ export const APP_ROUTES: AppRoute[] = [
 	// Sub-pages under 我的 — not primary nav items.
 	{ path: "/my-feedback", element: <MyFeedbackPage />, activity: "manage" },
 	{ path: "/notifications", element: <NotificationInboxPage />, activity: "manage" },
+	// 电话 — 独立语音演示（不建训练记录、不调 LLM）。学生视角、普通应用壳。
+	{
+		path: "/phone",
+		element: <PhonePage />,
+		permission: "training_access",
+		activity: "manage",
+		nav: {
+			label: "电话",
+			icon: IconPhone,
+			section: "user",
+			group: "personal",
+			mobile: { order: 35, tier: "student" },
+		},
+	},
 	// QA — AI 护理导师，学生端独立 Tab。
 	{ path: "/qa", element: <QA />, permission: "qa_access", activity: "manage", nav: { label: "问答", icon: IconRobot, section: "user", group: "personal", mobile: { order: 40, tier: "student" } } },
 	{
@@ -366,16 +382,16 @@ export const APP_ROUTES: AppRoute[] = [
 		nav: { label: "教学看板", icon: IconChartBar, section: "admin", group: "teaching", end: true, mobile: { order: 10, tier: "staff" } },
 	},
 	{
-		path: "/admin/platform",
+		path: "/admin/ops",
 		element: <PlatformOverview />,
 		permission: "school_manage",
 		activity: "manage",
 		nav: {
-			label: "平台总览",
+			label: "运维总览",
 			icon: IconBuildingCommunity,
 			section: "admin",
 			group: "system",
-			personas: ["platform"],
+			personas: ["ops"],
 		},
 	},
 	{
@@ -506,7 +522,7 @@ export const APP_ROUTES: AppRoute[] = [
 			group: "system",
 			// 教学/管理也会收到针对系统的反馈（评分口径、内容错误），不该只有运维能处理；
 			// 权限门仍是 `feedback_review`，这里只放开"哪些视角在导航里看得到"
-			personas: ["teacher", "admin", "ops", "platform"],
+			personas: ["teacher", "admin", "ops"],
 		},
 	},
 ];
@@ -539,7 +555,8 @@ const WORKFLOW_ORDER: Record<string, number> = {
 	"/admin/classes": 20,
 	"/admin/personas": 30,
 	"/admin/schools": 40,
-	// 运维：仪表盘 > 成本 > 审计 > 通知 > 密钥 > 版本 > 反馈
+	// 运维：总览 > 仪表盘 > 成本 > 审计 > 通知 > 密钥 > 版本 > 反馈
+	"/admin/ops": 5,
 	"/admin/system-ops": 10,
 	"/admin/costs": 20,
 	"/admin/audit-logs": 30,
@@ -594,11 +611,11 @@ export function filterNavByPersona(items: NavItem[], persona: string | null | un
 /**
  * 当前会话的落地页：**第一个真正进得去的入口**。
  *
- * `/admin` 要 `stats_view`，而平台/运维视角没有这个键 —— 旧逻辑按"有非学生权限就是管理员"
- * 直接跳 `/admin`，这两类账号一登录就是 403。顺序口径：
- * 1. 平台 → 平台总览（跨院校规模、运行状态与成本）；
+ * `/admin` 要 `stats_view`，而运维视角没有这个键 —— 旧逻辑按"有非学生权限就是管理员"
+ * 直接跳 `/admin`，这类账号一登录就是 403。顺序口径：
+ * 1. 运维 → 运维总览（跨院校规模、运行状态与成本）；
  * 2. 有 `stats_view` → 教学看板（管理员/教师的日常首页）；
- * 3. 否则取导航里第一个有权限的管理条目（运维 → 运维仪表盘）；
+ * 3. 否则取导航里第一个有权限的管理条目（没有 school_manage 的运维 → 运维仪表盘）；
  * 4. 没有管理条目 → 第一个个人条目（学生 → 训练）；
  * 5. 什么都没有 → 个人中心（永远可达，不制造 403 循环）。
  */
@@ -606,7 +623,7 @@ export function resolveLandingPath(
 	permissions: readonly string[],
 	persona: string | null | undefined,
 ): string {
-	if (persona === "platform") return "/admin/platform";
+	if (persona === "ops" && permissions.includes("school_manage")) return "/admin/ops";
 	const allowed = filterNavByPersona(NAV_ITEMS, persona).filter(
 		(item) => !item.permission || permissions.includes(item.permission),
 	);

@@ -48,7 +48,7 @@ async def admin_ops_diagnose(
     if not scope.is_global:
         raise HTTPException(
             status_code=403,
-            detail="运维诊断包含跨院校数据，仅平台级视图可访问；请切换到「全部院校」平台视角。",
+            detail="运维诊断包含跨院校数据，仅跨院校视图可访问；请切换到「全部院校」运维视角。",
         )
     diag_svc = get_diagnose_service()
     return await diag_svc.get_diagnose()
@@ -78,7 +78,7 @@ async def admin_ops_dashboard(
     if not scope.is_global:
         raise HTTPException(
             status_code=403,
-            detail="运维仪表盘包含跨院校数据，仅平台级视图可访问；请切换到「全部院校」平台视角。",
+            detail="运维仪表盘包含跨院校数据，仅跨院校视图可访问；请切换到「全部院校」运维视角。",
         )
     now = datetime.now(UTC)
     data = build_dashboard(db, now)

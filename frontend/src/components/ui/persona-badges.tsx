@@ -6,7 +6,6 @@ const PERSONA_COLORS: Record<string, string> = {
 	teacher: "green",
 	admin: "red",
 	ops: "orange",
-	platform: "grape",
 };
 
 /**

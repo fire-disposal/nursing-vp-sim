@@ -23,7 +23,7 @@ const chipStyle = {
 	borderRadius: "var(--stu-radius-pill, 999px)",
 	border: "1px solid var(--mantine-color-default-border)",
 	background: "var(--mantine-color-body)",
-	fontSize: 13,
+	fontSize: 14,
 	color: "var(--mantine-color-dimmed)",
 	cursor: "pointer",
 	flexShrink: 0,

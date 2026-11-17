@@ -16,7 +16,7 @@ vi.mock("@/api/admin/audit-logs", () => ({
 					actor_id: 1,
 					actor_username: "admin",
 					actor_display_name: "管理员",
-					actor_persona: "platform",
+					actor_persona: "ops",
 					action: "auth.login_succeeded",
 					target_type: "session",
 					target_id: "1",

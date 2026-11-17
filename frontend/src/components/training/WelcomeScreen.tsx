@@ -41,7 +41,7 @@ export function WelcomeScreen({ patient, onQuickPrompt }: WelcomeScreenProps) {
 	const quickPrompts = useMemo(() => getGuidedQuickPrompts(patient), [patient]);
 
 	return (
-		<Box className="stu-welcome" px="xs" py="md" mx="auto" w="100%" maw={768}>
+		<Box className="stu-welcome" px="xs" py="md" mx="auto" w="100%" maw={900}>
 			<Card p={14}>
 				<Stack gap={8}>
 					<Text size="sm" c="dimmed" lh={1.6}>

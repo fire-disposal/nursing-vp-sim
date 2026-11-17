@@ -808,6 +808,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/voice/config/test-asr": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Asr
+         * @description ASR 连通性测试：连接 + 发送配置帧，不发音频，不产生计费时长。
+         */
+        post: operations["test_asr_api_admin_voice_config_test_asr_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/voice/config/test-stream": {
         parameters: {
             query?: never;
@@ -2472,6 +2492,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/voice-demo/characters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Characters
+         * @description 四个虚构角色（人设与音色的唯一来源）。
+         */
+        get: operations["list_characters_api_voice_demo_characters_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/voice-demo/chat/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Chat Stream
+         * @description 一轮自由语音对话（SSE）。校验全部在 200 之前完成，**不写任何数据库行**。
+         */
+        post: operations["chat_stream_api_voice_demo_chat_stream_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/voice-demo/tts/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Synthesize Demo Stream
+         * @description 逐句流式合成：PCM 24kHz mono 分块下发，与 ``/api/tts/stream`` 同协议。
+         */
+        post: operations["synthesize_demo_stream_api_voice_demo_tts_stream_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2604,6 +2684,22 @@ export interface components {
         AppSettingsUpdateRequest: {
             /** Feedback Hint Enabled */
             feedback_hint_enabled: boolean;
+        };
+        /**
+         * AsrStatusResponse
+         * @description ``POST /admin/voice/config/test-asr``：只验证「连得上 + 配置帧被接受」，不发音频。
+         */
+        AsrStatusResponse: {
+            /** Provider */
+            provider: string;
+            /** Asr Online */
+            asr_online: boolean;
+            /** Last Error */
+            last_error: string | null;
+            /** Last Error At */
+            last_error_at: string | null;
+            /** Resource Id */
+            resource_id: string;
         };
         /**
          * AssignmentAudience
@@ -6647,6 +6743,10 @@ export interface components {
             api_key_masked: string;
             /** Api Key Suffix */
             api_key_suffix: string;
+            /** Asr Api Key Masked */
+            asr_api_key_masked: string;
+            /** Asr Api Key Suffix */
+            asr_api_key_suffix: string;
             /** Tts Resource Id */
             tts_resource_id: string;
             /** Tts Speaker */
@@ -6687,6 +6787,8 @@ export interface components {
             provider: string;
             /** Api Key */
             api_key?: string | null;
+            /** Asr Api Key */
+            asr_api_key?: string | null;
             /**
              * Tts Resource Id
              * @default seed-tts-2.0
@@ -6731,6 +6833,73 @@ export interface components {
             speaker_library?: {
                 [key: string]: string;
             } | null;
+        };
+        /** VoiceDemoCharacterItem */
+        VoiceDemoCharacterItem: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Role */
+            role: string;
+            /** Personality */
+            personality: string;
+            /** Tone */
+            tone: string;
+            /** Speaker */
+            speaker: string;
+        };
+        /**
+         * VoiceDemoChatRequest
+         * @description ``POST /api/voice-demo/chat/stream``：自由语音对话的一轮。
+         *
+         *     只要 ``character_id``：角色定义（姓名/性格/语气/音色）以服务端为准，前端传 ID
+         *     即选人，传不认识的 ID 是 422/400——绝不由前端注入人设文本。
+         */
+        VoiceDemoChatRequest: {
+            /** Character Id */
+            character_id: string;
+            /** Session Id */
+            session_id: string;
+            /** History */
+            history?: components["schemas"]["VoiceDemoHistoryItem"][];
+            /**
+             * Emotion State
+             * @default neutral
+             */
+            emotion_state: string;
+            /** Test Mode */
+            test_mode?: "long_response" | null;
+        };
+        /**
+         * VoiceDemoHistoryItem
+         * @description 当前页面会话里的一条历史消息（服务端不持久化，由前端每次带回）。
+         */
+        VoiceDemoHistoryItem: {
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant";
+            /** Content */
+            content: string;
+        };
+        /**
+         * VoiceDemoTTSRequest
+         * @description ``POST /api/voice-demo/tts/stream``：演示台词合成，不关联任何训练记录。
+         *
+         *     情绪由前端直接给出（演示脚本里每个角色自带四维状态机），不再从训练记录反查，
+         *     因此这里没有任何 ``record_id`` 字段——请求里带上也不会被读取。
+         */
+        VoiceDemoTTSRequest: {
+            /** Text */
+            text: string;
+            /** Emotion State */
+            emotion_state: string;
+            /** Section Id */
+            section_id: string;
+            /** Speaker */
+            speaker?: string | null;
         };
         /** VoiceStatusResponse */
         VoiceStatusResponse: {
@@ -6782,6 +6951,8 @@ export interface components {
         VoiceUsageResponse: {
             tts_today: components["schemas"]["VoiceUsageItem"];
             tts_month: components["schemas"]["VoiceUsageItem"];
+            asr_today: components["schemas"]["VoiceUsageItem"];
+            asr_month: components["schemas"]["VoiceUsageItem"];
             /** Monthly Budget */
             monthly_budget: number;
             /** Monthly Used */
@@ -8910,6 +9081,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VoiceStatusResponse"];
+                };
+            };
+        };
+    };
+    test_asr_api_admin_voice_config_test_asr_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AsrStatusResponse"];
                 };
             };
         };
@@ -12358,6 +12549,92 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["TTSSynthesizeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "audio/pcm": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_characters_api_voice_demo_characters_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceDemoCharacterItem"][];
+                };
+            };
+        };
+    };
+    chat_stream_api_voice_demo_chat_stream_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiceDemoChatRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    synthesize_demo_stream_api_voice_demo_tts_stream_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiceDemoTTSRequest"];
             };
         };
         responses: {

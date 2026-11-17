@@ -58,6 +58,7 @@ production 以部署前 `pg_dump` 备份作为最终兜底。
 - [ ] `DEEPSEEK_API_KEY` 已填入有效的 API Key
 - [ ] `POSTGRES_PASSWORD` 已手动设置为强密码（不会由 workflow 自动生成）
 - [ ] 服务器上 `/opt/nursing-vp-sim/.env` 已编辑非模板值
+- [ ] 可选：首次启用语音前已在该 `.env` 配置 `VOLC_TTS_API_KEY` / `VOLC_ASR_API_KEY`；已配置过的通道不会被后续重启覆盖
 
 ### 首次部署
 

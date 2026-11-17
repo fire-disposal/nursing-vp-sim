@@ -56,7 +56,7 @@ export interface PersonaOption {
 	label: string;
 	/** 调用者能否授予这一档（后端按当前视角权限算）。 */
 	grantable: boolean;
-	/** 只能授予平台账号（platform / ops）。 */
+	/** 只能授予平台账号（当前只有 ops）。 */
 	requires_platform_account: boolean;
 }
 

@@ -241,7 +241,7 @@ def test_batch_endpoint_serializes_skipped_rows(db):
         username = "api-admin"
         display_name = "API 管理员"
         is_platform = True
-        active_persona = "platform"
+        active_persona = "ops"
 
         def has_permission(self, *_args: object) -> bool:
             return True

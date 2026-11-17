@@ -229,6 +229,7 @@ export function EmotionIndicator({ bus, features, recordId, compact, trailing }:
 	if (compact) {
 		return (
 			<Box
+				className="stu-emotion-compact"
 				style={{
 					flexShrink: 0,
 					borderBottom: "1px solid var(--mantine-color-default-border)",
@@ -250,7 +251,7 @@ export function EmotionIndicator({ bus, features, recordId, compact, trailing }:
 					</Text>
 					<Text size="sm" c="dimmed" truncate>{displayLabel}</Text>
 					{/* Trust micro-bar */}
-					<Box w={40} h={4} style={{ borderRadius: 999, background: "var(--mantine-color-default-hover)", overflow: "hidden", flexShrink: 0 }}>
+					<Box className="stu-trust-bar" h={5} style={{ borderRadius: 999, background: "var(--mantine-color-default-hover)", overflow: "hidden", flexShrink: 0 }}>
 						<Box
 							h="100%"
 							style={{

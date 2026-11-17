@@ -59,7 +59,7 @@ const UNKNOWN_SCOPE = { zh: "未知作用域", color: "gray" };
 
 /** 作用域的一句话解释（详情面板里用，避免用户从"全校数据"自行推断边界）。 */
 const SCOPE_SUMMARY: Record<PersonaScope, string> = {
-	platform: "跨院校的平台级页面：院校管理、密钥、审计、成本与运维。",
+	platform: "跨院校页面：院校管理、密钥、审计、成本与运维。",
 	tenant: "本校范围的数据；班级只是校内分组与筛选，不改变可见边界。",
 	self: "只访问自己的数据；看不到其他学生。",
 };
@@ -95,9 +95,9 @@ export default function PersonasPage() {
 		staleTime: 30_000,
 	});
 	const presets = presetsQuery.data ?? [];
-	// 平台视角只能授予平台账号：非平台操作者不展示它（后端同样拒绝）
+	// 跨院校视角（ops）只能授予平台账号：非平台操作者不展示它（后端同样拒绝）
 	const isPlatformActor = useAuthStore((s) => s.user?.is_platform ?? false);
-	// 平台专属视角（platform / ops）对院校操作者没有意义；展示出来只会让人勾选后被拒。
+	// 平台专属视角（ops）对院校操作者没有意义；展示出来只会让人勾选后被拒。
 	const visiblePresets = isPlatformActor
 		? presets
 		: presets.filter((p) => !p.requires_platform_account);
@@ -279,7 +279,7 @@ export default function PersonasPage() {
 		[presets],
 	);
 
-	// 平台专属视角（platform / ops）跨院校，只能授予平台账号（后端同样拒绝）。
+	// 平台专属视角（ops）跨院校，只能授予平台账号（后端同样拒绝）。
 	// 目标不是平台账号时，这些卡在弹窗里没有可执行意义，直接不展示。
 	const grantOptions = visiblePresets.filter(
 		(preset) => target?.is_platform || !preset.requires_platform_account,

@@ -3,7 +3,7 @@
 三件事只在这里定义，别处不许自己判断：
 
 1. 谁跨院校（``school_id is None`` = 平台角色，例如 super_admin）；
-2. 谁看全校（当前**视角**的 scope 为 ``tenant``，例如 admin/ops）；
+2. 谁看全校（当前**视角**的 scope 为 ``tenant``，例如 admin）；
 3. 谁只看自己（``self``，例如 student）：只给空班级集合，端点自身按 ``user_id``
    收窄到"我"。教师是**校级**视角（``tenant``），班级只是校内业务分组/筛选，不再是
    授权边界。
@@ -57,7 +57,7 @@ class TenantScope:
 
 
 def platform_scope(user_id: int = 0) -> TenantScope:
-    """跨院校作用域 —— 测试与后台任务用的显式“平台视角”，不要在生产端点里图省事用它。"""
+    """跨院校作用域 —— 测试与后台任务用的显式平台作用域，不要在生产端点里图省事用它。"""
     return TenantScope(school_id=None, class_ids=None, user_id=user_id)
 
 
@@ -72,14 +72,14 @@ def resolve_scope(db: Session, user: User) -> TenantScope:
     """
     active_school = getattr(user, "active_school_id", None)
     if is_super_admin(user):
-        persona = persona_scope(user.active_persona)
-        if persona == "platform":
-            # 平台级视角（platform / ops）没有院校轴；顶栏残留的选校不能把它收窄成
-            # "某校的平台视图"，否则同一个运维页会随选校出现 403。
+        scope = persona_scope(user.active_persona)
+        if scope == "platform":
+            # 平台作用域视角（ops）没有院校轴；顶栏残留的选校不能把它收窄成
+            # "某校的运维视图"，否则同一个运维页会随选校出现 403。
             return TenantScope(school_id=None, class_ids=None, user_id=user.id)
         # 平台账号默认跨院校；顶栏选了一所学校时，工作视图收窄到该校。
         # 学生视角即使平台账号也只到本人（class_ids 空），不获得全校学生面。
-        class_ids = frozenset() if persona == "self" else None
+        class_ids = frozenset() if scope == "self" else None
         return TenantScope(school_id=active_school, class_ids=class_ids, user_id=user.id)
     school_id = active_school if active_school is not None else getattr(user, "school_id", None)
     if school_id is None:
@@ -90,7 +90,7 @@ def resolve_scope(db: Session, user: User) -> TenantScope:
     if scope is None:
         return TenantScope(school_id=school_id, class_ids=frozenset(), user_id=user.id)
     if scope == "platform":
-        # 平台级视角：院校轴无意义（只有平台账号能被授予它，校验在 ``core.access.resolve_access``）
+        # 平台作用域视角（ops）：院校轴无意义（只有平台账号能被授予它，校验在 ``core.access.resolve_access``）
         return TenantScope(school_id=None, class_ids=None, user_id=user.id)
     if scope == "tenant":
         return TenantScope(school_id=school_id, class_ids=None, user_id=user.id)

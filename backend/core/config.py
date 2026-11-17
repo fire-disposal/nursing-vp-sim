@@ -114,6 +114,10 @@ LLM_CONNECTION_KEEPALIVE = int(os.getenv("LLM_CONNECTION_KEEPALIVE", "30"))
 
 TTS_POOL_SIZE = int(os.getenv("TTS_POOL_SIZE", "10"))
 
+# 火山语音初始 Key：各通道只在首次 ENV 初始化且数据库为空时写入，后续不覆盖管理页配置。
+VOLC_TTS_API_KEY = os.getenv("VOLC_TTS_API_KEY", "")
+VOLC_ASR_API_KEY = os.getenv("VOLC_ASR_API_KEY", "")
+
 LLM_LOG_OVERFLOW_DIR = os.getenv("LLM_LOG_OVERFLOW_DIR", "/app/data/llm_logs")
 LLM_LOG_OVERFLOW_MAX_SIZE_MB = int(os.getenv("LLM_LOG_OVERFLOW_MAX_SIZE_MB", "10"))
 LLM_LOG_OVERFLOW_MAX_FILES = int(os.getenv("LLM_LOG_OVERFLOW_MAX_FILES", "5"))

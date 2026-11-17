@@ -33,21 +33,26 @@ export function FilterToolbar({
 	// 组件再画一个边框就是三层盒子（页面 → 筛选条 → 卡）。需要外框的调用方自己包。
 	return (
 		<Group gap="sm" align="center" wrap="wrap" p={compact ? 0 : 2}>
-				{summary && (
-					<Text size="xs" c="dimmed" className="tabular-nums">
-						{summary}
-					</Text>
-				)}
-				{filters && (
-					<Group gap="xs" align="center" wrap="wrap">
-						{filters}
-					</Group>
-				)}
+				{/* 左区（计数 + 筛选）是**一个**可伸缩子区：够宽时它撑满、把搜索区顶到右端；
+				    不够宽时它自己换行，搜索区随后另起一行靠左 —— 而不是被 margin-left:auto
+				    推到新行的最右边、孤零零挂在远端（旧写法的对齐错位来源）。 */}
+				<Group gap="sm" align="center" wrap="wrap" style={{ flex: "1 1 auto", minWidth: 0 }}>
+					{summary && (
+						<Text size="xs" c="dimmed" className="tabular-nums">
+							{summary}
+						</Text>
+					)}
+					{filters && (
+						<Group gap="xs" align="center" wrap="wrap">
+							{filters}
+						</Group>
+					)}
+				</Group>
 				{/* 清除按钮必须独立于 search 存在：此前它嵌在 {search && …} 内，
 				    导致没有搜索框的页面（多数管理列表页）永远拿不到"一键复位"
 				    —— 这是"只有 /admin/records 有清除"的根因（2026-09-26 实测）。 */}
 				{(search || (hasActiveFilters && onClear)) && (
-					<Group gap="xs" align="center" wrap="nowrap" style={{ marginLeft: "auto" }}>
+					<Group gap="xs" align="center" wrap="nowrap" style={{ flex: "0 0 auto" }}>
 						{search}
 						{hasActiveFilters && onClear && (
 							<Button

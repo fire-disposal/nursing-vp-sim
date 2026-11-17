@@ -68,7 +68,7 @@ from models.training import (
     TrainingSessionEmotionState,
     TrainingSessionState,
 )
-from models.voice import VoiceCallLog, VoiceConfig
+from models.voice import VoiceCallLog, VoiceConfig, VoiceDemoLog
 
 __all__ = [
     "AUDIENCE_CLASS",
@@ -135,5 +135,6 @@ __all__ = [
     "UserSchoolProfile",
     "VoiceCallLog",
     "VoiceConfig",
+    "VoiceDemoLog",
     "_now_utc",
 ]

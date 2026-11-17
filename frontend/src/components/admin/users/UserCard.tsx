@@ -25,7 +25,7 @@ interface UserCardProps {
 	onToggleActive: (user: UserBrief) => void;
 	onQuota?: (user: UserBrief) => void;
 	onSchoolPersonas?: (user: UserBrief) => void;
-	/** 平台视角（跨院校）才需要院校名：院校管理员看到的都是本校，多一行是噪音。 */
+	/** 跨院校视图（ops）才需要院校名：院校管理员看到的都是本校，多一行是噪音。 */
 	showSchool?: boolean;
 }
 

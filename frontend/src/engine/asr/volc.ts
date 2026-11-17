@@ -30,7 +30,7 @@ export function createVolcAsrProvider(
 	options: VolcAsrProviderOptions = {},
 	deps: VolcAsrDeps = {},
 ): AsrProvider {
-	const path = options.path ?? "/api/asr/stream";
+	const path = options.path;
 	return {
 		id: "volc-asr-stream",
 		supported() {
@@ -89,7 +89,7 @@ export function createVolcAsrProvider(
 			};
 
 			const run = async () => {
-				if (!sessionOptions.token || !sessionOptions.recordId) {
+				if (!sessionOptions.token || sessionOptions.recordId == null) {
 					emit("onError", "missing_auth");
 					return;
 				}
@@ -113,7 +113,7 @@ export function createVolcAsrProvider(
 
 				try {
 					connection = await connect({
-						path,
+						path: path ?? (sessionOptions.recordId === 0 ? "/api/voice-demo/asr" : "/api/asr/stream"),
 						token: sessionOptions.token,
 						recordId: sessionOptions.recordId,
 						onReady: () => emit("onReady"),
