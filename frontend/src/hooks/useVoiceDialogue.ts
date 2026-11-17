@@ -77,6 +77,8 @@ export interface UseVoiceDialogueOptions {
 	recordId?: number | null;
 	/** 会话令牌（云 ASR 的 WS 鉴权）。缺省 = 云 ASR 不可用。 */
 	token?: string | null;
+	/** 云 ASR 已建立且麦克风采集就绪；接通音必须等它之后再播放。 */
+	onVoiceReady?: () => void;
 	/**
 	 * 学生开口时是否暂停云端播放（调用方负责真正暂停）。
 	 * 持续模式下唯一可靠的回采手段：浏览器 AEC 只减掉 Web Audio 的声音，
@@ -89,6 +91,8 @@ export interface UseVoiceDialogueOptions {
 	onEchoCalibration?: (result: EchoCalibrationResult) => void;
 	/** 16kHz TTS 参考波形，供 ASR 发送前反相抵消。 */
 	echoReference?: (startMs: number, length: number) => Float32Array;
+	/** 真实麦克风帧，供声学工作面板绘制波形。 */
+	onFrame?: (channel: Float32Array, sampleRate: number) => void;
 	/** 打断闸门：默认 vad；电话页用 asr，等文本确认后再停播。 */
 	bargeInGate?: "vad" | "asr";
 	/** 额外文本闸门：返回 true 表示这句不允许触发打断。 */
@@ -139,10 +143,12 @@ export function useVoiceDialogue({
 	onBargeIn,
 	recordId,
 	token,
+	onVoiceReady,
 	onSpeechStart,
 	echoLevel,
 	onEchoCalibration,
 	echoReference,
+	onFrame,
 	bargeInGate,
 	bargeInGuard,
 	bargeInMinChars,
@@ -398,6 +404,7 @@ export function useVoiceDialogue({
 				echoLevel,
 				onEchoCalibration,
 				echoReference,
+				onFrame,
 			});
 		} catch (err) {
 			console.warn("[useVoiceDialogue] 识别会话创建失败", err);
@@ -478,6 +485,7 @@ export function useVoiceDialogue({
 			session.onReady = () => {
 				if (!isLive()) return;
 				setNotice(null);
+				onVoiceReady?.();
 			};
 
 			session.onEnd = () => {

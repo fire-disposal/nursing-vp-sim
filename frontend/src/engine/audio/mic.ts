@@ -22,7 +22,7 @@ const SCRIPT_PROCESSOR_SIZE = 4096;
 const ECHO_RATIO_MIN = 0.45;
 const ECHO_RATIO_MAX = 2.5;
 const ECHO_ABS_MIN = 0.0025;
-const ECHO_CALIBRATION_MS = 1800;
+const ECHO_CALIBRATION_MS = 1500;
 const ECHO_CALIBRATION_MIN_SAMPLES = 12;
 /** 校准完成前也按常见声学延迟取参考，避免拿“当前帧”对“已到麦克风的旧回声”。 */
 const ECHO_FALLBACK_DELAY_MS = 120;
@@ -83,6 +83,7 @@ export class EchoGate {
 	onResult?: (result: EchoCalibrationResult) => void;
 	private reference = 0;
 	private gain: number | null = null;
+	private noiseFloor = 0;
 	private delayMs = 0;
 	private calibrating = false;
 	private calibrationUntil = 0;
@@ -90,7 +91,7 @@ export class EchoGate {
 	private refHistory: Array<{ t: number; level: number }> = [];
 	private micHistory: Array<{ t: number; level: number }> = [];
 
-	/** 在首次 TTS 播放、环境安静时调用；1.8 秒内估计延迟与中位回授增益。 */
+	/** 在首次 TTS 播放、环境安静时调用；1.5 秒内估计延迟与中位回授增益。 */
 	beginCalibration(now = performance.now()): void {
 		this.refHistory = [];
 		this.micHistory = [];
@@ -139,7 +140,7 @@ export class EchoGate {
 		return best.level;
 	}
 
-	/** 对三音符的开关包络做 0–1s 互相关；score 是相关系数，不是增益方差。 */
+	/** 用已知 Barker 开关图案做二值特征对齐；比连续电平相关更抗 AEC/房间滤波。 */
 	private finishCalibration(): void {
 		this.calibrating = false;
 		const mic = this.micHistory;
@@ -149,52 +150,57 @@ export class EchoGate {
 			return;
 		}
 
-		let best: { lagMs: number; gain: number; score: number } | null = null;
+		const firstToneAt = this.refHistory.find((item) => item.level >= ECHO_ABS_MIN)?.t ?? Number.POSITIVE_INFINITY;
+		const ambient = mic.filter((sample) => sample.t < firstToneAt).map((sample) => sample.level).sort((a, b) => a - b);
+		this.noiseFloor = ambient.length ? ambient[Math.floor(ambient.length / 2)] : 0;
+
+		let best: { lagMs: number; gain: number; score: number; contrast: number } | null = null;
+		let scoreSum = 0;
+		let scoreCount = 0;
 		for (let lagMs = 0; lagMs <= 1000; lagMs += 20) {
 			const pairs: Array<{ mic: number; ref: number }> = [];
 			const ratios: number[] = [];
 			for (const sample of mic) {
 				const ref = this.refAt(sample.t - lagMs);
 				if (ref === null) continue;
-				pairs.push({ mic: sample.level, ref });
-				if (sample.level >= ECHO_ABS_MIN && ref >= ECHO_ABS_MIN) {
-					const ratio = sample.level / ref;
+				const level = Math.max(0, sample.level - this.noiseFloor);
+				pairs.push({ mic: level, ref });
+				if (level >= ECHO_ABS_MIN && ref >= ECHO_ABS_MIN) {
+					const ratio = level / ref;
 					if (ratio >= 0.05 && ratio <= 3.5) ratios.push(ratio);
 				}
 			}
 			if (pairs.length < ECHO_CALIBRATION_MIN_SAMPLES || ratios.length < ECHO_CALIBRATION_MIN_SAMPLES) continue;
-			const meanMic = pairs.reduce((sum, pair) => sum + pair.mic, 0) / pairs.length;
-			const meanRef = pairs.reduce((sum, pair) => sum + pair.ref, 0) / pairs.length;
-			let numerator = 0;
-			let micVariance = 0;
-			let refVariance = 0;
-			for (const pair of pairs) {
-				const micDelta = pair.mic - meanMic;
-				const refDelta = pair.ref - meanRef;
-				numerator += micDelta * refDelta;
-				micVariance += micDelta * micDelta;
-				refVariance += refDelta * refDelta;
-			}
-			const denominator = Math.sqrt(micVariance * refVariance);
-			if (denominator < 1e-8) continue;
-			const score = numerator / denominator;
+			const refLevels = pairs.map((pair) => pair.ref);
+			const micLevels = pairs.map((pair) => pair.mic);
+			const refMid = (Math.min(...refLevels) + Math.max(...refLevels)) / 2;
+			const micMid = (Math.min(...micLevels) + Math.max(...micLevels)) / 2;
+			let same = 0;
+			for (const pair of pairs) if ((pair.ref > refMid) === (pair.mic > micMid)) same += 1;
+			const score = same / pairs.length;
+			const contrast = Math.max(...micLevels) - Math.min(...micLevels);
+			scoreSum += score;
+			scoreCount += 1;
 			const sorted = [...ratios].sort((a, b) => a - b);
 			const gain = sorted[Math.floor(sorted.length / 2)];
-			if (best === null || score > best.score) best = { lagMs, gain, score };
+			if (best === null || score > best.score) best = { lagMs, gain, score, contrast };
 		}
 
-		if (best !== null && best.score >= 0.6 && best.gain >= 0.05 && best.gain <= 3.5) {
+		const meanScore = scoreCount ? scoreSum / scoreCount : 0;
+		if (best !== null && best.score >= 0.75 && best.score - meanScore >= 0.1 && best.contrast >= 0.01 && best.gain >= 0.05 && best.gain <= 3.5) {
 			this.delayMs = best.lagMs;
 			this.gain = best.gain;
 		} else if (best === null) {
-			// 没有包络变化时无法测延迟；仅在增益确实稳定时退回零延迟。
+			// 没有任何可比较片段时，仅在增益确实稳定时退回零延迟。
 			const ratios: number[] = [];
 			const refs: number[] = [];
 			for (const sample of mic) {
 				const ref = this.refAt(sample.t);
 				if (ref === null) continue;
 				refs.push(ref);
-				if (sample.level >= ECHO_ABS_MIN && ref >= ECHO_ABS_MIN) ratios.push(sample.level / ref);
+				if (sample.level - this.noiseFloor >= ECHO_ABS_MIN && ref >= ECHO_ABS_MIN) {
+					ratios.push(Math.max(0, sample.level - this.noiseFloor) / ref);
+				}
 			}
 			const refSpread = refs.length ? Math.max(...refs) - Math.min(...refs) : 0;
 			if (ratios.length >= ECHO_CALIBRATION_MIN_SAMPLES && refSpread < 0.0001) {
@@ -205,7 +211,7 @@ export class EchoGate {
 			}
 		}
 		if (import.meta.env.DEV) {
-			console.info("[echo] calibration", { delayMs: this.delayMs, gain: this.gain, score: best?.score ?? null });
+			console.info("[echo] calibration", { delayMs: this.delayMs, gain: this.gain, match: best?.score ?? null, mean: meanScore, contrast: best?.contrast ?? null, noiseFloor: this.noiseFloor });
 		}
 		this.onResult?.({
 			status: this.gain === null ? "failed" : "success",
@@ -426,6 +432,11 @@ export class MicCapture {
 	/** 复用同一个 AudioContext（VAD 的 `audioContext` 选项），不新建图。 */
 	get audioContext(): AudioContext {
 		return this.context;
+	}
+
+	/** 麦克风与 ASR 已就绪后、播放校准音前调用。 */
+	beginEchoCalibration(): void {
+		this.echo.beginCalibration();
 	}
 
 	/** 写入患者 TTS 的当前输出电平（0 = 没在播），打断判据据此排除回采。 */

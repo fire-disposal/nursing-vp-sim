@@ -1,91 +1,266 @@
-import { Badge, Button, Card, Group, Stack, Text } from "@mantine/core";
-import { IconActivity, IconPlayerStop, IconRefresh } from "@tabler/icons-react";
-import { useEffect, useRef, useState } from "react";
-import { MicCapture, type EchoCalibrationResult } from "@/engine/audio/mic";
+import { Badge, Button, Card, Group, Select, Stack, Text, TextInput } from "@mantine/core";
+import { IconPlayerPlay, IconPlayerStop, IconRefresh } from "@tabler/icons-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { PHONE_CHARACTERS } from "@/engine/phone/characters";
+import { DEMO_TTS_PATH } from "@/engine/phone/ttsPlayer";
 import { PcmStreamPlayer } from "@/engine/tts/pcm-player";
+import { useVoiceDialogue } from "@/hooks/useVoiceDialogue";
+import useAuthStore from "@/stores/authStore";
+import { accessHeaders } from "@/utils/accessContext";
+import AcousticWaveform from "./AcousticWaveform";
+import type { EchoCalibrationResult } from "@/engine/audio/mic";
+import "./AcousticLabPanel.css";
 
-/** 独立声学工作面板：不开 LLM，只验证扬声器→麦克风的实际匹配。 */
+interface WaveHistory {
+	tts: number[];
+	mic: number[];
+	clean: number[];
+}
+
+const EMPTY_WAVES: WaveHistory = { tts: [], mic: [], clean: [] };
+
+/** 实战声学面板：校准、TTS、ASR 与三路真实 PCM 波形共用一条链。 */
 export default function AcousticLabPanel() {
+	const token = useAuthStore((s) => s.token);
 	const [result, setResult] = useState<EchoCalibrationResult | null>(null);
 	const [running, setRunning] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [speaker, setSpeaker] = useState(PHONE_CHARACTERS[2]?.speaker ?? PHONE_CHARACTERS[0]?.speaker ?? "");
+	const [text, setText] = useState("你好，我正在测试这条语音链路。");
+	const [ttsBusy, setTtsBusy] = useState(false);
+	const [recognized, setRecognized] = useState("");
 	const playerRef = useRef<PcmStreamPlayer | null>(null);
-	const captureRef = useRef<MicCapture | null>(null);
+	const resultRef = useRef<EchoCalibrationResult | null>(null);
+	const waveRef = useRef<WaveHistory>(EMPTY_WAVES);
+	const [waveVersion, setWaveVersion] = useState(0);
+	const [spanSeconds, setSpanSeconds] = useState("10");
 	const runRef = useRef(0);
+	const readyRef = useRef<(() => void) | null>(null);
+	const calibrationRef = useRef<((result: EchoCalibrationResult) => void) | null>(null);
 
-	const stop = () => {
-		runRef.current += 1;
+	const onFrame = useCallback((channel: Float32Array, sampleRate: number) => {
+		const player = playerRef.current;
+		const data = downsampleFrame(channel, sampleRate);
+		if (!player || data.length === 0) return;
+		const calibration = resultRef.current;
+		const delay = calibration?.status === "success" ? calibration.delayMs : 0;
+		const gain = calibration?.status === "success" ? calibration.gain ?? 0 : 0;
+		const reference = player.readReference(performance.now() - data.length / 16 - delay, data.length);
+		const current = waveRef.current;
+		for (let i = 0; i < data.length; i += 1) {
+			const mic = data[i] ?? 0;
+			const ref = reference[i] ?? 0;
+			current.tts.push(ref);
+			current.mic.push(mic);
+			current.clean.push(mic - gain * ref);
+		}
+		const maxSamples = 16_000 * 20;
+		if (current.tts.length > maxSamples) {
+			const drop = current.tts.length - maxSamples;
+			current.tts.splice(0, drop);
+			current.mic.splice(0, drop);
+			current.clean.splice(0, drop);
+		}
+		setWaveVersion((version) => version + 1);
+	}, []);
+
+	const onEchoCalibration = useCallback((next: EchoCalibrationResult) => {
+		resultRef.current = next;
+		setResult(next);
 		setRunning(false);
-		void captureRef.current?.close();
-		captureRef.current = null;
+		calibrationRef.current?.(next);
+		calibrationRef.current = null;
+	}, []);
+	const onVoiceReady = useCallback(() => {
+		readyRef.current?.();
+		readyRef.current = null;
+	}, []);
+
+	const voice = useVoiceDialogue({
+		onSend: setRecognized,
+		patientReplying: false,
+		continuous: true,
+		silenceMs: 900,
+		recordId: 0,
+		token,
+		echoLevel: () => playerRef.current?.outputLevel() ?? 0,
+		echoReference: (startMs, length) => playerRef.current?.readReference(startMs, length) ?? new Float32Array(length),
+		onEchoCalibration,
+		onVoiceReady,
+		onFrame,
+	});
+
+	const voiceStopRef = useRef(voice.stop);
+	voiceStopRef.current = voice.stop;
+
+	const stop = useCallback(() => {
+		runRef.current += 1;
+		voice.stop();
 		playerRef.current?.dispose();
 		playerRef.current = null;
-	};
+		setRunning(false);
+		waveRef.current = { tts: [], mic: [], clean: [] };
+		setWaveVersion((version) => version + 1);
+	}, [voice]);
 
 	useEffect(() => () => {
-		void captureRef.current?.close();
+		voiceStopRef.current();
 		playerRef.current?.dispose();
 	}, []);
 
-	const start = async () => {
+	const startCalibration = async () => {
 		stop();
 		const run = runRef.current;
 		setResult(null);
+		resultRef.current = null;
 		setError(null);
 		setRunning(true);
 		try {
 			const player = new PcmStreamPlayer();
 			playerRef.current = player;
 			await player.prime();
-			captureRef.current = await MicCapture.open({
-				echoLevel: () => player.outputLevel(),
-				onEchoCalibration: (next) => {
-					if (runRef.current !== run) return;
-					setResult(next);
-					setRunning(false);
-				},
+			const ready = new Promise<void>((resolve) => {
+				readyRef.current = resolve;
 			});
+			const calibrated = new Promise<void>((resolve) => {
+				calibrationRef.current = () => resolve();
+			});
+			voice.start();
+			await Promise.race([
+				ready,
+				new Promise<void>((_, reject) => setTimeout(() => reject(new Error("麦克风未就绪")), 5000)),
+			]);
 			await player.playConnectTone();
+			await calibrated;
 		} catch (err) {
 			if (runRef.current !== run) return;
 			setRunning(false);
-			setError((err as Error)?.message ?? "麦克风不可用");
+			setError((err as Error)?.message ?? "校准失败");
+		}
+	};
+
+	const playTts = async () => {
+		if (!text.trim() || ttsBusy) return;
+		setTtsBusy(true);
+		setError(null);
+		try {
+			const player = playerRef.current ?? new PcmStreamPlayer();
+			playerRef.current = player;
+			await player.prime();
+			const response = await fetch(DEMO_TTS_PATH, {
+				method: "POST",
+				headers: { "Content-Type": "application/json", ...accessHeaders() },
+				body: JSON.stringify({ text: text.trim(), emotion_state: "neutral", section_id: "acoustic-lab", speaker }),
+			});
+			if (!response.ok) throw new Error(`TTS HTTP ${response.status}`);
+			if (!response.body) throw new Error("TTS 没有返回音频");
+			await player.playStream(response.body);
+		} catch (err) {
+			setError((err as Error)?.message ?? "TTS 播放失败");
+		} finally {
+			setTtsBusy(false);
 		}
 	};
 
 	return (
 		<Card withBorder radius="md" padding="md" data-testid="acoustic-lab">
-			<Stack gap="sm">
+			<Stack gap="md">
 				<Group justify="space-between" wrap="wrap">
 					<Stack gap={2}>
 						<Text fw={600}>声学工作面板</Text>
-						<Text size="sm" c="dimmed">独立检查三音符匹配，不启动对话。</Text>
+						<Text size="sm" c="dimmed">直接测试校准、TTS、ASR 与反相补偿。</Text>
 					</Stack>
 					<Badge color={result?.status === "success" ? "green" : result?.status === "failed" || error ? "red" : running ? "yellow" : "gray"}>
 						{result?.status === "success" ? `匹配成功 ${result.delayMs}ms` : result?.status === "failed" || error ? "匹配失败" : running ? "校准中" : "未校准"}
 					</Badge>
 				</Group>
-				<Group gap="xs">
-					<Button size="xs" leftSection={<IconRefresh size={14} />} onClick={() => void start()} loading={running}>
-						开始校准
-					</Button>
-					<Button size="xs" variant="subtle" color="gray" leftSection={<IconPlayerStop size={14} />} onClick={stop} disabled={!running && !result && !error}>
-						停止
-					</Button>
-				</Group>
-				{result && (
-					<Text size="sm" c="dimmed">
-						延迟 {result.delayMs}ms；增益 {result.gain?.toFixed(3) ?? "—"}；相关度 {result.score?.toFixed(2) ?? "稳定电平"}
-					</Text>
-				)}
-				{error && <Text size="sm" c="red">无法完成校准：{error}</Text>}
-				{!result && !error && (
-					<Group gap={6}>
-						<IconActivity size={15} />
-						<Text size="xs" c="dimmed">点击开始后保持安静，直到徽章显示结果。</Text>
-					</Group>
-				)}
+
+				<div className="acoustic-lab-layout">
+					<Stack gap="sm" className="acoustic-lab-controls">
+						<Group gap="xs">
+							<Button size="xs" leftSection={<IconRefresh size={14} />} onClick={() => void startCalibration()} loading={running}>
+								开始校准
+							</Button>
+							<Button size="xs" variant="subtle" color="gray" leftSection={<IconPlayerStop size={14} />} onClick={stop}>
+								停止
+							</Button>
+						</Group>
+						{result && (
+							<Text size="xs" c="dimmed">
+								延迟 {result.delayMs}ms；增益 {result.gain?.toFixed(3) ?? "—"}；特征匹配度 {result.score?.toFixed(2) ?? "稳定电平"}
+							</Text>
+						)}
+
+						<Text size="sm" fw={600}>TTS 播放</Text>
+						<TextInput value={text} onChange={(event) => setText(event.currentTarget.value)} aria-label="TTS 测试文本" />
+						<Group gap="xs" align="flex-end" wrap="nowrap">
+							<Select
+								style={{ flex: 1 }}
+								value={speaker}
+								onChange={(value) => value && setSpeaker(value)}
+								data={PHONE_CHARACTERS.map((character) => ({ value: character.speaker, label: `${character.name} ${character.voice}` }))}
+								aria-label="TTS 音色"
+							/>
+							<Button size="xs" leftSection={<IconPlayerPlay size={14} />} onClick={() => void playTts()} loading={ttsBusy} disabled={!text.trim()}>
+								播放
+							</Button>
+						</Group>
+
+						<Text size="sm" fw={600}>ASR 识别</Text>
+						<Group gap="xs">
+							{voice.continuousArmed ? (
+								<Button size="xs" color="red" variant="light" onClick={() => voice.stop()}>
+									停止识别
+								</Button>
+							) : (
+								<Button size="xs" onClick={() => voice.start()}>开始识别</Button>
+							)}
+						</Group>
+						{voice.transcript && <Text size="sm" c="dimmed">实时：{voice.transcript}</Text>}
+						{recognized && <Text size="sm">最终：{recognized}</Text>}
+						{(error || voice.notice) && <Text size="sm" c="red">{error ?? voice.notice}</Text>}
+					</Stack>
+
+					<Stack gap="sm" className="acoustic-waveforms">
+						<Group justify="space-between" gap="sm">
+							<Group gap="xs">
+								<Text size="sm" fw={600}>实时波形</Text>
+								<Badge size="xs" variant="light" color={voice.continuousArmed ? "teal" : "gray"}>
+									{voice.continuousArmed ? "收音持续中" : "未收音"}
+								</Badge>
+							</Group>
+							<Select
+								size="xs"
+								value={spanSeconds}
+								onChange={(value) => value && setSpanSeconds(value)}
+								data={[
+									{ value: "5", label: "5 秒" },
+									{ value: "10", label: "10 秒" },
+									{ value: "20", label: "20 秒" },
+								]}
+								aria-label="波形时间窗"
+								w={92}
+							/>
+						</Group>
+						<AcousticWaveform title="TTS 延迟参考" data={waveRef.current.tts} color="var(--mantine-color-indigo-6)" seconds={Number(spanSeconds)} version={waveVersion} />
+						<AcousticWaveform title="麦克风收音" data={waveRef.current.mic} color="var(--mantine-color-orange-7)" seconds={Number(spanSeconds)} version={waveVersion} />
+						<AcousticWaveform title="反相补偿后" data={waveRef.current.clean} color="var(--mantine-color-teal-7)" seconds={Number(spanSeconds)} version={waveVersion} />
+					</Stack>
+				</div>
 			</Stack>
 		</Card>
 	);
+}
+
+function downsampleFrame(channel: Float32Array, sampleRate: number): Float32Array {
+	const ratio = sampleRate / 16_000;
+	const output = new Float32Array(Math.floor(channel.length / ratio));
+	for (let i = 0; i < output.length; i += 1) {
+		const position = i * ratio;
+		const left = Math.floor(position);
+		const right = Math.min(channel.length - 1, left + 1);
+		const mix = position - left;
+		output[i] = (channel[left] ?? 0) * (1 - mix) + (channel[right] ?? 0) * mix;
+	}
+	return output;
 }

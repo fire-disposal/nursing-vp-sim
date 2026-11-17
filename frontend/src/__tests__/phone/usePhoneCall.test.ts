@@ -18,7 +18,9 @@ interface FakeVoice {
 function fakeVoice(overrides: Partial<UseVoiceDialogueResult> = {}): FakeVoice {
 	const calls: UseVoiceDialogueOptions[] = [];
 	const start = vi.fn(() => {
-		calls.at(-1)?.onEchoCalibration?.({ status: "success", delayMs: 120, gain: 0.5, score: 0.9 });
+		const options = calls.at(-1);
+		options?.onVoiceReady?.();
+		options?.onEchoCalibration?.({ status: "success", delayMs: 120, gain: 0.5, score: 0.9 });
 	});
 	const stop = vi.fn();
 	return {

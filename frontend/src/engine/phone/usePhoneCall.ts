@@ -137,6 +137,7 @@ export function usePhoneCall({
 	const openingTextRef = useRef("");
 	const voiceRef = useRef<UseVoiceDialogueResult | null>(null);
 	const calibrationWaitRef = useRef<((result: EchoCalibrationResult) => void) | null>(null);
+	const voiceReadyRef = useRef<(() => void) | null>(null);
 
 	const playerRef = useRef<DemoTTSPlayer | null>(null);
 	if (!playerRef.current) {
@@ -169,6 +170,10 @@ export function usePhoneCall({
 		setCalibration(result);
 		calibrationWaitRef.current?.(result);
 		calibrationWaitRef.current = null;
+	}, []);
+	const onVoiceReady = useCallback(() => {
+		voiceReadyRef.current?.();
+		voiceReadyRef.current = null;
 	}, []);
 	const ttsEchoReference = useCallback(
 		(startMs: number, length: number) => playerRef.current?.readReference(startMs, length) ?? new Float32Array(length),
@@ -434,6 +439,7 @@ export function usePhoneCall({
 		onBargeIn: () => stopPatient("user"),
 		echoLevel: ttsEchoLevel,
 		onEchoCalibration,
+		onVoiceReady,
 		echoReference: ttsEchoReference,
 		bargeInGate: "asr",
 		bargeInGuard: isEchoLike,
@@ -489,9 +495,17 @@ export function usePhoneCall({
 		const calibrationResult = new Promise<EchoCalibrationResult>((resolve) => {
 			calibrationWaitRef.current = resolve;
 		});
+		const recordingReady = new Promise<void>((resolve) => {
+			voiceReadyRef.current = resolve;
+		});
 		voice.start();
 		void (async () => {
 			await player.prime();
+			const ready = await Promise.race([
+				recordingReady.then(() => true),
+				new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 5000)),
+			]);
+			if (!ready) throw new Error("麦克风未就绪，无法开始声学匹配");
 			await player.playConnectTone?.();
 			const result = await Promise.race([
 				calibrationResult,

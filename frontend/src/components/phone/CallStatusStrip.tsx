@@ -63,7 +63,7 @@ export default function CallStatusStrip({
 			<Tooltip
 				label={
 					calibration?.status === "success"
-						? `延迟 ${calibration.delayMs}ms，增益 ${calibration.gain?.toFixed(3)}，相关度 ${calibration.score?.toFixed(2) ?? "稳定电平"}`
+						? `延迟 ${calibration.delayMs}ms，增益 ${calibration.gain?.toFixed(3)}，特征匹配度 ${calibration.score?.toFixed(2) ?? "稳定电平"}`
 						: calibration?.status === "failed"
 							? "未通过声学匹配，双工未开放"
 							: "等待三音符包络匹配"
