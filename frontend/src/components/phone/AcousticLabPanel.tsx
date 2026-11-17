@@ -146,12 +146,12 @@ export default function AcousticLabPanel() {
 				calibrationRef.current = () => resolve();
 			});
 			voice.start();
-			await withTimeout(ready, 4000, "麦克风或 ASR 未就绪");
+			await withTimeout(ready, 3000, "麦克风或 ASR 未就绪");
 			setStep("播放三次滴声…");
 			voice.beginEchoCalibration();
-			await withTimeout(player.playConnectTone(), 3000, "校准音播放超时");
+			await withTimeout(player.playConnectTone(), 2000, "校准音播放超时");
 			setStep("分析起音时间差…");
-			await withTimeout(calibrated, 4000, "未收到校准结果");
+			await withTimeout(calibrated, 2000, "未收到校准结果");
 		} catch (err) {
 			if (runRef.current !== run) return;
 			runRef.current += 1;
