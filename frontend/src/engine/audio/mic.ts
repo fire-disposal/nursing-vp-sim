@@ -154,6 +154,9 @@ export class EchoGate {
 			this.delayMs = best.lagMs;
 			this.gain = best.gain;
 		}
+		if (import.meta.env.DEV) {
+			console.info("[echo] calibration", { delayMs: this.delayMs, gain: this.gain, score: best?.score ?? null });
+		}
 		this.micHistory = [];
 	}
 
