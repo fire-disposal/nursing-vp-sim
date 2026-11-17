@@ -114,7 +114,7 @@ export class EchoGate {
 		const cutoff = now - 5_000;
 		while (this.micHistory.length > 0 && this.micHistory[0].t < cutoff) this.micHistory.shift();
 		if (!this.calibrating) return;
-		if (now >= this.calibrationUntil || this.micHistory.length >= 60) this.finishCalibration(now);
+		if (now >= this.calibrationUntil || this.micHistory.length >= 60) this.finishCalibration();
 	}
 
 	/** 取参考序列中离指定时间最近的帧；超出 120ms 视为缺失。 */
@@ -128,7 +128,7 @@ export class EchoGate {
 	}
 
 	/** 用 0–1s 的候选延迟，选增益最稳定的 lag（MAD 最小）。 */
-	private finishCalibration(now: number): void {
+	private finishCalibration(): void {
 		this.calibrating = false;
 		const mic = this.micHistory;
 		if (mic.length < ECHO_CALIBRATION_MIN_SAMPLES) return;
@@ -155,12 +155,6 @@ export class EchoGate {
 			this.gain = best.gain;
 		}
 		this.micHistory = [];
-		void now;
-	}
-
-	/** 患者是否正在出声（参考电平非零）。 */
-	get playing(): boolean {
-		return this.reference >= ECHO_ABS_MIN;
 	}
 
 	/** 当前帧是否像某个延迟点的参考回授。 */

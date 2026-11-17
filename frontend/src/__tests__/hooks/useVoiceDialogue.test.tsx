@@ -78,6 +78,26 @@ describe("useVoiceDialogue 持续模式", () => {
 		expect(onSend).toHaveBeenCalledWith("你哪里不舒服？");
 	});
 
+	it("hides a guarded TTS echo from the live transcript", () => {
+		const { provider, sessions } = fakeProvider();
+		const { result } = renderHook(() =>
+			useVoiceDialogue({
+				onSend: vi.fn(),
+				patientReplying: false,
+				continuous: true,
+				asrProvider: provider,
+				recordId: 42,
+				token: "jwt",
+				transcriptGuard: (text) => text.includes("患者"),
+			}),
+		);
+		act(() => result.current.start());
+		act(() => sessions[0].onPartial?.("患者刚才说的话"));
+		expect(result.current.transcript).toBe("");
+		act(() => sessions[0].onPartial?.("我想问哪里不舒服"));
+		expect(result.current.transcript).toBe("我想问哪里不舒服");
+	});
+
 	it("does not send empty definite output", () => {
 		const { provider, sessions } = fakeProvider();
 		const { result, onSend } = renderVoice(provider);

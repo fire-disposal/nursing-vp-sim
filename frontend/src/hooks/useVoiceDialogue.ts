@@ -88,6 +88,8 @@ export interface UseVoiceDialogueOptions {
 	bargeInGate?: "vad" | "asr";
 	/** 额外文本闸门：返回 true 表示这句不允许触发打断。 */
 	bargeInGuard?: (text: string) => boolean;
+	/** 实时转写闸门：返回 true 表示这是 TTS 回录，不应显示。 */
+	transcriptGuard?: (text: string) => boolean;
 	/** ASR 打断最小字符数，电话页用 2。 */
 	bargeInMinChars?: number;
 }
@@ -139,6 +141,7 @@ export function useVoiceDialogue({
 	bargeInGate,
 	bargeInGuard,
 	bargeInMinChars,
+	transcriptGuard,
 }: UseVoiceDialogueOptions): UseVoiceDialogueResult {
 	const [phase, setPhase] = useState<VoicePhase>("idle");
 	const [transcript, setTranscript] = useState("");
@@ -203,8 +206,11 @@ export function useVoiceDialogue({
 	const patientAudibleRef = useRef(patientReplying || patientSpeaking);
 	patientAudibleRef.current = patientReplying || patientSpeaking;
 	const startRef = useRef<() => void>(() => {});
+	const transcriptGuardRef = useRef(transcriptGuard);
+	transcriptGuardRef.current = transcriptGuard;
 
 	const setTranscriptBoth = useCallback((text: string) => {
+		if (text.trim() && transcriptGuardRef.current?.(text)) return;
 		transcriptRef.current = text;
 		setTranscript(text);
 	}, []);
@@ -461,9 +467,10 @@ export function useVoiceDialogue({
 			};
 			session.onPerformance = (state) => {
 				if (!isLive()) return;
-				if (state === "degraded") setBasicVoiceMode(true);
-				if (state === "degraded") setNotice(BASIC_VOICE_NOTICE);
-				else if (state === "ok") setBasicVoiceMode(false);
+				if (state === "degraded") {
+					setBasicVoiceMode(true);
+					setNotice(BASIC_VOICE_NOTICE);
+				} else if (state === "ok") setBasicVoiceMode(false);
 			};
 			session.onReady = () => {
 				if (!isLive()) return;

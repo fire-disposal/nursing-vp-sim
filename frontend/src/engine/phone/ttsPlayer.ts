@@ -133,7 +133,9 @@ export class DemoTTSPlayer {
 
 	/** 接通校准音：先出声，再播开场白，给回声门留出延迟/增益样本。 */
 	async playConnectTone(): Promise<void> {
-		await this.player.playConnectTone?.().catch(() => undefined);
+		const play = this.player.playConnectTone;
+		if (!play) return;
+		await play.call(this.player).catch(() => undefined);
 	}
 
 	get usingFallback(): boolean {

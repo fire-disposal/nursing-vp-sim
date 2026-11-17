@@ -187,7 +187,6 @@ export function usePhoneCall({
 		playerRef.current = playerFactory ? playerFactory() : new DemoTTSPlayer({ speaker: character?.speaker });
 	}
 	const ttsEchoLevel = useCallback(() => playerRef.current?.outputLevel() ?? 0, []);
-	const ttsEchoGuard = useCallback((text: string) => isTtsEcho(text, recentTtsRef.current), []);
 	const isEchoLike = useCallback((text: string) => {
 		if (isTtsEcho(text, recentTtsRef.current)) return true;
 		if (!lastPatientTextRef.current || performance.now() - lastPatientAtRef.current > 8000) return false;
@@ -468,8 +467,9 @@ export function usePhoneCall({
 		onBargeIn: handleBargeIn,
 		echoLevel: ttsEchoLevel,
 		bargeInGate: "asr",
-		bargeInGuard: ttsEchoGuard,
+		bargeInGuard: isEchoLike,
 		bargeInMinChars: 2,
+		transcriptGuard: isEchoLike,
 	});
 
 	const voiceRef = useRef(voice);
@@ -616,7 +616,9 @@ function similarSpeech(a: string, b: string): boolean {
 
 function isTtsEcho(text: string, recent: RecentTts): boolean {
 	const norm = normalizeSpeech(text);
-	if (norm.length < 4) return false;
+	if (norm.length < 2) return false;
 	const now = performance.now();
-	return recent.some((item) => now - item.at < 7000 && similarSpeech(norm, item.norm));
+	return recent.some(
+		(item) => now - item.at < 7000 && (item.norm.includes(norm) || similarSpeech(norm, item.norm)),
+	);
 }
