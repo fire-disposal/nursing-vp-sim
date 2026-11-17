@@ -40,12 +40,29 @@ export interface DemoChatOptions extends DemoChatHandlers {
 	fetchImpl?: typeof fetch;
 }
 
+/** 后端历史契约：LLM 只认 user/assistant，页面内部用 student/patient。 */
+export interface DemoApiHistoryMessage {
+	role: "user" | "assistant";
+	content: string;
+}
+
+export interface DemoChatRequestBody {
+	character_id: string;
+	session_id: string;
+	history: DemoApiHistoryMessage[];
+	emotion_state: PhoneEmotionLabel;
+	test_mode?: "long_response";
+}
+
 /** 请求体构造（纯函数，便于断言契约）。 */
-export function buildChatRequest(turn: DemoChatTurn): DemoChatTurn {
+export function buildChatRequest(turn: DemoChatTurn): DemoChatRequestBody {
 	return {
 		character_id: turn.character_id,
 		session_id: turn.session_id,
-		history: turn.history,
+		history: turn.history.map((message) => ({
+			role: message.role === "student" ? "user" : "assistant",
+			content: message.content,
+		})),
 		emotion_state: turn.emotion_state,
 		...(turn.test_mode ? { test_mode: turn.test_mode } : {}),
 	};

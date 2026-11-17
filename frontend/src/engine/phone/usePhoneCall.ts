@@ -321,7 +321,7 @@ export function usePhoneCall({
 				{
 					character_id: character.id,
 					session_id: sessionIdRef.current,
-					history: trimHistory(historyRef.current),
+					history: trimHistory([...historyRef.current, { role: "student", content: text }]),
 					emotion_state: dominantLabel(emotionRef.current),
 					...(testMode ? { test_mode: testMode } : {}),
 				},
@@ -348,12 +348,13 @@ export function usePhoneCall({
 			)
 				.then((full) => {
 					if (turnSeqRef.current !== turnId) return;
-					setLines((prev) =>
-						prev.map((line) =>
-							line.id === placeholderId ? { ...line, streaming: false, text: full || line.text } : line,
-						),
-					);
 					const reply = (full || replyTextRef.current).trim();
+					setLines((prev) => {
+						if (!reply) return prev.filter((line) => line.id !== placeholderId);
+						return prev.map((line) =>
+							line.id === placeholderId ? { ...line, streaming: false, text: reply } : line,
+						);
+					});
 					if (!reply) {
 						pushLog("error", "没有收到回复内容");
 						return;
@@ -367,6 +368,7 @@ export function usePhoneCall({
 				})
 				.catch((err: unknown) => {
 					if (abort.signal.aborted) return;
+					setLines((prev) => prev.filter((line) => line.id !== placeholderId));
 					pushLog("error", (err as Error)?.message ?? "对话失败");
 				})
 				.finally(() => {

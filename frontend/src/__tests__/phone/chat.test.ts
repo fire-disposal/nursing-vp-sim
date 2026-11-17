@@ -29,7 +29,10 @@ describe("演示对话链路", () => {
 		const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
 		expect(url).toBe(DEMO_CHAT_PATH);
 		expect(init.method).toBe("POST");
-		expect(JSON.parse(String(init.body))).toEqual(TURN);
+		expect(JSON.parse(String(init.body))).toEqual({
+			...TURN,
+			history: [{ role: "user", content: "你好" }],
+		});
 		expect(buildChatRequest({ ...TURN, test_mode: "long_response" }).test_mode).toBe("long_response");
 		expect(buildChatRequest(TURN)).not.toHaveProperty("test_mode");
 	});

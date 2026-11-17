@@ -151,7 +151,7 @@ describe("handleUserText → LLM 流 → TTS", () => {
 		};
 		expect(first.character_id).toBe("su-xiaoman");
 		expect(first.emotion_state).toBeTruthy();
-		expect(first.history).toEqual([]);
+		expect(first.history).toEqual([{ role: "student", content: "你好呀" }]);
 
 		await act(async () => {
 			chat.turns[0].chunk("我在呢，");
@@ -173,6 +173,7 @@ describe("handleUserText → LLM 流 → TTS", () => {
 		expect(second.history).toEqual([
 			{ role: "student", content: "你好呀" },
 			{ role: "patient", content: "我在呢，你说。" },
+			{ role: "student", content: "那明天见？" },
 		]);
 	});
 
