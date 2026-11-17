@@ -441,6 +441,7 @@ export function usePhoneCall({
 		onEchoCalibration,
 		onVoiceReady,
 		echoReference: ttsEchoReference,
+		markerOnsets: () => playerRef.current?.markerOnsets() ?? [],
 		bargeInGate: "asr",
 		bargeInGuard: isEchoLike,
 		bargeInMinChars: 2,

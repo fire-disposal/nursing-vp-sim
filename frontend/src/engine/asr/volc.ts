@@ -102,6 +102,7 @@ export function createVolcAsrProvider(
 						echoLevel: sessionOptions.echoLevel,
 						onEchoCalibration: sessionOptions.onEchoCalibration,
 						echoReference: sessionOptions.echoReference,
+						markerOnsets: sessionOptions.markerOnsets,
 						onFrame: sessionOptions.onFrame,
 						pcm: { onPcm: (pcm) => connection?.send(pcm) },
 					});

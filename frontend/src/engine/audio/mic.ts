@@ -31,8 +31,13 @@ export interface EchoCalibrationResult {
 	status: "success" | "failed";
 	delayMs: number;
 	gain: number | null;
-	/** 包络互相关系数；稳定电平回退校准时为 null。 */
+	/** 起音间隔误差换算的匹配度。 */
 	score: number | null;
+	reason?: "no_samples" | "no_reference" | "no_mic_onsets" | "interval_mismatch" | "low_gain";
+	refOnsets?: number[];
+	micOnsets?: number[];
+	errorMs?: number | null;
+	noiseFloor?: number;
 }
 
 export interface MicCaptureConstraintsOptions {
@@ -81,6 +86,7 @@ function rms(channel: Float32Array): number {
 export class EchoGate {
 	/** 校准完成回调；成功与失败都必须上报，调用方不能盲等。 */
 	onResult?: (result: EchoCalibrationResult) => void;
+	markerOnsets?: () => number[];
 	private reference = 0;
 	private gain: number | null = null;
 	private noiseFloor = 0;
@@ -164,7 +170,7 @@ export class EchoGate {
 		const mic = this.micHistory;
 		if (mic.length < ECHO_CALIBRATION_MIN_SAMPLES) {
 			this.micHistory = [];
-			this.onResult?.({ status: "failed", delayMs: this.delayMs, gain: null, score: null });
+			this.onResult?.({ status: "failed", delayMs: this.delayMs, gain: null, score: null, reason: "no_samples" });
 			return;
 		}
 
@@ -176,7 +182,9 @@ export class EchoGate {
 		const micPeak = Math.max(0, ...mic.map((sample) => Math.max(0, sample.level - this.noiseFloor)));
 		const refThreshold = refPeak * 0.2;
 		const micThreshold = this.noiseFloor + Math.max(this.noiseFloor * 1.5, micPeak * 0.2, ECHO_ABS_MIN * 2);
-		const refOnsets = this.detectOnsets(this.refHistory, refThreshold).slice(0, 3);
+		const detectedRefOnsets = this.detectOnsets(this.refHistory, refThreshold).slice(0, 3);
+		const knownRefOnsets = this.markerOnsets?.() ?? [];
+		const refOnsets = knownRefOnsets.length === 3 ? knownRefOnsets : detectedRefOnsets;
 		const micOnsets = this.detectOnsets(mic, micThreshold);
 
 		let best: { delayMs: number; error: number; onset: number } | null = null;
@@ -224,6 +232,18 @@ export class EchoGate {
 			this.delayMs = best.delayMs;
 			this.gain = gain;
 		}
+		const reason =
+			this.gain !== null
+				? undefined
+				: refOnsets.length !== 3
+					? "no_reference"
+					: micOnsets.length < 3
+						? "no_mic_onsets"
+						: best === null
+							? "no_mic_onsets"
+							: best.error > 60
+								? "interval_mismatch"
+								: "low_gain";
 		if (import.meta.env.DEV) {
 			console.info("[echo] calibration", {
 				delayMs: this.delayMs,
@@ -240,6 +260,11 @@ export class EchoGate {
 			delayMs: this.delayMs,
 			gain: this.gain,
 			score,
+			reason,
+			refOnsets,
+			micOnsets,
+			errorMs: best?.error ?? null,
+			noiseFloor: this.noiseFloor,
 		});
 		this.micHistory = [];
 	}
@@ -278,6 +303,8 @@ export interface MicCaptureOptions extends MicCaptureConstraintsOptions {
 	onEchoCalibration?: (result: EchoCalibrationResult) => void;
 	/** 16kHz 参考波形，起始时间为 performance.now() 时间轴。 */
 	echoReference?: (startMs: number, length: number) => Float32Array;
+	/** 播放器实际调度出的三次起音时间，避免参考波形缺失时无法匹配。 */
+	markerOnsets?: () => number[];
 	pcm?: Pick<MicCaptureHandlers, "onPcm">;
 }
 
@@ -349,6 +376,7 @@ export class MicCapture {
 	 */
 	private start(options: MicCaptureOptions): void {
 		this.echo.onResult = options.onEchoCalibration;
+		this.echo.markerOnsets = options.markerOnsets;
 		this.echoLevel = options.echoLevel;
 		this.echoReference = options.echoReference;
 		const basePcm = pcmSink(options.pcm?.onPcm);

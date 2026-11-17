@@ -85,6 +85,7 @@ export default function AcousticLabPanel() {
 		token,
 		echoLevel: () => playerRef.current?.outputLevel() ?? 0,
 		echoReference: (startMs, length) => playerRef.current?.readReference(startMs, length) ?? new Float32Array(length),
+		markerOnsets: () => playerRef.current?.markerOnsets() ?? [],
 		onEchoCalibration,
 		onVoiceReady,
 		onFrame,
@@ -187,7 +188,12 @@ export default function AcousticLabPanel() {
 						</Group>
 						{result && (
 							<Text size="xs" c="dimmed">
-								延迟 {result.delayMs}ms；增益 {result.gain?.toFixed(3) ?? "—"}；特征匹配度 {result.score?.toFixed(2) ?? "稳定电平"}
+								延迟 {result.delayMs}ms；增益 {result.gain?.toFixed(3) ?? "—"}；特征匹配度 {result.score?.toFixed(2) ?? "—"}
+							</Text>
+						)}
+						{result?.status === "failed" && (
+							<Text size="xs" c="red">
+								{calibrationReason(result.reason)}；参考起音 {result.refOnsets?.length ?? 0} 次，麦克风起音 {result.micOnsets?.length ?? 0} 次，间隔误差 {result.errorMs ?? "—"}ms
 							</Text>
 						)}
 
@@ -250,6 +256,23 @@ export default function AcousticLabPanel() {
 			</Stack>
 		</Card>
 	);
+}
+
+function calibrationReason(reason: EchoCalibrationResult["reason"]): string {
+	switch (reason) {
+		case "no_samples":
+			return "校准期没有收到足够的麦克风帧";
+		case "no_reference":
+			return "播放器没有产出三次参考起音";
+		case "no_mic_onsets":
+			return "麦克风没有检测到三次滴声起音";
+		case "interval_mismatch":
+			return "三次滴声的起音间隔不匹配";
+		case "low_gain":
+			return "滴声起音匹配，但回授增益不在合理范围";
+		default:
+			return "声学特征匹配失败";
+	}
 }
 
 function downsampleFrame(channel: Float32Array, sampleRate: number): Float32Array {
