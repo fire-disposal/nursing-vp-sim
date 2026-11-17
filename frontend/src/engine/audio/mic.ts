@@ -7,15 +7,17 @@ const SCRIPT_PROCESSOR_SIZE = 4096;
 
 export interface MicCaptureConstraintsOptions {
 	deviceId?: string;
+	/** 由 AEC3 接管回声消除时，关闭浏览器自带 AEC/NS/AGC。 */
+	aec3?: boolean;
 }
 
 /** 采集约束：单声道 + 浏览器基础 DSP；云 ASR 只吃 16k 单声道。 */
 export function micConstraints(options: MicCaptureConstraintsOptions = {}): MediaStreamConstraints {
 	const audio: MediaTrackConstraints = {
 		channelCount: 1,
-		echoCancellation: true,
-		noiseSuppression: true,
-		autoGainControl: true,
+		echoCancellation: !options.aec3,
+		noiseSuppression: !options.aec3,
+		autoGainControl: !options.aec3,
 	};
 	if (options.deviceId) audio.deviceId = { exact: options.deviceId };
 	return { audio, video: false };
@@ -129,7 +131,8 @@ export class MicCapture {
 		const endMs = performance.now();
 		const canceller = getAec3();
 		if (canceller && this.echoReference) {
-			const reference = this.echoReference(endMs - pcm.length / 16, pcm.length);
+			// AEC3 要的是当前渲染参考；麦克风帧本身已比播放滞后。
+			const reference = this.echoReference(performance.now(), pcm.length);
 			const result = processAec3(pcm, reference);
 			if (result) {
 				this.onAec3Stats?.(result.stats);

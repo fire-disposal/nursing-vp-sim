@@ -75,6 +75,8 @@ export interface AsrProvider {
 		token?: string;
 		/** 是否启用 VAD 轮次检测（持续模式 + 有麦克风采集时）。 */
 		vad?: boolean;
+		/** 由 AEC3 接管时关闭浏览器 AEC/NS/AGC。 */
+		aec3?: boolean;
 		/** 采集链路已经拿到的流：VAD 复用它，不再另起一台麦克风。 */
 		stream?: MediaStream | null;
 		audioContext?: AudioContext;

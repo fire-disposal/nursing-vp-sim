@@ -75,6 +75,8 @@ export interface UseVoiceDialogueOptions {
 	onBargeIn?: () => void;
 	/** 是否启用独立 VAD；电话/工作台由 AEC3 + ASR 判句，传 false。 */
 	vad?: boolean;
+	/** 由 AEC3 接管回声消除时关闭浏览器 AEC/NS/AGC。 */
+	aec3?: boolean;
 	/** 训练记录 id（云 ASR 资源归属）。缺省 = 云 ASR 不可用，直接走 Web Speech。 */
 	recordId?: number | null;
 	/** 会话令牌（云 ASR 的 WS 鉴权）。缺省 = 云 ASR 不可用。 */
@@ -142,6 +144,7 @@ export function useVoiceDialogue({
 	continuous = false,
 	onBargeIn,
 	vad: useVad = true,
+	aec3 = false,
 	recordId,
 	token,
 	onVoiceReady,
@@ -402,6 +405,7 @@ export function useVoiceDialogue({
 				recordId: recordId ?? undefined,
 				token: token ?? undefined,
 				vad: wantContinuous && useVad,
+				aec3,
 										echoReference,
 													onPcmFrame,
 				onAec3Stats,

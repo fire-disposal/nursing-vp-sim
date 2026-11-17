@@ -103,6 +103,7 @@ export function useAcousticWorkbench({
 		patientReplying: false,
 		continuous: true,
 		vad: false,
+		aec3: true,
 		silenceMs: 900,
 		recordId,
 		token,

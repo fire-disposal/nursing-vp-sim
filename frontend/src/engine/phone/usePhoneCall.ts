@@ -442,6 +442,7 @@ export function usePhoneCall({
 		patientSpeaking: speaking,
 		continuous: true,
 		vad: false,
+		aec3: true,
 		silenceMs: 900,
 		recordId: 0,
 		token,
