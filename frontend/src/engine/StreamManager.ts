@@ -81,14 +81,11 @@ export class StreamManager {
 	/**
 	 * 打断（barge-in）：学生开口时中止在途的患者回复。
 	 *
-	 * 与 `abort()`（离页/换记录：整段丢弃）不同，打断保留患者**已说出**的部分并冻结为
-	 * 已完成的发言——学生听得见/看得见的那半句不会被凭空抹掉，也不标成错误
-	 * （旧行为把它留成 `streaming: true`，患者头像会永远停在「正在输入」）。
-	 * 一个字都还没说出口就打断（占位消息仍为空）时直接撤掉占位，不留一个空气泡。
-	 * `send()` 在 `sending=true` 时会静默丢弃新消息，所以这里必须先清发送态，
-	 * 否则学生的打断消息进不了发送链。
+	 * 与 `abort()`（离页/换记录：整段丢弃）不同，语音打断可传入 TTS 完整播完的文本，
+	 * 只保留学生实际听到的部分；未启用语音时保留当前可见文本。占位消息不会停在
+	 * streaming 或错误态。`send()` 在 `sending=true` 时会丢弃新消息，因此先清发送态。
 	 */
-	interrupt(): void {
+	interrupt(spokenText?: string | null): void {
 		this.flushChunks();
 		const placeholderId = this.activePlaceholderId;
 		this.activePlaceholderId = null;
@@ -98,6 +95,17 @@ export class StreamManager {
 		store.setSending(false);
 		if (!placeholderId) return;
 		const partial = store.messages.find((m) => m.id === placeholderId);
+		if (spokenText != null) {
+			if (!spokenText.trim()) {
+				store.setMessages(store.messages.filter((m) => m.id !== placeholderId));
+				return;
+			}
+			store.setMessages(
+				store.messages.map((m) => (m.id === placeholderId ? { ...m, content: spokenText } : m)),
+			);
+			store.finalizeMessage(placeholderId);
+			return;
+		}
 		if (partial?.content.trim()) store.finalizeMessage(placeholderId);
 		else store.setMessages(store.messages.filter((m) => m.id !== placeholderId));
 	}

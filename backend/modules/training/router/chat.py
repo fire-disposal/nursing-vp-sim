@@ -409,9 +409,8 @@ async def send_message_stream(
         raise
 
     async def _stream_with_db():
-        # release：DB session 的关闭挂在 pipeline 任务自己的 finally 上，保证 session 的
-        # 存活期不短于任务。客户端断线后生成器会被关闭/取消，但任务仍会跑完并成对落库
-        # （见 runner.stream_pipeline）——请求侧提前关 session 会让这些写入静默失败。
+        # release：DB session 的关闭挂在 pipeline 任务自己的 finally 上。客户端断线会取消
+        # 在途生成，任务收尾将学生消息已存在的回合标记 failed，不再写入未听到的患者全文。
         try:
             async for chunk in stream_pipeline(ctx, release=stack.aclose):
                 yield chunk
@@ -458,9 +457,8 @@ async def correct_last_message_stream(
         raise
 
     async def _stream_with_db():
-        # release：DB session 的关闭挂在 pipeline 任务自己的 finally 上，保证 session 的
-        # 存活期不短于任务。客户端断线后生成器会被关闭/取消，但任务仍会跑完并成对落库
-        # （见 runner.stream_pipeline）——请求侧提前关 session 会让这些写入静默失败。
+        # release：DB session 的关闭挂在 pipeline 任务自己的 finally 上。客户端断线会取消
+        # 在途生成，任务收尾将学生消息已存在的回合标记 failed，不再写入未听到的患者全文。
         try:
             async for chunk in stream_pipeline(ctx, release=stack.aclose):
                 yield chunk

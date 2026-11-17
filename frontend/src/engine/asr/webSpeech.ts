@@ -7,10 +7,9 @@ function detectSpeechRecognition(): (typeof SpeechRecognition) | null {
 /**
  * 浏览器 Web Speech API 实现（Chrome/Edge 内建，免费、零后端）。
  *
- * 当前唯一的 ASR 实现。未来在线 ASR（如 Volc BigASR）实现同一
- * `AsrProvider` 接口后在 `index.ts` 切换即可，消费方零改动。
- * 它是 `interimResults` 半句 + `onend` 说停即收尾的语义，与
- * `useVoiceDialogue` 的自动发送契约一致。
+ * 降级路径：云 ASR 未配置（4401）、初始化失败、或环境没有 WebSocket 时用它。
+ * 它是 `interimResults` 半句 + `onend` 说停即收尾的语义，与 `useVoiceDialogue` 的
+ * 自动发送契约一致；没有 VAD，因此 `turnDetection` 为 false（打断判据退回 interim 文本）。
  */
 export const webSpeechAsrProvider: AsrProvider = {
 	id: "web-speech",
@@ -27,14 +26,13 @@ export const webSpeechAsrProvider: AsrProvider = {
 		rec.continuous = options.continuous ?? false;
 
 		const session: AsrSession = {
+			turnDetection: false,
 			start: () => rec.start(),
 			stop: () => rec.stop(),
-			onresult: null,
-			onend: null,
-			onerror: null,
 		};
 
-		// 归一化浏览器事件 → 供应商中立的事件。
+		// 归一化浏览器事件 → 供应商中立的事件。Web Speech 没有 VAD：
+		// 非 final 的累计文本同时是 `partial`（字幕）与 `interim`（打断/静音窗口信号）。
 		rec.onresult = (e) => {
 			let acc = "";
 			let allFinal = true;
@@ -42,12 +40,16 @@ export const webSpeechAsrProvider: AsrProvider = {
 				acc += e.results[i][0].transcript;
 				if (!e.results[i].isFinal) allFinal = false;
 			}
-			session.onresult?.({ transcript: acc, final: allFinal });
+			if (allFinal) session.onDefinite?.(acc);
+			else {
+				session.onPartial?.(acc);
+				session.onInterim?.(acc);
+			}
 		};
-		rec.onend = () => session.onend?.();
+		rec.onend = () => session.onEnd?.();
 		// 错误码必须原样透传：持续聆听要根据 not-allowed / audio-capture（降级按住说话）
 		// 与 no-speech / aborted（连续聆听的正常噪声）做不同处置。
-		rec.onerror = (e) => session.onerror?.((e as SpeechRecognitionErrorEvent)?.error || "recognition_failed");
+		rec.onerror = (e) => session.onError?.((e as SpeechRecognitionErrorEvent)?.error || "recognition_failed");
 
 		return session;
 	},

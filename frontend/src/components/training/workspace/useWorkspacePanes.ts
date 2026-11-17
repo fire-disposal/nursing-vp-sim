@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { type ManifestActivity, type ManifestArtifact, availableActivities } from "@/engine/manifest";
 import { useRecordMeta, useSessionManifest, useTrainingData } from "@/engine/TrainingDataContext";
-import { INQUIRY_PANEL_ID, useWorkspaceStore } from "@/stores/workspaceStore";
+import { INQUIRY_PANEL_ID } from "@/stores/workspaceStore";
 import { parseGuidedHints } from "@/components/training/tools/inquiryProgress";
 const WIDE_ACTIVITY_IDS: Record<string, true> = {
 	physical_exam: true,

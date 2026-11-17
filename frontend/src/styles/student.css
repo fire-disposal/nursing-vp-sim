@@ -17,6 +17,14 @@
 	--stu-ink-dim: #59635f;
 	--stu-line: rgba(24, 32, 30, 0.1);
 	--stu-line-strong: rgba(24, 32, 30, 0.18);
+	--stu-subtle: #f3f4f2;
+	--stu-shadow: rgba(24, 32, 30, 0.08);
+	--stu-focus-ring: rgba(43, 95, 82, 0.16);
+	--stu-voice-active: #b54335;
+	--stu-voice-soft: rgba(181, 67, 53, 0.12);
+	--stu-notice: #f2f4f2;
+	--stu-error: #a63b30;
+	--stu-error-soft: rgba(166, 59, 48, 0.09);
 	/* 圆角只有三档：面板 14 / 控件 10 / 药丸 999。出现第四种就是错的 */
 	--stu-radius: 14px;
 	--stu-radius-sm: 10px;
@@ -34,6 +42,14 @@
 	--stu-ink-dim: #939c99;
 	--stu-line: rgba(232, 236, 234, 0.10);
 	--stu-line-strong: rgba(232, 236, 234, 0.18);
+	--stu-subtle: #202422;
+	--stu-shadow: rgba(0, 0, 0, 0.28);
+	--stu-focus-ring: rgba(116, 163, 148, 0.22);
+	--stu-voice-active: #e07a68;
+	--stu-voice-soft: rgba(224, 122, 104, 0.14);
+	--stu-notice: #202422;
+	--stu-error: #f09686;
+	--stu-error-soft: rgba(240, 150, 134, 0.10);
 }
 
 /* ── 顶栏：从"工具栏"变成"状态条" ─────────────────────────────

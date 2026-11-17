@@ -418,8 +418,8 @@ export function TrainingEngine({ recordId, children }: TrainingEngineProps) {
 	// （同时把患者已说出的部分冻结，并清掉发送态——否则学生的打断消息会被 `send()` 当作并发发送丢弃）。
 	// 两个资源各自仍只有一个 owner，因此不新增 bus 事件。
 	const handleBargeIn = useCallback(() => {
-		ttsRef.current.stop();
-		streamRef.current.interrupt();
+		const spokenText = ttsRef.current.stopForInterruption();
+		streamRef.current.interrupt(spokenText);
 	}, []);
 
 	const isShort = useShortViewport();

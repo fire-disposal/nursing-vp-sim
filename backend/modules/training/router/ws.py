@@ -30,49 +30,13 @@ import asyncio
 import contextlib
 import logging
 
-import jwt
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
-from core.database import SessionLocal
-from core.security import ALGORITHM, JWT_SECRET_KEY, _set_user_permissions
-from models import User
+from core.websocket_auth import WS_CLOSE_FORBIDDEN, WS_CLOSE_UNAUTHORIZED, authenticate_ws_token, resolve_ws_access
 
 log = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-async def _authenticate(token: str) -> User | None:
-    from core.database import SessionLocal
-
-    try:
-        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
-        user_id = payload.get("user_id")
-        if not isinstance(user_id, int):
-            log.warning("WS auth: user_id not int: %s", type(user_id))
-            return None
-    except jwt.PyJWTError as e:
-        log.warning("WS auth: JWT decode failed: %s", e)
-        return None
-
-    db = SessionLocal()
-    try:
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user:
-            log.warning("WS auth: user %d not found", user_id)
-            return None
-        if not user.is_active:
-            log.warning("WS auth: user %d inactive", user_id)
-            return None
-        token_tv = payload.get("tv", 0)
-        if token_tv != user.token_version:
-            log.warning(
-                "WS auth: token_version mismatch tv=%d db=%d for user %d", token_tv, user.token_version, user_id
-            )
-            return None
-        return user
-    finally:
-        db.close()
 
 
 @router.websocket("/ws")
@@ -83,33 +47,22 @@ async def training_ws(
     school: str = Query(default=""),
 ):
     await websocket.accept()
-    user = await _authenticate(token)
-    if not user:
+    identity = await asyncio.to_thread(authenticate_ws_token, token)
+    if identity is None:
         log.warning("WS auth failed — closing with 4001")
-        await websocket.close(code=4001)
+        await websocket.close(code=WS_CLOSE_UNAUTHORIZED)
         return
     # 浏览器 WebSocket 不能自带请求头，故视角/院校以查询参数传入 —— 语义与 HTTP 的
     # `X-View-Persona` / `X-School-Scope` 完全一致，走同一个 `resolve_access`。
     # 缺省（旧客户端）解析默认视角：平台账号落到 `platform` 视角，它不带 `training_access`，
     # 于是训练页的推送通道被 4003 拒掉并无限重连。
-    db = SessionLocal()
-    try:
-        resolved = _set_user_permissions(user, db, persona, school)
-    finally:
-        db.close()
-    if not resolved or not user.has_permission("training_access"):
-        log.warning(
-            "WS auth: user %d lacks training_access (persona=%r school=%r resolved=%s)",
-            user.id,
-            persona,
-            school,
-            resolved,
-        )
-        await websocket.close(code=4003)
+    if not await asyncio.to_thread(resolve_ws_access, identity.user_id, persona=persona, school=school):
+        await websocket.close(code=WS_CLOSE_FORBIDDEN)
         return
 
+    user_id = identity.user_id
     manager = websocket.app.state.realtime_hub
-    queue = await manager.subscribe(user.id)
+    queue = await manager.subscribe(user_id)
 
     # Both _handle_client and _handle_server may write to the same WebSocket.
     # Starlette/uvicorn do not guarantee concurrent-write safety, so serialize
@@ -154,10 +107,10 @@ async def training_ws(
             with contextlib.suppress(asyncio.CancelledError, WebSocketDisconnect, RuntimeError):
                 t.result()
     except Exception:
-        log.exception("WS error: user_id=%d", user.id)
+        log.exception("WS error: user_id=%d", user_id)
     finally:
         for t in (client_task, server_task):
             t.cancel()
         with contextlib.suppress(asyncio.CancelledError, Exception):
             await asyncio.gather(client_task, server_task, return_exceptions=True)
-        manager.unsubscribe(user.id, queue)
+        manager.unsubscribe(user_id, queue)

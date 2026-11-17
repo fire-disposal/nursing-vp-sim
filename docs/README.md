@@ -13,6 +13,7 @@
 | [curriculum-fit.md](curriculum-fit.md) | 《健康评估》教材版本、章节适配、病例覆盖与缺口 |
 | [sp-script.md](sp-script.md) | SP 剧本标准与仓库对应物（外部领域参照，非契约） |
 | [ops/](ops/) | 排障与运维速查：诊断契约、院校隔离、前端 UI 约定、语音/LLM 排障、事故复盘 |
+| [ops/voice-experience.md](ops/voice-experience.md) | 火山 ASR/TTS 开通、成本、VAD 设备降级与服务器容量约束 |
 | [ops/notification-channels.md](ops/notification-channels.md) | 通知渠道分工（状态条 / 内联 / toast / 通知中心 / 弹窗）与严重度词表 |
 | [ops/training-core-observation-20261107.md](ops/training-core-observation-20261107.md) | 训练区现状观察与待验证改善假设（历史快照，非运行期契约） |
 | [calibration/](calibration/) | 判例与校准资产（研究用） |

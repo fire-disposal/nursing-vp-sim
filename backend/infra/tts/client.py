@@ -201,12 +201,25 @@ async def _read_server_message(ws: ClientConnection) -> ServerMessage:
 
 @dataclass
 class TTSRequest:
+    """One synthesis request.
+
+    ``context_texts`` is the official TTS 2.0 natural-language instruction
+    channel (语气/情绪/语速). The server only honours the *first* element, so
+    callers pass at most one instruction; extra entries are dropped rather
+    than serialized into a request the upstream silently ignores.
+
+    ``section_id`` groups the sentence-by-sentence calls of one conversation
+    so the server can carry dialogue context across them (multi-turn TTS).
+    """
+
     text: str
     speaker: str = "zh_female_vv_uranus_bigtts"
     speech_rate: int = 0
     loudness_rate: int = 0
     fmt: str = "mp3"
     sample_rate: int = 24000
+    context_texts: list[str] | None = None
+    section_id: str | None = None
 
 
 def _build_start_connection() -> bytes:
@@ -226,6 +239,26 @@ def _build_finish_connection() -> bytes:
     )
 
 
+def _build_additions(req: TTSRequest) -> str:
+    """``req_params.additions`` JSON string for one StartSession frame.
+
+    ``context_texts`` / ``section_id`` are TTS 2.0-only params and live under
+    ``additions`` (not ``req_params``); empty values are omitted entirely so a
+    request without instructions is byte-identical to a plain TTS 1.0 call.
+    """
+    additions: dict = {"disable_markdown_filter": False}
+
+    instructions = [t for t in (req.context_texts or []) if t and t.strip()]
+    if instructions:
+        additions["context_texts"] = [instructions[0]]
+
+    section_id = (req.section_id or "").strip()
+    if section_id:
+        additions["section_id"] = section_id
+
+    return json.dumps(additions, ensure_ascii=False)
+
+
 def _build_start_session(req: TTSRequest, session_id: str) -> bytes:
     body_json = json.dumps(
         {
@@ -240,7 +273,7 @@ def _build_start_session(req: TTSRequest, session_id: str) -> bytes:
                     "speech_rate": req.speech_rate,
                     "loudness_rate": req.loudness_rate,
                 },
-                "additions": json.dumps({"disable_markdown_filter": False}),
+                "additions": _build_additions(req),
             },
         },
         ensure_ascii=False,

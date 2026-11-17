@@ -10,7 +10,7 @@
 
 ## 选型
 
-基于 FastAPI + React 的训练平台，前端 React 19 + Mantine，后端 FastAPI + SQLAlchemy，数据 PostgreSQL 15，语音火山引擎 TTS，部署 Docker Compose + Nginx。
+基于 FastAPI + React 的训练平台，前端 React 19 + Mantine，后端 FastAPI + SQLAlchemy，数据 PostgreSQL 15，语音火山引擎 ASR/TTS 与浏览器 VAD，部署 Docker Compose + Nginx。
 
 - 前端
   - React 19
@@ -36,7 +36,8 @@
     - psycopg 3
 - 模型与语音
   - LLMRouter
-  - 火山引擎 TTS
+  - 火山引擎 ASR/TTS
+  - 浏览器 Silero VAD
 - 部署
   - Docker Compose
   - Nginx
@@ -52,7 +53,7 @@
 - 导出：`GET /records/{id}/experience` 输出自包含 JSON（时间线、消息、查体、情绪事件、评分口径、`gaps`）
 - 病例：`backend/data/cases` 14 个内置病例，启动时按指纹收敛；AI 生成 + 校验器
 - 管理面：作业、班级、角色权限、问卷、成本管理、审计日志、反馈
-- 语音：TTS 合成与打断可用；STT 与双工对谈未做
+- 语音：火山 ASR + SeedTTS 2.0 情绪合成，浏览器 AEC/VAD、持续对谈、说话确认打断、Web Speech 降级
 
 ## 启动流程
 
@@ -77,7 +78,7 @@ cd frontend && pnpm vitest run
 ## 边界与已知问题
 
 - 旧 README 说“记录该次体验差一个导出面”，但端点与前端下载都已实现（`router/session_views.py`、`utils/export-record.ts`），文档需要同步。
-- 双工语音（持续拾音 + 端点检测 + 打断）未实现，当前是单向播报可中断。
+- 双工语音需要火山 ASR 2.0 开通与可用余额；未配置或设备性能不足时降级为基础语音/按住说话。
 - 只有 production 一个实例，staging 已于 2026-09-14 退役；没有灰度环境。
 - `production` 当前未配 Required reviewers，推 tag 即发版；README 与 onboarding 说法不一致，以实际配置为准。
 - 评分总分口径随运行时 rubric 变化：病例追加护理记录维度后条目数与总分都会变，跨病例比较要看 `grade_policy` 的口径字段。

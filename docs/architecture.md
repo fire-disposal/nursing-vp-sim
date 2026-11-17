@@ -19,7 +19,7 @@
 | LLM API | 多 Provider 路由（DeepSeek / OpenAI 兼容 / 自定义） | 优先级加权路由、熔断、健康检查 |
 | LLM 可靠性 | 每 purpose 一份 profile（`infra/llm/profile.py`）：超时 / 重试 / 并发 / 输出上限 | 例：patient_chat 30s·2 次、scoring 120s·3 次·16k 输出；并发信号量 200–500；全局超时预算分摊 |
 | 加密 | 无（API Key 明文存 `api_secrets`） | 旧的对称加密方案已由迁移 `137329b7b43c` 移除 |
-| 语音 | 火山引擎 ASR + TTS | 服务端语音识别 + 情感语音合成 |
+| 语音 | 浏览器 AEC/PCM + Silero VAD，火山引擎 ASR + TTS，Web Speech 降级 | 服务端只做异步音频转发；情绪指令随 TTS 逐句发送 |
 | 图表 | recharts (ComposedChart) | 关联训练统计（双Y轴：次数+时长、次数+得分） |
 | 图标 | @tabler/icons-react | 统一 SVG 图标库 |
 | 评分标准 | `modules/training/scoring/rubric.json`（2 维度 19 条目，raw_max 38）+ 训练时 rubric 快照（**无 DB Rubric 表**） | 逐条目评分 → raw（Σ条目分）/ display（0-100）双轨 + `mapping_version`；evidence+reason 证据化 |

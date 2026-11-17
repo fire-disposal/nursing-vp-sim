@@ -110,13 +110,11 @@ async def stream_pipeline(
     患者回复通过泄漏守卫后才整体入队，前端实时看到的 == DB 持久化的。
 
     生命周期契约（断线）：
-      * 客户端断线 → 生成器提前关闭，但**任务不取消**：persister 必须成对写
-        student + patient，半途取消会让学生的提问凭空消失。
-      * 提前关闭时记日志 + 计数（``abandoned_stream_count``），并尽力等任务跑完
-        （生成器正被取消时该等待会立刻中断，不影响任务本身继续跑）。
+      * 客户端断线 → 取消在途 LLM/工具任务；学生消息已在事务 A 落库，
+        `finalize_pending_turn` 将未完成回合标记 failed，不再生成学生未听到的患者全文。
+      * 打断后新回合可以安全开始，旧回合不会继续在后台写入患者消息。
       * ``release``：由任务在自身 ``finally`` 里调用，用于释放必须活到任务结束的资源
-        （router 的 DB session）。放在请求侧则会在孤儿任务仍在写库时先关 session，
-        落库静默失败或重复；放在任务里可保证 session 的存活期不短于任务。
+        （router 的 DB session）。放在请求侧则会在任务仍写库时先关 session。
     """
     queue: asyncio.Queue[str] = asyncio.Queue()
     ctx.state[STATE_STREAM_QUEUE] = queue
@@ -185,16 +183,17 @@ async def stream_pipeline(
                 _abandoned_streams,
             )
         if not task.done():
-            # 尽力等任务跑完（正常 aclose 时必然等到）；本协程被取消时（Starlette 对 SSE
-            # 会取消）该等待立刻中断，任务与 release 不受影响。
-            try:
-                outcome = await asyncio.gather(task, return_exceptions=True)
-            except asyncio.CancelledError:
-                log.info("Stream pipeline wait interrupted by cancellation: record_id=%d", ctx.record.id)
-            else:
-                if outcome and isinstance(outcome[0], BaseException):
-                    log.error(
-                        "Abandoned pipeline failed: record_id=%d",
-                        ctx.record.id,
-                        exc_info=outcome[0],
-                    )
+            task.cancel()
+        # 等任务完成收尾（正常 aclose 必然等到）；本协程被取消时等待会中断，
+        # 任务自身的 finally 仍会执行 finalize_pending_turn 与 release。
+        try:
+            outcome = await asyncio.gather(task, return_exceptions=True)
+        except asyncio.CancelledError:
+            log.info("Stream pipeline wait interrupted by cancellation: record_id=%d", ctx.record.id)
+        else:
+            if outcome and isinstance(outcome[0], BaseException) and not isinstance(outcome[0], asyncio.CancelledError):
+                log.error(
+                    "Abandoned pipeline failed: record_id=%d",
+                    ctx.record.id,
+                    exc_info=outcome[0],
+                )

@@ -22,7 +22,7 @@ from core.exceptions import AuthError, NotFoundError
 from core.gender import normalize_gender
 from infra.tts.circuit import CircuitOpenError, TTSCircuitBreaker
 from infra.tts.client import TTSRequest
-from infra.tts.mapper import resolve_voice_type
+from infra.tts.mapper import resolve_context_texts, resolve_voice_type
 from models import Case, TrainingRecord, VoiceCallLog
 
 log = logging.getLogger(__name__)
@@ -66,9 +66,10 @@ _DEFAULT_TTS_CONFIG = {
 STREAM_FORMAT = "pcm"
 STREAM_SAMPLE_RATE = 24000
 
-# Rough list-price estimate per billed character (CNY). Only the base changed
-# from "input chars" to "usage.text_words"; the rate itself is unchanged.
-_COST_PER_CHAR = 0.000_002
+# Volcengine 豆包语音合成模型 2.0（seed-tts-2.0）后付费字符版官方价：3 元/万字符，
+# 即 0.0003 元/字符，按 SessionFinished 返回的 usage.text_words（计费字符数）计价。
+# context_texts 指令文本不参与计费，因此按合成文本字数估算与真实账单一致。
+_COST_PER_CHAR = 0.000_3
 
 
 def load_tts_state(app_state, db: Session) -> None:
@@ -178,6 +179,11 @@ class TTSService:
             speaker=speaker,
             fmt=fmt,
             sample_rate=sample_rate,
+            # 情绪不再只是日志/响应头：转成 TTS 2.0 的语音指令，进入每一次逐句
+            # 上游请求；section_id 用训练记录 ID，把同一通对话的逐句合成串成
+            # 多轮上下文（服务端按 ID 保存对话历史）。
+            context_texts=resolve_context_texts(emotion_state),
+            section_id=str(record_id),
         )
 
     def _write_log(

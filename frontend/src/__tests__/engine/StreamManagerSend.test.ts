@@ -247,6 +247,20 @@ describe("StreamManager.interrupt（打断 barge-in）", () => {
 		expect(messages[2].content).toBe("等一下，我先问别的");
 	});
 
+	it("语音打断只保留实际播完的文本", async () => {
+		const cb = captureCallbacks();
+		const manager = new StreamManager(1);
+		const promise = manager.send("问题", {});
+		cb.onChunk("已经播出的句子。尚未播出的句子。");
+
+		manager.interrupt("已经播出的句子。");
+
+		const [, patient] = useTrainingStore.getState().messages;
+		expect(patient.content).toBe("已经播出的句子。");
+		expect(patient.streaming).toBe(false);
+		await promise;
+	});
+
 	it("一个字都还没说出口就打断 → 撤掉空占位，不留空气泡", async () => {
 		const cb = captureCallbacks();
 		const manager = new StreamManager(1);

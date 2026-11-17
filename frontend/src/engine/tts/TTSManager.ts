@@ -24,6 +24,7 @@ export class TTSManager {
 	private currentEmotion = "neutral";
 	private unsubs: Array<() => void> = [];
 	private queue: string[] = [];
+	private spokenSentences: string[] = [];
 	private processing = false;
 	private streamDone = false;
 	private replyDegraded = false;
@@ -101,12 +102,19 @@ export class TTSManager {
 	}
 
 	/**
-	 * Stop the active reply.  There is no standalone replay surface: every TTS
-	 * request is driven by the current streamed patient reply.
+	 * Voice barge-in: return only complete sentences that reached playback.
+	 * Null means this reply had no audible TTS, so the visible text history is kept.
 	 */
+	stopForInterruption(): string | null {
+		const spokenText = this.replyAutoPlay ? this.spokenSentences.join("") : null;
+		this.stop();
+		return spokenText;
+	}
+
 	stop(): void {
 		const hadPlayback = this.started;
 		this.queue.length = 0;
+		this.spokenSentences = [];
 		this.segmenter.reset();
 		this.streamDone = false;
 		this.replyAutoPlay = false;
@@ -175,6 +183,7 @@ export class TTSManager {
 					this.markStarted(sentence);
 				});
 				if (bytes > 0) {
+					if (this.replyAutoPlay) this.spokenSentences.push(sentence);
 					return;
 				}
 			} catch (err) {
@@ -190,6 +199,7 @@ export class TTSManager {
 		this.fallbackProvider.emotion = this.currentEmotion;
 		this.markStarted(sentence);
 		await this.fallbackProvider.speak(sentence);
+		if (this.replyAutoPlay) this.spokenSentences.push(sentence);
 	}
 
 	private markStarted(sentence: string): void {
