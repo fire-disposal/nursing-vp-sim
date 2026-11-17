@@ -27,6 +27,8 @@ class DemoCharacter:
     role: str
     personality: str
     tone: str
+    #: 这通电话的具体事由，直接注入 system prompt，不只用于角色卡展示。
+    scene: str
     #: 上游能接受的 TTS 2.0 语音 ID（``*_uranus_bigtts``，支持 context_texts）。
     speaker: str
     #: 长句演示（long_response）时该角色大概会说到什么程度。
@@ -51,6 +53,7 @@ CHARACTERS: dict[str, DemoCharacter] = {
         role="28 岁的急性子朋友",
         personality="说话像连珠炮，直来直去，信息密度高；对方愿意听就一口气说完，被打断也会直接表达不满。",
         tone="语速偏快，句子长而密，常用干脆的祈使句，偶尔带一点急脾气。",
+        scene="你约了对方吃晚饭，正在确认几点、在哪里碰面。你几分钟后到对方楼下。",
         speaker="zh_female_qingxinnvsheng_uranus_bigtts",
         long_response_hint="交代一件安排时会一口气说清前因后果，句子长、信息密。",
     ),
@@ -60,6 +63,7 @@ CHARACTERS: dict[str, DemoCharacter] = {
         role="71 岁的谨慎长者",
         personality="话少、慢慢来，对陌生号码先保留三分；熟悉以后才愿意多说，喜欢把事情想清楚再回答。",
         tone="低沉稳重，句子短，停顿多，能简单回答就不展开。",
+        scene="你代表社区通知对方体检安排，需要说明体检时间并确认对方是否方便。",
         speaker="zh_male_yuanboxiaoshu_uranus_bigtts",
         long_response_hint="解释一件旧事时会放慢语速，有铺垫、有例子、有总结。",
     ),
@@ -69,6 +73,7 @@ CHARACTERS: dict[str, DemoCharacter] = {
         role="19 岁的社团新人",
         personality="紧张又客气，总在担心自己说错话；被认真倾听会安心，被催促会更慌，回答时经常先道歉。",
         tone="声音轻软，常带确认和道歉口吻，句子零碎，着急时会重复。",
+        scene="社团活动报名出了点岔子，你打电话想说明情况并请求对方帮忙。",
         speaker="zh_female_mengyatou_uranus_bigtts",
         long_response_hint="紧张时会越说越急，把心里的顾虑一口气倒出来，容易重复。",
     ),
@@ -78,6 +83,7 @@ CHARACTERS: dict[str, DemoCharacter] = {
         role="45 岁的直率消费者",
         personality="脾气冲，最烦被绕懵，讲话带刺但讲道理；对方直接说明重点就愿意配合，被敷衍会马上反问。",
         tone="嗓门大，反问句多，短句加语气词，情绪上来了句子更碎更快。",
+        scene="你对上周的一笔退款有疑问，打电话要弄清退款原因和进度。",
         speaker="zh_male_wennuanahu_uranus_bigtts",
         long_response_hint="说起一笔有争议的交易会停不下来，细节多、反问多、情绪逐渐升高。",
     ),
@@ -126,6 +132,11 @@ def build_system_prompt(character: DemoCharacter, emotion_state: str, *, long_re
 
 性格：{character.personality}
 语气：{character.tone}
+
+## 这通电话的具体情境
+
+{character.scene}
+这是你已经知道的事实。围绕这个情境说话，不要把双方身份或事由对调。没有提到的时间、地点、金额和流程不要编造。
 
 ## 当前情绪
 

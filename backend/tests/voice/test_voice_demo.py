@@ -695,6 +695,7 @@ class TestDemoChatStream:
         assert system["role"] == "system"
         assert "林婉清" in system["content"]
         assert "急性子朋友" in system["content"]
+        assert "约了对方吃晚饭" in system["content"]  # 角色卡场景真实进入模型上下文
         assert "急脾气" in system["content"]  # 性格
         assert "irritated" in system["content"]
         assert "不耐烦" in system["content"]  # 四维情绪
