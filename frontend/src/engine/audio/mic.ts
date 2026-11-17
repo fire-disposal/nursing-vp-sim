@@ -22,7 +22,7 @@ const SCRIPT_PROCESSOR_SIZE = 4096;
 const ECHO_RATIO_MIN = 0.45;
 const ECHO_RATIO_MAX = 2.5;
 const ECHO_ABS_MIN = 0.0025;
-const ECHO_CALIBRATION_MS = 1500;
+const ECHO_CALIBRATION_MS = 1600;
 const ECHO_CALIBRATION_MIN_SAMPLES = 12;
 /** 校准完成前也按常见声学延迟取参考，避免拿“当前帧”对“已到麦克风的旧回声”。 */
 const ECHO_FALLBACK_DELAY_MS = 120;
@@ -140,7 +140,25 @@ export class EchoGate {
 		return best.level;
 	}
 
-	/** 用已知 Barker 开关图案做二值特征对齐；比连续电平相关更抗 AEC/房间滤波。 */
+	/** 检测能量超过阈值的连续段，返回每段起音时间。 */
+	private detectOnsets(history: Array<{ t: number; level: number }>, threshold: number): number[] {
+		const onsets: number[] = [];
+		let active = false;
+		let start = 0;
+		for (const item of history) {
+			if (item.level >= threshold && !active) {
+				active = true;
+				start = item.t;
+			} else if (item.level < threshold && active) {
+				if (item.t - start >= 60) onsets.push(start);
+				active = false;
+			}
+		}
+		if (active && history.length > 0 && history[history.length - 1].t - start >= 60) onsets.push(start);
+		return onsets;
+	}
+
+	/** 用三次“滴滴”的精确起音间隔对齐；间隔与首音偏移同时成立才算匹配。 */
 	private finishCalibration(): void {
 		this.calibrating = false;
 		const mic = this.micHistory;
@@ -154,70 +172,74 @@ export class EchoGate {
 		const ambient = mic.filter((sample) => sample.t < firstToneAt).map((sample) => sample.level).sort((a, b) => a - b);
 		this.noiseFloor = ambient.length ? ambient[Math.floor(ambient.length / 2)] : 0;
 
-		let best: { lagMs: number; gain: number; score: number; contrast: number } | null = null;
-		let scoreSum = 0;
-		let scoreCount = 0;
-		for (let lagMs = 0; lagMs <= 1000; lagMs += 20) {
-			const pairs: Array<{ mic: number; ref: number }> = [];
-			const ratios: number[] = [];
-			for (const sample of mic) {
-				const ref = this.refAt(sample.t - lagMs);
-				if (ref === null) continue;
-				const level = Math.max(0, sample.level - this.noiseFloor);
-				pairs.push({ mic: level, ref });
-				if (level >= ECHO_ABS_MIN && ref >= ECHO_ABS_MIN) {
-					const ratio = level / ref;
-					if (ratio >= 0.05 && ratio <= 3.5) ratios.push(ratio);
+		const refPeak = Math.max(0, ...this.refHistory.map((item) => item.level));
+		const micPeak = Math.max(0, ...mic.map((sample) => Math.max(0, sample.level - this.noiseFloor)));
+		const refThreshold = refPeak * 0.2;
+		const micThreshold = this.noiseFloor + Math.max(this.noiseFloor * 1.5, micPeak * 0.2, ECHO_ABS_MIN * 2);
+		const refOnsets = this.detectOnsets(this.refHistory, refThreshold).slice(0, 3);
+		const micOnsets = this.detectOnsets(mic, micThreshold);
+
+		let best: { delayMs: number; error: number; onset: number } | null = null;
+		if (refOnsets.length === 3) {
+			const refGap1 = refOnsets[1] - refOnsets[0];
+			const refGap2 = refOnsets[2] - refOnsets[1];
+			for (let i = 0; i < micOnsets.length - 2; i += 1) {
+				for (let j = i + 1; j < micOnsets.length - 1; j += 1) {
+					for (let k = j + 1; k < micOnsets.length; k += 1) {
+						const gapError = Math.max(
+							Math.abs(micOnsets[j] - micOnsets[i] - refGap1),
+							Math.abs(micOnsets[k] - micOnsets[j] - refGap2),
+						);
+						const delayMs = micOnsets[i] - refOnsets[0];
+						if (delayMs < 0 || delayMs > 1000) continue;
+						if (best === null || gapError < best.error) best = { delayMs, error: gapError, onset: micOnsets[i] };
+					}
 				}
 			}
-			if (pairs.length < ECHO_CALIBRATION_MIN_SAMPLES || ratios.length < ECHO_CALIBRATION_MIN_SAMPLES) continue;
-			const refLevels = pairs.map((pair) => pair.ref);
-			const micLevels = pairs.map((pair) => pair.mic);
-			const refMid = (Math.min(...refLevels) + Math.max(...refLevels)) / 2;
-			const micMid = (Math.min(...micLevels) + Math.max(...micLevels)) / 2;
-			let same = 0;
-			for (const pair of pairs) if ((pair.ref > refMid) === (pair.mic > micMid)) same += 1;
-			const score = same / pairs.length;
-			const contrast = Math.max(...micLevels) - Math.min(...micLevels);
-			scoreSum += score;
-			scoreCount += 1;
-			const sorted = [...ratios].sort((a, b) => a - b);
-			const gain = sorted[Math.floor(sorted.length / 2)];
-			if (best === null || score > best.score) best = { lagMs, gain, score, contrast };
 		}
 
-		const meanScore = scoreCount ? scoreSum / scoreCount : 0;
-		if (best !== null && best.score >= 0.75 && best.score - meanScore >= 0.1 && best.contrast >= 0.01 && best.gain >= 0.05 && best.gain <= 3.5) {
-			this.delayMs = best.lagMs;
-			this.gain = best.gain;
-		} else if (best === null) {
-			// 没有任何可比较片段时，仅在增益确实稳定时退回零延迟。
+		let gain: number | null = null;
+		if (best !== null && best.error <= 60) {
 			const ratios: number[] = [];
-			const refs: number[] = [];
-			for (const sample of mic) {
-				const ref = this.refAt(sample.t);
-				if (ref === null) continue;
-				refs.push(ref);
-				if (sample.level - this.noiseFloor >= ECHO_ABS_MIN && ref >= ECHO_ABS_MIN) {
-					ratios.push(Math.max(0, sample.level - this.noiseFloor) / ref);
+			for (const onset of [best.onset, best.onset + (refOnsets[1] - refOnsets[0]), best.onset + (refOnsets[2] - refOnsets[0])]) {
+				for (const sample of mic) {
+					if (sample.t < onset || sample.t > onset + 150) continue;
+					const ref = this.refAt(sample.t - best.delayMs);
+					const level = sample.level - this.noiseFloor;
+					if (ref !== null && ref >= ECHO_ABS_MIN && level >= ECHO_ABS_MIN) {
+						const ratio = level / ref;
+						if (ratio >= 0.05 && ratio <= 3.5) ratios.push(ratio);
+					}
 				}
 			}
-			const refSpread = refs.length ? Math.max(...refs) - Math.min(...refs) : 0;
-			if (ratios.length >= ECHO_CALIBRATION_MIN_SAMPLES && refSpread < 0.0001) {
+			if (ratios.length >= 6) {
 				const sorted = [...ratios].sort((a, b) => a - b);
-				const gain = sorted[Math.floor(sorted.length / 2)];
-				const mad = ratios.reduce((sum, value) => sum + Math.abs(value - gain), 0) / ratios.length;
-				if (gain >= 0.05 && gain <= 3.5 && mad / gain < 0.2) this.gain = gain;
+				const candidate = sorted[Math.floor(sorted.length / 2)];
+				if (candidate >= 0.05 && candidate <= 3.5) gain = candidate;
 			}
 		}
+
+		const score = best === null ? null : Math.max(0, 1 - best.error / 100);
+		if (best !== null && gain !== null && best.error <= 60) {
+			this.delayMs = best.delayMs;
+			this.gain = gain;
+		}
 		if (import.meta.env.DEV) {
-			console.info("[echo] calibration", { delayMs: this.delayMs, gain: this.gain, match: best?.score ?? null, mean: meanScore, contrast: best?.contrast ?? null, noiseFloor: this.noiseFloor });
+			console.info("[echo] calibration", {
+				delayMs: this.delayMs,
+				gain: this.gain,
+				match: score,
+				errorMs: best?.error ?? null,
+				refOnsets,
+				micOnsets,
+				noiseFloor: this.noiseFloor,
+			});
 		}
 		this.onResult?.({
 			status: this.gain === null ? "failed" : "success",
 			delayMs: this.delayMs,
 			gain: this.gain,
-			score: best?.score ?? null,
+			score,
 		});
 		this.micHistory = [];
 	}

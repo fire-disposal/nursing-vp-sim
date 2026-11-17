@@ -115,18 +115,21 @@ export class PcmStreamPlayer {
 	}
 
 	/**
-	 * 接通校准音：1kHz、7 位 Barker 开关包络。
+	 * 接通校准音：1kHz、三次不等间隔短音。
 	 * 前段测环境底噪，已知特征用于估计扬声器→麦克风的延迟和回授增益。
 	 */
 	async playConnectTone(): Promise<void> {
 		const ctx = await this.prime();
 		const sampleRate = ctx.sampleRate;
-		// 300ms 环境采样 + 7 位 Barker 开关包络（90ms/bit）+ 500ms 收尾。
-		const pattern = [1, 1, 1, 0, 0, 1, 0] as const;
+		// 300ms 环境采样 + 三次 1kHz 短音（间隔 260ms / 380ms）+ 400ms 收尾。
 		const segments = [
 			{ freq: 0, ms: 300 },
-			...pattern.map((on) => ({ freq: on ? 1000 : 0, ms: 90 })),
-			{ freq: 0, ms: 500 },
+			{ freq: 1000, ms: 120 },
+			{ freq: 0, ms: 140 },
+			{ freq: 1000, ms: 120 },
+			{ freq: 0, ms: 260 },
+			{ freq: 1000, ms: 120 },
+			{ freq: 0, ms: 400 },
 		];
 		const total = segments.reduce((sum, segment) => sum + Math.round((segment.ms / 1000) * sampleRate), 0);
 		const buffer = ctx.createBuffer(1, total, sampleRate);
