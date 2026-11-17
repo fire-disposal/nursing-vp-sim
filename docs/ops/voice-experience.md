@@ -48,7 +48,16 @@ Caddy 缓存。启动时进行实时性校准，运行中继续监测；设备�
 自动化测试不调用付费语音服务。完成充值和 Key 配置后，需要人工验证：
 
 1. 外放患者语音时，学生转写中不得出现患者原话。
-2. 学生持续说话约 250ms 后才停播；短促应声和噪声不应触发停播。
+2. 学生持续说话约 450ms 且 ASR 识别出非空文本后才停播；短促应声、环境噪声和回录不应触发停播。
 3. ASR `definite` 到达后只提交一次，断开旧会话后迟到结果不得进入新回合。
 4. 同一音色、同一文本对比无情绪指令与有情绪指令的听感，重点检查焦虑、戒备和不耐烦。
 5. 对照火山账单与本地 ASR/TTS 日志，确认成本口径和余额告警可用。
+
+## 参考实现
+
+- [LiveKit adaptive interruption handling](https://docs.livekit.io/agents/logic/turns/adaptive-interruption-handling/)：
+  区分真实打断与 backchannel，打断有最短时长/词数，不靠单一 VAD。
+- [Pipecat Speech Input & Turn Detection](https://docs.pipecat.ai/pipecat/learn/speech-input)：VAD、STT 与 turn classifier 组合判定用户回合。
+- [Microsoft Voice Live Reference AEC](https://github.com/microsoft-foundry/voicelive-samples/tree/main/javascript/live-reference-aec)：
+  把实际播放的 TTS 与麦克风同步作为回声参考，解决服务端 TTS 副本与实际扬声器输出不一致。
+- [Silero VAD](https://github.com/snakers4/silero-vad)：本地 VAD 模型；电话页只用它提示开口，不直接赋予打断权。
