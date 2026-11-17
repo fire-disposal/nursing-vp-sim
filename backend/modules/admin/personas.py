@@ -25,7 +25,7 @@ from core.access import replace_personas as replace_school_personas
 from core.audit import ACTION_USER_PERSONAS_UPDATED, TARGET_TYPE_USER, record
 from core.deps import DbSession
 from core.exceptions import AuthError, NotFoundError, ValidationError
-from core.personas import PERSONA_KEYS, PERSONAS, is_super_admin, platform_only_personas
+from core.personas import PERSONA_KEYS, PERSONAS, is_super_admin, superadmin_only_personas
 from core.security import require_permission
 from core.tenant import Scope, TenantScope, scope_query
 from core.unit_of_work import unit_of_work
@@ -60,7 +60,7 @@ class PersonaService:
                 label=definition.label,
                 scope=definition.scope,
                 permissions=list(definition.permissions),
-                requires_platform_account=definition.requires_platform_account,
+                requires_superadmin=definition.requires_superadmin,
                 user_count=counts.get(definition.key, 0),
                 grantable=grantable is None or definition.key in grantable,
             )
@@ -83,7 +83,7 @@ class PersonaService:
         rows = q.group_by(UserSchoolPersona.persona).all()
         counts: dict[str, int] = {persona: cnt for persona, cnt in rows if persona in PERSONAS}
         super_admin_count = (
-            self._scoped_user_query().filter(User.is_platform.is_(True)).with_entities(func.count(User.id)).scalar()
+            self._scoped_user_query().filter(User.is_superadmin.is_(True)).with_entities(func.count(User.id)).scalar()
             or 0
         )
         if super_admin_count:
@@ -111,8 +111,8 @@ class PersonaService:
 
     # ── 写入 ──
 
-    def _grant_target_school(self, target: User, school_id: int | None, actor: User) -> int | None:
-        """授予动作落在哪所学校：家院校，或作用域内真实存在的附加院校。"""
+    def target_school(self, target: User, school_id: int | None, actor: User) -> int | None:
+        """目标操作落在哪所学校：家院校，或作用域内真实存在的附加院校。"""
         if school_id is None or school_id == target.school_id:
             return target.school_id
         # 平台账号可以跨校授予；院校管理员只能本校。
@@ -151,10 +151,10 @@ class PersonaService:
             raise ValidationError(f"未知视角: {unknown}")
         # 平台作用域视角（ops）跨院校：只属于平台账号，绝不能被授予普通院校账号。
         # 密钥/审计/诊断没有院校轴。
-        platform_only = platform_only_personas(unique)
+        platform_only = superadmin_only_personas(unique)
         if platform_only and not is_super_admin(target):
-            raise ValidationError(f"平台专属视角只能授予平台账号: {platform_only}")
-        active_school = self._grant_target_school(target, school_id, actor)
+            raise ValidationError(f"超管专属视角只能授予超级管理员: {platform_only}")
+        active_school = self.target_school(target, school_id, actor)
         grantable = self._grantable(actor)
         if grantable is not None:
             escalated = sorted(set(unique) - grantable)
@@ -225,7 +225,8 @@ def get_user_school_personas(
 ) -> UserPersonasResponse:
     service = PersonaService(db, scope)
     target = service.target(user_id, actor=current_user)
-    return UserPersonasResponse(user_id=target.id, personas=service.granted(target, school_id))
+    active_school_id = service.target_school(target, school_id, current_user)
+    return UserPersonasResponse(user_id=target.id, personas=service.granted(target, active_school_id))
 
 
 @router.put("/users/{user_id}/personas/schools/{school_id}", response_model=UserPersonasResponse)

@@ -1,9 +1,9 @@
 import type { CSSProperties } from "react";
 import { ActionIcon, AppShell, Box, Burger, Button, Group, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconLogout, IconMessageCirclePlus, IconStethoscope, IconX } from "@tabler/icons-react";
+import { IconLogout, IconMessageCirclePlus, IconX } from "@tabler/icons-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { Link, matchPath, useLocation } from "react-router-dom";
+import { matchPath, useLocation } from "react-router-dom";
 import { useFeedback } from "@/components/FeedbackProvider";
 import FirstRunFeedbackHint from "@/components/shell/FirstRunFeedbackHint";
 import { NetworkBanner } from "@/components/NetworkBanner";
@@ -161,27 +161,6 @@ export default function ManageShell({
 					/>
 
 					<Group gap={8} wrap="nowrap">
-						<Box
-							component={Link}
-							to="/home"
-							w={30}
-							h={30}
-							title="返回首页"
-							aria-label="返回首页"
-							style={{
-								borderRadius: "var(--mantine-radius-md)",
-								background:
-									"linear-gradient(135deg, var(--mantine-color-brand-6) 0%, var(--mantine-color-brand-8) 100%)",
-								display: "flex",
-								alignItems: "center",
-								justifyContent: "center",
-								boxShadow: "var(--mantine-shadow-sm)",
-								flexShrink: 0,
-								cursor: "pointer",
-							}}
-						>
-							<IconStethoscope size={17} style={{ color: "white" }} />
-						</Box>
 						<Text fw={700} size="sm" visibleFrom="xs">
 							虚拟患者系统
 						</Text>

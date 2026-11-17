@@ -5,7 +5,7 @@
 变成平台账号（或在同一请求里顺手重置其密码）——权限闸门被整体绕过。
 
 角色退场后"这个人是什么"不再由角色表承载：权限只来自视角授予（``user_school_personas``），
-平台账号由 ``users.is_platform`` 标记。断言的是"权限闸门的可观测结果"
+平台账号由 ``users.is_superadmin`` 标记。断言的是"权限闸门的可观测结果"
 （403 + 库中视角授予/密码/启用位不变 / 合法操作仍然成功）。
 """
 
@@ -52,19 +52,19 @@ def db(pg_session):
 
 
 def _make_user(db: Session, username: str, persona: str = "student", *, platform: bool = False) -> User:
-    """建一个账号：权限只来自视角授予；平台账号用 ``is_platform`` 标记。
+    """建一个账号：权限只来自视角授予；平台账号用 ``is_superadmin`` 标记。
 
     ``persona`` 既是授予的视角也是当前生效视角（``"ops"`` 隐含平台账号：它是唯一的
     跨院校视角，只授予平台账号）。
     """
-    is_platform = platform or persona == "ops"
+    is_superadmin = platform or persona == "ops"
     user = User(
         username=username,
         password_hash="not-a-real-hash",
         display_name=username,
         # 成员关系要求账号与班级同校（单校不变量）；平台账号不属任何院校
-        school_id=None if is_platform else ensure_school(db).id,
-        is_platform=is_platform,
+        school_id=None if is_superadmin else ensure_school(db).id,
+        is_superadmin=is_superadmin,
         # 列默认 only 在服务端；Python 侧默认 False，停用类用例需要"启用中"的起点
         is_active=True,
         created_at=datetime.now(UTC),
@@ -73,7 +73,7 @@ def _make_user(db: Session, username: str, persona: str = "student", *, platform
     db.add(user)
     db.commit()
     db.refresh(user)
-    if not is_platform:
+    if not is_superadmin:
         db.add(UserSchoolPersona(user_id=user.id, school_id=user.school_id, persona=persona))
         db.commit()
     # 模拟 get_current_user：生效视角 → 权限集合
@@ -96,7 +96,7 @@ class TestPersonaEscalation:
             UserService(db, _PLATFORM).update(target.id, UserUpdateRequest(personas=["ops"]), current_user=actor)
 
         assert exc.value.status_code == 400
-        assert "平台专属视角只能授予平台账号" in str(exc.value)
+        assert "超管专属视角只能授予超级管理员" in str(exc.value)
         assert _granted(db, db.get(User, target.id)) == {"student"}
 
     def test_admin_cannot_grant_ops_to_school_account(self, db):
@@ -108,7 +108,7 @@ class TestPersonaEscalation:
             UserService(db, _PLATFORM).update(target.id, UserUpdateRequest(personas=["ops"]), current_user=actor)
 
         assert exc.value.status_code == 400
-        assert "平台专属视角只能授予平台账号" in str(exc.value)
+        assert "超管专属视角只能授予超级管理员" in str(exc.value)
         assert _granted(db, db.get(User, target.id)) == {"student"}
 
     def test_platform_actor_cannot_grant_ops_to_school_account(self, db):
@@ -120,7 +120,7 @@ class TestPersonaEscalation:
             UserService(db, _PLATFORM).update(target.id, UserUpdateRequest(personas=["ops"]), current_user=actor)
 
         assert exc.value.status_code == 400
-        assert "平台专属视角只能授予平台账号" in str(exc.value)
+        assert "超管专属视角只能授予超级管理员" in str(exc.value)
         assert _granted(db, db.get(User, target.id)) == {"student"}
 
     def test_admin_can_grant_persona_within_own_permissions(self, db):

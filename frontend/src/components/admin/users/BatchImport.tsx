@@ -455,7 +455,7 @@ export default function BatchImport({ classes, targetClass, onImport, onPreview,
           </Text>
           <Text component="li" size="xs" c="dimmed">
             <Text component="span" size="xs" fw={600} c="var(--mantine-color-text)">学校与班级：</Text>
-            平台账号必须提供学校或已有班级；院校管理员默认落本校。跨校、或同名班级无法按届别/学校消歧时，该行丢弃。
+            超级管理员必须提供学校或已有班级；院校管理员默认落本校。跨校、或同名班级无法按届别/学校消歧时，该行丢弃。
           </Text>
           <Text component="li" size="xs" c="dimmed">
             <Text component="span" size="xs" fw={600} c="var(--mantine-color-text)">多视角列：</Text>

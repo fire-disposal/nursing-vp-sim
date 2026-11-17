@@ -81,7 +81,7 @@ def _user(db: Session, school: School) -> User:
         password_hash="x",
         display_name="迁移用例",
         school_id=school.id,
-        is_platform=False,
+        is_superadmin=False,
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )
@@ -144,17 +144,17 @@ def test_upgrade_keeps_other_personas_and_users_untouched(pg_session, migration)
     assert _personas(pg_session, without_platform, school) == {"ops", "student"}
 
 
-def test_upgrade_does_not_touch_is_platform_flag(pg_session, migration):
+def test_upgrade_does_not_touch_is_superadmin_flag(pg_session, migration):
     school = _school(pg_session)
     user = _user(pg_session, school)
-    user.is_platform = True
+    user.is_superadmin = True
     _grant(pg_session, user, school, "platform")
     pg_session.flush()
 
     migration.upgrade()
 
     pg_session.expire_all()
-    assert pg_session.get(User, user.id).is_platform is True
+    assert pg_session.get(User, user.id).is_superadmin is True
 
 
 def test_downgrade_restores_only_rows_that_came_from_platform(pg_session, migration):

@@ -41,7 +41,7 @@ class UserBrief(BaseModel):
     username: str
     personas: list[str] = Field(default_factory=list)
     #: 平台账号（跨院校 × 全视角）
-    is_platform: bool = False
+    is_superadmin: bool = False
     #: 院校归属。None = 平台角色（跨院校可见，例如 super_admin）。
     school_id: int | None = None
     school_name: str | None = None
@@ -71,7 +71,7 @@ class UserBrief(BaseModel):
 class UserProfileUpdateRequest(BaseModel):
     model_config = _REQ_CFG
     display_name: str | None = Field(default=None, min_length=1, max_length=50)
-    student_id: str | None = None
+    student_id: str | None = Field(default=None, max_length=30)
     gender: str | None = _GENDER
     avatar: str | None = Field(default=None, max_length=255)
 

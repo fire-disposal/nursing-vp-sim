@@ -35,9 +35,6 @@ export const useSchoolScopeStore = create<SchoolScopeState>()(
 	),
 );
 
-/** 视角切换器请求打开院校菜单（平台账号未选校时把下一步直接摆出来）。 */
-export const SCHOOL_MENU_REQUEST_EVENT = "nvp:request-school-menu";
-
 /** 院徽地址：带版本号，换图即换 URL（公开读端点，`<img>` 带不了 Authorization）。 */
 export function schoolLogoUrl(school: Pick<ScopedSchool, "id" | "logoUpdatedAt">): string {
 	const version = school.logoUpdatedAt ? `?v=${encodeURIComponent(school.logoUpdatedAt)}` : "";

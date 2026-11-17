@@ -128,7 +128,7 @@ export default function Profile() {
 	// 对"我只在一个学校用学生身份"的人只是噪声。多校/多视角/平台账号才需要它。
 	const grants = storeUser?.school_personas ?? [];
 	const showScopeCard =
-		storeUser?.is_platform === true ||
+		storeUser?.is_superadmin === true ||
 		grants.length !== 1 ||
 		(storeUser?.personas?.length ?? 0) !== 1;
 
@@ -141,7 +141,7 @@ export default function Profile() {
 				{/* ── Profile info ── */}
 				<Card>
 					<Group gap="md" wrap="nowrap">
-						<Avatar src={avatar} alt="头像" size={56} radius="xl" />
+						<Avatar src={avatar} alt="头像" size={56} radius="xl" imageProps={{ decoding: "async" }} />
 						<Box style={{ minWidth: 0, flex: 1 }}>
 							<Text size="md" fw={600}>
 								{storeUser?.display_name || "-"}
@@ -161,8 +161,8 @@ export default function Profile() {
 							    多校账号显示**当前生效院校**（active_school_id），不是家院校——
 							    否则切到第二院校后这里仍写第一所，和顶栏/数据口径对不上。 */}
 							<Text size="xs" c="dimmed" mt={2}>
-								院校: {storeUser?.is_platform
-									? "平台账号（跨院校）"
+								院校: {storeUser?.is_superadmin
+									? "超级管理员（跨院校）"
 									: (storeUser?.school_personas?.find(
 											(grant) => grant.school_id === storeUser.active_school_id,
 										)?.school_name ?? storeUser?.school_name ?? "—")}
@@ -202,14 +202,14 @@ export default function Profile() {
 								</Table.Tr>
 							</Table.Thead>
 							<Table.Tbody>
-								{storeUser?.is_platform ? (
+								{storeUser?.is_superadmin ? (
 									<Table.Tr>
 										<Table.Td>
 											<Text size="sm" fw={500}>
 												全部院校
 											</Text>
 											<Text size="xs" c="dimmed">
-												平台账号
+												超级管理员
 											</Text>
 										</Table.Td>
 										<Table.Td>

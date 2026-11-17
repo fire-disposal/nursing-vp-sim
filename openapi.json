@@ -15857,9 +15857,9 @@
             "title": "Permissions",
             "default": []
           },
-          "requires_platform_account": {
+          "requires_superadmin": {
             "type": "boolean",
-            "title": "Requires Platform Account",
+            "title": "Requires Superadmin",
             "default": false
           },
           "user_count": {
@@ -19918,9 +19918,9 @@
             ],
             "title": "Active Persona"
           },
-          "is_platform": {
+          "is_superadmin": {
             "type": "boolean",
-            "title": "Is Platform",
+            "title": "Is Superadmin",
             "default": false
           },
           "gender": {
@@ -20743,9 +20743,9 @@
             "type": "array",
             "title": "Personas"
           },
-          "is_platform": {
+          "is_superadmin": {
             "type": "boolean",
-            "title": "Is Platform",
+            "title": "Is Superadmin",
             "default": false
           },
           "school_id": {

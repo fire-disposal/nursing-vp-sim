@@ -131,8 +131,16 @@ def downgrade() -> None:
             .values(persona="platform")
         )
     if deleted:
-        bind.execute(
-            sa.insert(_grants),
-            [{"user_id": uid, "school_id": sid, "persona": "platform"} for uid, sid in deleted],
-        )
+        # 升级后账号可能已被删除（授予行级联消失，辅助表仍在）。直接 INSERT 会撞
+        # user_school_personas 的外键，阻塞整次降级；跳过已消失的用户，保留其余还原。
+        for uid, sid in deleted:
+            bind.execute(
+                sa.text(
+                    "INSERT INTO user_school_personas (user_id, school_id, persona) "
+                    "SELECT :uid, :sid, 'platform' "
+                    "WHERE EXISTS (SELECT 1 FROM users WHERE id = :uid) "
+                    "AND EXISTS (SELECT 1 FROM schools WHERE id = :sid)"
+                ),
+                {"uid": uid, "sid": sid},
+            )
     op.drop_table(_LOG)

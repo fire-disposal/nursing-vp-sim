@@ -112,8 +112,8 @@ def test_unknown_persona_has_no_permissions():
 
 
 def _stub_user(*, platform: bool = False) -> Any:
-    """只带 ``is_platform`` 的账号替身：角色退场后平台身份是唯一判据。"""
-    return SimpleNamespace(id=1, is_platform=platform)
+    """只带 ``is_superadmin`` 的账号替身：角色退场后平台身份是唯一判据。"""
+    return SimpleNamespace(id=1, is_superadmin=platform)
 
 
 def test_platform_account_derives_all_personas():
@@ -153,7 +153,7 @@ def _user(db, *, platform: bool = False) -> User:
         username=f"persona-{uuid.uuid4().hex[:10]}",
         password_hash="x",
         display_name="视角用例",
-        is_platform=platform,
+        is_superadmin=platform,
         school_id=None if platform else school.id,
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
@@ -235,11 +235,10 @@ def test_platform_account_grants_all_personas_without_rows(pg_session):
     assert persona == "ops"
     assert perms == frozenset(_OPS)
 
-    # 非平台级视角仍必须有选校；平台账号不能对“所有学校”行使教师/学生面
-    with pytest.raises(HTTPException) as exc:
-        _access(pg_session, user, "teacher")
-    assert exc.value.status_code == 403
-    assert exc.value.detail == "请先选择院校"
+    # 非平台级视角未带选校时自动落到第一所院校，而不是 403。
+    ctx = resolve_access(pg_session, user, None, "teacher")
+    assert (ctx.persona, ctx.permissions) == ("teacher", frozenset(_TEACHER))
+    assert ctx.school_id is not None
 
     # 无 header → 默认 ops（跨院校的运维/院校管理功能）
     persona, perms = _access(pg_session, user, None)
@@ -420,22 +419,22 @@ def test_default_school_falls_back_to_a_school_with_grants(pg_session):
     assert ctx.permissions == frozenset(_TEACHER)
 
 
-def test_platform_non_platform_persona_requires_selected_school(pg_session):
-    """超管的教师/学生面不再默认拥有“所有学校”的数据范围。"""
+def test_platform_non_platform_persona_auto_selects_school(pg_session):
+    """超管的教师/学生面未带选校时自动落到第一所院校，避免前后端视角与 403 不一致。"""
     from core.access import resolve_access
     from core.tenant import resolve_scope
     from models import School
 
     platform = _user(pg_session, platform=True)
-    with pytest.raises(HTTPException) as exc:
-        resolve_access(pg_session, platform, None, "student")
-    assert exc.value.status_code == 403
-
     school = School(name=f"平台选校-{uuid.uuid4().hex[:6]}")
     pg_session.add(school)
     pg_session.flush()
-    ctx = resolve_access(pg_session, platform, str(school.id), "student")
-    assert (ctx.school_id, ctx.persona) == (school.id, "student")
+    ctx = resolve_access(pg_session, platform, None, "student")
+    assert ctx.persona == "student"
+    assert ctx.school_id is not None
+
+    explicit = resolve_access(pg_session, platform, str(school.id), "student")
+    assert (explicit.school_id, explicit.persona) == (school.id, "student")
     platform.set_active_school(school.id)
     platform.set_active_persona("student")
     assert resolve_scope(pg_session, platform).school_id == school.id
@@ -455,7 +454,7 @@ def test_platform_non_platform_persona_requires_selected_school(pg_session):
 # - ops 拿到原 platform 的 school_manage（院校管理 / 跨院校页面）；
 # - ops 保留原 ops 的 feedback_review 等系统面权限；
 # - admin 只有展示名变了（「管理员视角」→「管理视角」），权限一个键都不许动；
-# - `users.is_platform`（账号身份）与 `PersonaScope.platform`（数据作用域）保持原义。
+# - `users.is_superadmin`（账号身份）与 `PersonaScope.platform`（数据作用域）保持原义。
 
 
 def test_ops_is_the_union_of_the_old_ops_and_platform_presets():
@@ -470,7 +469,7 @@ def test_ops_is_the_union_of_the_old_ops_and_platform_presets():
 def test_ops_keeps_platform_scope_and_platform_account_requirement():
     definition = PERSONAS["ops"]
     assert definition.scope == "platform"
-    assert definition.requires_platform_account is True
+    assert definition.requires_superadmin is True
     # 数据作用域仍是 platform：跨院校页面与"全部院校"视图照旧
     assert persona_scope("ops") == "platform"
 
@@ -480,7 +479,7 @@ def test_admin_only_renamed_not_repowered():
     definition = PERSONAS["admin"]
     assert definition.label == "管理视角"
     assert definition.scope == "tenant"
-    assert definition.requires_platform_account is False
+    assert definition.requires_superadmin is False
     assert set(definition.permissions) == _ADMIN
 
 
@@ -527,7 +526,7 @@ def test_ops_cross_school_grants_still_work_for_platform_account(pg_session):
 
 
 def test_platform_scope_literal_survives_for_data_scopes():
-    """`PersonaScope.platform` 是**数据作用域**，与账号标记 `users.is_platform` 一起保留。"""
+    """`PersonaScope.platform` 是**数据作用域**，与账号标记 `users.is_superadmin` 一起保留。"""
     from typing import get_args
 
     from core.personas import PersonaScope

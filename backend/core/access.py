@@ -116,7 +116,7 @@ def grantable_personas(actor: User) -> frozenset[str]:
     return frozenset(
         key
         for key in PERSONA_KEYS
-        if not PERSONAS[key].requires_platform_account
+        if not PERSONAS[key].requires_superadmin
         and (PERSONAS[key].scope == "self" or set(PERSONAS[key].permissions) <= perms)
     )
 
@@ -167,6 +167,12 @@ def _parse_school(raw: str | None) -> int | None:
     return int(raw) if raw.isdigit() and int(raw) > 0 else None
 
 
+def _first_school_id(db: Session) -> int | None:
+    """超管切到院校型视角且未指定学校时的确定性落点。"""
+    row = db.query(School.id).order_by(School.id).first()
+    return row[0] if row else None
+
+
 def resolve_access(
     db: Session,
     user: User,
@@ -178,11 +184,11 @@ def resolve_access(
     平台账号：platform 作用域的视角（ops）可全局或选校；其他视角**必须有选校**（不再拿全局数据面）。
     普通账号：只能在家院校/已授予附加院校内选择；没有选校时默认家院校。
     """
-    is_platform = grants_all_personas(user)
-    accessible = accessible_school_ids(db, user) if not is_platform else frozenset()
+    is_superadmin = grants_all_personas(user)
+    accessible = accessible_school_ids(db, user) if not is_superadmin else frozenset()
     requested_sid = _parse_school(requested_school)
 
-    if is_platform:
+    if is_superadmin:
         if requested_sid is not None:
             if db.get(School, requested_sid) is None:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="院校不可用")
@@ -217,17 +223,20 @@ def resolve_access(
             desired = default
         elif granted:
             desired = next(iter(sorted(granted)))
-        elif is_platform:
+        elif is_superadmin:
             desired = DEFAULT_PERSONA_BY_ROLE[SUPER_ADMIN_ROLE]
         else:
             desired = None
     desired_def = PERSONAS.get(desired) if desired else None
-    if desired_def is not None and desired_def.requires_platform_account and not is_platform:
+    if desired_def is not None and desired_def.requires_superadmin and not is_superadmin:
         # 显式选择与“默认落到 ops”都必须受同一道闸门约束。
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="视角不可用")
-    if is_platform and desired is not None and persona_scope(desired) != "platform" and active_school is None:
-        # 平台账号的非跨院校视角（教师/学生/管理）不能对“所有学校”生效：先选学校。
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="请先选择院校")
+    if is_superadmin and desired is not None and persona_scope(desired) != "platform" and active_school is None:
+        # 超管切到院校型视角（教师/学生/管理）但未带选校：自动落到第一所学校，
+        # 而不是让前端拿到一个它没有提示过的 403。
+        active_school = _first_school_id(db)
+        if active_school is None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="尚无院校可切换")
     return AccessContext(
         user_id=user.id,
         school_id=active_school,

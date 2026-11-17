@@ -46,7 +46,7 @@ def platform_user():
         password_hash="x",
         display_name="平台账号",
         school_id=school.id,
-        is_platform=True,
+        is_superadmin=True,
         created_at=now,
         updated_at=now,
     )

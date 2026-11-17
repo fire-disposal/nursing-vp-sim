@@ -38,19 +38,19 @@ def _user(db, username: str, persona: str, school_id: int | None) -> User:
 
     模拟 ``get_current_user``：装载生效视角与对应权限（作用域由视角声明决定）。
     """
-    is_platform = persona == "ops" and school_id is None
+    is_superadmin = persona == "ops" and school_id is None
     user = User(
         username=username,
         password_hash="x",
         school_id=school_id,
         display_name=username,
-        is_platform=is_platform,
+        is_superadmin=is_superadmin,
         created_at=NOW,
         updated_at=NOW,
     )
     db.add(user)
     db.flush()
-    if not is_platform and school_id is not None:
+    if not is_superadmin and school_id is not None:
         db.add(UserSchoolPersona(user_id=user.id, school_id=school_id, persona=persona))
         db.flush()
     user.set_active_persona(persona)

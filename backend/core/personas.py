@@ -7,7 +7,7 @@
 角色（`roles`）仍是"一个人是什么"，视角是"这一刻他以什么身份操作"：
 同一教师可被授予 `teacher` + `admin`，切换视角即切换权限，审计按视角留痕。
 
-- 平台账号（`users.is_platform`）**派生**拥有全部视角，不写 `user_school_personas` 行。
+- 超级管理员（`users.is_superadmin`）**派生**拥有全部视角，不写 `user_school_personas` 行。
 - 没有任何授予的非平台账号：无视角、无权限（失败关闭），不再回落 `role_permissions`。
 """
 
@@ -50,8 +50,8 @@ class PersonaDef:
     permissions: tuple[str, ...]
     #: 该视角的数据可见范围（见 `PersonaScope`）。
     scope: PersonaScope
-    #: 只能授予平台账号（``users.is_platform``）。院校账号拿到它会跨过院校边界。
-    requires_platform_account: bool = False
+    #: 只能授予超级管理员的视角（ops）。院校账号拿到它会跨过院校边界。
+    requires_superadmin: bool = False
 
 
 #: 视角预设。**只在这里加权限**，不要在别处枚举角色权限。
@@ -105,7 +105,7 @@ PERSONAS: dict[str, PersonaDef] = {
         key="ops",
         label="运维视角",
         scope="platform",
-        requires_platform_account=True,
+        requires_superadmin=True,
         permissions=(
             "school_manage",
             "llm_monitor",
@@ -133,9 +133,9 @@ def persona_permissions(key: str) -> frozenset[str]:
     return frozenset(definition.permissions)
 
 
-def platform_only_personas(personas: Iterable[str]) -> list[str]:
-    """请求集合里只能授予平台账号的视角（未知 key 不在此判定）。"""
-    return sorted({key for key in personas if PERSONAS.get(key) and PERSONAS[key].requires_platform_account})
+def superadmin_only_personas(personas: Iterable[str]) -> list[str]:
+    """请求集合里只能授予超级管理员的视角（未知 key 不在此判定）。"""
+    return sorted({key for key in personas if PERSONAS.get(key) and PERSONAS[key].requires_superadmin})
 
 
 def persona_scope(key: str | None) -> PersonaScope | None:
@@ -156,8 +156,8 @@ def grants_all_personas(user: User) -> bool:
 
 
 def is_super_admin(user: User) -> bool:
-    """唯一的平台账号判定点：`users.is_platform`。"""
-    return bool(getattr(user, "is_platform", False))
+    """唯一的超级管理员判定点：`users.is_superadmin`。"""
+    return bool(getattr(user, "is_superadmin", False))
 
 
 def default_persona_for(user: User) -> str | None:

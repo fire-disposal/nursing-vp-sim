@@ -7,13 +7,12 @@ import { useSchoolsQuery } from "@/hooks/useSchools";
 import useAuthStore from "@/stores/authStore";
 import { usePersonaStore } from "@/stores/personaStore";
 import {
-	SCHOOL_MENU_REQUEST_EVENT,
 	toScopedSchool,
 	useSchoolScopeStore,
 } from "@/stores/schoolScopeStore";
 import {
 	isPersonaId,
-	isPlatformOnlyPersona,
+	isSuperadminOnlyPersona,
 	personaLabel,
 	sortPersonas,
 } from "@/utils/personas";
@@ -34,7 +33,7 @@ export function PersonaSwitcher({ variant = "auto" }: { variant?: "auto" | "comp
 	const queryClient = useQueryClient();
 	const navigate = useNavigate();
 	const toast = useToast();
-	const isPlatform = useAuthStore((s) => s.user?.is_platform === true);
+	const isPlatform = useAuthStore((s) => s.user?.is_superadmin === true);
 	// 只有一个院校时切视角可直接替用户选上；多个时由 ShellContextSwitchers 把菜单打开。
 	const { data: schools = [] } = useSchoolsQuery({ enabled: isPlatform });
 
@@ -42,21 +41,17 @@ export function PersonaSwitcher({ variant = "auto" }: { variant?: "auto" | "comp
 
 	const onChange = async (next: string) => {
 		if (next === active) return;
-		// 平台账号的非跨院校视角必须有具体学校：不允许对“全部院校”行使教师/学生/管理数据面。
-		// 只有一所院校 → 直接替用户选上（绝大多数部署都是单校，别让人多点一步）；
-		// 多所 → 把院校菜单打开，下一步就是选择，而不是只弹一句提示。
-		if (isPlatform && isPlatformOnlyPersona(next)) {
+		// 超管切到院校型视角必须有具体学校。只有一所时直接选；多所时自动落到第一所，
+		// 避免"顶栏已显示学生视角、后端却因缺 school 一律 403"的前后端割裂。
+		if (isPlatform && isSuperadminOnlyPersona(next)) {
 			// 运维视角跨全部院校：残留的选校既不会收窄页面，也会让人误读当前范围。
 			useSchoolScopeStore.getState().setSchool(null);
 		} else if (isPlatform && !useSchoolScopeStore.getState().school) {
-			// 其他视角必须有具体学校：不允许对“全部院校”行使教师/学生/管理数据面。
-			if (schools.length === 1) {
-				useSchoolScopeStore.getState().setSchool(toScopedSchool(schools[0]));
-			} else {
-				window.dispatchEvent(new Event(SCHOOL_MENU_REQUEST_EVENT));
-				toast.warning("请先选择一所院校，再切换到该视角");
+			if (schools.length === 0) {
+				toast.warning("尚无院校可切换");
 				return;
 			}
+			useSchoolScopeStore.getState().setSchool(toScopedSchool(schools[0]));
 		}
 		setActive(next);
 		// 换视角 = 换了权限口径：所有查询结果都不再成立
@@ -70,7 +65,7 @@ export function PersonaSwitcher({ variant = "auto" }: { variant?: "auto" | "comp
 		// 用户会以为在看全局。这里清掉，作用域与新视角的口径保持一致。
 		// 平台账号的院校工作视图跨视角保留（A 校管理员 → B 校教师靠“先选校、再换视角”
 		// 模拟）；普通账号只有一个院校，作用域本就不该存在。
-		if (!useAuthStore.getState().user?.is_platform) {
+		if (!useAuthStore.getState().user?.is_superadmin) {
 			useSchoolScopeStore.getState().setSchool(null);
 		}
 		// 当前页可能在新视角下没有权限（如从 admin 切到 student 还停在 /admin/users）：

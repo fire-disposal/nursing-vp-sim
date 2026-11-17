@@ -341,14 +341,14 @@ export default function CostDashboard() {
 	});
 
 	// 成本统计只按「当前院校」出数：平台账号未选院校时不给全平台聚合（那只走查询接口）
-	const isPlatformAccount = useAuthStore((s) => s.user?.is_platform ?? false);
+	const isPlatformAccount = useAuthStore((s) => s.user?.is_superadmin ?? false);
 	const scopedSchool = useSchoolScopeStore((s) => s.school);
 	if (isPlatformAccount && !scopedSchool) {
 		return (
 			<EmptyState
 				icon={IconCoins}
 				title="成本按院校统计"
-				description="平台账号请在左侧「当前院校」选择一所学校后再查看；全平台汇总只通过查询接口返回。"
+				description="超级管理员请在左侧「当前院校」选择一所学校后再查看；全平台汇总只通过查询接口返回。"
 			/>
 		);
 	}

@@ -4445,10 +4445,10 @@ export interface components {
              */
             permissions: string[];
             /**
-             * Requires Platform Account
+             * Requires Superadmin
              * @default false
              */
-            requires_platform_account: boolean;
+            requires_superadmin: boolean;
             /**
              * User Count
              * @default 0
@@ -6156,10 +6156,10 @@ export interface components {
             /** Active Persona */
             active_persona?: string | null;
             /**
-             * Is Platform
+             * Is Superadmin
              * @default false
              */
-            is_platform: boolean;
+            is_superadmin: boolean;
             /** Gender */
             gender?: string | null;
             /** Avatar */
@@ -6508,10 +6508,10 @@ export interface components {
             /** Personas */
             personas?: string[];
             /**
-             * Is Platform
+             * Is Superadmin
              * @default false
              */
-            is_platform: boolean;
+            is_superadmin: boolean;
             /** School Id */
             school_id?: number | null;
             /** School Name */

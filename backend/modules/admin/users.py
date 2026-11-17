@@ -47,7 +47,7 @@ from core.personas import (
     is_super_admin,
     persona_permissions,
     persona_scope,
-    platform_only_personas,
+    superadmin_only_personas,
 )
 from core.security import hash_password, require_permission
 from core.tenant import Scope, TenantScope, scope_query, visible_class, writable_school_id
@@ -112,7 +112,7 @@ class UserBriefView:
     id: int
     username: str
     personas: list[str]
-    is_platform: bool
+    is_superadmin: bool
     #: 院校归属。None = 平台账号（跨院校可见）。
     school_id: int | None
     school_name: str | None
@@ -232,7 +232,7 @@ class UserService:
             id=user.id,
             username=user.username,
             personas=self._personas_of(user),
-            is_platform=is_super_admin(user),
+            is_superadmin=is_super_admin(user),
             school_id=user.school_id,
             school_name=self._school_name(user.school_id),
             display_name=user.display_name,
@@ -316,7 +316,7 @@ class UserService:
         if is_super_admin(current_user):
             return
         if is_super_admin(target):
-            raise AuthError(f"无权{action}：目标是平台账号", status_code=403)
+            raise AuthError(f"无权{action}：目标是超级管理员", status_code=403)
         # 自限视角（学生）的训练/问答权限不是"更高的管理权"：管理员管理学生账号
         # 不需要自己也拥有这些终端能力；只比较管理面权限。
         target_perms: set[str] = set()
@@ -334,9 +334,9 @@ class UserService:
         unknown = sorted(set(unique) - set(PERSONA_KEYS))
         if unknown:
             raise ValidationError(f"未知视角: {unknown}")
-        platform_only = platform_only_personas(unique)
+        platform_only = superadmin_only_personas(unique)
         if platform_only and not is_super_admin(target):
-            raise ValidationError(f"平台专属视角只能授予平台账号: {platform_only}")
+            raise ValidationError(f"超管专属视角只能授予超级管理员: {platform_only}")
         if not is_super_admin(actor):
             allowed = grantable_personas(actor)
             blocked = sorted(set(unique) - allowed)
@@ -361,7 +361,7 @@ class UserService:
         remaining = (
             self.db.query(sa_func.count(User.id))
             .filter(
-                User.is_platform.is_(True),
+                User.is_superadmin.is_(True),
                 User.is_active.is_(True),
                 User.id != user.id,
             )
@@ -1024,30 +1024,6 @@ class UserService:
             .first()
         )
 
-    def create(self, **kwargs) -> User:
-        """创建账号：院校归属由 scope 定，调用方给的院校只能是本校/已声明的平台请求。"""
-        kwargs["school_id"] = self._target_school(kwargs.get("school_id"))
-        kwargs["student_id"] = normalize_student_id(kwargs.get("student_id"))
-        personas = list(kwargs.pop("personas", ["student"]))
-        platform_only = platform_only_personas(personas)
-        if platform_only and not kwargs.get("is_platform", False):
-            raise ValidationError(f"平台专属视角只能授予平台账号: {platform_only}")
-        if STUDENT_PERSONA in personas:
-            assert_student_identity_free(
-                self.db,
-                school_id=kwargs["school_id"],
-                student_id=kwargs["student_id"],
-            )
-        user = User(**kwargs)
-        self.db.add(user)
-        self.db.flush()
-        for persona in dict.fromkeys(personas):
-            self.db.add(UserSchoolPersona(user_id=user.id, school_id=user.school_id, persona=persona))
-        if STUDENT_PERSONA in personas and user.school_id is not None:
-            set_student_profile(self.db, user.id, user.school_id, user.student_id)
-        self.db.flush()
-        return user
-
     def _filtered_query(self, filters: UserFilters):
         """把筛选 DTO 翻成 SQL：筛选条件只在这里出现一次（scope 收窄也在这里）。"""
         q = self._in_scope(self.db.query(User))
@@ -1170,7 +1146,7 @@ def _brief(v: UserBriefView) -> UserBrief:
         id=v.id,
         username=v.username,
         personas=v.personas,
-        is_platform=v.is_platform,
+        is_superadmin=v.is_superadmin,
         school_id=v.school_id,
         school_name=v.school_name,
         display_name=v.display_name,

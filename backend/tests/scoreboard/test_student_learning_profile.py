@@ -46,7 +46,7 @@ FORBIDDEN_IDENTITY_KEYS = {
     "email",
     "wechat_openid",
     "is_active",
-    "is_platform",
+    "is_superadmin",
     "token_version",
     "locked_until",
     "failed_login_count",

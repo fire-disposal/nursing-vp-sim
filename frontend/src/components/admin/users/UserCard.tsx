@@ -70,6 +70,10 @@ export default function UserCard({
 					<img
 						src={getUserAvatar(user.gender)}
 						alt=""
+						loading="lazy"
+						decoding="async"
+						width={40}
+						height={40}
 						style={{
 							width: 40,
 							height: 40,
@@ -111,7 +115,7 @@ export default function UserCard({
 									style={{ flexShrink: 0, textTransform: "none" }}
 								>
 									{user.school_id == null
-										? "平台账号"
+										? "超级管理员"
 										: (user.school_name ?? `院校#${user.school_id}`)}
 								</Badge>
 							)}
@@ -152,7 +156,7 @@ export default function UserCard({
 										</ActionIcon>
 									</Menu.Target>
 									<Menu.Dropdown>
-										{onSchoolPersonas && !user.is_platform && (
+										{onSchoolPersonas && !user.is_superadmin && (
 											<Menu.Item
 												leftSection={<IconWorld size={15} />}
 												onClick={() => onSchoolPersonas(user)}
@@ -160,7 +164,7 @@ export default function UserCard({
 												多校视角
 											</Menu.Item>
 										)}
-										{onQuota && !user.is_platform && (
+										{onQuota && !user.is_superadmin && (
 											<Menu.Item
 												leftSection={<IconCoin size={15} />}
 												onClick={() => onQuota(user)}
@@ -168,7 +172,7 @@ export default function UserCard({
 												额度
 											</Menu.Item>
 										)}
-										{(onSchoolPersonas || onQuota) && !user.is_platform && <Menu.Divider />}
+										{(onSchoolPersonas || onQuota) && !user.is_superadmin && <Menu.Divider />}
 										<Menu.Item
 											color={inactive ? "green" : "orange"}
 											leftSection={inactive ? <IconCheck size={15} /> : <IconBan size={15} />}

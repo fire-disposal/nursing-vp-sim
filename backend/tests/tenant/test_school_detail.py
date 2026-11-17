@@ -35,7 +35,7 @@ def _user(db, username: str, persona: str, school_id: int | None) -> User:
         password_hash="x",
         school_id=school_id,
         display_name=username,
-        is_platform=school_id is None,
+        is_superadmin=school_id is None,
         created_at=NOW,
         updated_at=NOW,
     )

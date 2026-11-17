@@ -559,7 +559,7 @@ function MessageBubble({
 				)}
 			</Box>
 			{isUser && (
-				<Avatar src={nurseAvatar} alt="护士头像" size={36} radius="xl" />
+				<Avatar src={nurseAvatar} alt="护士头像" size={36} radius="xl" imageProps={{ decoding: "async" }} />
 			)}
 		</Group>
 	);

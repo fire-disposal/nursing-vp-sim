@@ -5,9 +5,9 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useSchoolsQuery } from "@/hooks/useSchools";
 import useAuthStore from "@/stores/authStore";
-import { isPlatformOnlyPersona } from "@/utils/personas";
+import { isSuperadminOnlyPersona } from "@/utils/personas";
 import { usePersonaStore } from "@/stores/personaStore";
-import { type ScopedSchool, SCHOOL_MENU_REQUEST_EVENT, toScopedSchool, useSchoolScopeStore } from "@/stores/schoolScopeStore";
+import { type ScopedSchool, toScopedSchool, useSchoolScopeStore } from "@/stores/schoolScopeStore";
 import PersonaSwitcher from "./PersonaSwitcher";
 import { SchoolLogo } from "./SchoolScopeSwitcher";
 
@@ -40,7 +40,7 @@ function LockedInline({ value, hint }: { value: string; hint: string }) {
 export default function ShellContextSwitchers({ variant = "card" }: { variant?: "card" | "header" }) {
 	const permissions = useAuthStore((s) => s.permissions);
 	const user = useAuthStore((s) => s.user);
-	const isPlatform = user?.is_platform === true;
+	const isPlatform = user?.is_superadmin === true;
 	const canManageSchools = permissions.includes("school_manage");
 	const available = usePersonaStore((s) => s.available);
 	const activePersona = usePersonaStore((s) => s.active);
@@ -51,19 +51,19 @@ export default function ShellContextSwitchers({ variant = "card" }: { variant?: 
 	const queryClient = useQueryClient();
 	const location = useLocation();
 	const navigate = useNavigate();
-	// 平台账号在"全部院校"下点院校作用域的视角时，由 PersonaSwitcher 请求打开院校菜单，
-	// 把"先选院校"从一句 toast 变成直接可操作的下一步。
 	const [schoolMenuOpen, setSchoolMenuOpen] = useState(false);
+
+	// 持久化的视角可能来自上一次会话（例如 student），但院校作用域未保存。
+	// 超管在院校型视角下若缺学校，采用 /auth/me 已解析的 active_school_id，
+	// 不自行按名称猜“第一所”——后端按最小 id 解析，猜错会先显示另一所学校的数据。
 	useEffect(() => {
-		const handler = () => {
-			// 顶栏与抽屉各有一份语境控件；只让当前可见的那一份响应，
-			// 否则两个 Menu 会同时打开（门户里出现两份院校列表）。
-			const desktop = window.matchMedia("(min-width: 62em)").matches;
-			if ((variant === "header") === desktop) setSchoolMenuOpen(true);
-		};
-		window.addEventListener(SCHOOL_MENU_REQUEST_EVENT, handler);
-		return () => window.removeEventListener(SCHOOL_MENU_REQUEST_EVENT, handler);
-	}, [variant]);
+		if (!isPlatform || scoped || !activePersona || isSuperadminOnlyPersona(activePersona)) return;
+		const resolvedId = user?.active_school_id;
+		if (resolvedId == null) return;
+		const resolved = schools.find((school) => school.id === resolvedId);
+		if (!resolved) return;
+		setSchool(toScopedSchool(resolved));
+	}, [isPlatform, scoped, activePersona, schools, setSchool, user?.active_school_id]);
 
 	const grantSchools: ScopedSchool[] = (user?.school_personas ?? []).map((grant) => ({
 		id: grant.school_id,
@@ -130,11 +130,13 @@ export default function ShellContextSwitchers({ variant = "card" }: { variant?: 
 		// 带着新 school+persona 解析；否则旧 persona 在目标校未授予会 403，
 		// authStore 会把刚选的学校又清掉。
 		const personaState = usePersonaStore.getState();
+		let personaChanged = false;
 		if (isPlatform) {
-			// 切回“全部院校”时，院校视角失去作用域，需要落到 ops（唯一的跨院校视角）；
-			// 已经在 ops 上时不动，否则会把正在看的运维页切走。
-			if (next == null && !isPlatformOnlyPersona(personaState.active)) {
-				personaState.setAvailable(personaState.available, "ops");
+			// setAvailable 优先保留本地选择，"ops" 永远不会被它自动选中 → 必须显式切换；
+			// 否则院校型视角会带着空作用域，被下面的“缺校补第一所”effect 原路弹回。
+			if (next == null && !isSuperadminOnlyPersona(personaState.active)) {
+				personaState.setActive("ops");
+				personaChanged = true;
 			}
 		} else if (next != null) {
 			const target = user?.school_personas?.find((grant) => grant.school_id === next.id);
@@ -150,7 +152,10 @@ export default function ShellContextSwitchers({ variant = "card" }: { variant?: 
 		// 回到同一模块的列表根，列表用新作用域重取。
 		const detail = location.pathname.match(/^\/admin\/(users|assignments|classes|records)\/\d+(?:\/|$)/);
 		const pathname = detail ? `/admin/${detail[1]}` : location.pathname;
-		if (pathname !== location.pathname || stale.length > 0) {
+		if (personaChanged) {
+			// 换视角后旧页面的权限可能已消失，回首页由权限门重新决定落点。
+			navigate("/home", { replace: true });
+		} else if (pathname !== location.pathname || stale.length > 0) {
 			navigate({ pathname, search: query.toString() }, { replace: true });
 		} else if (!isPlatform) {
 			// 普通账号换校可能改变该账号在该校的授予/视角；回首页由权限门重新决定落点。

@@ -102,7 +102,7 @@ export default function SidebarNav({
 					className="sidebar-profile-entry"
 				>
 					<Group gap="sm" wrap="nowrap" px="xs" py={4}>
-						<Avatar src={avatar} size={32} radius="xl" />
+						<Avatar src={avatar} size={32} radius="xl" imageProps={{ decoding: "async" }} />
 						<Box style={{ minWidth: 0, flex: 1 }}>
 							<Text size="sm" fw={500} truncate>
 								{user?.display_name ?? "用户"}

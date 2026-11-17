@@ -127,15 +127,15 @@ export default function UserForm({
   const grantablePersonas = personas.filter(
     (p) =>
       p.grantable &&
-      (!p.requires_platform_account ||
+      (!p.requires_superadmin ||
         (isEdit
-          ? Boolean(user?.is_platform)
+          ? Boolean(user?.is_superadmin)
           : p.value === OPS_PERSONA || regForm.values.personas.includes(OPS_PERSONA))),
   );
   const withoutOrphanedPlatformOnly = (values: string[]) =>
     values.includes(OPS_PERSONA)
       ? values
-      : values.filter((value) => !personas.find((p) => p.value === value)?.requires_platform_account);
+      : values.filter((value) => !personas.find((p) => p.value === value)?.requires_superadmin);
 
   const [isResetting, setIsResetting] = useState(false);
   const [resetError, setResetError] = useState("");
@@ -280,7 +280,7 @@ export default function UserForm({
                   data={schoolOptions}
                   placeholder={
                     editForm.values.personas.includes(OPS_PERSONA)
-                      ? "平台账号（不属于任何院校）"
+                      ? "超级管理员（不属于任何院校）"
                       : "选择所属院校"
                   }
                   // 平台账号不属于任何院校；院校管理员没有这个下拉（服务端强制本校）；
@@ -401,7 +401,7 @@ export default function UserForm({
                     {...regForm.getInputProps("school_id")}
                     data={schoolOptions}
                     placeholder={
-                      regForm.values.personas.includes(OPS_PERSONA) ? "平台账号" : "选择所属院校"
+                      regForm.values.personas.includes(OPS_PERSONA) ? "超级管理员" : "选择所属院校"
                     }
                     // 选了班级（班级决定院校）或已收窄到某校时，这里不再让人另选一个答案
                     disabled={

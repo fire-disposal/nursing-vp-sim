@@ -121,7 +121,7 @@ const useAuthStore = create<ExtendedAuthState>()(
 					active_persona: data.active_persona ?? null,
 					active_school_id: null,
 					school_personas: [],
-					is_platform: data.is_platform ?? false,
+					is_superadmin: data.is_superadmin ?? false,
 				};
 				set({ user, token: data.access_token, permissions: data.permissions });
 				syncPersonas(data);
@@ -145,7 +145,7 @@ const useAuthStore = create<ExtendedAuthState>()(
 								gender: me.gender ?? current.gender ?? null,
 								avatar: me.avatar ?? current.avatar ?? null,
 								is_active: me.is_active ?? current.is_active,
-								is_platform: me.is_platform ?? current.is_platform,
+								is_superadmin: me.is_superadmin ?? current.is_superadmin,
 								personas: me.personas ?? current.personas ?? [],
 								active_persona: me.active_persona ?? current.active_persona ?? null,
 								active_school_id: me.active_school_id ?? null,
@@ -221,7 +221,7 @@ const useAuthStore = create<ExtendedAuthState>()(
 						active_persona: data.active_persona ?? null,
 						active_school_id: data.active_school_id ?? null,
 						school_personas: data.school_personas ?? [],
-						is_platform: data.is_platform ?? false,
+						is_superadmin: data.is_superadmin ?? false,
 						school_id: data.school_id ?? null,
 						school_name: data.school_name ?? null,
 						school_theme_color: data.school_theme_color ?? null,

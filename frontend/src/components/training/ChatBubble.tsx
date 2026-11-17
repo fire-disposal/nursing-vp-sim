@@ -222,7 +222,14 @@ export const ChatBubble = memo(function ChatBubble({
 						</Group>
 					</Group>
 				</Box>
-				<Avatar src={nurseAvatar} alt="护士" radius="xl" size={32} style={{ flexShrink: 0 }} />
+				<Avatar
+					src={nurseAvatar}
+					alt="护士"
+					radius="xl"
+					size={32}
+					style={{ flexShrink: 0 }}
+					imageProps={{ decoding: "async" }}
+				/>
 			</Group>
 		);
 	}

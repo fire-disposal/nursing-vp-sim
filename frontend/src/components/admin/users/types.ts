@@ -57,7 +57,7 @@ export interface PersonaOption {
 	/** 调用者能否授予这一档（后端按当前视角权限算）。 */
 	grantable: boolean;
 	/** 只能授予平台账号（当前只有 ops）。 */
-	requires_platform_account: boolean;
+	requires_superadmin: boolean;
 }
 
 /** 院校（单位）选项：用户表单只需要 id 与名称。 */

@@ -6,12 +6,14 @@ from types import SimpleNamespace
 import pytest
 import sqlalchemy as sa
 
+from core.access import set_student_profile
 from core.audit import ACTION_AUTH_LOGIN_BLOCKED, ACTION_AUTH_LOGIN_FAILED
 from core.config import LOGIN_MAX_FAILED_ATTEMPTS
-from core.exceptions import AuthError
+from core.exceptions import AuthError, ValidationError
 from core.security import hash_password
-from models import AuditLog, User
+from models import AuditLog, School, User, UserSchoolProfile
 from modules.auth.service import AuthService
+from schemas import UserProfileUpdateRequest
 
 
 class _FakeUserQuery:
@@ -264,3 +266,30 @@ async def test_lockout_disabled_ignores_existing_lock(pg_session, monkeypatch):
     assert actual.id == user.id
     pg_session.refresh(user)
     assert user.locked_until is None  # 成功登录的清零依旧生效
+
+
+def test_self_profile_student_id_uses_same_uniqueness_gate(pg_session):
+    """自助改学号不能绕开管理端的 (院校, 学号) 唯一判据。"""
+    school = School(name="自助资料院校")
+    pg_session.add(school)
+    pg_session.flush()
+
+    user = _db_user(pg_session, "profile-self")
+    user.school_id = school.id
+    user.set_active_school(school.id)
+    other = _db_user(pg_session, "profile-other")
+    other.school_id = school.id
+    set_student_profile(pg_session, other.id, school.id, "S-100")
+    pg_session.flush()
+
+    with pytest.raises(ValidationError, match="S-100"):
+        AuthService(pg_session).update_me(UserProfileUpdateRequest(student_id="S-100"), user)
+
+    brief = AuthService(pg_session).update_me(UserProfileUpdateRequest(student_id="  S-101  "), user)
+    assert brief.student_id == "S-101"
+    row = (
+        pg_session.query(UserSchoolProfile)
+        .filter(UserSchoolProfile.user_id == user.id, UserSchoolProfile.school_id == school.id)
+        .one()
+    )
+    assert row.student_id == "S-101"

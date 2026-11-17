@@ -11,7 +11,7 @@ import { type ScopedSchool, useSchoolScopeStore } from "@/stores/schoolScopeStor
  */
 export function useActiveSchoolBrand(): { isPlatform: boolean; school: ScopedSchool | null } {
 	const user = useAuthStore((s) => s.user);
-	const isPlatform = user?.is_platform === true;
+	const isPlatform = user?.is_superadmin === true;
 	const scoped = useSchoolScopeStore((s) => s.school);
 
 	// 任何账号选中了具体院校（平台工作视图 / 普通多校账号）都以快照为准。

@@ -134,7 +134,7 @@ def _user(**kw):
         id=1,
         is_active=True,
         token_version=0,
-        is_platform=False,
+        is_superadmin=False,
         school_id=1,
         _permissions_cache=None,
     )
@@ -158,20 +158,20 @@ def _clear_perm_cache():
 class TestLoadUserPersonas:
     def test_loads_and_caches(self):
         db = _PermDb(["teacher", "admin"])
-        granted = granted_personas(db, _user(id=7, is_platform=False))
+        granted = granted_personas(db, _user(id=7, is_superadmin=False))
         assert granted == frozenset({"teacher", "admin"})
         assert db.persona_query.queries == 1
 
     def test_second_call_served_from_cache(self):
         db = _PermDb(["student"])
-        user = _user(id=3, is_platform=False)
+        user = _user(id=3, is_superadmin=False)
         granted_personas(db, user)
         granted_personas(db, user)
         assert db.persona_query.queries == 1
 
     def test_clear_single_user_forces_reload(self):
         db = _PermDb(["student"])
-        user = _user(id=5, is_platform=False)
+        user = _user(id=5, is_superadmin=False)
         granted_personas(db, user)
         clear_access_cache(5)
         granted_personas(db, user)
@@ -179,19 +179,19 @@ class TestLoadUserPersonas:
 
     def test_empty_result_is_empty_frozenset(self):
         db = _PermDb([])
-        assert granted_personas(db, _user(id=9, is_platform=False)) == frozenset()
+        assert granted_personas(db, _user(id=9, is_superadmin=False)) == frozenset()
 
 
 class TestSetUserPermissions:
     def test_set_cache_from_granted_persona(self):
         db = _PermDb(["teacher"])
-        user = _user(id=1, is_platform=False)
+        user = _user(id=1, is_superadmin=False)
         _set_user_permissions(user, db)
         assert user._permissions_cache == set(persona_permissions("teacher"))
 
     def test_skips_when_already_cached(self):
         db = _PermDb(["student"])
-        user = _user(id=1, is_platform=False, _permissions_cache={"other"})
+        user = _user(id=1, is_superadmin=False, _permissions_cache={"other"})
         _set_user_permissions(user, db)
         assert user._permissions_cache == {"other"}
 
@@ -202,7 +202,7 @@ class TestGetCurrentUser:
 
     def test_valid_token_returns_user(self):
         token = create_access_token({"user_id": 42})
-        db = _UserDb(_user(id=42, token_version=0, is_platform=True))
+        db = _UserDb(_user(id=42, token_version=0, is_superadmin=True))
         user = get_current_user(self._credentials(token), db)
         assert user.id == 42
 

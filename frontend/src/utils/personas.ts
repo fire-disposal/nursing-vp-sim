@@ -20,8 +20,8 @@ export const PERSONA_ORDER: PersonaId[] = ["student", "teacher", "admin", "ops"]
 
 const PERSONA_IDS = new Set<string>(PERSONA_ORDER);
 
-/** 只能属于平台账号、且作用域跨院校的视角（后端 `requires_platform_account`）。 */
-const PLATFORM_ONLY_PERSONAS: Record<string, true> = { ops: true };
+/** 只能属于超级管理员、且作用域跨院校的视角（后端 `requires_superadmin`）。 */
+const SUPERADMIN_ONLY_PERSONAS: Record<string, true> = { ops: true };
 
 /** 已并入 `ops` 的旧视角：客户端持久化的选择与旧书签里仍可能出现，统一归一。 */
 const RETIRED_PERSONA_ALIASES: Record<string, PersonaId> = { platform: "ops" };
@@ -38,8 +38,8 @@ export function normalizePersona(value: string): string {
 	return RETIRED_PERSONA_ALIASES[value] ?? value;
 }
 
-export function isPlatformOnlyPersona(value: string | null | undefined): boolean {
-	return value != null && PLATFORM_ONLY_PERSONAS[value] === true;
+export function isSuperadminOnlyPersona(value: string | null | undefined): boolean {
+	return value != null && SUPERADMIN_ONLY_PERSONAS[value] === true;
 }
 
 /**

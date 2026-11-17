@@ -63,7 +63,7 @@ def make_user(
     username: str | None = None,
     school=None,
     personas: tuple[str, ...] = ("student",),
-    is_platform: bool = False,
+    is_superadmin: bool = False,
     **fields,
 ):
     """建一个账号（可带视角授予）。字段仍可覆盖；默认学生视角 + 无院校。"""
@@ -78,7 +78,7 @@ def make_user(
         password_hash="x",
         display_name=fields.pop("display_name", "测试用户"),
         school_id=fields.pop("school_id", school.id if school is not None else None),
-        is_platform=is_platform,
+        is_superadmin=is_superadmin,
         created_at=now,
         updated_at=now,
         **fields,

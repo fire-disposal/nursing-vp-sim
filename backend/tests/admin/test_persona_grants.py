@@ -45,7 +45,7 @@ def _actor(db, *, school: School | None, perms: set[str], platform: bool = False
         password_hash="x",
         display_name="actor",
         school_id=school.id if school else None,
-        is_platform=platform,
+        is_superadmin=platform,
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )
@@ -61,7 +61,7 @@ def _target(db, school: School, *, platform: bool = False) -> User:
         password_hash="x",
         display_name="target",
         school_id=school.id,
-        is_platform=platform,
+        is_superadmin=platform,
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )
@@ -84,6 +84,17 @@ def test_cross_school_target_is_404(pg_session):
         _service(pg_session, school_a, actor).replace(target.id, ["teacher"], actor=actor)
 
 
+def test_cross_school_grant_read_is_404(pg_session):
+    """读某校授予也必须走院校边界，不能借 school_id 枚举别校的视角元数据。"""
+    school_a = _school(pg_session, "A")
+    school_b = _school(pg_session, "B")
+    actor = _actor(pg_session, school=school_a, perms=set(PERSONAS["admin"].permissions))
+    target = _target(pg_session, school_a)
+
+    with pytest.raises(NotFoundError):
+        _service(pg_session, school_a, actor).target_school(target, school_b.id, actor)
+
+
 def test_platform_account_target_is_not_editable(pg_session):
     school = _school(pg_session, "A")
     actor = _actor(pg_session, school=school, perms=set(PERSONAS["admin"].permissions))
@@ -102,7 +113,7 @@ def test_platform_only_personas_cannot_be_granted_to_school_account(pg_session):
     for key in ("ops",):
         with pytest.raises(ValidationError) as exc:
             service.replace(target.id, [key], actor=actor)
-        assert "平台专属视角只能授予平台账号" in str(exc.value)
+        assert "超管专属视角只能授予超级管理员" in str(exc.value)
 
     # `platform` 已并入 ops：它不再是视角，按未知视角拒绝
     with pytest.raises(ValidationError) as exc:
@@ -130,9 +141,9 @@ def test_catalog_marks_which_personas_actor_can_grant(pg_session):
     assert catalog["teacher"].grantable is True
     assert catalog["admin"].grantable is False
     assert catalog["ops"].grantable is False
-    assert catalog["ops"].requires_platform_account is True
+    assert catalog["ops"].requires_superadmin is True
     assert "platform" not in catalog
-    assert catalog["teacher"].requires_platform_account is False
+    assert catalog["teacher"].requires_superadmin is False
 
 
 def test_replace_grants_writes_rows_and_audit(pg_session):

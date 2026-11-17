@@ -44,7 +44,7 @@ def _seed_user(
     db,
     *,
     personas: list[str],
-    is_platform: bool,
+    is_superadmin: bool,
     env_username: str,
     env_password: str,
     default_username: str,
@@ -59,8 +59,8 @@ def _seed_user(
         return
     existing = db.query(User).filter(User.username == username).first()
     if existing:
-        if is_platform and not existing.is_platform:
-            existing.is_platform = True
+        if is_superadmin and not existing.is_superadmin:
+            existing.is_superadmin = True
             db.commit()
             log.debug("%s 平台标记已修正 (%s)", default_display, username)
         return
@@ -69,7 +69,7 @@ def _seed_user(
         password_hash=hash_password(password),
         display_name=default_display,
         school_id=school_id,
-        is_platform=is_platform,
+        is_superadmin=is_superadmin,
     )
     db.add(user)
     db.flush()
@@ -97,7 +97,7 @@ def _seed_data() -> None:
         _seed_user(
             db,
             personas=[],
-            is_platform=True,
+            is_superadmin=True,
             env_username="SEED_ADMIN_USERNAME",
             env_password="SEED_ADMIN_PASSWORD",
             default_username="admin",
@@ -107,7 +107,7 @@ def _seed_data() -> None:
         _seed_user(
             db,
             personas=["admin", "teacher", "student"],
-            is_platform=False,
+            is_superadmin=False,
             env_username="SEED_OPERATOR_USERNAME",
             env_password="SEED_OPERATOR_PASSWORD",
             default_username="admin2",
@@ -117,7 +117,7 @@ def _seed_data() -> None:
         _seed_user(
             db,
             personas=["teacher"],
-            is_platform=False,
+            is_superadmin=False,
             env_username="SEED_TEACHER_USERNAME",
             env_password="SEED_TEACHER_PASSWORD",
             default_username="teacher1",
@@ -127,7 +127,7 @@ def _seed_data() -> None:
         _seed_user(
             db,
             personas=["student"],
-            is_platform=False,
+            is_superadmin=False,
             env_username="SEED_STUDENT_USERNAME",
             env_password="SEED_STUDENT_PASSWORD",
             default_username="student1",

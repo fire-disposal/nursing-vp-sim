@@ -240,7 +240,7 @@ def test_batch_endpoint_serializes_skipped_rows(db):
         school_id = None
         username = "api-admin"
         display_name = "API 管理员"
-        is_platform = True
+        is_superadmin = True
         active_persona = "ops"
 
         def has_permission(self, *_args: object) -> bool:

@@ -1,6 +1,6 @@
 import type { EmotionState } from "@/stores/trainingStore";
-import nurseFemale from "../assets/avatars/simple/nurse_female.png";
-import nurseMale from "../assets/avatars/simple/nurse_male.png";
+import nurseFemale from "../assets/avatars/simple/nurse_female.webp";
+import nurseMale from "../assets/avatars/simple/nurse_male.webp";
 
 /** 员工（护士）头像：平台账号没有病例照片，只有这两张固定图。 */
 const staffAvatars: Record<string, string> = {

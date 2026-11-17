@@ -203,7 +203,7 @@ def set_user_budget(
     if user is None:
         raise NotFoundError("用户不存在")
     if is_super_admin(user):
-        raise ValidationError("平台账号不适用个人额度")
+        raise ValidationError("超级管理员不适用个人额度")
     row = db.query(UserBudget).filter(UserBudget.user_id == user_id).first()
     if row is None:
         row = UserBudget(user_id=user_id)

@@ -13,9 +13,15 @@
 
 **代理统一**：前端运行镜像从 Nginx 迁移到 Caddy，宿主与容器使用同一代理栈。SPA、SSE、ASR WebSocket、静态缓存、真实 IP 透传和扫描拦截均保留，旧 Nginx 配置与操作指引已清理。
 
-**视角收敛**：`platform` 视角并入 `ops`（`ops` = 原 ops ∪ 原 platform，取得 `school_manage`），预设从五档降到四档；平台账号默认落 `ops`，总览入口统一为「运维总览」`/admin/ops`。`users.is_platform`（账号身份）与 `PersonaScope.platform`（数据作用域）保持不变；`admin` 仅展示名改为「管理视角」，权限不变。存量授予由 `c5a8e1f3d7b2` 迁移，改动行记入辅助表以便降级精确还原。
+**视角收敛**：`platform` 视角并入 `ops`（`ops` = 原 ops ∪ 原 platform，取得 `school_manage`），预设从五档降到四档；超级管理员默认落 `ops`，总览入口统一为「运维总览」`/admin/ops`。`users.is_superadmin`（账号身份）与 `PersonaScope.platform`（数据作用域）是两个独立概念；`admin` 仅展示名改为「管理视角」，权限不变。存量授予由 `c5a8e1f3d7b2` 迁移，改动行记入辅助表以便降级精确还原。
+
+**超管语义回归**：`users.is_platform` 原地改名为 `users.is_superadmin`（`e3b7a1c9d5f2`）。带此标记的账号自动拥有全部 persona，不依赖 `user_school_personas` 行；切到院校型视角且未带院校时落到第一所院校，前端顶栏同步选校，修复“学生视角已显示、语音接口却 403 并回退浏览器朗读”的前后端割裂。
+
+**权限审计修复**：`f2c6d9a4b1e8` 把历史 `platform→ops` 转换出的院校 ops 账号提升为超管并清理院校行，避免登录时 ops 闸门锁死；自助改学号纳入院校唯一性校验与档案同步；跨校读取视角授予返回 404；降级插回授予时跳过已删除账号。WebSocket 握手后不重查撤权的窗口仍作为残余风险记录。
 
 **电话实验室**：学生侧四位虚构角色自由对话，真实 LLM 独立用途 `voice_demo`，四维情绪驱动 TTS。角色选择、程序化角色形象、VAD/ASR/TTS 状态、转写与打断测试不关联训练业务；实验采集使用独立 `voice_demo_logs`，不提供日志查看 UI。
+
+**静态资源**：护士头像从 721px PNG（约 200KB）改为 256px WebP（约 4KB），并统一异步解码；`/assets/*` 继续使用一年 immutable 缓存，首次加载与弱网明显改善。
 
 ## 2026.05 — 项目奠基
 

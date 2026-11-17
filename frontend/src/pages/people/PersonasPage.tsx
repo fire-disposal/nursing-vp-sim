@@ -7,11 +7,13 @@ import {
 	Divider,
 	Grid,
 	Group,
-	Loader,
 	Modal,
+	Pagination,
 	Paper,
 	SimpleGrid,
 	Stack,
+	Table,
+	Tabs,
 	Text,
 	ThemeIcon,
 	UnstyledButton,
@@ -74,14 +76,18 @@ interface UserOption {
 	username: string;
 	display_name: string;
 	student_id: string | null;
+	school_name?: string | null;
+	personas?: string[];
 	/** 平台账号的视角由代码派生（全视角），不落授予行，因此不可编辑。 */
-	is_platform?: boolean;
+	is_superadmin?: boolean;
 }
 
 interface UserListResponse {
 	items: UserOption[];
 	total: number;
 }
+
+const PAGE_SIZE = 20;
 
 export default function PersonasPage() {
 	const toast = useToast();
@@ -96,38 +102,43 @@ export default function PersonasPage() {
 	});
 	const presets = presetsQuery.data ?? [];
 	// 跨院校视角（ops）只能授予平台账号：非平台操作者不展示它（后端同样拒绝）
-	const isPlatformActor = useAuthStore((s) => s.user?.is_platform ?? false);
+	const isPlatformActor = useAuthStore((s) => s.user?.is_superadmin ?? false);
 	// 平台专属视角（ops）对院校操作者没有意义；展示出来只会让人勾选后被拒。
 	const visiblePresets = isPlatformActor
 		? presets
-		: presets.filter((p) => !p.requires_platform_account);
+		: presets.filter((p) => !p.requires_superadmin);
 	// 主从布局：左侧选一个预设，右侧看它的完整权限（一次只占用一屏，避免长列表堆叠）。
 	const [selectedKey, setSelectedKey] = useState<string | null>(null);
 	const selectedPreset =
 		visiblePresets.find((p) => p.key === selectedKey) ?? visiblePresets[0] ?? null;
 
-	// ── 用户搜索 ──
+	// ── 用户列表 ──
 	const [searchInput, setSearchInput] = useState("");
 	const [search, setSearch] = useState("");
+	const [page, setPage] = useState(0);
 	// 防抖：输入即反馈、250ms 后才进请求（与其它列表页一致）
 	useEffect(() => {
-		const timer = setTimeout(() => setSearch(searchInput.trim()), 250);
+		const timer = setTimeout(() => {
+			setSearch(searchInput.trim());
+			setPage(0);
+		}, 250);
 		return () => clearTimeout(timer);
 	}, [searchInput]);
 
 	const usersQuery = useQuery({
-		queryKey: queryKeys.admin.personasUsers(search),
+		queryKey: [...queryKeys.admin.personasUsers(search), page],
 		queryFn: () =>
-			getUsers({ search: search || undefined, limit: 20, offset: 0 }).then(
+			getUsers({ search: search || undefined, limit: PAGE_SIZE, offset: page * PAGE_SIZE }).then(
 				(r) => r.data as unknown as UserListResponse,
 			),
 		staleTime: 30_000,
-		enabled: search.length > 0,
 	});
 	const resultUsers = usersQuery.data?.items ?? [];
+	const totalUsers = usersQuery.data?.total ?? 0;
+	const pageCount = Math.max(1, Math.ceil(totalUsers / PAGE_SIZE));
 	// 平台账号派生全视角；自己的授予后端禁止修改（避免自锁/自提权），都不进批量目标。
 	const selectableUsers = resultUsers.filter(
-		(user) => !user.is_platform && user.id !== currentUserId,
+		(user) => !user.is_superadmin && user.id !== currentUserId,
 	);
 	const [selectedUsers, setSelectedUsers] = useState<Map<number, UserOption>>(new Map());
 	const [batchOpen, setBatchOpen] = useState(false);
@@ -282,24 +293,35 @@ export default function PersonasPage() {
 	// 平台专属视角（ops）跨院校，只能授予平台账号（后端同样拒绝）。
 	// 目标不是平台账号时，这些卡在弹窗里没有可执行意义，直接不展示。
 	const grantOptions = visiblePresets.filter(
-		(preset) => target?.is_platform || !preset.requires_platform_account,
+		(preset) => target?.is_superadmin || !preset.requires_superadmin,
 	);
 	// 批量授予的目标只可能是院校账号（平台账号与当前账号已从选择集排除），
 	// 因此平台专属视角一律不可批量追加。
 	const batchGrantOptions = visiblePresets.filter(
-		(preset) => !preset.requires_platform_account,
+		(preset) => !preset.requires_superadmin,
 	);
 
 	return (
 		<Stack gap="xl">
 			<PageHeader
 				title="视角管理"
-				subtitle="视角 = 权限预设 + 数据作用域；给账号授予视角，用户可在其中切换"
+				subtitle="账号可同时持有多个视角；用户授权与预设权限分开管理"
 				icon={IconShield}
 			/>
 
-			{/* ── 预设：左列表 / 右详情（主从布局，权限清单一次只展开一个） ── */}
-			<Stack gap="sm">
+			<Tabs defaultValue="users" keepMounted={false}>
+				<Tabs.List>
+					<Tabs.Tab value="users" leftSection={<IconUsers size={15} />}>
+						用户授权
+					</Tabs.Tab>
+					<Tabs.Tab value="presets" leftSection={<IconShield size={15} />}>
+						视角预设
+					</Tabs.Tab>
+				</Tabs.List>
+
+				<Tabs.Panel value="presets" pt="md">
+					{/* ── 预设：左列表 / 右详情（主从布局，权限清单一次只展开一个） ── */}
+					<Stack gap="sm">
 				<Group justify="space-between" align="center">
 					<Text size="sm" fw={600}>
 						视角预设
@@ -353,108 +375,166 @@ export default function PersonasPage() {
 							)}
 						</Grid.Col>
 					</Grid>
-				)}
-			</Stack>
-
-			{/* ── 用户检索 + 授予 ── */}
-			<Paper withBorder p="md" radius="md">
-				<Stack gap="md">
-					<Group justify="space-between" align="center" wrap="wrap">
-						<Text size="sm" fw={600}>
-							给用户授予视角
-						</Text>
-						<Group gap="sm" wrap="nowrap">
-							<Checkbox
-								size="xs"
-								label="全选结果"
-								checked={allResultsSelected}
-								indeterminate={someResultsSelected}
-								disabled={selectableUsers.length === 0}
-								onChange={(e) => toggleAllResults(e.currentTarget.checked)}
-							/>
-							<SearchInput
-								value={searchInput}
-								onChange={setSearchInput}
-								placeholder="搜索用户名 / 姓名 / 学号…"
-								aria-label="搜索用户"
-							/>
-						</Group>
-					</Group>
-
-					{search.length === 0 ? (
-						<EmptyState
-							icon={IconUserSearch}
-							title="搜索用户"
-							description="输入用户名、姓名或学号，找到账号后打开授予弹窗"
-						/>
-					) : usersQuery.isLoading ? (
-						<Group justify="center" py="md">
-							<Loader size="sm" />
-						</Group>
-					) : usersQuery.isError ? (
-						<ErrorState
-							title="用户查询失败"
-							error={usersQuery.error}
-							onRetry={() => void usersQuery.refetch()}
-						/>
-					) : (usersQuery.data?.items ?? []).length === 0 ? (
-						<EmptyState
-							icon={IconUserSearch}
-							title="没有匹配的用户"
-							description={`没有找到与「${search}」匹配的账号`}
-						/>
-					) : (
-						<Stack gap="xs">
-							{(usersQuery.data?.items ?? []).map((user) => (
-								<Group
-									key={user.id}
-									justify="space-between"
-									wrap="nowrap"
-									gap="sm"
-									p="xs"
-									style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}
-								>
-									<Checkbox
-										checked={selectedUsers.has(user.id)}
-										disabled={user.is_platform || user.id === currentUserId}
-										onChange={(e) => toggleUser(user, e.currentTarget.checked)}
-										aria-label={`选择 ${user.display_name}`}
-									/>
-									<div style={{ minWidth: 0, flex: 1 }}>
-										<Text size="sm" fw={500} truncate>
-											{user.display_name}
-										</Text>
-										<Group gap={6} wrap="nowrap">
-											<Code fz="xs">{user.username}</Code>
-											{user.student_id && (
-												<Text size="xs" c="dimmed">
-													{user.student_id}
-												</Text>
-											)}
-										</Group>
-									</div>
-									{user.is_platform ? (
-										<Text size="xs" c="dimmed">
-											平台账号 · 派生全部视角，不可编辑
-										</Text>
-									) : user.id === currentUserId ? (
-										<Text size="xs" c="dimmed">
-											当前账号 · 请由另一位管理员修改
-										</Text>
-									) : (
-										<Button size="compact-sm" variant="light" onClick={() => openTarget(user)}>
-											管理视角
-										</Button>
-									)}
-								</Group>
-							))}
-							<Text size="xs" c="dimmed">
-								仅显示前 20 条，缩小关键词以精确查找
-							</Text>
-						</Stack>
 					)}
-				</Stack>
-			</Paper>
+					</Stack>
+				</Tabs.Panel>
+
+				<Tabs.Panel value="users" pt="md">
+					<Paper withBorder p="md" radius="md">
+						<Stack gap="md">
+							<Group justify="space-between" align="center" wrap="wrap">
+								<div>
+									<Text size="sm" fw={600}>
+										用户授权
+									</Text>
+									<Text size="xs" c="dimmed">
+										共 {totalUsers} 个账号；勾选多个可批量追加视角
+									</Text>
+								</div>
+								<Group gap="sm" wrap="nowrap">
+									<SearchInput
+										value={searchInput}
+										onChange={setSearchInput}
+										placeholder="搜索用户名 / 姓名 / 学号…"
+										aria-label="搜索用户"
+									/>
+									<Button
+										variant="default"
+										size="compact-sm"
+										onClick={() => void usersQuery.refetch()}
+										loading={usersQuery.isFetching}
+									>
+										刷新
+									</Button>
+								</Group>
+							</Group>
+
+							{usersQuery.isLoading ? (
+								<LoadingSkeleton variant="table" />
+							) : usersQuery.isError ? (
+								<ErrorState
+									title="用户查询失败"
+									error={usersQuery.error}
+									onRetry={() => void usersQuery.refetch()}
+								/>
+							) : resultUsers.length === 0 ? (
+								<EmptyState
+									icon={IconUserSearch}
+									title="没有匹配的用户"
+									description={search ? `没有找到与「${search}」匹配的账号` : "当前作用域没有账号"}
+								/>
+							) : (
+								<>
+									<Table.ScrollContainer minWidth={720}>
+										<Table striped highlightOnHover verticalSpacing="sm">
+											<Table.Thead>
+												<Table.Tr>
+													<Table.Th w={40}>
+														<Checkbox
+															size="xs"
+															aria-label="全选当前页"
+															checked={allResultsSelected}
+															indeterminate={someResultsSelected}
+															disabled={selectableUsers.length === 0}
+															onChange={(e) => toggleAllResults(e.currentTarget.checked)}
+														/>
+													</Table.Th>
+													<Table.Th>账号</Table.Th>
+													<Table.Th>院校</Table.Th>
+													<Table.Th>已授予视角</Table.Th>
+													<Table.Th ta="right">操作</Table.Th>
+												</Table.Tr>
+											</Table.Thead>
+											<Table.Tbody>
+												{resultUsers.map((user) => (
+													<Table.Tr key={user.id}>
+														<Table.Td>
+															<Checkbox
+																size="xs"
+																checked={selectedUsers.has(user.id)}
+																disabled={user.is_superadmin || user.id === currentUserId}
+																onChange={(e) => toggleUser(user, e.currentTarget.checked)}
+																aria-label={`选择 ${user.display_name}`}
+															/>
+														</Table.Td>
+														<Table.Td>
+															<Text size="sm" fw={500} truncate>
+																{user.display_name}
+															</Text>
+															<Group gap={6} wrap="nowrap">
+																<Code fz="xs">{user.username}</Code>
+																{user.student_id && (
+																	<Text size="xs" c="dimmed">
+																		{user.student_id}
+																	</Text>
+																)}
+															</Group>
+														</Table.Td>
+														<Table.Td>
+															<Text size="sm">
+																{user.is_superadmin ? "超级管理员" : (user.school_name ?? "—")}
+															</Text>
+														</Table.Td>
+														<Table.Td>
+															{user.is_superadmin ? (
+																<Badge size="xs" variant="light" color="grape">
+																	全部视角
+																</Badge>
+															) : (user.personas?.length ?? 0) > 0 ? (
+																<Group gap={4} wrap="wrap">
+																	{user.personas?.map((key) => (
+																		<Badge key={key} size="xs" variant="light">
+																			{labelByKey.get(key) ?? key}
+																		</Badge>
+																	))}
+																</Group>
+															) : (
+																<Text size="xs" c="dimmed">
+																	未授予
+																</Text>
+															)}
+														</Table.Td>
+														<Table.Td ta="right">
+															{user.is_superadmin ? (
+																<Text size="xs" c="dimmed">
+																	派生全部视角
+																</Text>
+															) : user.id === currentUserId ? (
+																<Text size="xs" c="dimmed">
+																	请由其他管理员修改
+																</Text>
+															) : (
+																<Button
+																	size="compact-sm"
+																	variant="light"
+																	onClick={() => openTarget(user)}
+																>
+																	管理视角
+																</Button>
+															)}
+														</Table.Td>
+													</Table.Tr>
+												))}
+											</Table.Tbody>
+										</Table>
+									</Table.ScrollContainer>
+									<Group justify="space-between" align="center" wrap="wrap">
+										<Text size="xs" c="dimmed">
+											第 {page + 1} / {pageCount} 页
+										</Text>
+										<Pagination
+											size="sm"
+											total={pageCount}
+											value={page + 1}
+											onChange={(next) => setPage(next - 1)}
+										/>
+									</Group>
+								</>
+							)}
+						</Stack>
+					</Paper>
+				</Tabs.Panel>
+			</Tabs>
 
 			{/* ── 授予弹窗 ── */}
 			<Modal
@@ -758,9 +838,9 @@ function PresetDetail({ preset }: { preset: PersonaPreset }) {
 							<Badge variant="light" color={hint.color}>
 								{hint.zh}
 							</Badge>
-							{preset.requires_platform_account && (
+							{preset.requires_superadmin && (
 								<Badge variant="outline" color="grape">
-									平台账号专属
+									超级管理员专属
 								</Badge>
 							)}
 							{!preset.grantable && (

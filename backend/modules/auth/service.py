@@ -7,7 +7,13 @@ from fastapi import Request
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from core.access import accessible_school_ids, grantable_personas, granted_personas, resolve_access
+from core.access import (
+    accessible_school_ids,
+    grantable_personas,
+    granted_personas,
+    resolve_access,
+    set_student_profile,
+)
 from core.audit import (
     ACTION_AUTH_LOGIN_BLOCKED,
     ACTION_AUTH_LOGIN_FAILED,
@@ -22,7 +28,7 @@ from core.audit import (
 from core.config import LOGIN_LOCK_SECONDS, LOGIN_LOCKOUT_ENABLED, LOGIN_MAX_FAILED_ATTEMPTS
 from core.exceptions import AuthError, ConflictError, ValidationError
 from core.identity import assert_student_identity_free, normalize_student_id
-from core.personas import PERSONAS, is_super_admin, platform_only_personas
+from core.personas import PERSONAS, is_super_admin, superadmin_only_personas
 from core.security import create_access_token, hash_password, verify_password
 from core.tenant import resolve_scope, visible_class, writable_school_id
 from core.unit_of_work import unit_of_work
@@ -64,7 +70,7 @@ class AuthService:
             permissions=sorted(ctx.permissions),
             personas=sorted(granted_personas(self.db, user, ctx.school_id)),
             active_persona=ctx.persona,
-            is_platform=is_super_admin(user),
+            is_superadmin=is_super_admin(user),
             gender=user.gender,
             avatar=user.avatar,
         )
@@ -115,7 +121,7 @@ class AuthService:
             id=user.id,
             username=user.username,
             personas=sorted(granted_personas(self.db, user, active_school)),
-            is_platform=is_super_admin(user),
+            is_superadmin=is_super_admin(user),
             school_id=getattr(user, "school_id", None),
             school_name=brand[0] if brand else None,
             school_theme_color=brand[1] if brand else None,
@@ -264,9 +270,9 @@ class AuthService:
         unknown = sorted(set(unique) - set(PERSONAS))
         if unknown:
             raise ValidationError(detail=f"未知视角: {unknown}")
-        platform_only = platform_only_personas(unique)
+        platform_only = superadmin_only_personas(unique)
         if platform_only and not is_super_admin(actor):
-            raise AuthError("无权创建平台账号", status_code=403)
+            raise AuthError("无权创建超级管理员", status_code=403)
         granted = set(grantable_personas(actor))
         for key in unique:
             if key not in granted:
@@ -284,9 +290,9 @@ class AuthService:
         personas = self._validate_new_personas(req.personas, current_user)
         # 平台账号不属于任何院校/班级。班级优先级曾排在平台判定之前，带 class_id 的
         # 请求会让平台号落进某校班级（从花名册/统计里冒出来），这里直接拒绝。
-        is_platform_account = bool(platform_only_personas(personas))
-        if is_platform_account and req.class_id is not None:
-            raise ValidationError("平台账号不能加入班级")
+        is_superadmin_account = bool(superadmin_only_personas(personas))
+        if is_superadmin_account and req.class_id is not None:
+            raise ValidationError("超级管理员不能加入班级")
 
         # 院校归属：班级优先（班级自带院校），否则取显式 school_id。
         # 平台账号不属于任何院校；其余账号必须落在有院校的范围内。
@@ -294,7 +300,7 @@ class AuthService:
         cls = visible_class(self.db, scope, req.class_id) if req.class_id is not None else None
         if cls is not None:
             school_id = cls.school_id
-        elif is_platform_account:
+        elif is_superadmin_account:
             school_id = None
         else:
             school_id = writable_school_id(scope, req.school_id)
@@ -307,7 +313,7 @@ class AuthService:
         user = User(
             username=req.username,
             password_hash=hash_password(req.password),
-            is_platform=is_platform_account,
+            is_superadmin=is_superadmin_account,
             school_id=school_id,
             display_name=req.display_name,
             student_id=student_id,
@@ -378,7 +384,20 @@ class AuthService:
         if req.display_name is not None:
             current_user.display_name = req.display_name
         if req.student_id is not None:
-            current_user.student_id = req.student_id or None
+            student_id = normalize_student_id(req.student_id)
+            school_id = getattr(current_user, "active_school_id", None) or current_user.school_id
+            if student_id is not None:
+                if school_id is None:
+                    raise ValidationError("请先选择院校后再填写学号")
+                assert_student_identity_free(
+                    self.db,
+                    school_id=school_id,
+                    student_id=student_id,
+                    exclude_user_id=current_user.id,
+                )
+            current_user.student_id = student_id
+            if school_id is not None:
+                set_student_profile(self.db, current_user.id, school_id, student_id)
         if req.gender is not None:
             current_user.gender = req.gender or None
         if req.avatar is not None:

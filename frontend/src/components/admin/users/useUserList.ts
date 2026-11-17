@@ -31,7 +31,7 @@ export function usePersonasQuery() {
 						value: p.key,
 						label: p.label,
 						grantable: p.grantable,
-						requires_platform_account: p.requires_platform_account,
+						requires_superadmin: p.requires_superadmin,
 					}),
 				),
 			),
