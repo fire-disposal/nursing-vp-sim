@@ -4,7 +4,6 @@ import { useVoiceDialogue } from "@/hooks/useVoiceDialogue";
 import { DEMO_TTS_PATH } from "@/engine/phone/ttsPlayer";
 import { PcmStreamPlayer } from "@/engine/tts/pcm-player";
 import { accessHeaders } from "@/utils/accessContext";
-import type { EchoCalibrationResult, EchoSuppressionResult } from "./mic";
 import { prepareAec3, type CancellerStats } from "./aec3";
 import { WaveRing } from "./waveRing";
 
@@ -21,8 +20,6 @@ export interface UseAcousticWorkbenchOptions {
 }
 
 export interface UseAcousticWorkbenchResult {
-	calibration: EchoCalibrationResult | null;
-	suppression: EchoSuppressionResult | null;
 	aec3Stats: CancellerStats | null;
 	recognized: string;
 	transcript: string;
@@ -38,7 +35,6 @@ export interface UseAcousticWorkbenchResult {
 	setText: (value: string) => void;
 	spanSeconds: string;
 	setSpanSeconds: (value: string) => void;
-	waveVersion: number;
 	waves: AcousticWaveHistory;
 	startCalibration: () => Promise<void>;
 	stop: () => void;
@@ -52,8 +48,8 @@ function createWaves(): AcousticWaveHistory {
 }
 
 /**
- * 声学工作台控制器：不依赖任何面板组件。
- * 后续人物卡可直接复用本 hook，只替换展示层。
+ * 声学工作台控制器：AEC3 + TTS + ASR + 三路真实 PCM。
+ * 不依赖面板组件，后续人物卡直接复用。
  */
 export function useAcousticWorkbench({
 	recordId = 0,
@@ -61,8 +57,6 @@ export function useAcousticWorkbench({
 	initialText = "你好，我正在测试这条语音链路。",
 }: UseAcousticWorkbenchOptions = {}): UseAcousticWorkbenchResult {
 	const token = useAuthStore((s) => s.token);
-	const [calibration, setCalibration] = useState<EchoCalibrationResult | null>(null);
-	const [suppression, setSuppression] = useState<EchoSuppressionResult | null>(null);
 	const [aec3Stats, setAec3Stats] = useState<CancellerStats | null>(null);
 	const aec3AtRef = useRef(0);
 	const [recognized, setRecognized] = useState("");
@@ -73,59 +67,24 @@ export function useAcousticWorkbench({
 	const [text, setText] = useState(initialText);
 	const [ttsBusy, setTtsBusy] = useState(false);
 	const [spanSeconds, setSpanSeconds] = useState("10");
-	const [waveVersion, setWaveVersion] = useState(0);
 
 	const playerRef = useRef<PcmStreamPlayer | null>(null);
-	const calibrationRef = useRef<EchoCalibrationResult | null>(null);
 	const waveRef = useRef<AcousticWaveHistory>(createWaves());
-	const waveRenderTimerRef = useRef<number | null>(null);
-	const suppressionAtRef = useRef(0);
 	const runRef = useRef(0);
 	const readyRef = useRef<(() => void) | null>(null);
-	const calibrationReadyRef = useRef<((result: EchoCalibrationResult) => void) | null>(null);
-
-	const scheduleWaveRender = useCallback(() => {
-		if (waveRenderTimerRef.current !== null) return;
-		waveRenderTimerRef.current = window.setTimeout(() => {
-			waveRenderTimerRef.current = null;
-			setWaveVersion((version) => version + 1);
-		}, 100);
-	}, []);
 
 	const onPcmFrame = useCallback(
 		({ mic, clean, endMs }: { mic: Int16Array; clean: Int16Array; endMs: number }) => {
 			const player = playerRef.current;
 			if (!player || mic.length === 0) return;
-			const delay = calibrationRef.current?.status === "success" ? calibrationRef.current.delayMs : 0;
-			const referenceStart = endMs - mic.length / 16 - delay;
-			const actual = player.readReference(referenceStart, mic.length);
-			const ideal = idealMarkerReference(referenceStart, mic.length, player.markerOnsets());
-			const reference = new Float32Array(mic.length);
-			for (let i = 0; i < mic.length; i += 1) reference[i] = ideal[i] !== 0 ? (ideal[i] ?? 0) : (actual[i] ?? 0);
+			const reference = player.readReference(endMs - mic.length / 16, mic.length);
 			const current = waveRef.current;
 			current.tts.push(reference);
 			current.mic.push(mic, 1 / 32768);
 			current.clean.push(clean, 1 / 32768);
-			scheduleWaveRender();
 		},
-		[scheduleWaveRender],
+		[],
 	);
-
-	const onEchoCalibration = useCallback((next: EchoCalibrationResult) => {
-		calibrationRef.current = next;
-		setCalibration(next);
-		setRunning(false);
-		setStep("");
-		calibrationReadyRef.current?.(next);
-		calibrationReadyRef.current = null;
-	}, []);
-
-	const onEchoSuppression = useCallback((next: EchoSuppressionResult) => {
-		const now = performance.now();
-		if (now - suppressionAtRef.current < 200) return;
-		suppressionAtRef.current = now;
-		setSuppression(next);
-	}, []);
 
 	const onAec3Stats = useCallback((next: CancellerStats) => {
 		const now = performance.now();
@@ -133,6 +92,7 @@ export function useAcousticWorkbench({
 		aec3AtRef.current = now;
 		setAec3Stats(next);
 	}, []);
+
 	const onVoiceReady = useCallback(() => {
 		readyRef.current?.();
 		readyRef.current = null;
@@ -142,16 +102,13 @@ export function useAcousticWorkbench({
 		onSend: setRecognized,
 		patientReplying: false,
 		continuous: true,
+		vad: false,
 		silenceMs: 900,
 		recordId,
 		token,
-		echoLevel: () => playerRef.current?.outputLevel() ?? 0,
 		echoReference: (startMs, length) => playerRef.current?.readReference(startMs, length) ?? new Float32Array(length),
-		markerOnsets: () => playerRef.current?.markerOnsets() ?? [],
-		onEchoSuppression,
 		onPcmFrame,
 		onAec3Stats,
-		onEchoCalibration,
 		onVoiceReady,
 	});
 
@@ -166,13 +123,17 @@ export function useAcousticWorkbench({
 		setRunning(false);
 		setStep("");
 		waveRef.current = createWaves();
-		if (waveRenderTimerRef.current !== null) window.clearTimeout(waveRenderTimerRef.current);
-		waveRenderTimerRef.current = null;
-		setWaveVersion((version) => version + 1);
+	}, []);
+
+	// AEC3 是 525KB WASM，空闲预热，避免第一次点击再编译造成卡顿。
+	useEffect(() => {
+		const timer = window.setTimeout(() => {
+			void prepareAec3().catch(() => undefined);
+		}, 500);
+		return () => window.clearTimeout(timer);
 	}, []);
 
 	useEffect(() => () => {
-		if (waveRenderTimerRef.current !== null) window.clearTimeout(waveRenderTimerRef.current);
 		voiceStopRef.current();
 		playerRef.current?.dispose();
 	}, []);
@@ -180,8 +141,7 @@ export function useAcousticWorkbench({
 	const startCalibration = useCallback(async () => {
 		stop();
 		const run = runRef.current;
-		setCalibration(null);
-		calibrationRef.current = null;
+		setAec3Stats(null);
 		setError(null);
 		setRunning(true);
 		setStep("加载 AEC3…");
@@ -194,18 +154,16 @@ export function useAcousticWorkbench({
 			const ready = new Promise<void>((resolve) => {
 				readyRef.current = resolve;
 			});
-				voice.start();
+			voice.start();
 			await withTimeout(ready, 3000, "麦克风或 ASR 未就绪");
-			setStep("播放参考音…");
-			await withTimeout(player.playConnectTone(), 2000, "参考音播放超时");
-			setStep("AEC3 自适应中，播放 TTS 测试");
+			setStep("AEC3 运行中，播放 TTS 测试");
 			setRunning(false);
 		} catch (err) {
 			if (runRef.current !== run) return;
 			runRef.current += 1;
 			setRunning(false);
 			setStep("");
-			setError((err as Error)?.message ?? "校准失败");
+			setError((err as Error)?.message ?? "AEC3 启动失败");
 			voiceStopRef.current();
 		}
 	}, [stop, voice]);
@@ -234,8 +192,6 @@ export function useAcousticWorkbench({
 	}, [speaker, text, ttsBusy]);
 
 	return {
-		calibration,
-		suppression,
 		aec3Stats,
 		recognized,
 		transcript: voice.transcript,
@@ -251,7 +207,6 @@ export function useAcousticWorkbench({
 		setText,
 		spanSeconds,
 		setSpanSeconds,
-		waveVersion,
 		waves: waveRef.current,
 		startCalibration,
 		stop,
@@ -266,18 +221,4 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 		promise,
 		new Promise<T>((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
 	]);
-}
-
-function idealMarkerReference(startMs: number, length: number, onsets: number[]): Float32Array {
-	const output = new Float32Array(length);
-	for (let i = 0; i < length; i += 1) {
-		const time = startMs + i / 16;
-		for (const onset of onsets) {
-			if (time >= onset && time < onset + 120) {
-				output[i] = Math.sin((2 * Math.PI * 1000 * (time - onset)) / 1000) * 0.55;
-				break;
-			}
-		}
-	}
-	return output;
 }

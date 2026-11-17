@@ -26,14 +26,14 @@ export default function CallStage({
 }: CallStageProps) {
 	const listening = speechActive || stage === "user_speaking";
 	const hint = speaking
-		? "直接说话，识别确认后停播"
+		? "可直接插话"
 		: stage === "waiting_reply"
-			? "文本尚未返回，暂不显示对方气泡"
+			? "等待回复"
 			: stage === "user_speaking"
-				? "识别确认后发送"
+				? "识别中"
 				: stage === "greeting"
-					? "接通音后播放开场白"
-					: "直接说话或输入文字";
+					? "接通中"
+					: "直接说话";
 
 	return (
 		<Stack gap="xs" align="center" data-testid="call-stage">

@@ -3,7 +3,6 @@ import { IconPlayerPlay, IconPlayerStop, IconRefresh } from "@tabler/icons-react
 import { PHONE_CHARACTERS } from "@/engine/phone/characters";
 import { useAcousticWorkbench } from "@/engine/audio/useAcousticWorkbench";
 import AcousticWaveform from "./AcousticWaveform";
-import type { EchoCalibrationResult } from "@/engine/audio/mic";
 import "./AcousticLabPanel.css";
 
 /** 测试外壳；实际采集、校准、TTS、ASR 与反相逻辑都在 useAcousticWorkbench。 */
@@ -18,7 +17,7 @@ export default function AcousticLabPanel() {
 				<Group justify="space-between" wrap="wrap">
 					<Stack gap={2}>
 						<Text fw={600}>声学工作面板</Text>
-						<Text size="sm" c="dimmed">直接测试校准、TTS、ASR 与反相补偿。</Text>
+						<Text size="sm" c="dimmed">AEC3 · TTS · ASR</Text>
 					</Stack>
 					<Badge color={lab.error ? "red" : lab.aec3Stats?.delayMs != null ? "green" : lab.running ? "yellow" : "gray"}>
 						{lab.error ? "AEC3 失败" : lab.aec3Stats?.delayMs != null ? `AEC3 ${lab.aec3Stats.delayMs}ms / ERLE ${lab.aec3Stats.erleDb?.toFixed(1) ?? "—"}dB` : lab.running ? "AEC3 启动中" : "AEC3 待机"}
@@ -36,23 +35,7 @@ export default function AcousticLabPanel() {
 							</Button>
 							{lab.running && lab.step && <Text size="xs" c="dimmed">{lab.step}</Text>}
 						</Group>
-						{lab.calibration && (
-							<Text size="xs" c="dimmed">
-								延迟 {lab.calibration.delayMs}ms；增益 {lab.calibration.gain?.toFixed(3) ?? "—"}；特征匹配度 {lab.calibration.score?.toFixed(2) ?? "—"}
-							</Text>
-						)}
-						{lab.calibration?.status === "failed" && (
-							<Text size="xs" c="red">
-								{calibrationReason(lab.calibration.reason)}；参考起音 {lab.calibration.refOnsets?.length ?? 0} 次，麦克风起音 {lab.calibration.micOnsets?.length ?? 0} 次，间隔误差 {lab.calibration.errorMs ?? "—"}ms
-							</Text>
-						)}
-						{lab.aec3Stats && (
-							<Text size="xs" c={(lab.aec3Stats.erleDb ?? 0) > 6 ? "teal" : "dimmed"}>
-								AEC3：延迟 {lab.aec3Stats.delayMs ?? "—"}ms；ERLE {lab.aec3Stats.erleDb?.toFixed(1) ?? "—"}dB；参考缺失 {lab.aec3Stats.referenceShort}；参考丢弃 {lab.aec3Stats.referenceDropped}
-							</Text>
-						)}
-
-						<Text size="sm" fw={600}>TTS 播放</Text>
+						<Text size="sm" fw={600}>TTS</Text>
 						<TextInput value={lab.text} onChange={(event) => lab.setText(event.currentTarget.value)} aria-label="TTS 测试文本" />
 						<Group gap="xs" align="flex-end" wrap="nowrap">
 							<Select
@@ -67,12 +50,12 @@ export default function AcousticLabPanel() {
 							</Button>
 						</Group>
 
-						<Text size="sm" fw={600}>ASR 识别</Text>
+						<Text size="sm" fw={600}>ASR</Text>
 						<Group gap="xs">
 							{lab.voiceArmed ? (
-								<Button size="xs" color="red" variant="light" onClick={lab.stopMonitor}>停止识别</Button>
+								<Button size="xs" color="red" variant="light" onClick={lab.stopMonitor}>停止</Button>
 							) : (
-								<Button size="xs" onClick={lab.startMonitor}>开始识别</Button>
+								<Button size="xs" onClick={lab.startMonitor}>开始</Button>
 							)}
 						</Group>
 						{lab.transcript && <Text size="sm" c="dimmed">实时：{lab.transcript}</Text>}
@@ -83,12 +66,12 @@ export default function AcousticLabPanel() {
 					<Stack gap="sm" className="acoustic-waveforms">
 						<Group justify="space-between" gap="sm">
 							<Group gap="xs">
-								<Text size="sm" fw={600}>实时波形</Text>
+								<Text size="sm" fw={600}>波形</Text>
 								<Badge size="xs" variant="light" color={lab.voiceArmed ? "teal" : "gray"}>
 									{lab.voiceArmed ? "收音持续中" : "未收音"}
 								</Badge>
 								<Button size="compact-xs" variant="subtle" onClick={lab.voiceArmed ? lab.stopMonitor : lab.startMonitor}>
-									{lab.voiceArmed ? "停止监测" : "开始监测"}
+									{lab.voiceArmed ? "停止" : "开始"}
 								</Button>
 							</Group>
 							<Select
@@ -104,9 +87,9 @@ export default function AcousticLabPanel() {
 								w={92}
 							/>
 						</Group>
-						<AcousticWaveform title="TTS 延迟参考" data={lab.waves.tts} color="var(--mantine-color-indigo-6)" seconds={Number(lab.spanSeconds)} version={lab.waveVersion} />
-						<AcousticWaveform title="麦克风收音" data={lab.waves.mic} color="var(--mantine-color-orange-7)" seconds={Number(lab.spanSeconds)} version={lab.waveVersion} />
-						<AcousticWaveform title="反相补偿后" data={lab.waves.clean} color="var(--mantine-color-teal-7)" seconds={Number(lab.spanSeconds)} version={lab.waveVersion} />
+						<AcousticWaveform title="TTS 参考" data={lab.waves.tts} color="var(--mantine-color-indigo-6)" seconds={Number(lab.spanSeconds)} />
+						<AcousticWaveform title="麦克风" data={lab.waves.mic} color="var(--mantine-color-orange-7)" seconds={Number(lab.spanSeconds)} />
+						<AcousticWaveform title="AEC3 输出" data={lab.waves.clean} color="var(--mantine-color-teal-7)" seconds={Number(lab.spanSeconds)} />
 					</Stack>
 				</div>
 			</Stack>
@@ -114,23 +97,4 @@ export default function AcousticLabPanel() {
 	);
 }
 
-function db(level: number): string {
-	return `${(20 * Math.log10(Math.max(level, 1e-6))).toFixed(1)} dBFS`;
-}
 
-function calibrationReason(reason: EchoCalibrationResult["reason"]): string {
-	switch (reason) {
-		case "no_samples":
-			return "校准期没有收到足够的麦克风帧";
-		case "no_reference":
-			return "播放器没有产出三次参考起音";
-		case "no_mic_onsets":
-			return "麦克风没有检测到三次滴声起音";
-		case "interval_mismatch":
-			return "三次滴声的起音间隔不匹配";
-		case "low_gain":
-			return "滴声起音匹配，但回授增益不可用";
-		default:
-			return "声学特征匹配失败";
-	}
-}

@@ -67,8 +67,7 @@ export default function TranscriptLog({
 				<Stack gap="sm" pr="sm" aria-live="polite">
 					{lines.length === 0 && (
 						<Box className="phone-conversation-empty">
-							<Text fw={500}>还没有对话</Text>
-							<Text size="sm" c="dimmed">开始通话后，确认的回复会出现在这里。</Text>
+							<Text size="sm" c="dimmed">暂无对话</Text>
 						</Box>
 					)}
 					{lines.map((line) => (

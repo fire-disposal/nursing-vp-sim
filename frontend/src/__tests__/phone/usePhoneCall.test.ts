@@ -15,7 +15,6 @@ interface FakeVoice {
 		calls: UseVoiceDialogueOptions[];
 		start: ReturnType<typeof vi.fn>;
 		stop: ReturnType<typeof vi.fn>;
-		beginEchoCalibration: ReturnType<typeof vi.fn>;
 	};
 	hook: (options: UseVoiceDialogueOptions) => UseVoiceDialogueResult;
 }
@@ -25,12 +24,10 @@ function fakeVoice(overrides: Partial<UseVoiceDialogueResult> = {}): FakeVoice {
 	const start = vi.fn(() => {
 		const options = calls.at(-1);
 		options?.onVoiceReady?.();
-		options?.onEchoCalibration?.({ status: "success", delayMs: 120, gain: 0.5, score: 0.9 });
 	});
 	const stop = vi.fn();
-	const beginEchoCalibration = vi.fn();
 	return {
-		harness: { calls, start, stop, beginEchoCalibration },
+		harness: { calls, start, stop },
 		hook: (options) => {
 			calls.push(options);
 			return {
@@ -44,7 +41,6 @@ function fakeVoice(overrides: Partial<UseVoiceDialogueResult> = {}): FakeVoice {
 				interrupted: false,
 				basicVoiceMode: false,
 				start,
-				beginEchoCalibration,
 				stop,
 				pressStart: vi.fn(),
 				pressEnd: vi.fn(),

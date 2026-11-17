@@ -22,7 +22,6 @@ export class PcmStreamPlayer {
 	private sources = new Set<AudioBufferSourceNode>();
 	/** 16kHz 参考 PCM，按真实播放时间分块；用于波形与反相抵消。 */
 	private referenceChunks: Array<{ startMs: number; samples: Float32Array }> = [];
-	private markerOnsetTimes: number[] = [];
 
 	/** Create/resume the AudioContext. Returns a running context. */
 	async prime(): Promise<AudioContext> {
@@ -113,59 +112,6 @@ export class PcmStreamPlayer {
 		return bytes;
 	}
 
-	/**
-	 * 接通校准音：1kHz、三次不等间隔短音。
-	 * 前段测环境底噪，已知特征用于估计扬声器→麦克风的延迟和回授增益。
-	 */
-	async playConnectTone(): Promise<void> {
-		const ctx = await this.prime();
-		const sampleRate = ctx.sampleRate;
-		// 300ms 环境采样 + 三次 1kHz 短音（间隔 260ms / 380ms）+ 400ms 收尾。
-		const segments = [
-			{ freq: 0, ms: 300 },
-			{ freq: 1000, ms: 120 },
-			{ freq: 0, ms: 140 },
-			{ freq: 1000, ms: 120 },
-			{ freq: 0, ms: 260 },
-			{ freq: 1000, ms: 120 },
-			{ freq: 0, ms: 400 },
-		];
-		const total = segments.reduce((sum, segment) => sum + Math.round((segment.ms / 1000) * sampleRate), 0);
-		const buffer = ctx.createBuffer(1, total, sampleRate);
-		const data = buffer.getChannelData(0);
-		let cursor = 0;
-		for (const segment of segments) {
-			const length = Math.round((segment.ms / 1000) * sampleRate);
-			const fade = Math.min(Math.round(sampleRate * 0.008), Math.floor(length / 2));
-			for (let i = 0; i < length; i += 1) {
-				if (segment.freq === 0) continue;
-				const gain = Math.min(1, i / Math.max(1, fade), (length - i - 1) / Math.max(1, fade));
-				data[cursor + i] = Math.sin((2 * Math.PI * segment.freq * i) / sampleRate) * 0.18 * gain;
-			}
-			cursor += length;
-		}
-		const src = ctx.createBufferSource();
-		src.buffer = buffer;
-		src.connect(this.master ?? ctx.destination);
-		const at = Math.max(ctx.currentTime + 0.05, this.endTime);
-		const clockOffset = performance.now() - ctx.currentTime * 1000;
-		let cursorMs = 0;
-		this.markerOnsetTimes = [];
-		for (const segment of segments) {
-			if (segment.freq > 0) this.markerOnsetTimes.push(clockOffset + at * 1000 + cursorMs);
-			cursorMs += segment.ms;
-		}
-		src.start(at);
-		this.appendReference(data, at, sampleRate);
-		this.endTime = at + buffer.duration;
-		this.sources.add(src);
-		await new Promise<void>((resolve) => {
-			src.onended = () => {
-				this.sources.delete(src);
-				resolve();
-			};
-		});
-	}
 
 	/** 把调度到 AudioContext 时间线的波形重采样为 ASR 的 16kHz 参考。 */
 	private appendReference(samples: Float32Array, atContextSeconds: number, sourceRate: number): void {
@@ -199,11 +145,6 @@ export class PcmStreamPlayer {
 		return out;
 	}
 
-	/** 最近一次接通音的三次起音时间（performance.now 时间轴）。 */
-	markerOnsets(): number[] {
-		return [...this.markerOnsetTimes];
-	}
-
 	/** 当前输出 RMS（0..1），供回声门判断麦克风能量是否来自本播放器。 */
 	outputLevel(): number {
 		const analyser = this.analyser;
@@ -226,7 +167,6 @@ export class PcmStreamPlayer {
 		this.sources.clear();
 		this.endTime = 0;
 		this.referenceChunks = [];
-		this.markerOnsetTimes = [];
 	}
 
 	/**
@@ -243,7 +183,6 @@ export class PcmStreamPlayer {
 		this.master = null;
 		this.analyser = null;
 		this.referenceChunks = [];
-		this.markerOnsetTimes = [];
 		if (ctx && ctx.state !== "closed") {
 			void ctx.close().catch(() => {
 				/* already closing */

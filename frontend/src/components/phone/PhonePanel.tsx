@@ -40,10 +40,10 @@ export default function PhonePanel({ character, onBack, reducedMotion = false }:
 	const voiceStatus = !call.continuousArmed
 		? "语音尚未开启"
 		: call.speaking
-			? "对方播报中，可直接插话"
+			? "对方在说"
 			: call.speechActive
-				? "正在听你说话"
-				: "语音聆听中";
+				? "正在听"
+				: "聆听中";
 
 	const submitDraft = () => {
 		const text = call.draft.trim();
@@ -55,10 +55,7 @@ export default function PhonePanel({ character, onBack, reducedMotion = false }:
 	return (
 		<Stack className="phone-panel" gap="md" data-testid="phone-panel">
 			<Group justify="space-between" align="flex-start" className="phone-heading">
-				<Box>
-					<Text fw={650} size="lg">{character.name}</Text>
-					<Text size="sm" c="dimmed">{character.temperament}</Text>
-				</Box>
+				<Text fw={650} size="lg">{character.name}</Text>
 				<Badge variant="outline" color={call.dialed ? "teal" : "gray"}>
 					{PHONE_STAGE_LABELS[call.stage]}
 				</Badge>
@@ -82,7 +79,7 @@ export default function PhonePanel({ character, onBack, reducedMotion = false }:
 
 				<Stack className="phone-data" gap="sm">
 					<Group justify="space-between" gap="sm" wrap="wrap">
-						<Text fw={600}>{panelMode === "conversation" ? "对话记录" : "运行数据"}</Text>
+						<Text fw={600}>{panelMode === "conversation" ? "对话" : "数据"}</Text>
 						<Text size="xs" c="dimmed">{PHONE_EMOTION_LABELS[call.label]}</Text>
 					</Group>
 					<CallStatusStrip
@@ -181,7 +178,7 @@ export default function PhonePanel({ character, onBack, reducedMotion = false }:
 					>
 						<TextInput
 							style={{ flex: 1 }}
-							placeholder={call.dialed ? "文字是辅助输入，也可以直接说话" : "先开始通话"}
+							placeholder={call.dialed ? "文字输入" : "先开始通话"}
 							value={call.draft}
 							onChange={(event) => call.setDraft(event.currentTarget.value)}
 							disabled={!call.dialed}

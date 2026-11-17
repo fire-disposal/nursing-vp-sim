@@ -1,4 +1,3 @@
-import type { EchoCalibrationResult, EchoSuppressionResult } from "@/engine/audio/mic";
 import type { CancellerStats } from "@/engine/audio/aec3";
 
 /** 一次 ASR 会话的**中间**结果载荷：句子还没落定。 */
@@ -45,8 +44,6 @@ export interface AsrSession extends AsrEventHandlers {
 	start(): void;
 	/** 停止并释放（关 WS / 停 VAD；保留麦克风由调用方决定）。 */
 	stop(): void;
-	/** 麦克风与上游就绪后，由调用方显式开始回声校准采样。 */
-	beginEchoCalibration?(): void;
 	/**
 	 * `true` = 该会话会自行上报 VAD 轮次事件（`speechStart`/`RealStart`/`End`）。
 	 * 校准期/运行中降级会把它改成 `false`（同一会话就此退回 interim 驱动）。
@@ -81,18 +78,9 @@ export interface AsrProvider {
 		/** 采集链路已经拿到的流：VAD 复用它，不再另起一台麦克风。 */
 		stream?: MediaStream | null;
 		audioContext?: AudioContext;
-		/** 患者 TTS 当前输出 RMS；用于回声门，避免回录被当成学生说话。 */
-		echoLevel?: () => number;
-		/** 接通音校准完成；电话页据此开放双工并显示校准徽章。 */
-		onEchoCalibration?: (result: EchoCalibrationResult) => void;
 		/** 16kHz TTS 参考波形，供发送前反相抵消。 */
 		echoReference?: (startMs: number, length: number) => Float32Array;
-		markerOnsets?: () => number[];
-		onEchoSuppression?: (result: EchoSuppressionResult) => void;
-		onCleanedPcm?: (samples: Int16Array) => void;
 		onPcmFrame?: (frame: { mic: Int16Array; clean: Int16Array; endMs: number }) => void;
 		onAec3Stats?: (stats: CancellerStats) => void;
-		/** 真实麦克风帧，供声学工作面板使用。 */
-		onFrame?: (channel: Float32Array, sampleRate: number) => void;
 	}): AsrSession;
 }

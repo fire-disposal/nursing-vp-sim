@@ -10,7 +10,6 @@ interface Harness {
 	player: DemoTTSPlayer;
 	fetchMock: ReturnType<typeof vi.fn>;
 	playStream: ReturnType<typeof vi.fn>;
-	playConnectTone: ReturnType<typeof vi.fn>;
 	stopPlayer: ReturnType<typeof vi.fn>;
 	fallbackSpeak: ReturnType<typeof vi.fn>;
 	fallbackStop: ReturnType<typeof vi.fn>;
@@ -33,7 +32,6 @@ function makeHarness(
 		onFirstChunk?.();
 		return options.playbackBytes ?? 4096;
 	});
-	const playConnectTone = vi.fn(async () => undefined);
 	const stopPlayer = vi.fn();
 	const fallbackSpeak = vi.fn(async () => undefined);
 	const fallbackStop = vi.fn();
@@ -46,7 +44,6 @@ function makeHarness(
 		player: {
 			prime: async () => undefined as never,
 			playStream,
-			playConnectTone,
 			stop: stopPlayer,
 			waitIdle: async () => undefined,
 			dispose: vi.fn(),
@@ -61,16 +58,10 @@ function makeHarness(
 		speaker: "demo-speaker",
 	});
 	player.subscribe((event) => events.push(event.type));
-	return { player, fetchMock, playStream, playConnectTone, stopPlayer, fallbackSpeak, fallbackStop, events };
+	return { player, fetchMock, playStream, stopPlayer, fallbackSpeak, fallbackStop, events };
 }
 
 describe("DemoTTSPlayer", () => {
-	it("forwards the connect calibration tone to the audio core", async () => {
-		const h = makeHarness();
-		await h.player.playConnectTone();
-		expect(h.playConnectTone).toHaveBeenCalledTimes(1);
-	});
-
 	it("请求共享契约：路径、body 四字段与鉴权头", async () => {
 		const h = makeHarness();
 		h.player.setContext("irritated", "phone-he-jianfeng");

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { EchoCalibrationResult, EchoSuppressionResult } from "@/engine/audio/mic";
 import type { CancellerStats } from "@/engine/audio/aec3";
 import {
 	defaultAsrProvider,
@@ -74,6 +73,8 @@ export interface UseVoiceDialogueOptions {
 	continuous?: boolean;
 	/** 打断出口：学生开始说话而患者仍在说话/回复时触发**一次**。 */
 	onBargeIn?: () => void;
+	/** 是否启用独立 VAD；电话/工作台由 AEC3 + ASR 判句，传 false。 */
+	vad?: boolean;
 	/** 训练记录 id（云 ASR 资源归属）。缺省 = 云 ASR 不可用，直接走 Web Speech。 */
 	recordId?: number | null;
 	/** 会话令牌（云 ASR 的 WS 鉴权）。缺省 = 云 ASR 不可用。 */
@@ -86,24 +87,12 @@ export interface UseVoiceDialogueOptions {
 	 * 云 ASR 吃的是处理前音频，患者的 TTS 会被当成学生说话。
 	 */
 	onSpeechStart?: () => void;
-	/** 患者 TTS 当前输出 RMS；传到底层回声门，丢弃回录 PCM 与 VAD 假轮次。 */
-	echoLevel?: () => number;
-	/** 接通音校准完成，电话页必须等到 success 才开放双工。 */
-	onEchoCalibration?: (result: EchoCalibrationResult) => void;
 	/** 16kHz TTS 参考波形，供 ASR 发送前反相抵消。 */
 	echoReference?: (startMs: number, length: number) => Float32Array;
-	/** 播放器实际调度的三次校准音起音时间。 */
-	markerOnsets?: () => number[];
-	/** ASR 发送前的实际残留能量，用于判断反相抵消是否生效。 */
-	onEchoSuppression?: (result: EchoSuppressionResult) => void;
-	/** 真正送往 ASR 的 16k PCM。 */
-	onCleanedPcm?: (samples: Int16Array) => void;
 	/** 同一时间戳下的原始/反相 PCM 帧。 */
 	onPcmFrame?: (frame: { mic: Int16Array; clean: Int16Array; endMs: number }) => void;
 	/** AEC3 的延迟与 ERLE 统计。 */
 	onAec3Stats?: (stats: CancellerStats) => void;
-	/** 真实麦克风帧，供声学工作面板绘制波形。 */
-	onFrame?: (channel: Float32Array, sampleRate: number) => void;
 	/** 打断闸门：默认 vad；电话页用 asr，等文本确认后再停播。 */
 	bargeInGate?: "vad" | "asr";
 	/** 额外文本闸门：返回 true 表示这句不允许触发打断。 */
@@ -132,8 +121,6 @@ export interface UseVoiceDialogueResult {
 	basicVoiceMode: boolean;
 	/** 开启聆听（持续模式=打开常开麦克风；按住模式=开始一次识别）。 */
 	start: () => void;
-	/** 麦克风与 ASR 就绪后显式开始回声校准采样。 */
-	beginEchoCalibration: () => void;
 	/** 停止聆听（持续模式=关闭常开麦克风；按住模式=立即收尾发送）。 */
 	stop: () => void;
 	/** 按住说话：按下开始聆听。 */
@@ -154,19 +141,14 @@ export function useVoiceDialogue({
 	fallbackProvider = fallbackAsrProvider,
 	continuous = false,
 	onBargeIn,
+	vad: useVad = true,
 	recordId,
 	token,
 	onVoiceReady,
 	onSpeechStart,
-	echoLevel,
-	onEchoCalibration,
 	echoReference,
-	markerOnsets,
-	onEchoSuppression,
-	onCleanedPcm,
 	onPcmFrame,
 	onAec3Stats,
-	onFrame,
 	bargeInGate,
 	bargeInGuard,
 	bargeInMinChars,
@@ -396,10 +378,6 @@ export function useVoiceDialogue({
 	);
 
 	/** 在播放校准音前显式启动采集侧校准。 */
-	const beginEchoCalibration = useCallback(() => {
-		sessionRef.current?.beginEchoCalibration?.();
-	}, []);
-
 	/** 开始聆听：通过 ASR 供应商拉起一次识别会话。 */
 	const start = useCallback(() => {
 		if (listeningRef.current) return;
@@ -423,17 +401,11 @@ export function useVoiceDialogue({
 				continuous: wantContinuous,
 				recordId: recordId ?? undefined,
 				token: token ?? undefined,
-				vad: wantContinuous,
-				echoLevel,
-				onEchoCalibration,
-				echoReference,
-				markerOnsets,
-				onEchoSuppression,
-				onCleanedPcm,
-				onPcmFrame,
+				vad: wantContinuous && useVad,
+										echoReference,
+													onPcmFrame,
 				onAec3Stats,
-				onFrame,
-			});
+						});
 		} catch (err) {
 			console.warn("[useVoiceDialogue] 识别会话创建失败", err);
 			if (useCloud) {
@@ -638,8 +610,7 @@ export function useVoiceDialogue({
 		recordId,
 		setTranscriptBoth,
 		token,
-		echoLevel,
-	]);
+		]);
 
 	startRef.current = start;
 
@@ -728,7 +699,6 @@ export function useVoiceDialogue({
 		interrupted,
 		basicVoiceMode,
 		start,
-		beginEchoCalibration,
 		stop,
 		pressStart,
 		pressEnd,

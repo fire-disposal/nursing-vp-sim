@@ -57,7 +57,7 @@ export default function Phone() {
 								电话
 							</Title>
 							<Text size="xs" c="dimmed">
-								自由对谈，观察语气与情绪变化。
+								自由对谈。
 							</Text>
 						</Box>
 					</Group>

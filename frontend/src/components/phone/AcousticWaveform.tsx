@@ -8,15 +8,14 @@ export interface AcousticWaveformProps {
 	color: string;
 	/** 固定显示最近多少秒；旧样本从左侧滚出。 */
 	seconds: number;
-	/** 数据变更计数：环形缓冲原地变化时触发重绘。 */
-	version: number;
 }
 
 /** 轻量时域波形：固定时间窗 + 像素级 min/max，不做整段历史缩放。 */
-export default function AcousticWaveform({ title, data, color, seconds, version }: AcousticWaveformProps) {
+export default function AcousticWaveform({ title, data, color, seconds }: AcousticWaveformProps) {
 	const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
 	useEffect(() => {
+		const draw = () => {
 		const canvas = canvasRef.current;
 		if (!canvas) return;
 		const ratio = window.devicePixelRatio || 1;
@@ -60,7 +59,11 @@ export default function AcousticWaveform({ title, data, color, seconds, version 
 			ctx.lineTo(x + 0.5, y2);
 		}
 		ctx.stroke();
-	}, [data, seconds, version]);
+		};
+		draw();
+		const timer = window.setInterval(draw, 100);
+		return () => window.clearInterval(timer);
+	}, [data, seconds]);
 
 	return (
 		<Box className="acoustic-waveform">

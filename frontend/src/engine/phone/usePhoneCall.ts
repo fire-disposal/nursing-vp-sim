@@ -138,6 +138,7 @@ export function usePhoneCall({
 	const openingTextRef = useRef("");
 	const voiceRef = useRef<UseVoiceDialogueResult | null>(null);
 	const voiceReadyRef = useRef<(() => void) | null>(null);
+	const aec3AtRef = useRef(0);
 
 	const playerRef = useRef<DemoTTSPlayer | null>(null);
 	if (!playerRef.current) {
@@ -154,7 +155,6 @@ export function usePhoneCall({
 		setLog((prev) => [...prev.slice(-119), { id: logSeqRef.current, at: Date.now(), kind, text }]);
 	}, []);
 
-	const ttsEchoLevel = useCallback(() => playerRef.current?.outputLevel() ?? 0, []);
 	const isEchoLike = useCallback((text: string) => {
 		const norm = normalizeSpeech(text);
 		const opening = normalizeSpeech(openingTextRef.current);
@@ -168,6 +168,9 @@ export function usePhoneCall({
 
 	const onAec3Stats = useCallback((stats: CancellerStats) => {
 		if (stats.delayMs === null) return;
+		const now = performance.now();
+		if (now - aec3AtRef.current < 200) return;
+		aec3AtRef.current = now;
 		setCalibration({
 			status: "success",
 			delayMs: stats.delayMs,
@@ -438,15 +441,14 @@ export function usePhoneCall({
 		patientReplying,
 		patientSpeaking: speaking,
 		continuous: true,
+		vad: false,
 		silenceMs: 900,
 		recordId: 0,
 		token,
 		onBargeIn: () => stopPatient("user"),
-		echoLevel: ttsEchoLevel,
 		onAec3Stats,
 		onVoiceReady,
 		echoReference: ttsEchoReference,
-		markerOnsets: () => playerRef.current?.markerOnsets() ?? [],
 		bargeInGate: "asr",
 		bargeInGuard: isEchoLike,
 		bargeInMinChars: 2,
@@ -510,7 +512,6 @@ export function usePhoneCall({
 			]);
 			if (!ready) throw new Error("麦克风未就绪，无法开始通话");
 			await prepareAec3();
-			await player.playConnectTone?.();
 			if (callSeqRef.current !== callSeq || stageRef.current !== "greeting") return;
 			const opener = openingLine(character);
 			historyRef.current = [{ role: "assistant", content: opener }];

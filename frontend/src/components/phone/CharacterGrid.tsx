@@ -64,7 +64,7 @@ export default function CharacterGrid({ onPick, reducedMotion = false }: Charact
 									{character.temperament}
 								</Text>
 								<Text size="xs" c="dimmed" lineClamp={2}>
-									{character.callAbout} · {character.voice}
+									{character.callAbout}
 								</Text>
 								<Group justify="space-between" gap="xs" wrap="nowrap" mt={2}>
 									<Badge variant="dot" size="xs" color="grape" style={{ flexShrink: 0 }}>
