@@ -77,6 +77,7 @@
 	padding: 9px 12px;
 	border-radius: 12px;
 	background: var(--mantine-color-gray-1);
+	color: var(--mantine-color-text);
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
 }
@@ -100,6 +101,22 @@
 	border: 1px dashed var(--mantine-color-teal-5);
 	border-radius: 10px;
 	background: var(--mantine-color-teal-0);
+}
+
+[data-mantine-color-scheme="dark"] .phone-message-bubble {
+	background: var(--mantine-color-dark-6);
+	color: var(--mantine-color-dark-0);
+}
+
+[data-mantine-color-scheme="dark"] .phone-message-user .phone-message-bubble {
+	background: var(--mantine-color-teal-9);
+	color: var(--mantine-color-teal-0);
+}
+
+[data-mantine-color-scheme="dark"] .phone-live-preview {
+	background: var(--mantine-color-dark-6);
+	border-color: var(--mantine-color-teal-7);
+	color: var(--mantine-color-dark-0);
 }
 
 .phone-transcript-log {
