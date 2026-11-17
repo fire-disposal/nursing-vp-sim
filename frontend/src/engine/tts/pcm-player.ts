@@ -184,15 +184,16 @@ export class PcmStreamPlayer {
 		this.referenceChunks = this.referenceChunks.filter((chunk) => chunk.startMs > startMs - 10_000);
 	}
 
-	/** 读取 performance.now() 时间轴上的参考样本；没有覆盖的区间返回静音。 */
+	/** 读取 performance.now() 时间轴上的参考样本；没有覆盖的区间保持静音。 */
 	readReference(startMs: number, length: number): Float32Array {
 		const out = new Float32Array(length);
+		if (this.referenceChunks.length === 0) return out;
 		for (const chunk of this.referenceChunks) {
 			const firstOutputIndex = Math.round((chunk.startMs - startMs) * 16);
-			for (let i = 0; i < chunk.samples.length; i += 1) {
-				const index = firstOutputIndex + i;
-				if (index < 0 || index >= length) continue;
-				out[index] = chunk.samples[i] ?? 0;
+			const from = Math.max(0, -firstOutputIndex);
+			const to = Math.min(chunk.samples.length, length - firstOutputIndex);
+			for (let i = from; i < to; i += 1) {
+				out[firstOutputIndex + i] = chunk.samples[i] ?? 0;
 			}
 		}
 		return out;

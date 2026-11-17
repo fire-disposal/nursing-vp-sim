@@ -1,4 +1,5 @@
 import type { EchoCalibrationResult, EchoSuppressionResult } from "@/engine/audio/mic";
+import type { CancellerStats } from "@/engine/audio/aec3";
 
 /** 一次 ASR 会话的**中间**结果载荷：句子还没落定。 */
 export interface AsrResult {
@@ -90,6 +91,7 @@ export interface AsrProvider {
 		onEchoSuppression?: (result: EchoSuppressionResult) => void;
 		onCleanedPcm?: (samples: Int16Array) => void;
 		onPcmFrame?: (frame: { mic: Int16Array; clean: Int16Array; endMs: number }) => void;
+		onAec3Stats?: (stats: CancellerStats) => void;
 		/** 真实麦克风帧，供声学工作面板使用。 */
 		onFrame?: (channel: Float32Array, sampleRate: number) => void;
 	}): AsrSession;

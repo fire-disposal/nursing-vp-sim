@@ -65,8 +65,8 @@ export default function CallStatusStrip({
 					calibration?.status === "success"
 						? `延迟 ${calibration.delayMs}ms，增益 ${calibration.gain?.toFixed(3)}，特征匹配度 ${calibration.score?.toFixed(2) ?? "稳定电平"}`
 						: calibration?.status === "failed"
-							? "未通过声学匹配，双工未开放"
-							: "等待三次滴声时间差匹配"
+							? "AEC3 未产出稳定延迟"
+							: "等待 AEC3 延迟估计"
 				}
 				withArrow
 			>
@@ -79,9 +79,9 @@ export default function CallStatusStrip({
 					data-testid="calibration-badge"
 				>
 					{calibration?.status === "success"
-						? `匹配成功 ${calibration.delayMs}ms`
+						? `AEC3 ${calibration.delayMs}ms`
 						: calibration?.status === "failed"
-							? "匹配失败"
+							? "AEC3 未就绪"
 							: calibration?.status === "pending"
 								? "校准中"
 								: "未校准"}

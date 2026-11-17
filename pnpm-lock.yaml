@@ -26,6 +26,9 @@ importers:
 
   frontend:
     dependencies:
+      '@ai-ecoverse/wasm-webrtc-audio-processing':
+        specifier: 2.1.0-2
+        version: 2.1.0-2
       '@fontsource-variable/geist':
         specifier: ^5.2.9
         version: 5.2.9
@@ -152,6 +155,9 @@ packages:
 
   '@adobe/css-tools@4.5.0':
     resolution: {integrity: sha512-6OzddxPio9UiWTCemp4N8cYLV2ZN1ncRnV1cVGtve7dhPOtRkleRyx32GQCYSwDYgaHU3USMm84tNsvKzRCa1Q==}
+
+  '@ai-ecoverse/wasm-webrtc-audio-processing@2.1.0-2':
+    resolution: {integrity: sha512-c9BmTi6ibp8CRPEnPfDwVbh5zkpW2urSpxzeS8c5jhgJXrO8Tx3hQ9TaGwSbprAjdhJAmQTPXTZzlbo4OLRrWg==}
 
   '@asamuzakjp/css-color@5.1.11':
     resolution: {integrity: sha512-KVw6qIiCTUQhByfTd78h2yD1/00waTmm9uy/R7Ck/ctUyAPj+AEDLkQIdJW0T8+qGgj3j5bpNKK7Q3G+LedJWg==}
@@ -2563,6 +2569,8 @@ packages:
 snapshots:
 
   '@adobe/css-tools@4.5.0': {}
+
+  '@ai-ecoverse/wasm-webrtc-audio-processing@2.1.0-2': {}
 
   '@asamuzakjp/css-color@5.1.11':
     dependencies:

@@ -7,7 +7,7 @@ import { streamDemoChat, trimHistory, type DemoHistoryMessage } from "@/engine/p
 import { EMOTION_DIMS, dominantLabel } from "@/engine/phone/emotion";
 import { applyEmotionEffect } from "@/engine/phone/emotionEffect";
 import { DemoTTSPlayer } from "@/engine/phone/ttsPlayer";
-import type { EchoCalibrationResult } from "@/engine/audio/mic";
+import { prepareAec3, type CancellerStats } from "@/engine/audio/aec3";
 import {
 	initialPhoneCallState,
 	phoneCallReducer,
@@ -48,6 +48,7 @@ export interface PhoneCalibration {
 	delayMs: number | null;
 	gain: number | null;
 	score: number | null;
+	erleDb?: number | null;
 }
 
 export interface UsePhoneCallResult {
@@ -136,7 +137,6 @@ export function usePhoneCall({
 	const lastPatientTextRef = useRef("");
 	const openingTextRef = useRef("");
 	const voiceRef = useRef<UseVoiceDialogueResult | null>(null);
-	const calibrationWaitRef = useRef<((result: EchoCalibrationResult) => void) | null>(null);
 	const voiceReadyRef = useRef<(() => void) | null>(null);
 
 	const playerRef = useRef<DemoTTSPlayer | null>(null);
@@ -166,10 +166,15 @@ export function usePhoneCall({
 		return similarSpeech(norm, patient);
 	}, []);
 
-	const onEchoCalibration = useCallback((result: EchoCalibrationResult) => {
-		setCalibration(result);
-		calibrationWaitRef.current?.(result);
-		calibrationWaitRef.current = null;
+	const onAec3Stats = useCallback((stats: CancellerStats) => {
+		if (stats.delayMs === null) return;
+		setCalibration({
+			status: "success",
+			delayMs: stats.delayMs,
+			gain: null,
+			score: null,
+			erleDb: stats.erleDb,
+		});
 	}, []);
 	const onVoiceReady = useCallback(() => {
 		voiceReadyRef.current?.();
@@ -438,7 +443,7 @@ export function usePhoneCall({
 		token,
 		onBargeIn: () => stopPatient("user"),
 		echoLevel: ttsEchoLevel,
-		onEchoCalibration,
+		onAec3Stats,
 		onVoiceReady,
 		echoReference: ttsEchoReference,
 		markerOnsets: () => playerRef.current?.markerOnsets() ?? [],
@@ -492,10 +497,7 @@ export function usePhoneCall({
 		setMetrics(EMPTY_METRICS);
 		setCalibration({ status: "pending", delayMs: null, gain: null, score: null });
 		interruptedRef.current = false;
-		pushLog("system", `接通：${character.name}，开始声学校准`);
-		const calibrationResult = new Promise<EchoCalibrationResult>((resolve) => {
-			calibrationWaitRef.current = resolve;
-		});
+		pushLog("system", `接通：${character.name}，AEC3 启动中`);
 		const recordingReady = new Promise<void>((resolve) => {
 			voiceReadyRef.current = resolve;
 		});
@@ -506,25 +508,10 @@ export function usePhoneCall({
 				recordingReady.then(() => true),
 				new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 5000)),
 			]);
-			if (!ready) throw new Error("麦克风未就绪，无法开始声学匹配");
-			voiceRef.current?.beginEchoCalibration();
+			if (!ready) throw new Error("麦克风未就绪，无法开始通话");
+			await prepareAec3();
 			await player.playConnectTone?.();
-			const result = await Promise.race([
-				calibrationResult,
-				new Promise<EchoCalibrationResult>((resolve) =>
-					setTimeout(() => resolve({ status: "failed", delayMs: 0, gain: null, score: null }), 4000),
-				),
-			]);
 			if (callSeqRef.current !== callSeq || stageRef.current !== "greeting") return;
-			if (result.status !== "success") {
-				shutdown();
-				setCalibration(result);
-				setDialed(false);
-				setStage("idle");
-				pushLog("error", "声学匹配失败，未进入双工。请保持安静、降低扬声器音量后重试。");
-				return;
-			}
-			pushLog("system", `声学匹配成功：${result.delayMs}ms，相关度 ${(result.score ?? 0).toFixed(2)}`);
 			const opener = openingLine(character);
 			historyRef.current = [{ role: "assistant", content: opener }];
 			lastPatientTextRef.current = opener;

@@ -11,6 +11,7 @@
  * "麦克风里有多少是患者的声音"——见 `EchoGate`。
  */
 import { downsampleToPcm16, Resampler, TARGET_SAMPLE_RATE } from "./resample";
+import { getAec3, processAec3, type CancellerStats } from "./aec3";
 
 export const PCM_WORKLET_NAME = "pcm-capture";
 /** worklet 设备初始化失败的兜底：直接用 ScriptProcessor 重采样（旧内核/被策略禁用）。 */
@@ -344,6 +345,8 @@ export interface MicCaptureOptions extends MicCaptureConstraintsOptions {
 	markerOnsets?: () => number[];
 	/** ASR 发送前的实际残留能量，用于判断反相抵消是否生效。 */
 	onEchoSuppression?: (result: EchoSuppressionResult) => void;
+	/** AEC3 的延迟与 ERLE 统计。 */
+	onAec3Stats?: (stats: CancellerStats) => void;
 	/** 真正送往 ASR 的 16k PCM，用于工作台展示反相器输出。 */
 	onCleanedPcm?: (samples: Int16Array) => void;
 	/** 同一时间戳下的原始/反相 PCM 帧，供波形对齐。 */
@@ -369,6 +372,7 @@ export class MicCapture {
 	private echoLevel?: () => number;
 	private echoReference?: (startMs: number, length: number) => Float32Array;
 	private onEchoSuppression?: (result: EchoSuppressionResult) => void;
+	private onAec3Stats?: (stats: CancellerStats) => void;
 	private onCleanedPcm?: (samples: Int16Array) => void;
 	private onPcmFrame?: (frame: { mic: Int16Array; clean: Int16Array; endMs: number }) => void;
 
@@ -426,6 +430,7 @@ export class MicCapture {
 		this.echoLevel = options.echoLevel;
 		this.echoReference = options.echoReference;
 		this.onEchoSuppression = options.onEchoSuppression;
+		this.onAec3Stats = options.onAec3Stats;
 		this.onCleanedPcm = options.onCleanedPcm;
 		this.onPcmFrame = options.onPcmFrame;
 		const basePcm = pcmSink(options.pcm?.onPcm);
@@ -477,6 +482,18 @@ export class MicCapture {
 		const level = Math.sqrt(micEnergy / pcm.length) / 32768;
 		this.latestMicLevel = level;
 
+		const aec3 = getAec3();
+		if (aec3 && this.echoReference) {
+			const referenceStart = endMs - pcm.length / 16;
+			const reference = this.echoReference(referenceStart, pcm.length);
+			const result = processAec3(pcm, reference);
+			if (result) {
+				this.onAec3Stats?.(result.stats);
+				this.onPcmFrame?.({ mic: pcm, clean: result.clean, endMs });
+				return { type: "pcm", buffer: result.clean.buffer };
+			}
+		}
+
 		const gain = this.echo.gainValue;
 		if (gain === null || !this.echoReference) {
 			this.onCleanedPcm?.(pcm);
@@ -485,9 +502,9 @@ export class MicCapture {
 		}
 
 		const baseStart = endMs - pcm.length / 16 - this.echo.delay;
-		const scales = [0, 0.5, 0.75, 1, 1.25] as const;
+		const scales = [0.75, 1, 1.25] as const;
 		let best: { delta: number; scale: number; polarity: 1 | -1; energy: number } | null = null;
-		for (let delta = -80; delta <= 80; delta += 8) {
+		for (let delta = -40; delta <= 40; delta += 8) {
 			const reference = this.echoReference(baseStart - delta, pcm.length);
 			let referenceEnergy = 0;
 			for (let i = 0; i < reference.length; i += 1) referenceEnergy += (reference[i] ?? 0) ** 2;
@@ -510,7 +527,7 @@ export class MicCapture {
 			}
 		}
 
-		if (best === null || best.scale === 0) {
+		if (best === null || best.energy >= micEnergy * 0.98) {
 			this.onCleanedPcm?.(pcm);
 			this.onPcmFrame?.({ mic: pcm, clean: pcm, endMs });
 			return this.echo.isEcho(level) ? null : data;

@@ -107,6 +107,7 @@ export function createVolcAsrProvider(
 						onEchoSuppression: sessionOptions.onEchoSuppression,
 						onCleanedPcm: sessionOptions.onCleanedPcm,
 						onPcmFrame: sessionOptions.onPcmFrame,
+						onAec3Stats: sessionOptions.onAec3Stats,
 						onFrame: sessionOptions.onFrame,
 						pcm: { onPcm: (pcm) => connection?.send(pcm) },
 					});

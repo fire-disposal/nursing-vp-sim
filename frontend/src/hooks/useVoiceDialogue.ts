@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { EchoCalibrationResult, EchoSuppressionResult } from "@/engine/audio/mic";
+import type { CancellerStats } from "@/engine/audio/aec3";
 import {
 	defaultAsrProvider,
 	fallbackAsrProvider,
@@ -99,6 +100,8 @@ export interface UseVoiceDialogueOptions {
 	onCleanedPcm?: (samples: Int16Array) => void;
 	/** 同一时间戳下的原始/反相 PCM 帧。 */
 	onPcmFrame?: (frame: { mic: Int16Array; clean: Int16Array; endMs: number }) => void;
+	/** AEC3 的延迟与 ERLE 统计。 */
+	onAec3Stats?: (stats: CancellerStats) => void;
 	/** 真实麦克风帧，供声学工作面板绘制波形。 */
 	onFrame?: (channel: Float32Array, sampleRate: number) => void;
 	/** 打断闸门：默认 vad；电话页用 asr，等文本确认后再停播。 */
@@ -162,6 +165,7 @@ export function useVoiceDialogue({
 	onEchoSuppression,
 	onCleanedPcm,
 	onPcmFrame,
+	onAec3Stats,
 	onFrame,
 	bargeInGate,
 	bargeInGuard,
@@ -427,6 +431,7 @@ export function useVoiceDialogue({
 				onEchoSuppression,
 				onCleanedPcm,
 				onPcmFrame,
+				onAec3Stats,
 				onFrame,
 			});
 		} catch (err) {

@@ -20,8 +20,8 @@ export default function AcousticLabPanel() {
 						<Text fw={600}>声学工作面板</Text>
 						<Text size="sm" c="dimmed">直接测试校准、TTS、ASR 与反相补偿。</Text>
 					</Stack>
-					<Badge color={lab.calibration?.status === "success" ? "green" : lab.calibration?.status === "failed" || lab.error ? "red" : lab.running ? "yellow" : "gray"}>
-						{lab.calibration?.status === "success" ? `匹配成功 ${lab.calibration.delayMs}ms` : lab.calibration?.status === "failed" || lab.error ? "匹配失败" : lab.running ? "校准中" : "未校准"}
+					<Badge color={lab.error ? "red" : lab.aec3Stats?.delayMs != null ? "green" : lab.running ? "yellow" : "gray"}>
+						{lab.error ? "AEC3 失败" : lab.aec3Stats?.delayMs != null ? `AEC3 ${lab.aec3Stats.delayMs}ms / ERLE ${lab.aec3Stats.erleDb?.toFixed(1) ?? "—"}dB` : lab.running ? "AEC3 启动中" : "AEC3 待机"}
 					</Badge>
 				</Group>
 
@@ -29,7 +29,7 @@ export default function AcousticLabPanel() {
 					<Stack gap="sm" className="acoustic-lab-controls">
 						<Group gap="xs" align="center">
 							<Button size="xs" leftSection={<IconRefresh size={14} />} onClick={() => void lab.startCalibration()} loading={lab.running}>
-								开始校准
+								启动 AEC3
 							</Button>
 							<Button size="xs" variant="subtle" color="gray" leftSection={<IconPlayerStop size={14} />} onClick={lab.stop}>
 								停止
@@ -46,9 +46,9 @@ export default function AcousticLabPanel() {
 								{calibrationReason(lab.calibration.reason)}；参考起音 {lab.calibration.refOnsets?.length ?? 0} 次，麦克风起音 {lab.calibration.micOnsets?.length ?? 0} 次，间隔误差 {lab.calibration.errorMs ?? "—"}ms
 							</Text>
 						)}
-						{lab.suppression && (
-							<Text size="xs" c={lab.suppression.reductionDb > 6 ? "teal" : "dimmed"}>
-								反相抵消：麦克风 {db(lab.suppression.micLevel)} → 残留 {db(lab.suppression.cleanLevel)}，降低 {lab.suppression.reductionDb.toFixed(1)}dB，极性 {lab.suppression.polarity > 0 ? "反相" : "同相"}
+						{lab.aec3Stats && (
+							<Text size="xs" c={(lab.aec3Stats.erleDb ?? 0) > 6 ? "teal" : "dimmed"}>
+								AEC3：延迟 {lab.aec3Stats.delayMs ?? "—"}ms；ERLE {lab.aec3Stats.erleDb?.toFixed(1) ?? "—"}dB；参考缺失 {lab.aec3Stats.referenceShort}；参考丢弃 {lab.aec3Stats.referenceDropped}
 							</Text>
 						)}
 

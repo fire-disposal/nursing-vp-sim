@@ -5,6 +5,7 @@ import { DEMO_TTS_PATH } from "@/engine/phone/ttsPlayer";
 import { PcmStreamPlayer } from "@/engine/tts/pcm-player";
 import { accessHeaders } from "@/utils/accessContext";
 import type { EchoCalibrationResult, EchoSuppressionResult } from "./mic";
+import { prepareAec3, type CancellerStats } from "./aec3";
 import { WaveRing } from "./waveRing";
 
 export interface AcousticWaveHistory {
@@ -22,6 +23,7 @@ export interface UseAcousticWorkbenchOptions {
 export interface UseAcousticWorkbenchResult {
 	calibration: EchoCalibrationResult | null;
 	suppression: EchoSuppressionResult | null;
+	aec3Stats: CancellerStats | null;
 	recognized: string;
 	transcript: string;
 	running: boolean;
@@ -61,6 +63,8 @@ export function useAcousticWorkbench({
 	const token = useAuthStore((s) => s.token);
 	const [calibration, setCalibration] = useState<EchoCalibrationResult | null>(null);
 	const [suppression, setSuppression] = useState<EchoSuppressionResult | null>(null);
+	const [aec3Stats, setAec3Stats] = useState<CancellerStats | null>(null);
+	const aec3AtRef = useRef(0);
 	const [recognized, setRecognized] = useState("");
 	const [running, setRunning] = useState(false);
 	const [step, setStep] = useState("");
@@ -123,6 +127,12 @@ export function useAcousticWorkbench({
 		setSuppression(next);
 	}, []);
 
+	const onAec3Stats = useCallback((next: CancellerStats) => {
+		const now = performance.now();
+		if (now - aec3AtRef.current < 200) return;
+		aec3AtRef.current = now;
+		setAec3Stats(next);
+	}, []);
 	const onVoiceReady = useCallback(() => {
 		readyRef.current?.();
 		readyRef.current = null;
@@ -140,6 +150,7 @@ export function useAcousticWorkbench({
 		markerOnsets: () => playerRef.current?.markerOnsets() ?? [],
 		onEchoSuppression,
 		onPcmFrame,
+		onAec3Stats,
 		onEchoCalibration,
 		onVoiceReady,
 	});
@@ -173,24 +184,22 @@ export function useAcousticWorkbench({
 		calibrationRef.current = null;
 		setError(null);
 		setRunning(true);
-		setStep("请求麦克风与 ASR…");
+		setStep("加载 AEC3…");
 		try {
+			await prepareAec3();
+			setStep("请求麦克风与 ASR…");
 			const player = new PcmStreamPlayer();
 			playerRef.current = player;
 			await player.prime();
 			const ready = new Promise<void>((resolve) => {
 				readyRef.current = resolve;
 			});
-			const calibrated = new Promise<void>((resolve) => {
-				calibrationReadyRef.current = () => resolve();
-			});
-			voice.start();
+				voice.start();
 			await withTimeout(ready, 3000, "麦克风或 ASR 未就绪");
-			setStep("播放三次滴声…");
-			voice.beginEchoCalibration();
-			await withTimeout(player.playConnectTone(), 2000, "校准音播放超时");
-			setStep("分析起音时间差…");
-			await withTimeout(calibrated, 2000, "未收到校准结果");
+			setStep("播放参考音…");
+			await withTimeout(player.playConnectTone(), 2000, "参考音播放超时");
+			setStep("AEC3 自适应中，播放 TTS 测试");
+			setRunning(false);
 		} catch (err) {
 			if (runRef.current !== run) return;
 			runRef.current += 1;
@@ -227,6 +236,7 @@ export function useAcousticWorkbench({
 	return {
 		calibration,
 		suppression,
+		aec3Stats,
 		recognized,
 		transcript: voice.transcript,
 		running,
