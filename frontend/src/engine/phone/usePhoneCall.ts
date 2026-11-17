@@ -124,6 +124,7 @@ export function usePhoneCall({
 	const pendingUserAtRef = useRef<number | null>(null);
 	const recentTtsRef = useRef<RecentTts>([]);
 	const lastPatientTextRef = useRef("");
+	const openingTextRef = useRef("");
 	const voiceRef = useRef<UseVoiceDialogueResult | null>(null);
 
 	const playerRef = useRef<DemoTTSPlayer | null>(null);
@@ -143,9 +144,11 @@ export function usePhoneCall({
 
 	const ttsEchoLevel = useCallback(() => playerRef.current?.outputLevel() ?? 0, []);
 	const isEchoLike = useCallback((text: string) => {
+		const norm = normalizeSpeech(text);
+		const opening = normalizeSpeech(openingTextRef.current);
+		if (opening && norm.length >= 2 && (opening.includes(norm) || similarSpeech(norm, opening, 0.45))) return true;
 		if (isTtsEcho(text, recentTtsRef.current)) return true;
 		if (!lastPatientTextRef.current) return false;
-		const norm = normalizeSpeech(text);
 		const patient = normalizeSpeech(lastPatientTextRef.current);
 		if (norm.length >= 2 && patient.includes(norm)) return true;
 		return similarSpeech(norm, patient);
@@ -227,6 +230,7 @@ export function usePhoneCall({
 		historyRef.current = [];
 		recentTtsRef.current = [];
 		lastPatientTextRef.current = "";
+		openingTextRef.current = "";
 		openingLineIdRef.current = null;
 		interruptedRef.current = false;
 	}, [character]);
@@ -364,6 +368,7 @@ export function usePhoneCall({
 		(text: string, testMode?: "long_response") => {
 			const trimmed = text.trim();
 			if (!trimmed || !character) return;
+			openingTextRef.current = "";
 			if (activeTurnRef.current || speaking) stopPatient("user");
 			const arrivedAt = pendingUserAtRef.current ?? performance.now();
 			pendingUserAtRef.current = null;
@@ -450,6 +455,7 @@ export function usePhoneCall({
 		pushLog("system", `接通：${character.name}`);
 		const opener = openingLine(character);
 		lastPatientTextRef.current = opener;
+		openingTextRef.current = opener;
 		openingLineIdRef.current = ++lineSeqRef.current;
 		stageRef.current = "greeting";
 		dispatch({
@@ -484,6 +490,7 @@ export function usePhoneCall({
 		setSpeaking(false);
 		recentTtsRef.current = [];
 		lastPatientTextRef.current = "";
+		openingTextRef.current = "";
 		setStage("ended");
 		setDialed(false);
 		pushLog("system", "通话已结束");
@@ -533,7 +540,7 @@ function normalizeSpeech(text: string): string {
 	return text.toLowerCase().replace(/[\s\p{P}\p{S}]/gu, "");
 }
 
-function similarSpeech(a: string, b: string): boolean {
+function similarSpeech(a: string, b: string, threshold = 0.65): boolean {
 	if (a.length < 4 || b.length < 4) return false;
 	if (a.includes(b) || b.includes(a)) return true;
 	const grams = (value: string) => {
@@ -545,7 +552,7 @@ function similarSpeech(a: string, b: string): boolean {
 	const gb = grams(b);
 	let hit = 0;
 	for (const gram of ga) if (gb.has(gram)) hit += 1;
-	return (2 * hit) / (ga.size + gb.size) >= 0.65;
+	return (2 * hit) / (ga.size + gb.size) >= threshold;
 }
 
 function isTtsEcho(text: string, recent: RecentTts): boolean {

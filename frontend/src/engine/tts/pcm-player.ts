@@ -123,6 +123,8 @@ export class PcmStreamPlayer {
 			{ freq: 1320, ms: 160 },
 			{ freq: 0, ms: 90 },
 			{ freq: 880, ms: 240 },
+			// 校准窗口为 1.8s：留出尾段静音，避免开场白在回声门就绪前播出。
+			{ freq: 0, ms: 1100 },
 		];
 		const total = segments.reduce((sum, segment) => sum + Math.round((segment.ms / 1000) * sampleRate), 0);
 		const buffer = ctx.createBuffer(1, total, sampleRate);
