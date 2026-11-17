@@ -73,6 +73,16 @@ PURPOSE = "clinical_reasoning_turn"
 #: 对话历史进入提示词的最大条数（与本 workflow 的回合粒度匹配；不是 token 预算）
 HISTORY_LIMIT = 40
 
+#: 未做任何有依据的处置时，患者从第几个回合起出现加重表现；再往后进入明显加重。
+#: 只影响患者怎么说话，不进入评分。
+ESCALATION_AFTER_TURNS = 3
+ESCALATION_SEVERE_AFTER_TURNS = 6
+
+ESCALATION_MILD = (
+    "你比刚进来时更难受了：说话要停下来喘，短句越来越短，额头和脖子上的汗更多。不要一次垮掉，这一轮只是比上一轮更费劲。"
+)
+ESCALATION_SEVERE = "你已经明显撑不住：只能挤出几个字，喘得顾不上回答长问题，眼前有些发花，说话时想抓住身边的人。"
+
 SOURCE_PATIENT = "patient"
 
 
@@ -155,7 +165,36 @@ def _history_messages(ctx: PipelineContext) -> list[dict[str, str]]:
     return out
 
 
-def _turn_state(case_data: Mapping[str, Any], runtime_state: Mapping[str, Any] | None) -> str:
+def _is_handled(case_data: Mapping[str, Any], stored: Mapping[str, Any]) -> bool:
+    """是否已经有过一次**有依据的处置**：完成集合里存在 ``requires_findings`` 非空的行动。
+
+    只点「摆体位」这类无前置证据的行动不算处置 —— 那是照护动作，不是针对本次病情的处理。
+    """
+    completed = set(stored["completed_objectives"])
+    return any(
+        str(item.get("id")) in completed and item.get("requires_findings")
+        for item in objectives_of(case_data)["must_act"]
+    )
+
+
+def _escalation_section(case_data: Mapping[str, Any], stored: Mapping[str, Any], patient_turns: int) -> str:
+    """没有处置时按患者回合数确定性加重。
+
+    这是**现场压力**，不是评分：写进患者上下文只影响他此刻怎么说话，评分子系统不读它。
+    阈值固定，不随病例变化；未完成的处置越多也不会额外加速，避免变成隐藏的评分项。
+    """
+    if patient_turns < ESCALATION_AFTER_TURNS or _is_handled(case_data, stored):
+        return ""
+    text = ESCALATION_SEVERE if patient_turns >= ESCALATION_SEVERE_AFTER_TURNS else ESCALATION_MILD
+    return "## 你的身体正在变化\n\n" + text
+
+
+def _turn_state(
+    case_data: Mapping[str, Any],
+    runtime_state: Mapping[str, Any] | None,
+    *,
+    patient_turns: int = 0,
+) -> str:
     """把已经发生的现场事实放回患者下一轮上下文；不泄露尚未观察的结果。"""
     stored = seed_state(case_data, read_state(runtime_state))
     disclosed = [str(item.get("label")) for item in stored["evidence"] if item.get("source") == SOURCE_PATIENT]
@@ -175,12 +214,16 @@ def _turn_state(case_data: Mapping[str, Any], runtime_state: Mapping[str, Any] |
         ("已经沟通清楚", communicated),
     ]
     body = "\n".join(f"- {title}：{'；'.join(items)}" for title, items in sections if items)
-    if not body:
-        return ""
-    return (
-        "## 截至目前的现场状态\n\n"
-        "这些只用于保持感受与反应连续：临床术语是给你理解现场的，不要当作患者自述背诵。\n" + body
-    )
+    parts: list[str] = []
+    if body:
+        parts.append(
+            "## 截至目前的现场状态\n\n"
+            "这些只用于保持感受与反应连续：临床术语是给你理解现场的，不要当作患者自述背诵。\n" + body
+        )
+    escalation = _escalation_section(case_data, stored, patient_turns)
+    if escalation:
+        parts.append(escalation)
+    return "\n\n".join(parts)
 
 
 def build_turn_messages(ctx: PipelineContext) -> list[dict[str, str]]:
@@ -208,7 +251,8 @@ def build_turn_messages(ctx: PipelineContext) -> list[dict[str, str]]:
     )
     messages: list[dict[str, str]] = [{"role": "system", "content": f"{system_text}\n\n{contract}"}]
     messages.extend(_history_messages(ctx))
-    turn_state = _turn_state(case_data, ctx.record.runtime_state)
+    patient_turns = sum(1 for row in ctx.messages if str(getattr(row, "role", "") or "") == "patient")
+    turn_state = _turn_state(case_data, ctx.record.runtime_state, patient_turns=patient_turns)
     if turn_state:
         messages.append({"role": "system", "content": turn_state})
     student = (ctx.student_input or "").strip()

@@ -1258,3 +1258,11 @@ V2 患者上下文改为稳定人设/完整病史与生活背景/证据 ID 映�
 `docs/README.md`、`docs/curriculum-fit.md`、`docs/ops/training-core-observation-20261107.md`、`docs/sp-script.md` 里的 V3 指向同步收掉。观察文档另更正两条与代码不符的事实：V2 入口并未被拒（两条 workflow 都是 `runtime_ready=True`，`scene-registry.ts` 有独立场景），训练页路径为 `frontend/src/pages/practice/TrainingEntry.tsx`。
 
 **验收**：后端 `ruff` / `ty` 干净，`pytest` 全绿，前端无改动。
+
+## 2026.11 — V2 患者随「没有处置」而加重
+
+**一条确定性规则，不加新状态**：`clinical_reasoning` 的逐轮现场状态现在按**患者回合数**判断是否加重。连续 3 个患者回合没有完成任何「有前置证据」的处置，患者开始更费劲；6 个回合进入明显加重；完成一次有依据的处置即停止。只点「摆体位」这类无前置证据的照护动作不算处置。
+
+落点只在 `modules/training/clinical_reasoning/llm.py` 的提示词装配，评分子系统不读这个信号，分数口径不变。阈值是模块常量，病例不可配，避免变成隐藏的评分项。
+
+**验证**：`tests/clinical_reasoning` 34 项通过（含新增 2 项：无处置时按回合加重、有依据处置后停止且无依据动作不停止）；后端全量 464 passed；`ruff` / `ty` 干净。

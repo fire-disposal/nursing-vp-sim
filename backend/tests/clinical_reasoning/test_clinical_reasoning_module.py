@@ -596,3 +596,42 @@ def test_patient_prompt_separates_stable_persona_from_observed_actions(case_data
     assert "安抚患者的恐惧" in turn_state
     assert "未吸氧状态下的低氧血症" not in turn_state
     assert updated[-1]["content"].startswith("护士的发言或动作：")
+
+
+def _ctx_with_turns(case_data: dict, *, patient_turns: int, state: dict | None = None) -> SimpleNamespace:
+    messages = [SimpleNamespace(role="student", content="说一下哪里不舒服？")]
+    for _ in range(patient_turns):
+        messages.append(SimpleNamespace(role="patient", content="喘……说不了整句"))
+        messages.append(SimpleNamespace(role="student", content="还有别的吗？"))
+    return SimpleNamespace(
+        case_data=case_data,
+        record=SimpleNamespace(runtime_state={STATE_KEY: state} if state else {}),
+        messages=messages,
+        student_input="现在给你吸氧。",
+    )
+
+
+def test_patient_escalates_when_no_grounded_action_happened(case_data):
+    """连续问诊但没有任何有依据的处置 → 患者按回合数确定性加重。"""
+    early = build_turn_messages(_ctx_with_turns(case_data, patient_turns=2))
+    assert "你的身体正在变化" not in early[-2]["content"]
+
+    mild = build_turn_messages(_ctx_with_turns(case_data, patient_turns=3))
+    assert "你的身体正在变化" in mild[-2]["content"]
+    assert "更难受" in mild[-2]["content"]
+
+    severe = build_turn_messages(_ctx_with_turns(case_data, patient_turns=6))
+    assert "明显撑不住" in severe[-2]["content"]
+
+
+def test_patient_escalation_stops_after_grounded_action(case_data):
+    """完成一次需要前置证据的处置后不再加重；只做无依据的照护动作不算处置。"""
+    state = seed_state(case_data, None)
+    position_only = merge_state(base=state, completed=["a.position"])
+    still_worse = build_turn_messages(_ctx_with_turns(case_data, patient_turns=4, state=position_only))
+    assert "你的身体正在变化" in still_worse[-2]["content"]
+
+    handled = merge_state(base=state, completed=["a.oxygen"])
+    settled = build_turn_messages(_ctx_with_turns(case_data, patient_turns=4, state=handled))
+    assert "你的身体正在变化" not in settled[-2]["content"]
+    assert "启动吸氧" in settled[-2]["content"]
