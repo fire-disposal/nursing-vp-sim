@@ -55,13 +55,17 @@ export type DemoTTSListener = (event:
 	| { type: "stopped" }
 	| { type: "error"; message: string }) => void;
 
+type DemoTTSPlayerCore = Pick<PcmStreamPlayer, "playStream" | "stop" | "prime" | "waitIdle" | "dispose"> & {
+	outputLevel?: () => number;
+};
+
 export interface DemoTTSConfig {
 	/** 默认说话人（`speaker` 字段）。 */
 	speaker?: string;
 	/** 依赖注入（单测用）：发请求返回原始 Response。 */
 	fetchImpl?: typeof fetch;
 	/** 依赖注入（单测用）：播放内核。 */
-	player?: Pick<PcmStreamPlayer, "playStream" | "stop" | "prime" | "waitIdle" | "dispose">;
+	player?: DemoTTSPlayerCore;
 	/** 依赖注入（单测用）：浏览器兜底朗读器。 */
 	fallback?: {
 		speak(text: string): Promise<void>;
@@ -74,7 +78,7 @@ export interface DemoTTSConfig {
 const MAX_QUEUE = 64;
 
 export class DemoTTSPlayer {
-	private player: Pick<PcmStreamPlayer, "playStream" | "stop" | "prime" | "waitIdle" | "dispose">;
+	private player: DemoTTSPlayerCore;
 	private fallback: NonNullable<DemoTTSConfig["fallback"]>;
 	private fetchImpl: typeof fetch;
 	private speaker: string | undefined;
@@ -115,6 +119,15 @@ export class DemoTTSPlayer {
 	/** 首块音频延迟（ms）；本次通话还没有出声时为 null。 */
 	get firstBlockLatency(): number | null {
 		return this.firstBlockMs;
+	}
+
+	/** 当前播放输出 RMS（0..1）：只用于回声门，不参与业务状态。 */
+	outputLevel(): number {
+		try {
+			return this.player.outputLevel?.() ?? 0;
+		} catch {
+			return 0;
+		}
 	}
 
 	get usingFallback(): boolean {

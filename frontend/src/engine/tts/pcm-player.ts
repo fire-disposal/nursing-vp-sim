@@ -109,6 +109,17 @@ export class PcmStreamPlayer {
 		return bytes;
 	}
 
+	/** 当前输出 RMS（0..1），供回声门判断麦克风能量是否来自本播放器。 */
+	outputLevel(): number {
+		const analyser = this.analyser;
+		if (!analyser) return 0;
+		const buffer = new Float32Array(analyser.fftSize);
+		analyser.getFloatTimeDomainData(buffer);
+		let sum = 0;
+		for (let i = 0; i < buffer.length; i += 1) sum += buffer[i] * buffer[i];
+		return Math.sqrt(sum / buffer.length);
+	}
+
 	stop(): void {
 		for (const s of this.sources) {
 			try {

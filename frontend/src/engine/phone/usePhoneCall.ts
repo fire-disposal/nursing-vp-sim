@@ -76,6 +76,8 @@ export interface UsePhoneCallResult {
 	transcript: string;
 	/** 学生对答阶段（useVoiceDialogue 的 phase）。 */
 	voicePhase: UseVoiceDialogueResult["phase"];
+	/** VAD 真实检测到学生开口（区别于麦克风常开）。 */
+	speechActive: boolean;
 	continuousArmed: boolean;
 	continuousFailed: boolean;
 	basicVoiceMode: boolean;
@@ -150,6 +152,8 @@ export function usePhoneCall({
 	const lineSeqRef = useRef(0);
 	const spokenCharsRef = useRef(0);
 	const interruptedRef = useRef(false);
+	/** 最近 7 秒患者实际念出的句子（归一化），用于丢弃 ASR 回录。 */
+	const recentTtsRef = useRef<Array<{ norm: string; at: number }>>([]);
 	/** 当前在途的一轮（abort 用）。 */
 	const turnAbortRef = useRef<AbortController | null>(null);
 	const patientLineIdRef = useRef<number | null>(null);
@@ -176,6 +180,7 @@ export function usePhoneCall({
 	if (!playerRef.current) {
 		playerRef.current = playerFactory ? playerFactory() : new DemoTTSPlayer({ speaker: character?.speaker });
 	}
+	const ttsEchoLevel = useCallback(() => playerRef.current?.outputLevel() ?? 0, []);
 
 	const pushLog = useCallback((kind: PhoneLogEntry["kind"], text: string) => {
 		seqRef.current += 1;
@@ -200,6 +205,12 @@ export function usePhoneCall({
 					setSpeaking(true);
 					setMetrics((m) => ({ ...m, firstBlockMs: Math.round(event.ms) }));
 					pushLog("tts", `首块音频 ${Math.round(event.ms)}ms${event.fallback ? "（浏览器兜底）" : ""}`);
+					break;
+				case "sentence":
+					recentTtsRef.current = [
+						...recentTtsRef.current.filter((item) => performance.now() - item.at < 7000),
+						{ norm: normalizeSpeech(event.text), at: performance.now() },
+					];
 					break;
 				case "fallback":
 					pushLog("system", `服务端语音不可用（${event.reason}），已切到浏览器朗读`);
@@ -408,7 +419,13 @@ export function usePhoneCall({
 	}, [pushLog, settleStage]);
 
 	const voice = voiceHook({
-		onSend: handleUserText,
+		onSend: (text) => {
+			if (isTtsEcho(text, recentTtsRef.current)) {
+				pushLog("system", "忽略患者语音回录");
+				return;
+			}
+			handleUserText(text);
+		},
 		patientReplying,
 		patientSpeaking: speaking,
 		continuous: true,
@@ -416,6 +433,7 @@ export function usePhoneCall({
 		recordId: 0,
 		token,
 		onBargeIn: handleBargeIn,
+		echoLevel: ttsEchoLevel,
 	});
 
 	const voiceRef = useRef(voice);
@@ -436,6 +454,7 @@ export function usePhoneCall({
 		setLines([]);
 		setLog([]);
 		historyRef.current = [];
+		recentTtsRef.current = [];
 		setDialed(true);
 		setMetrics({ firstBlockMs: null, stopMs: null, sentenceMs: null, firstTokenMs: null, voice: null, ttsEmotion: null });
 		stageRef.current = "greeting";
@@ -460,6 +479,7 @@ export function usePhoneCall({
 		voice.stop();
 		setSpeaking(false);
 		setPatientReplying(false);
+		recentTtsRef.current = [];
 		stageRef.current = "ended";
 		setStage("ended");
 		setDialed(false);
@@ -498,6 +518,7 @@ export function usePhoneCall({
 		metrics,
 		transcript: voice.transcript,
 		voicePhase: voice.phase,
+		speechActive: voice.speechActive,
 		continuousArmed: voice.continuousArmed,
 		continuousFailed: voice.continuousFailed,
 		basicVoiceMode: voice.basicVoiceMode,
@@ -515,4 +536,34 @@ export function usePhoneCall({
 		handleBargeIn,
 		runQuickTest,
 	};
+}
+
+type RecentTts = Array<{ norm: string; at: number }>;
+
+/** 去掉空白与标点，只留下可用于相似度比较的字。 */
+function normalizeSpeech(text: string): string {
+	return text.toLowerCase().replace(/[\s\p{P}\p{S}]/gu, "");
+}
+
+/** 二元字组 Dice 相似度：容忍 ASR 少量增删字。 */
+function similarSpeech(a: string, b: string): boolean {
+	if (a.length < 4 || b.length < 4) return false;
+	if (a.includes(b) || b.includes(a)) return true;
+	const grams = (value: string) => {
+		const set = new Set<string>();
+		for (let i = 0; i < value.length - 1; i += 1) set.add(value.slice(i, i + 2));
+		return set;
+	};
+	const ga = grams(a);
+	const gb = grams(b);
+	let hit = 0;
+	for (const gram of ga) if (gb.has(gram)) hit += 1;
+	return (2 * hit) / (ga.size + gb.size) >= 0.65;
+}
+
+function isTtsEcho(text: string, recent: RecentTts): boolean {
+	const norm = normalizeSpeech(text);
+	if (norm.length < 4) return false;
+	const now = performance.now();
+	return recent.some((item) => now - item.at < 7000 && similarSpeech(norm, item.norm));
 }

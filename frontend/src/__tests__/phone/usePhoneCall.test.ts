@@ -27,6 +27,7 @@ function fakeVoice(overrides: Partial<UseVoiceDialogueResult> = {}): FakeVoice {
 				phase: "idle",
 				transcript: "",
 				supported: true,
+				speechActive: false,
 				notice: null,
 				continuousArmed: false,
 				continuousFailed: false,

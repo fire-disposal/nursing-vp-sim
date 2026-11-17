@@ -93,6 +93,8 @@ export interface MicCaptureOptions extends MicCaptureConstraintsOptions {
 	audioContext?: AudioContext | null;
 	/** 32 位浮点 PCM 的批回调（设备采样率），用于 RMS / 频谱类判定。 */
 	onFrame?: (channel: Float32Array, sampleRate: number) => void;
+	/** 患者 TTS 当前输出 RMS；持续写入回声门，用于丢弃回录 PCM。 */
+	echoLevel?: () => number;
 	pcm?: Pick<MicCaptureHandlers, "onPcm">;
 }
 
@@ -110,6 +112,7 @@ export class MicCapture {
 	private processor: ScriptProcessorNode | null = null;
 	private muted = false;
 	private closed = false;
+	private latestMicLevel = 0;
 
 	private constructor(stream: MediaStream, context: AudioContext, source: MediaStreamAudioSourceNode) {
 		this.stream = stream;
@@ -160,10 +163,16 @@ export class MicCapture {
 	 * 麦克风**不**连 destination（会回声啸叫）：AnalyserNode 拉不拉得动图由 worklet 保证。
 	 */
 	private start(options: MicCaptureOptions): void {
-		const pcm = pcmSink(options.pcm?.onPcm);
+		const basePcm = pcmSink(options.pcm?.onPcm);
+		const pcm = basePcm
+			? (data: unknown) => {
+					if (this.isEchoPcm(data)) return;
+					basePcm(data);
+				}
+			: null;
 		void this.attachWorklet(pcm).catch(() => this.attachScriptProcessor(pcm));
 
-		if (options.onFrame) {
+		if (options.onFrame || options.echoLevel) {
 			const analyser = this.context.createAnalyser();
 			analyser.fftSize = 1024;
 			this.source.connect(analyser);
@@ -172,6 +181,9 @@ export class MicCapture {
 			const pump = () => {
 				if (this.closed) return;
 				analyser.getFloatTimeDomainData(buffer);
+				const level = rms(buffer);
+				this.latestMicLevel = level;
+				if (options.echoLevel) this.echo.setReference(options.echoLevel());
 				carry += buffer.length / this.sampleRate;
 				// 约 50ms 一批：够做 250ms 判定，又不会每 128 样本回调一次
 				if (carry >= 0.05) {
@@ -183,6 +195,19 @@ export class MicCapture {
 			if (typeof requestAnimationFrame === "function") requestAnimationFrame(pump);
 			else setInterval(pump, 50) as unknown as number;
 		}
+	}
+
+	/** PCM 帧是否主要是患者回放：是则不送上游 ASR。 */
+	private isEchoPcm(data: unknown): boolean {
+		const message = data as { type?: string; buffer?: ArrayBuffer } | null;
+		if (message?.type !== "pcm" || !(message.buffer instanceof ArrayBuffer)) return false;
+		const pcm = new Int16Array(message.buffer);
+		if (pcm.length === 0) return false;
+		let sum = 0;
+		for (let i = 0; i < pcm.length; i += 1) sum += pcm[i] * pcm[i];
+		const level = Math.sqrt(sum / pcm.length) / 32768;
+		this.latestMicLevel = level;
+		return this.echo.isEcho(level);
 	}
 
 	private async attachWorklet(pcm: ((data: unknown) => void) | null): Promise<void> {
@@ -238,6 +263,11 @@ export class MicCapture {
 	/** 这一帧麦克风能量是否主要来自患者回放（学生没开口）。 */
 	isEcho(channel: Float32Array): boolean {
 		return this.echo.isEcho(rms(channel));
+	}
+
+	/** 最近一帧是否仍是患者回放：供 VAD 事件门用。 */
+	isCurrentEcho(): boolean {
+		return this.echo.isEcho(this.latestMicLevel);
 	}
 
 	/** 临时静音上游（VAD 误触发时挪开下巴即可撤回），不改动 track 状态。 */

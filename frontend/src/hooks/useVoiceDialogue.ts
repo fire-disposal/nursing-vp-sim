@@ -82,6 +82,8 @@ export interface UseVoiceDialogueOptions {
 	 * 云 ASR 吃的是处理前音频，患者的 TTS 会被当成学生说话。
 	 */
 	onSpeechStart?: () => void;
+	/** 患者 TTS 当前输出 RMS；传到底层回声门，丢弃回录 PCM 与 VAD 假轮次。 */
+	echoLevel?: () => number;
 }
 
 export interface UseVoiceDialogueResult {
@@ -90,6 +92,8 @@ export interface UseVoiceDialogueResult {
 	transcript: string;
 	/** 当前运行时是否支持语音输入。 */
 	supported: boolean;
+	/** VAD 真正检测到学生开口（不是"麦克风已开启"）。 */
+	speechActive: boolean;
 	/** 错误/提示文案（没听清、不支持、启动失败等）。 */
 	notice: string | null;
 	/** 持续对谈是否已开启（麦克风常开）。 */
@@ -125,6 +129,7 @@ export function useVoiceDialogue({
 	recordId,
 	token,
 	onSpeechStart,
+	echoLevel,
 }: UseVoiceDialogueOptions): UseVoiceDialogueResult {
 	const [phase, setPhase] = useState<VoicePhase>("idle");
 	const [transcript, setTranscript] = useState("");
@@ -132,7 +137,12 @@ export function useVoiceDialogue({
 	const [continuousArmed, setContinuousArmed] = useState(false);
 	const [continuousFailed, setContinuousFailed] = useState(false);
 	const [interrupted, setInterrupted] = useState(false);
+	const [speechActive, setSpeechActive] = useState(false);
 	const [basicVoiceMode, setBasicVoiceMode] = useState(false);
+
+	useEffect(() => {
+		if (phase !== "listening") setSpeechActive(false);
+	}, [phase]);
 
 	/** 云 ASR 需要 token + recordId；缺任何一个都直接走 Web Speech。 */
 	const cloudReady = !!token && typeof recordId === "number" && Number.isFinite(recordId);
@@ -366,6 +376,7 @@ export function useVoiceDialogue({
 				recordId: recordId ?? undefined,
 				token: token ?? undefined,
 				vad: wantContinuous,
+				echoLevel,
 			});
 		} catch (err) {
 			console.warn("[useVoiceDialogue] 识别会话创建失败", err);
@@ -409,6 +420,7 @@ export function useVoiceDialogue({
 			/** 供应商上报 VAD 轮次：事件带 epoch 进控制器，迟到的自然被拒。 */
 			session.onSpeechStart = () => {
 				if (!isLive()) return;
+				setSpeechActive(true);
 				controller.speechStart(epoch);
 			};
 			session.onSpeechRealStart = () => {
@@ -417,6 +429,7 @@ export function useVoiceDialogue({
 			};
 			session.onSpeechEnd = () => {
 				if (!isLive()) return;
+				setSpeechActive(false);
 				controller.speechEnd(epoch);
 			};
 			session.onPartial = (text) => {
@@ -425,6 +438,7 @@ export function useVoiceDialogue({
 			};
 			session.onDefinite = (text) => {
 				if (!isLive()) return;
+				setSpeechActive(false);
 				controller.definite(text, epoch);
 			};
 			session.onInterim = (text) => {
@@ -492,6 +506,7 @@ export function useVoiceDialogue({
 		} else {
 			session.onPartial = (text) => {
 				if (!isLive()) return;
+				setSpeechActive(Boolean(text.trim()));
 				setTranscriptBoth(text);
 				if (silenceMs > 0) {
 					clearTimeout(silenceTimerRef.current);
@@ -500,6 +515,7 @@ export function useVoiceDialogue({
 			};
 			session.onDefinite = (text) => {
 				if (!isLive()) return;
+				setSpeechActive(false);
 				setTranscriptBoth(text);
 			};
 			session.onInterim = (text) => {
@@ -564,6 +580,7 @@ export function useVoiceDialogue({
 		recordId,
 		setTranscriptBoth,
 		token,
+		echoLevel,
 	]);
 
 	startRef.current = start;
@@ -646,6 +663,7 @@ export function useVoiceDialogue({
 		phase,
 		transcript,
 		supported,
+		speechActive,
 		notice,
 		continuousArmed,
 		continuousFailed,

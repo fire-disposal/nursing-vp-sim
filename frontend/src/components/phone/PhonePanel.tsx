@@ -142,6 +142,7 @@ export default function PhonePanel({ character, onBack, reducedMotion = false }:
 						voicePhase={call.voicePhase}
 						speaking={call.speaking}
 						listening={listening}
+						speechActive={call.speechActive}
 						level={level}
 						reducedMotion={reducedMotion}
 						compact={narrow}

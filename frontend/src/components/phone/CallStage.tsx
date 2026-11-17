@@ -22,6 +22,7 @@ export interface CallStageProps {
 	voicePhase: VoicePhase;
 	speaking: boolean;
 	listening: boolean;
+	speechActive: boolean;
 	level: number;
 	reducedMotion: boolean;
 	/** 波形条数（桌面多一些）。 */
@@ -45,6 +46,7 @@ export default function CallStage({
 	voicePhase,
 	speaking,
 	listening,
+	speechActive,
 	level,
 	reducedMotion,
 	bars = 28,
@@ -76,10 +78,10 @@ export default function CallStage({
 					>
 						<Badge
 							variant="light"
-							color={listening ? "teal" : "indigo"}
+							color={!listening ? "indigo" : speechActive ? "teal" : "gray"}
 							leftSection={listening ? <IconMicrophone size={12} /> : <IconVolume size={12} />}
 						>
-							{listening ? "正在聆听你说话" : "对方正在说"}
+							{!listening ? "对方正在说" : speechActive ? "正在聆听你说话" : "VAD 聆听中"}
 						</Badge>
 					</Box>
 				)}
@@ -109,7 +111,7 @@ export default function CallStage({
 			</Group>
 			{listening ? (
 				<Text size="xs" c="dimmed">
-					VAD 已确认你开口（{voicePhase}）
+					{speechActive ? `VAD 已确认你开口（${voicePhase}）` : "VAD 聆听中，等待你开口"}
 				</Text>
 			) : speaking ? (
 				<Text size="xs" c="dimmed">

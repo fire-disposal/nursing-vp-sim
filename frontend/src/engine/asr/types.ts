@@ -76,5 +76,7 @@ export interface AsrProvider {
 		/** 采集链路已经拿到的流：VAD 复用它，不再另起一台麦克风。 */
 		stream?: MediaStream | null;
 		audioContext?: AudioContext;
+		/** 患者 TTS 当前输出 RMS；用于回声门，避免回录被当成学生说话。 */
+		echoLevel?: () => number;
 	}): AsrSession;
 }

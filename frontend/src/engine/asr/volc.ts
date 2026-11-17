@@ -99,6 +99,7 @@ export function createVolcAsrProvider(
 					capture = await openCapture({
 						stream: sessionOptions.stream ?? null,
 						audioContext: sessionOptions.audioContext ?? null,
+						echoLevel: sessionOptions.echoLevel,
 						pcm: { onPcm: (pcm) => connection?.send(pcm) },
 					});
 				} catch (err) {
@@ -138,8 +139,12 @@ export function createVolcAsrProvider(
 					stream: capture?.stream ?? sessionOptions.stream ?? null,
 					audioContext: capture?.audioContext,
 					callbacks: {
-						onSpeechStart: () => emit("onSpeechStart"),
-						onSpeechRealStart: () => emit("onSpeechRealStart"),
+						onSpeechStart: () => {
+							if (!capture?.isCurrentEcho()) emit("onSpeechStart");
+						},
+						onSpeechRealStart: () => {
+							if (!capture?.isCurrentEcho()) emit("onSpeechRealStart");
+						},
 						// 端点交给 definite：speechEnd 只是"大概说完了"，转写可能还在路上
 						onMisfire: () => {},
 						onPerformance: (state) => {
