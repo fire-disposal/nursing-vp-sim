@@ -106,12 +106,36 @@ describe("EchoGate", () => {
 	it("learns the device echo gain during quiet TTS and narrows the band", async () => {
 		const { EchoGate } = await import("@/engine/audio/mic");
 		const gate = new EchoGate();
-		gate.setReference(0.2);
-		for (let i = 0; i < 20; i += 1) gate.observe(0.1);
-		gate.observe(0.1, performance.now() + 5000);
+		gate.setReference(0.2, 0);
+		for (let t = 100; t <= 1200; t += 50) {
+			gate.setReference(0.2, t);
+			gate.observe(0.1, t);
+		}
+		gate.observe(0.1, 3000);
 
 		expect(gate.calibrated).toBe(true);
-		expect(gate.isEcho(0.1)).toBe(true); // learned echo gain 0.5
-		expect(gate.isEcho(0.5)).toBe(false); // real speech much louder than echo path
+		expect(gate.isEcho(0.1, 3000)).toBe(true); // learned echo gain 0.5
+		expect(gate.isEcho(0.5, 3000)).toBe(false); // real speech much louder than echo path
+	});
+
+	it("estimates the acoustic delay before comparing levels", async () => {
+		const { EchoGate } = await import("@/engine/audio/mic");
+		const gate = new EchoGate();
+		const refAt = (t: number) => 0.2 + 0.1 * Math.sin(t / 100);
+		const delayed = 200;
+
+		gate.setReference(refAt(0), 0);
+		for (let t = 50; t <= 1800; t += 50) {
+			gate.setReference(refAt(t), t);
+			gate.observe(refAt(t - delayed) * 0.5, t);
+		}
+		gate.observe(refAt(1800 - delayed) * 0.5, 1800);
+
+		expect(gate.calibrated).toBe(true);
+		expect(gate.delay).toBe(delayed);
+		gate.setReference(0.3, 2000);
+		expect(gate.isEcho(refAt(1800) * 0.5, 2000)).toBe(true);
+		gate.setReference(0, 2100);
+		expect(gate.isEcho(refAt(1800) * 0.5, 2000)).toBe(true); // tail echo still uses the delayed reference
 	});
 });

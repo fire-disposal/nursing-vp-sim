@@ -71,13 +71,17 @@ function rms(channel: Float32Array): number {
 export class EchoGate {
 	private reference = 0;
 	private gain: number | null = null;
-	private samples: number[] = [];
+	private delayMs = 0;
 	private calibrating = false;
 	private calibrationUntil = 0;
+	/** 50ms 帧的参考/麦克风时间序列；用于估延迟与延迟对齐后的增益。 */
+	private refHistory: Array<{ t: number; level: number }> = [];
+	private micHistory: Array<{ t: number; level: number }> = [];
 
-	/** 在首次 TTS 播放、环境安静时调用；1.8 秒内采集中位数回授增益。 */
+	/** 在首次 TTS 播放、环境安静时调用；1.8 秒内估计延迟与中位回授增益。 */
 	beginCalibration(now = performance.now()): void {
-		this.samples = [];
+		this.refHistory = [];
+		this.micHistory = [];
 		this.calibrating = true;
 		this.calibrationUntil = now + ECHO_CALIBRATION_MS;
 	}
@@ -86,31 +90,70 @@ export class EchoGate {
 		return this.gain !== null;
 	}
 
-	setReference(level: number): void {
+	/** 当前校准得到的声学延迟（ms），调试/观测用。 */
+	get delay(): number {
+		return this.delayMs;
+	}
+
+	setReference(level: number, now = performance.now()): void {
 		const next = Number.isFinite(level) && level > 0 ? level : 0;
 		if (next >= ECHO_ABS_MIN && this.reference < ECHO_ABS_MIN && !this.calibrating && this.gain === null) {
-			this.beginCalibration();
+			this.beginCalibration(now);
 		}
 		this.reference = next;
+		this.refHistory.push({ t: now, level: next });
+		const cutoff = now - 10_000;
+		while (this.refHistory.length > 0 && this.refHistory[0].t < cutoff) this.refHistory.shift();
 	}
 
-	/** 每 50ms 的麦克风/参考帧：校准期只收合理比例，避免用户说话污染。 */
+	/** 每 50ms 的麦克风帧：校准期同时记录，结束前做延迟互相关。 */
 	observe(micLevel: number, now = performance.now()): void {
+		this.micHistory.push({ t: now, level: micLevel });
+		const cutoff = now - 5_000;
+		while (this.micHistory.length > 0 && this.micHistory[0].t < cutoff) this.micHistory.shift();
 		if (!this.calibrating) return;
-		if (this.reference >= ECHO_ABS_MIN && micLevel >= ECHO_ABS_MIN) {
-			const ratio = micLevel / this.reference;
-			if (ratio >= 0.05 && ratio <= 3.5) this.samples.push(ratio);
-		}
-		if (now >= this.calibrationUntil || this.samples.length >= 60) this.finishCalibration();
+		if (now >= this.calibrationUntil || this.micHistory.length >= 60) this.finishCalibration(now);
 	}
 
-	private finishCalibration(): void {
+	/** 取参考序列中离指定时间最近的帧；超出 120ms 视为缺失。 */
+	private refAt(time: number): number | null {
+		let best: { t: number; level: number } | null = null;
+		for (const item of this.refHistory) {
+			if (best === null || Math.abs(item.t - time) < Math.abs(best.t - time)) best = item;
+		}
+		if (best === null || Math.abs(best.t - time) > 120) return null;
+		return best.level;
+	}
+
+	/** 用 0–1s 的候选延迟，选增益最稳定的 lag（MAD 最小）。 */
+	private finishCalibration(now: number): void {
 		this.calibrating = false;
-		if (this.samples.length < ECHO_CALIBRATION_MIN_SAMPLES) return;
-		const sorted = [...this.samples].sort((a, b) => a - b);
-		const median = sorted[Math.floor(sorted.length / 2)] ?? null;
-		if (median !== null && median >= 0.05 && median <= 3.5) this.gain = median;
-		this.samples = [];
+		const mic = this.micHistory;
+		if (mic.length < ECHO_CALIBRATION_MIN_SAMPLES) return;
+
+		let best: { lagMs: number; gain: number; score: number } | null = null;
+		for (let lagMs = 0; lagMs <= 1000; lagMs += 50) {
+			const ratios: number[] = [];
+			for (const sample of mic) {
+				if (sample.level < ECHO_ABS_MIN) continue;
+				const ref = this.refAt(sample.t - lagMs);
+				if (ref === null || ref < ECHO_ABS_MIN) continue;
+				const ratio = sample.level / ref;
+				if (ratio >= 0.05 && ratio <= 3.5) ratios.push(ratio);
+			}
+			if (ratios.length < ECHO_CALIBRATION_MIN_SAMPLES) continue;
+			const sorted = [...ratios].sort((a, b) => a - b);
+			const gain = sorted[Math.floor(sorted.length / 2)];
+			const mad = ratios.reduce((sum, value) => sum + Math.abs(value - gain), 0) / ratios.length;
+			const score = mad / Math.max(gain, 0.01);
+			if (best === null || score < best.score) best = { lagMs, gain, score };
+		}
+		if (best !== null && best.score < 0.45 && best.gain >= 0.05 && best.gain <= 3.5) {
+			this.delayMs = best.lagMs;
+			this.gain = best.gain;
+		}
+		this.micHistory = [];
+		void now;
 	}
 
 	/** 患者是否正在出声（参考电平非零）。 */
@@ -118,14 +161,11 @@ export class EchoGate {
 		return this.reference >= ECHO_ABS_MIN;
 	}
 
-	/** 这一帧麦克风能量是否可能来自患者回放。 */
-	isEcho(micLevel: number): boolean {
-		if (!this.playing) return false;
-		const ratio = micLevel / this.reference;
-		if (this.gain !== null) {
-			// 校准后围绕该设备实际回授增益取带，比固定 [0.45,2.5] 更窄。
-			return ratio >= this.gain * 0.55 && ratio <= this.gain * 1.9;
-		}
+	/** 当前帧是否像某个延迟点的参考回授。 */
+	private matches(micLevel: number, reference: number): boolean {
+		if (reference < ECHO_ABS_MIN) return false;
+		const ratio = micLevel / reference;
+		if (this.gain !== null) return ratio >= this.gain * 0.55 && ratio <= this.gain * 1.9;
 		return ratio >= ECHO_RATIO_MIN && ratio < ECHO_RATIO_MAX;
 	}
 }
