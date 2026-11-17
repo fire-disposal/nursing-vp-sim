@@ -8,7 +8,7 @@ import { useVoiceDialogue } from "@/hooks/useVoiceDialogue";
 import useAuthStore from "@/stores/authStore";
 import { accessHeaders } from "@/utils/accessContext";
 import AcousticWaveform from "./AcousticWaveform";
-import type { EchoCalibrationResult } from "@/engine/audio/mic";
+import type { EchoCalibrationResult, EchoSuppressionResult } from "@/engine/audio/mic";
 import "./AcousticLabPanel.css";
 
 interface WaveHistory {
@@ -29,6 +29,8 @@ export default function AcousticLabPanel() {
 	const [text, setText] = useState("你好，我正在测试这条语音链路。");
 	const [ttsBusy, setTtsBusy] = useState(false);
 	const [recognized, setRecognized] = useState("");
+	const [suppression, setSuppression] = useState<EchoSuppressionResult | null>(null);
+	const suppressionAtRef = useRef(0);
 	const playerRef = useRef<PcmStreamPlayer | null>(null);
 	const resultRef = useRef<EchoCalibrationResult | null>(null);
 	const waveRef = useRef<WaveHistory>(EMPTY_WAVES);
@@ -44,25 +46,28 @@ export default function AcousticLabPanel() {
 		if (!player || data.length === 0) return;
 		const calibration = resultRef.current;
 		const delay = calibration?.status === "success" ? calibration.delayMs : 0;
-		const gain = calibration?.status === "success" ? calibration.gain ?? 0 : 0;
 		const referenceStart = performance.now() - data.length / 16 - delay;
 		const actual = player.readReference(referenceStart, data.length);
 		const ideal = idealMarkerReference(referenceStart, data.length, player.markerOnsets());
 		const current = waveRef.current;
 		for (let i = 0; i < data.length; i += 1) {
-			const mic = data[i] ?? 0;
-			const ref = ideal[i] !== 0 ? (ideal[i] ?? 0) : (actual[i] ?? 0);
-			current.tts.push(ref);
-			current.mic.push(mic);
-			current.clean.push(mic - gain * ref);
+			current.tts.push(ideal[i] !== 0 ? (ideal[i] ?? 0) : (actual[i] ?? 0));
+			current.mic.push(data[i] ?? 0);
 		}
 		const maxSamples = 16_000 * 20;
 		if (current.tts.length > maxSamples) {
 			const drop = current.tts.length - maxSamples;
 			current.tts.splice(0, drop);
 			current.mic.splice(0, drop);
-			current.clean.splice(0, drop);
 		}
+		setWaveVersion((version) => version + 1);
+	}, []);
+
+	const onCleanedPcm = useCallback((samples: Int16Array) => {
+		const current = waveRef.current;
+		for (let i = 0; i < samples.length; i += 1) current.clean.push((samples[i] ?? 0) / 32768);
+		const maxSamples = 16_000 * 20;
+		if (current.clean.length > maxSamples) current.clean.splice(0, current.clean.length - maxSamples);
 		setWaveVersion((version) => version + 1);
 	}, []);
 
@@ -72,6 +77,12 @@ export default function AcousticLabPanel() {
 		setRunning(false);
 		calibrationRef.current?.(next);
 		calibrationRef.current = null;
+	}, []);
+	const onEchoSuppression = useCallback((next: EchoSuppressionResult) => {
+		const now = performance.now();
+		if (now - suppressionAtRef.current < 200) return;
+		suppressionAtRef.current = now;
+		setSuppression(next);
 	}, []);
 	const onVoiceReady = useCallback(() => {
 		readyRef.current?.();
@@ -88,6 +99,7 @@ export default function AcousticLabPanel() {
 		echoLevel: () => playerRef.current?.outputLevel() ?? 0,
 		echoReference: (startMs, length) => playerRef.current?.readReference(startMs, length) ?? new Float32Array(length),
 		markerOnsets: () => playerRef.current?.markerOnsets() ?? [],
+		onEchoSuppression,
 		onEchoCalibration,
 		onVoiceReady,
 		onFrame,
@@ -199,6 +211,11 @@ export default function AcousticLabPanel() {
 								{calibrationReason(result.reason)}；参考起音 {result.refOnsets?.length ?? 0} 次，麦克风起音 {result.micOnsets?.length ?? 0} 次，间隔误差 {result.errorMs ?? "—"}ms
 							</Text>
 						)}
+						{suppression && (
+							<Text size="xs" c={suppression.reductionDb > 6 ? "teal" : "dimmed"}>
+								反相抵消：麦克风 {db(suppression.micLevel)} → 残留 {db(suppression.cleanLevel)}，降低 {suppression.reductionDb.toFixed(1)}dB，极性 {suppression.polarity > 0 ? "反相" : "同相"}
+							</Text>
+						)}
 
 						<Text size="sm" fw={600}>TTS 播放</Text>
 						<TextInput value={text} onChange={(event) => setText(event.currentTarget.value)} aria-label="TTS 测试文本" />
@@ -262,6 +279,10 @@ export default function AcousticLabPanel() {
 			</Stack>
 		</Card>
 	);
+}
+
+function db(level: number): string {
+	return `${(20 * Math.log10(Math.max(level, 1e-6))).toFixed(1)} dBFS`;
 }
 
 function calibrationReason(reason: EchoCalibrationResult["reason"]): string {

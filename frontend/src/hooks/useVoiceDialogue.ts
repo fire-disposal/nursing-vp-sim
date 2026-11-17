@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { EchoCalibrationResult } from "@/engine/audio/mic";
+import type { EchoCalibrationResult, EchoSuppressionResult } from "@/engine/audio/mic";
 import {
 	defaultAsrProvider,
 	fallbackAsrProvider,
@@ -93,6 +93,10 @@ export interface UseVoiceDialogueOptions {
 	echoReference?: (startMs: number, length: number) => Float32Array;
 	/** 播放器实际调度的三次校准音起音时间。 */
 	markerOnsets?: () => number[];
+	/** ASR 发送前的实际残留能量，用于判断反相抵消是否生效。 */
+	onEchoSuppression?: (result: EchoSuppressionResult) => void;
+	/** 真正送往 ASR 的 16k PCM。 */
+	onCleanedPcm?: (samples: Int16Array) => void;
 	/** 真实麦克风帧，供声学工作面板绘制波形。 */
 	onFrame?: (channel: Float32Array, sampleRate: number) => void;
 	/** 打断闸门：默认 vad；电话页用 asr，等文本确认后再停播。 */
@@ -153,6 +157,8 @@ export function useVoiceDialogue({
 	onEchoCalibration,
 	echoReference,
 	markerOnsets,
+	onEchoSuppression,
+	onCleanedPcm,
 	onFrame,
 	bargeInGate,
 	bargeInGuard,
@@ -415,6 +421,8 @@ export function useVoiceDialogue({
 				onEchoCalibration,
 				echoReference,
 				markerOnsets,
+				onEchoSuppression,
+				onCleanedPcm,
 				onFrame,
 			});
 		} catch (err) {

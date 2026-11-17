@@ -1,4 +1,4 @@
-import type { EchoCalibrationResult } from "@/engine/audio/mic";
+import type { EchoCalibrationResult, EchoSuppressionResult } from "@/engine/audio/mic";
 
 /** 一次 ASR 会话的**中间**结果载荷：句子还没落定。 */
 export interface AsrResult {
@@ -87,6 +87,8 @@ export interface AsrProvider {
 		/** 16kHz TTS 参考波形，供发送前反相抵消。 */
 		echoReference?: (startMs: number, length: number) => Float32Array;
 		markerOnsets?: () => number[];
+		onEchoSuppression?: (result: EchoSuppressionResult) => void;
+		onCleanedPcm?: (samples: Int16Array) => void;
 		/** 真实麦克风帧，供声学工作面板使用。 */
 		onFrame?: (channel: Float32Array, sampleRate: number) => void;
 	}): AsrSession;

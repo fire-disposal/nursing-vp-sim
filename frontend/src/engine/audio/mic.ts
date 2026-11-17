@@ -42,6 +42,15 @@ export interface EchoCalibrationResult {
 	noiseFloor?: number;
 }
 
+export interface EchoSuppressionResult {
+	micLevel: number;
+	cleanLevel: number;
+	reductionDb: number;
+	gain: number;
+	delayMs: number;
+	polarity: 1 | -1;
+}
+
 export interface MicCaptureConstraintsOptions {
 	deviceId?: string;
 }
@@ -335,6 +344,10 @@ export interface MicCaptureOptions extends MicCaptureConstraintsOptions {
 	echoReference?: (startMs: number, length: number) => Float32Array;
 	/** 播放器实际调度出的三次起音时间，避免参考波形缺失时无法匹配。 */
 	markerOnsets?: () => number[];
+	/** ASR 发送前的实际残留能量，用于判断反相抵消是否生效。 */
+	onEchoSuppression?: (result: EchoSuppressionResult) => void;
+	/** 真正送往 ASR 的 16k PCM，用于工作台展示反相器输出。 */
+	onCleanedPcm?: (samples: Int16Array) => void;
 	pcm?: Pick<MicCaptureHandlers, "onPcm">;
 }
 
@@ -355,6 +368,8 @@ export class MicCapture {
 	private latestMicLevel = 0;
 	private echoLevel?: () => number;
 	private echoReference?: (startMs: number, length: number) => Float32Array;
+	private onEchoSuppression?: (result: EchoSuppressionResult) => void;
+	private onCleanedPcm?: (samples: Int16Array) => void;
 
 	private constructor(stream: MediaStream, context: AudioContext, source: MediaStreamAudioSourceNode) {
 		this.stream = stream;
@@ -409,6 +424,8 @@ export class MicCapture {
 		this.echo.markerOnsets = options.markerOnsets;
 		this.echoLevel = options.echoLevel;
 		this.echoReference = options.echoReference;
+		this.onEchoSuppression = options.onEchoSuppression;
+		this.onCleanedPcm = options.onCleanedPcm;
 		const basePcm = pcmSink(options.pcm?.onPcm);
 		const pcm = basePcm
 			? (data: unknown) => {
@@ -447,25 +464,72 @@ export class MicCapture {
 	/** 先丢明显回录，再按校准偏移/增益做 mic - gain × delayedReference。 */
 	private cleanPcm(data: unknown): unknown | null {
 		if (this.echoLevel) this.echo.setReference(this.echoLevel());
-		const message = data as { type?: string; buffer?: ArrayBuffer } | null;
-		if (message?.type !== "pcm" || !(message.buffer instanceof ArrayBuffer)) return null;
-		const pcm = new Int16Array(message.buffer);
+		const message = data as { type?: string; payload?: ArrayBuffer; buffer?: ArrayBuffer } | null;
+		const rawBuffer = message?.buffer instanceof ArrayBuffer ? message.buffer : message?.payload;
+		if (message?.type !== "pcm" || !(rawBuffer instanceof ArrayBuffer)) return null;
+		const pcm = new Int16Array(rawBuffer);
 		if (pcm.length === 0) return null;
-		let sum = 0;
-		for (let i = 0; i < pcm.length; i += 1) sum += pcm[i] * pcm[i];
-		const level = Math.sqrt(sum / pcm.length) / 32768;
+		let micEnergy = 0;
+		for (let i = 0; i < pcm.length; i += 1) micEnergy += (pcm[i] ?? 0) * (pcm[i] ?? 0);
+		const level = Math.sqrt(micEnergy / pcm.length) / 32768;
 		this.latestMicLevel = level;
-		if (this.echo.isEcho(level)) return null;
-		const gain = this.echo.gainValue;
-		if (gain === null || !this.echoReference) return data;
 
-		const startMs = performance.now() - (pcm.length / 16) - this.echo.delay;
-		const reference = this.echoReference(startMs, pcm.length);
+		const gain = this.echo.gainValue;
+		if (gain === null || !this.echoReference) {
+			this.onCleanedPcm?.(pcm);
+			return this.echo.isEcho(level) ? null : data;
+		}
+
+		const baseStart = performance.now() - pcm.length / 16 - this.echo.delay;
+		const scales = [0, 0.5, 0.75, 1, 1.25] as const;
+		let best: { delta: number; scale: number; polarity: 1 | -1; energy: number } | null = null;
+		for (let delta = -80; delta <= 80; delta += 8) {
+			const reference = this.echoReference(baseStart - delta, pcm.length);
+			let referenceEnergy = 0;
+			for (let i = 0; i < reference.length; i += 1) referenceEnergy += (reference[i] ?? 0) ** 2;
+			if (referenceEnergy < 1e-9) continue;
+			for (const scale of scales) {
+				const effective = Math.min(3.5, gain * scale);
+				let minusEnergy = 0;
+				let plusEnergy = 0;
+				for (let i = 0; i < pcm.length; i += 1) {
+					const scaled = Math.round((reference[i] ?? 0) * effective * 32768);
+					const original = pcm[i] ?? 0;
+					const sub = Math.max(-32768, Math.min(32767, original - scaled));
+					const add = Math.max(-32768, Math.min(32767, original + scaled));
+					minusEnergy += sub * sub;
+					plusEnergy += add * add;
+				}
+				const energy = Math.min(minusEnergy, plusEnergy);
+				const polarity = minusEnergy <= plusEnergy ? 1 : -1;
+				if (best === null || energy < best.energy) best = { delta, scale, polarity, energy };
+			}
+		}
+
+		if (best === null || best.scale === 0) {
+			this.onCleanedPcm?.(pcm);
+			return this.echo.isEcho(level) ? null : data;
+		}
+
+		const reference = this.echoReference(baseStart - best.delta, pcm.length);
+		const effectiveGain = Math.min(3.5, gain * best.scale) * best.polarity;
 		const cleaned = new Int16Array(pcm.length);
 		for (let i = 0; i < pcm.length; i += 1) {
-			const value = (pcm[i] ?? 0) - Math.round((reference[i] ?? 0) * gain * 32768);
-			cleaned[i] = Math.max(-32768, Math.min(32767, value));
+			const scaled = Math.round((reference[i] ?? 0) * effectiveGain * 32768);
+			const original = pcm[i] ?? 0;
+			cleaned[i] = Math.max(-32768, Math.min(32767, original - scaled));
 		}
+		const cleanLevel = Math.sqrt(best.energy / pcm.length) / 32768;
+		this.onCleanedPcm?.(cleaned);
+		this.onEchoSuppression?.({
+			micLevel: level,
+			cleanLevel,
+			reductionDb: 20 * Math.log10(Math.max(level, 1e-6) / Math.max(cleanLevel, 1e-6)),
+			gain: Math.abs(effectiveGain),
+			delayMs: this.echo.delay + best.delta,
+			polarity: best.polarity,
+		});
+		if (this.echo.isEcho(cleanLevel)) return null;
 		return { type: "pcm", buffer: cleaned.buffer };
 	}
 
