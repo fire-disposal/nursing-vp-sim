@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import useAuthStore from "@/stores/authStore";
 import { useVoiceDialogue } from "@/hooks/useVoiceDialogue";
+import type { VoicePhase } from "@/hooks/voiceTypes";
 import { DEMO_TTS_PATH } from "@/engine/phone/ttsPlayer";
+import { MicCapture } from "@/engine/audio/mic";
 import { PcmStreamPlayer } from "@/engine/tts/pcm-player";
 import { accessHeaders } from "@/utils/accessContext";
 import { prepareAec3, type CancellerStats } from "./aec3";
@@ -31,6 +33,12 @@ export interface UseAcousticWorkbenchResult {
 	ttsBusy: boolean;
 	voiceArmed: boolean;
 	voiceNotice: string | null;
+	asrPhase: VoicePhase;
+	asrSupported: boolean;
+	asrFailed: boolean;
+	basicVoiceMode: boolean;
+	speechActive: boolean;
+	monitoring: boolean;
 	speaker: string;
 	setSpeaker: (value: string) => void;
 	text: string;
@@ -74,6 +82,9 @@ export function useAcousticWorkbench({
 	const [spanSeconds, setSpanSeconds] = useState("10");
 
 	const playerRef = useRef<PcmStreamPlayer | null>(null);
+	const monitorRef = useRef<MicCapture | null>(null);
+	const monitorSeqRef = useRef(0);
+	const [monitorActive, setMonitorActive] = useState(false);
 	const waveRef = useRef<AcousticWaveHistory>(createWaves());
 	const runRef = useRef(0);
 	const readyRef = useRef<(() => void) | null>(null);
@@ -98,6 +109,39 @@ export function useAcousticWorkbench({
 		aec3AtRef.current = now;
 		setAec3Stats(next);
 	}, []);
+
+	const closeMonitor = useCallback(async () => {
+		monitorSeqRef.current += 1;
+		const capture = monitorRef.current;
+		monitorRef.current = null;
+		setMonitorActive(false);
+		await capture?.close().catch(() => undefined);
+	}, []);
+
+	/** 只供波形：仍走 AEC3 与参考读取，但不建立 ASR 发送回调。 */
+	const openMonitor = useCallback(async () => {
+		if (monitorRef.current) return;
+		const seq = ++monitorSeqRef.current;
+		try {
+			const capture = await MicCapture.open({
+				aec3: true,
+				echoReference: (startMs, length) =>
+					playerRef.current?.readReference(startMs, length) ?? new Float32Array(length),
+				onPcmFrame,
+				onAec3Stats,
+				pcm: { onPcm: () => undefined },
+			});
+			if (seq !== monitorSeqRef.current) {
+				await capture.close().catch(() => undefined);
+				return;
+			}
+			monitorRef.current = capture;
+			setMonitorActive(true);
+		} catch (err) {
+			if (seq !== monitorSeqRef.current) return;
+			setError((err as Error)?.message ?? "音频监视启动失败");
+		}
+	}, [onAec3Stats, onPcmFrame]);
 
 	const onVoiceReady = useCallback(() => {
 		readyRef.current?.();
@@ -125,12 +169,26 @@ export function useAcousticWorkbench({
 	const stop = useCallback(() => {
 		runRef.current += 1;
 		voiceStopRef.current();
+		void closeMonitor();
 		playerRef.current?.dispose();
 		playerRef.current = null;
 		setRunning(false);
 		setStep("");
 		waveRef.current = createWaves();
-	}, []);
+	}, [closeMonitor]);
+
+	const startMonitor = useCallback(() => {
+		void (async () => {
+			await closeMonitor();
+			voice.start();
+		})();
+	}, [closeMonitor, voice]);
+
+	/** 只停 ASR，不停采集：右侧波形继续由 AEC3 监听供数。 */
+	const stopMonitor = useCallback(() => {
+		voiceStopRef.current();
+		void openMonitor();
+	}, [openMonitor]);
 
 	// 每 2 秒上报一次最新 AEC3 统计；不随统计更新频率触发请求。
 	useEffect(() => {
@@ -166,8 +224,9 @@ export function useAcousticWorkbench({
 
 	useEffect(() => () => {
 		voiceStopRef.current();
+		void closeMonitor();
 		playerRef.current?.dispose();
-	}, []);
+	}, [closeMonitor]);
 
 	const startCalibration = useCallback(async () => {
 		stop();
@@ -232,6 +291,12 @@ export function useAcousticWorkbench({
 		ttsBusy,
 		voiceArmed: voice.continuousArmed,
 		voiceNotice: voice.notice,
+		asrPhase: voice.phase,
+		asrSupported: voice.supported,
+		asrFailed: voice.continuousFailed,
+		basicVoiceMode: voice.basicVoiceMode,
+		speechActive: voice.speechActive,
+		monitoring: voice.continuousArmed || monitorActive,
 		speaker,
 		setSpeaker,
 		text,
@@ -241,8 +306,8 @@ export function useAcousticWorkbench({
 		waves: waveRef.current,
 		startCalibration,
 		stop,
-		startMonitor: voice.start,
-		stopMonitor: voice.stop,
+		startMonitor,
+		stopMonitor,
 		playTts,
 	};
 }

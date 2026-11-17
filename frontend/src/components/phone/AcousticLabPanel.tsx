@@ -1,7 +1,8 @@
-import { Badge, Button, Card, Group, Select, Stack, Text, TextInput } from "@mantine/core";
+import { Badge, Button, Card, Group, Paper, Select, Stack, Text, TextInput } from "@mantine/core";
 import { IconPlayerPlay, IconPlayerStop, IconRefresh } from "@tabler/icons-react";
 import { PHONE_CHARACTERS } from "@/engine/phone/characters";
 import { useAcousticWorkbench } from "@/engine/audio/useAcousticWorkbench";
+import { describeAsrStatus } from "@/engine/audio/asrStatus";
 import AcousticWaveform from "./AcousticWaveform";
 import "./AcousticLabPanel.css";
 
@@ -9,6 +10,17 @@ import "./AcousticLabPanel.css";
 export default function AcousticLabPanel() {
 	const lab = useAcousticWorkbench({
 		initialSpeaker: PHONE_CHARACTERS[2]?.speaker ?? PHONE_CHARACTERS[0]?.speaker ?? "",
+	});
+	const asrStatus = describeAsrStatus({
+		phase: lab.asrPhase,
+		supported: lab.asrSupported,
+		armed: lab.voiceArmed,
+		speechActive: lab.speechActive,
+		failed: lab.asrFailed,
+		basicVoiceMode: lab.basicVoiceMode,
+		notice: lab.voiceNotice,
+		transcript: lab.transcript,
+		monitoring: lab.monitoring,
 	});
 
 	return (
@@ -40,6 +52,7 @@ export default function AcousticLabPanel() {
 								AEC3 延迟 {lab.aec3Stats.delayMs ?? "—"}ms · ERLE {lab.aec3Stats.erleDb?.toFixed(1) ?? "—"}dB · 参考缺失 {lab.aec3Stats.referenceShort} · 参考丢弃 {lab.aec3Stats.referenceDropped}
 							</Text>
 						)}
+						{lab.error && <Text size="xs" c="red">工作台错误：{lab.error}</Text>}
 						<Text size="sm" fw={600}>TTS</Text>
 						<TextInput value={lab.text} onChange={(event) => lab.setText(event.currentTarget.value)} aria-label="TTS 测试文本" />
 						<Group gap="xs" align="flex-end" wrap="nowrap">
@@ -55,28 +68,44 @@ export default function AcousticLabPanel() {
 							</Button>
 						</Group>
 
-						<Text size="sm" fw={600}>ASR</Text>
-						<Group gap="xs">
+						<Group justify="space-between" align="center">
+							<Text size="sm" fw={600}>ASR</Text>
+							<Badge
+								size="xs"
+								variant="light"
+								color={asrStatus.tone}
+								data-testid="asr-status"
+								role="status"
+								aria-live="polite"
+							>
+								{asrStatus.label}
+							</Badge>
+						</Group>
+						<Group gap="xs" align="flex-start" wrap="nowrap">
 							{lab.voiceArmed ? (
 								<Button size="xs" color="red" variant="light" onClick={lab.stopMonitor}>停止</Button>
 							) : (
-								<Button size="xs" onClick={lab.startMonitor}>开始</Button>
+								<Button size="xs" onClick={lab.startMonitor} disabled={!lab.asrSupported}>开始</Button>
 							)}
+							<Text size="xs" c="dimmed" pt={4}>{asrStatus.detail}</Text>
 						</Group>
-						{lab.transcript && <Text size="sm" c="dimmed">实时：{lab.transcript}</Text>}
-						{lab.recognized && <Text size="sm">最终：{lab.recognized}</Text>}
-						{(lab.error || lab.voiceNotice) && <Text size="sm" c="red">{lab.error ?? lab.voiceNotice}</Text>}
+						<Paper withBorder p="xs" radius="sm">
+							<Text size="xs" c="dimmed">实时转写</Text>
+							<Text size="sm" mih={20}>{lab.transcript || "等待说话…"}</Text>
+							<Text size="xs" c="dimmed" mt={4}>最近提交</Text>
+							<Text size="sm" mih={20}>{lab.recognized || "尚无最终结果"}</Text>
+						</Paper>
 					</Stack>
 
 					<Stack gap="sm" className="acoustic-waveforms">
 						<Group justify="space-between" gap="sm">
 							<Group gap="xs">
 								<Text size="sm" fw={600}>波形</Text>
-								<Badge size="xs" variant="light" color={lab.voiceArmed ? "teal" : "gray"}>
-									{lab.voiceArmed ? "收音持续中" : "未收音"}
+								<Badge size="xs" variant="light" color={lab.monitoring ? "teal" : "gray"}>
+									{lab.monitoring ? "音频监视中" : "未收音"}
 								</Badge>
 								<Button size="compact-xs" variant="subtle" onClick={lab.voiceArmed ? lab.stopMonitor : lab.startMonitor}>
-									{lab.voiceArmed ? "停止" : "开始"}
+									{lab.voiceArmed ? "停止识别" : "开始识别"}
 								</Button>
 							</Group>
 							<Select

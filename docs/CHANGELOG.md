@@ -31,6 +31,8 @@
 
 **迟到分片闸门**：TTS 回复引入内部代次。`stop()` 或新回合 `begin()` 后，旧请求的首块、字节数、兜底朗读和 `finish()` 全部作废；PCM 播放读循环收到 abort 后不再把已到达的块排进 AudioContext。修复插话后仍冒出半句患者语音、旧开场白收尾误关新回复的问题。
 
+**连续识别与工作台**：无 VAD 模式提交第一句后，`VoiceTurnController` 允许下一条 interim 开启新回合，并按文本与时间窗口挡住同句迟到帧；修复“最近提交一次后 ASR 再也不更新”。声学工作台的 ASR 停止只关闭识别会话，另行保留 AEC3 采集供右侧波形；ASR 栏拆成未开始、麦克风常开、识别中、提交中、ASR 已停止、基础模式、已降级、不可用，并分开显示实时转写与最近提交。
+
 **音频遥测**：电话与声学工作台每 2 秒回传 AEC3 的 `delayMs / erleDb / erlDb / referenceShort / referenceDropped / nonFiniteSamples / errors` 到 `POST /api/voice-demo/audio-telemetry`。后端用独立内存环形缓冲保存最近样本，`GET /api/voice-demo/audio-telemetry?session_id=…` 按当前用户查询；不改业务表、不阻塞通话。
 
 **静态资源**：护士头像从 721px PNG（约 200KB）改为 256px WebP（约 4KB），并统一异步解码；`/assets/*` 继续使用一年 immutable 缓存，首次加载与弱网明显改善。

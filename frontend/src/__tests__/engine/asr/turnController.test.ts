@@ -249,6 +249,42 @@ describe("轮次：无 VAD 的降级路径", () => {
 		h.controller.interim("等一下");
 		expect(h.barges).toBe(1);
 	});
+
+	it("submits the next utterance after the first one in no-VAD mode", () => {
+		const h = makeHarness({ endpointMs: 800 });
+		h.controller.start();
+		h.controller.interim("你好");
+		vi.advanceTimersByTime(800);
+		expect(h.sent).toEqual(["你好"]);
+
+		h.controller.interim("我头痛");
+		vi.advanceTimersByTime(800);
+		expect(h.sent).toEqual(["你好", "我头痛"]);
+	});
+
+	it("ignores the late duplicate interim from the submitted sentence", () => {
+		const h = makeHarness({ endpointMs: 800 });
+		h.controller.start();
+		h.controller.interim("你好");
+		vi.advanceTimersByTime(800);
+		expect(h.sent).toEqual(["你好"]);
+
+		h.controller.interim("你好");
+		vi.advanceTimersByTime(800);
+		expect(h.sent).toEqual(["你好"]);
+	});
+
+	it("accepts the same words again after the late-interim window", () => {
+		const h = makeHarness({ endpointMs: 800 });
+		h.controller.start();
+		h.controller.interim("你好");
+		vi.advanceTimersByTime(800);
+		vi.advanceTimersByTime(1100);
+
+		h.controller.interim("你好");
+		vi.advanceTimersByTime(800);
+		expect(h.sent).toEqual(["你好", "你好"]);
+	});
 });
 
 describe("电话页：ASR 确认后才允许打断", () => {

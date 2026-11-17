@@ -79,6 +79,9 @@ export class VoiceTurnController {
 	private sent = false;
 	/** 本句是否已经收到过 definite（迟到的重复结果据此丢弃）。 */
 	private settled = false;
+	/** 上一句已提交的文本与时间：用于挡住同一句的迟到 interim 重复。 */
+	private submittedText = "";
+	private submittedAt = 0;
 
 	constructor(
 		private readonly target: VoiceTurnTarget,
@@ -237,12 +240,17 @@ export class VoiceTurnController {
 		this.submit(merged);
 	}
 
-	/**
-	 * 无 VAD 的降级信号：有新的中间结果 ⇒ 重起静音窗口。
+	/** 无 VAD 的降级信号：有新的中间结果 ⇒ 重起静音窗口。
 	 * 供应商只给 `interim`（Web Speech / 降级云 ASR），没有 VAD 轮次事件。
 	 */
 	interim(text: string, eventEpoch = this.epoch): void {
 		if (!this.isCurrent(eventEpoch)) return;
+		// 无 VAD 时没有 speechStart 来重置 settled。提交后必须允许下一条
+		// interim 开启新一轮，否则第一句之后就永远收不到内容。
+		if (this.sent && !this.isLateInterim(text)) {
+			this.resetTurn();
+			this.setPhase("listening");
+		}
 		if (this.settled) return;
 		if (!this.barged && text.trim()) this.tryBarge(text);
 		if (!this.turn) this.turn = { text: "" };
@@ -266,11 +274,21 @@ export class VoiceTurnController {
 		}, endpointMs);
 	}
 
+	private isLateInterim(text: string): boolean {
+		if (!this.sent || !this.settled) return false;
+		// 同一句的末帧可能在提交后才到；短窗口内同文/前缀按迟到处理。
+		if (Date.now() - this.submittedAt > 1000) return false;
+		const next = text.trim();
+		return Boolean(next) && (next === this.submittedText || this.submittedText.startsWith(next));
+	}
+
 	// ── 内部 ──
 
 	private submit(text: string): void {
 		if (this.sent) return;
 		this.settled = true;
+		this.submittedText = text;
+		this.submittedAt = Date.now();
 		this.clearTimers();
 		this.setPhase("sending");
 		this.setTranscript("");
