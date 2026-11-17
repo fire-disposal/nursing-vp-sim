@@ -5,6 +5,11 @@ import type { DemoTTSPlayer } from "@/engine/phone/ttsPlayer";
 import { usePhoneCall } from "@/engine/phone/usePhoneCall";
 import type { UseVoiceDialogueOptions, UseVoiceDialogueResult } from "@/hooks/useVoiceDialogue";
 
+vi.mock("@/engine/audio/aec3", () => ({
+	// 单测不加载 525KB wasm，也不发网络请求；声学算法另有测试覆盖。
+	prepareAec3: vi.fn(async () => ({})),
+}));
+
 /**
  * 电话运行时：ASR 走 demo（recordId=0）、回复走注入的 SSE（不调真实模型）、
  * TTS 走注入的假播放器。全程不开麦、不发网络请求。
@@ -56,6 +61,7 @@ function fakePlayer() {
 	const spoken: string[] = [];
 	let stopCalls = 0;
 	const player = {
+		begin: vi.fn(),
 		speak: vi.fn(async (text: string) => {
 			spoken.push(text);
 			for (const fn of listeners) fn({ type: "first-block", ms: 120, fallback: false });
@@ -165,6 +171,7 @@ describe("handleUserText → LLM 流 → TTS", () => {
 	it("请求带角色、当前情绪与短历史，文本块进气泡与 TTS 队列", async () => {
 		const { result, tts, chat } = renderCall("su-xiaoman");
 		act(() => result.current.handleUserText("你好呀"));
+		expect(tts.player.begin).toHaveBeenCalled();
 		const first = chat.streamChat.mock.calls[0][0] as {
 			character_id: string;
 			history: DemoHistoryMessage[];

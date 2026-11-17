@@ -65,15 +65,26 @@ export class PcmStreamPlayer {
 	async playStream(
 		stream: ReadableStream<Uint8Array>,
 		onFirstChunk?: () => void,
+		signal?: AbortSignal,
 	): Promise<number> {
+		if (signal?.aborted) return 0;
 		const ctx = await this.prime();
+		if (signal?.aborted) return 0;
 		const reader = stream.getReader();
+		const cancelRead = () => {
+			void reader.cancel().catch(() => undefined);
+		};
+		signal?.addEventListener("abort", cancelRead, { once: true });
 		let leftover: Uint8Array | null = null;
 		let bytes = 0;
 		let firstFired = false;
 		try {
 			for (;;) {
+				if (signal?.aborted) break;
 				const { done, value } = await reader.read();
+				// stop 可能发生在 read() 等待期间；此时这个块属于已取消的回复，
+				// 不能再用它建立播放时间线。
+				if (signal?.aborted) break;
 				if (done) break;
 				if (!value?.length) continue;
 				let buf: Uint8Array = leftover ? concat(leftover, value) : value;
@@ -84,6 +95,7 @@ export class PcmStreamPlayer {
 					leftover = null;
 				}
 				if (!buf.length) continue;
+				if (signal?.aborted) break;
 				bytes += buf.length;
 				if (!firstFired) {
 					firstFired = true;
@@ -107,6 +119,10 @@ export class PcmStreamPlayer {
 				src.onended = () => this.sources.delete(src);
 			}
 		} finally {
+			signal?.removeEventListener("abort", cancelRead);
+			if (signal?.aborted) {
+				await reader.cancel().catch(() => undefined);
+			}
 			reader.releaseLock();
 		}
 		return bytes;

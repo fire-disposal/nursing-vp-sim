@@ -25,13 +25,23 @@ function makeHarness(
 			status: 200,
 			headers: { "X-TTS-Emotion": "relaxed", "X-TTS-Voice": "zh_female_x", "X-TTS-Sample-Rate": "24000" },
 		}),
-	options: { playbackBytes?: number } = {},
+	options: {
+		playbackBytes?: number;
+		playStreamImpl?: (
+			stream: ReadableStream<Uint8Array>,
+			onFirstChunk?: () => void,
+			signal?: AbortSignal,
+		) => Promise<number>;
+	} = {},
 ): Harness {
 	const events: string[] = [];
-	const playStream = vi.fn(async (_stream: ReadableStream<Uint8Array>, onFirstChunk?: () => void) => {
-		onFirstChunk?.();
-		return options.playbackBytes ?? 4096;
-	});
+	const playStream = vi.fn(
+		options.playStreamImpl ??
+			(async (_stream: ReadableStream<Uint8Array>, onFirstChunk?: () => void) => {
+				onFirstChunk?.();
+				return options.playbackBytes ?? 4096;
+			}),
+	);
 	const stopPlayer = vi.fn();
 	const fallbackSpeak = vi.fn(async () => undefined);
 	const fallbackStop = vi.fn();
@@ -64,6 +74,7 @@ function makeHarness(
 describe("DemoTTSPlayer", () => {
 	it("请求共享契约：路径、body 四字段与鉴权头", async () => {
 		const h = makeHarness();
+		h.player.begin();
 		h.player.setContext("irritated", "phone-he-jianfeng");
 		await h.player.speak("你好。");
 		const [url, init] = h.fetchMock.mock.calls[0];
@@ -80,12 +91,14 @@ describe("DemoTTSPlayer", () => {
 
 	it("读响应头回显：情绪 / 音色 / 采样率", async () => {
 		const h = makeHarness();
+		h.player.begin();
 		await h.player.speak("你好。");
 		expect(h.player.meta).toEqual({ emotion: "relaxed", voice: "zh_female_x", sampleRate: 24000 });
 	});
 
 	it("PCM 流交给播放内核，并上报首块延迟", async () => {
 		const h = makeHarness();
+		h.player.begin();
 		await h.player.speak("第一句。第二句。");
 		expect(h.playStream).toHaveBeenCalledTimes(2);
 		expect(h.player.firstBlockLatency).not.toBeNull();
@@ -100,6 +113,7 @@ describe("DemoTTSPlayer", () => {
 			rejectHang = reject;
 		});
 		const h = makeHarness(() => hang as unknown as Response);
+		h.player.begin();
 		const speaking = h.player.speak("挂住的句子。");
 		await vi.waitFor(() => expect(h.fetchMock).toHaveBeenCalled());
 		const signal = h.fetchMock.mock.calls[0][1]?.signal as AbortSignal;
@@ -113,6 +127,7 @@ describe("DemoTTSPlayer", () => {
 
 	it("服务端失败时落到浏览器兜底，且整段只降级一次", async () => {
 		const h = makeHarness(() => new Response("nope", { status: 503 }));
+		h.player.begin();
 		await h.player.speak("一。二。三。");
 		expect(h.fallbackSpeak).toHaveBeenCalledTimes(3);
 		// 降级后第二、三句不再发请求（不来回切换音色）
@@ -123,6 +138,7 @@ describe("DemoTTSPlayer", () => {
 
 	it("云端返回空音频也走兜底（bytes=0）", async () => {
 		const h = makeHarness(undefined, { playbackBytes: 0 });
+		h.player.begin();
 		await h.player.speak("没有音频。");
 		expect(h.fallbackSpeak).toHaveBeenCalledTimes(1);
 	});
@@ -133,6 +149,7 @@ describe("DemoTTSPlayer", () => {
 		h.player.subscribe((e) => {
 			if (e.type === "done") done(e.blocks);
 		});
+		h.player.begin();
 		// 流式文本块：只有句读处才会立刻送去合成
 		await h.player.speak("一句。");
 		await h.player.speak("还没说完的半句");
@@ -145,9 +162,53 @@ describe("DemoTTSPlayer", () => {
 
 	it("stop() 会停掉浏览器兜底朗读", async () => {
 		const h = makeHarness(() => new Response("boom", { status: 500 }));
+		h.player.begin();
 		const run = h.player.speak("兜底一句。");
 		await run;
 		h.player.stop();
 		expect(h.fallbackStop).toHaveBeenCalled();
+	});
+
+	it("stop() 后迟到的首块与字节数不能复活播放", async () => {
+		let release: () => void = () => undefined;
+		const gate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		let streamSignal: AbortSignal | undefined;
+		const h = makeHarness(undefined, {
+			playStreamImpl: async (_stream, onFirstChunk, signal) => {
+				streamSignal = signal;
+				await gate;
+				// 模拟网络层无视 abort，stop 之后才把首块和字节数送回来。
+				onFirstChunk?.();
+				return 4096;
+			},
+		});
+		h.player.begin();
+		const run = h.player.speak("迟到的句子。");
+		await vi.waitFor(() => expect(h.playStream).toHaveBeenCalledTimes(1));
+		h.player.stop();
+		expect(streamSignal?.aborted).toBe(true);
+		release();
+		await run;
+		expect(h.events).not.toContain("first-block");
+		expect(h.events).not.toContain("speaking");
+		expect(h.player.speaking).toBe(false);
+	});
+
+	it("stop() 后旧 speak/finish 不请求新音频，也不发完成事件", async () => {
+		const h = makeHarness();
+		h.player.begin();
+		h.player.stop();
+		await h.player.speak("旧回复迟到文本。");
+		await h.player.finish();
+		expect(h.fetchMock).not.toHaveBeenCalled();
+		expect(h.events).not.toContain("done");
+
+		// 新回复必须显式 begin：内部代次推进后仍可正常出声。
+		h.player.begin();
+		await h.player.speak("新回复。");
+		expect(h.fetchMock).toHaveBeenCalledTimes(1);
+		expect(h.events).toContain("first-block");
 	});
 });

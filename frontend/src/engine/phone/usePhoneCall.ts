@@ -247,6 +247,9 @@ export function usePhoneCall({
 		turnSeqRef.current += 1;
 		activeTurnRef.current?.abort.abort();
 		activeTurnRef.current = null;
+		playerRef.current?.stop();
+		voiceRef.current?.stop();
+		setSpeaking(false);
 		const initial = character?.initial ?? EMPTY;
 		emotionRef.current = initial;
 		setEmotion(initial);
@@ -290,9 +293,12 @@ export function usePhoneCall({
 			const player = playerRef.current;
 			if (!player) return;
 			const seq = ++ttsSeqRef.current;
+			player.begin();
 			player.setContext(dominantLabel(emotionRef.current), `phone-${characterId ?? "demo"}`);
 			await player.speak(text);
+			if (ttsSeqRef.current !== seq) return;
 			await player.finish();
+			if (ttsSeqRef.current !== seq) return;
 			await player.waitIdle();
 			if (ttsSeqRef.current === seq) setSpeaking(false);
 		},
@@ -334,6 +340,7 @@ export function usePhoneCall({
 			lastPatientTextRef.current = "";
 			setStage("waiting_reply");
 			const player = playerRef.current;
+			player?.begin();
 			player?.setContext(dominantLabel(emotionRef.current), `phone-${character.id}`);
 			void streamChat(
 				{
@@ -503,6 +510,11 @@ export function usePhoneCall({
 		setMetrics(EMPTY_METRICS);
 		setCalibration({ status: "pending", delayMs: null, gain: null, score: null });
 		interruptedRef.current = false;
+		// 开场白文本在接通动作里就已知。麦克风与 AEC3 还在启动时也可能收到
+		// 扬声器回录，回录闸门必须先于异步初始化就位。
+		const opener = openingLine(character);
+		openingTextRef.current = opener;
+		lastPatientTextRef.current = opener;
 		pushLog("system", `接通：${character.name}，AEC3 启动中`);
 		const recordingReady = new Promise<void>((resolve) => {
 			voiceReadyRef.current = resolve;
@@ -517,10 +529,7 @@ export function usePhoneCall({
 			if (!ready) throw new Error("麦克风未就绪，无法开始通话");
 			await prepareAec3();
 			if (callSeqRef.current !== callSeq || stageRef.current !== "greeting") return;
-			const opener = openingLine(character);
 			historyRef.current = [{ role: "assistant", content: opener }];
-			lastPatientTextRef.current = opener;
-			openingTextRef.current = opener;
 			openingLineIdRef.current = ++lineSeqRef.current;
 			dispatch({
 				type: "opening",
@@ -533,6 +542,8 @@ export function usePhoneCall({
 		})().catch((err: unknown) => {
 			if (callSeqRef.current !== callSeq) return;
 			shutdown();
+			openingTextRef.current = "";
+			lastPatientTextRef.current = "";
 			setDialed(false);
 			setStage("idle");
 			setCalibration({ status: "failed", delayMs: null, gain: null, score: null });

@@ -96,6 +96,9 @@ export class DemoTTSPlayer {
 	private currentMeta: DemoTTSMeta = { emotion: null, voice: null, sampleRate: 24000 };
 	private emotion = "neutral";
 	private sectionId = "phone-demo";
+	/** 当前允许写入的回复代次；stop/begin 都会推进，旧回调据此作废。 */
+	private generation = 0;
+	private active = false;
 
 	constructor(config: DemoTTSConfig = {}) {
 		this.player = config.player ?? new PcmStreamPlayer();
@@ -174,18 +177,53 @@ export class DemoTTSPlayer {
 	}
 
 	/**
+	 * 开启一轮新的语音回复。
+	 *
+	 * 会停掉上一轮尚未结束的请求与声音，并推进内部代次。此后旧请求返回的
+	 * 首块、字节数、兜底朗读都不能再改状态或排进播放时间线。
+	 */
+	begin(): void {
+		const wasActive = this.active || this.processing || this.phaseValue !== "idle";
+		this.generation += 1;
+		this.active = true;
+		this.queue.length = 0;
+		this.segmenter.reset();
+		this.abortCtl?.abort();
+		this.abortCtl = null;
+		this.processing = false;
+		this.phaseValue = "idle";
+		this.degraded = false;
+		this.blocks = 0;
+		this.firstBlockMs = null;
+		this.requestedAt = performance.now();
+		try {
+			this.player.stop();
+		} catch {
+			/* 播放器未创建 */
+		}
+		try {
+			this.fallback.stop();
+		} catch {
+			/* 浏览器不支持 */
+		}
+		if (wasActive) this.emit({ type: "stopped" });
+	}
+
+	/**
 	 * 推送一段文本（SSE 的单个 content 块）。
 	 *
 	 * 句读处立刻送去合成 —— 流式回复的首块音频因此不等整段说完。
 	 * 返回值在**本块产生的句子全部处理完**时 resolve（不是音频播完）。
+	 * 未先调用 begin()、或本轮已被 stop() 作废时，直接丢弃。
 	 */
 	speak(chunk: string): Promise<void> {
-		if (!chunk) return Promise.resolve();
-		if (this.phaseValue === "idle") this.beginSession();
+		if (!chunk || !this.active) return Promise.resolve();
+		const generation = this.generation;
 		const sentences = this.segmenter.push(chunk);
+		if (!this.isCurrent(generation)) return Promise.resolve();
 		this.emit({ type: "queued", sentences: sentences.length });
 		for (const s of sentences) this.enqueue(s);
-		return this.drain();
+		return this.drain(generation);
 	}
 
 	/**
@@ -193,35 +231,33 @@ export class DemoTTSPlayer {
 	 * 并发出「完成」事件（带本次通话播了几块）。
 	 */
 	finish(): Promise<void> {
+		if (!this.active) return Promise.resolve();
+		const generation = this.generation;
 		const tail = this.segmenter.flush();
 		for (const s of tail) this.enqueue(s);
-		const done = this.drain();
-		this.emit({ type: "done", blocks: this.blocks });
+		const done = this.drain(generation);
+		if (this.isCurrent(generation)) this.emit({ type: "done", blocks: this.blocks });
 		return done;
-	}
-
-	private beginSession(): void {
-		this.degraded = false;
-		this.blocks = 0;
-		this.firstBlockMs = null;
-		this.requestedAt = performance.now();
 	}
 
 	/** 等音频真正播完（含最后一句）。 */
 	async waitIdle(): Promise<void> {
+		const generation = this.generation;
 		await this.player.waitIdle();
-		if (this.phaseValue !== "stopped") this.phaseValue = "idle";
+		if (this.isCurrent(generation)) this.phaseValue = "idle";
 	}
 
-	/** 停止：abort 在途请求、清空队列、停播、停兜底朗读。 */
+	/** 停止：abort 在途请求、清空队列、停播、停兜底朗读，并作废旧回复。 */
 	stop(): void {
-		const wasActive = this.phaseValue !== "idle";
+		const wasActive = this.active || this.processing || this.phaseValue !== "idle";
+		this.active = false;
+		this.generation += 1;
 		this.queue.length = 0;
 		this.segmenter.reset();
 		this.abortCtl?.abort();
 		this.abortCtl = null;
 		this.processing = false;
-		this.phaseValue = "stopped";
+		this.phaseValue = "idle";
 		this.degraded = false;
 		try {
 			this.player.stop();
@@ -234,7 +270,10 @@ export class DemoTTSPlayer {
 			/* 浏览器不支持 */
 		}
 		if (wasActive) this.emit({ type: "stopped" });
-		this.phaseValue = "idle";
+	}
+
+	private isCurrent(generation: number): boolean {
+		return this.active && this.generation === generation;
 	}
 
 	dispose(): void {
@@ -256,44 +295,52 @@ export class DemoTTSPlayer {
 		this.queue.push(sentence);
 	}
 
-	private async drain(): Promise<void> {
-		if (this.processing) return;
+	private async drain(generation: number): Promise<void> {
+		if (!this.isCurrent(generation) || this.processing) return;
 		this.processing = true;
 		this.phaseValue = "synthesizing";
 		try {
 			let index = 0;
-			while (this.queue.length > 0) {
+			while (this.isCurrent(generation) && this.queue.length > 0) {
 				const sentence = this.queue.shift();
 				if (!sentence) break;
 				this.emit({ type: "sentence", text: sentence, index });
 				index += 1;
-				await this.speakSentence(sentence);
+				await this.speakSentence(sentence, generation);
 			}
 		} finally {
-			this.processing = false;
-			if (this.phaseValue === "synthesizing" || this.phaseValue === "speaking") {
-				this.phaseValue = "idle";
+			// 旧 drain 结束后不能把新回复的 processing 清掉。
+			if (this.generation === generation) {
+				this.processing = false;
+				if (this.phaseValue === "synthesizing" || this.phaseValue === "speaking") {
+					this.phaseValue = "idle";
+				}
 			}
 		}
 	}
 
-	private async speakSentence(sentence: string): Promise<void> {
+	private async speakSentence(sentence: string, generation: number): Promise<void> {
+		if (!this.isCurrent(generation)) return;
 		if (this.degraded) {
-			await this.speakFallback(sentence);
+			await this.speakFallback(sentence, generation);
 			return;
 		}
 		const ctl = new AbortController();
 		this.abortCtl = ctl;
 		let gotAudio = false;
 		const onFirstChunk = () => {
+			if (!this.isCurrent(generation) || ctl.signal.aborted) return;
 			gotAudio = true;
-			this.markFirstBlock();
+			this.markFirstBlock(generation);
 		};
 		try {
 			// 有回采/回声消除的设备上先建音频图：首块能立刻出声，而不是等 context 启动。
 			await this.player.prime().catch(() => undefined);
+			if (!this.isCurrent(generation) || ctl.signal.aborted) return;
 			const stream = await this.requestStream(sentence, ctl.signal);
-			const bytes = await this.player.playStream(stream, onFirstChunk);
+			if (!this.isCurrent(generation) || ctl.signal.aborted) return;
+			const bytes = await this.player.playStream(stream, onFirstChunk, ctl.signal);
+			if (!this.isCurrent(generation) || ctl.signal.aborted) return;
 			if (bytes > 0) {
 				this.blocks += 1;
 				this.emit({ type: "speaking", text: sentence });
@@ -301,14 +348,15 @@ export class DemoTTSPlayer {
 			}
 			this.emit({ type: "fallback", reason: "服务端没有返回音频" });
 		} catch (err) {
-			if (ctl.signal.aborted) return;
+			if (ctl.signal.aborted || !this.isCurrent(generation)) return;
 			this.emit({ type: "fallback", reason: (err as Error)?.message ?? "合成失败" });
 		} finally {
 			if (this.abortCtl === ctl) this.abortCtl = null;
 		}
+		if (!this.isCurrent(generation) || ctl.signal.aborted) return;
 		// 本句的云端音频没出来 → 本次通话后续都用浏览器兜底（不来回切换音色）。
 		if (!gotAudio) this.degraded = true;
-		await this.speakFallback(sentence);
+		await this.speakFallback(sentence, generation);
 	}
 
 	/** 请求契约：JSON body + 三个回显头。503 = 服务端阈值保护，按兜底处理。 */
@@ -329,6 +377,7 @@ export class DemoTTSPlayer {
 			body: JSON.stringify(body),
 			signal,
 		});
+		if (signal.aborted) throw new DOMException("回复已取消", "AbortError");
 		if (!response.ok) {
 			const detail = await response.text().catch(() => "");
 			throw new Error(`TTS 流失败：HTTP ${response.status}${detail ? ` · ${detail.slice(0, 160)}` : ""}`);
@@ -344,20 +393,23 @@ export class DemoTTSPlayer {
 	}
 
 	/** 首块出声（云端或兜底）：只在本次通话的第一块记延迟。 */
-	private markFirstBlock(): void {
-		if (this.firstBlockMs !== null) return;
+	private markFirstBlock(generation: number): void {
+		if (!this.isCurrent(generation) || this.firstBlockMs !== null) return;
 		this.firstBlockMs = performance.now() - this.requestedAt;
 		this.phaseValue = "speaking";
 		this.emit({ type: "first-block", ms: this.firstBlockMs, fallback: this.degraded });
 	}
 
-	private async speakFallback(text: string): Promise<void> {
+	private async speakFallback(text: string, generation: number): Promise<void> {
+		if (!this.isCurrent(generation)) return;
 		try {
 			this.fallback.emotion = this.emotion;
-			this.markFirstBlock();
+			this.markFirstBlock(generation);
 			await this.fallback.speak(text);
+			if (!this.isCurrent(generation)) return;
 			this.blocks += 1;
 		} catch (err) {
+			if (!this.isCurrent(generation)) return;
 			this.emit({ type: "error", message: (err as Error)?.message ?? "浏览器朗读失败" });
 		}
 	}
