@@ -58,11 +58,11 @@ export type PhoneStage =
 
 export const PHONE_STAGE_LABELS: Record<PhoneStage, string> = {
 	idle: "未开始",
-	greeting: "开场问候",
-	listening: "聆听中",
-	user_speaking: "学生在说",
-	patient_speaking: "对方在说",
-	waiting_reply: "等待回应",
+	greeting: "接通与开场",
+	listening: "等待你说话",
+	user_speaking: "正在听你说话",
+	patient_speaking: "对方回复中",
+	waiting_reply: "等待对方回复",
 	ended: "通话结束",
 };
 

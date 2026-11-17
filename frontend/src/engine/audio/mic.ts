@@ -108,12 +108,10 @@ export class EchoGate {
 		while (this.refHistory.length > 0 && this.refHistory[0].t < cutoff) this.refHistory.shift();
 	}
 
-	/** 每 50ms 的麦克风帧：校准期同时记录，结束前做延迟互相关。 */
+	/** 每 50ms 的麦克风帧：只在校准期记录，结束后不再保留重复历史。 */
 	observe(micLevel: number, now = performance.now()): void {
-		this.micHistory.push({ t: now, level: micLevel });
-		const cutoff = now - 5_000;
-		while (this.micHistory.length > 0 && this.micHistory[0].t < cutoff) this.micHistory.shift();
 		if (!this.calibrating) return;
+		this.micHistory.push({ t: now, level: micLevel });
 		if (now >= this.calibrationUntil || this.micHistory.length >= 60) this.finishCalibration();
 	}
 

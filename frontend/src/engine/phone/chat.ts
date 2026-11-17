@@ -12,9 +12,9 @@ import { accessHeaders } from "@/utils/accessContext";
 
 export const DEMO_CHAT_PATH = "/api/voice-demo/chat/stream";
 
-/** 一问一答的短历史（student/patient 交替）。 */
+/** 一问一答的短历史，直接使用 LLM 的 user/assistant 契约。 */
 export interface DemoHistoryMessage {
-	role: "student" | "patient";
+	role: "user" | "assistant";
 	content: string;
 }
 
@@ -40,29 +40,12 @@ export interface DemoChatOptions extends DemoChatHandlers {
 	fetchImpl?: typeof fetch;
 }
 
-/** 后端历史契约：LLM 只认 user/assistant，页面内部用 student/patient。 */
-export interface DemoApiHistoryMessage {
-	role: "user" | "assistant";
-	content: string;
-}
-
-export interface DemoChatRequestBody {
-	character_id: string;
-	session_id: string;
-	history: DemoApiHistoryMessage[];
-	emotion_state: PhoneEmotionLabel;
-	test_mode?: "long_response";
-}
-
 /** 请求体构造（纯函数，便于断言契约）。 */
-export function buildChatRequest(turn: DemoChatTurn): DemoChatRequestBody {
+export function buildChatRequest(turn: DemoChatTurn): DemoChatTurn {
 	return {
 		character_id: turn.character_id,
 		session_id: turn.session_id,
-		history: turn.history.map((message) => ({
-			role: message.role === "student" ? "user" : "assistant",
-			content: message.content,
-		})),
+		history: turn.history,
 		emotion_state: turn.emotion_state,
 		...(turn.test_mode ? { test_mode: turn.test_mode } : {}),
 	};

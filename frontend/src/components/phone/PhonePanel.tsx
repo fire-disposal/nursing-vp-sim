@@ -1,48 +1,29 @@
-import {
-	ActionIcon,
-	Alert,
-	Badge,
-	Box,
-	Button,
-	Card,
-	Flex,
-	Group,
-	Stack,
-	Text,
-	TextInput,
-	Title,
-	Tooltip,
-} from "@mantine/core";
+import { Alert, Badge, Box, Button, Group, Stack, Text, TextInput } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import {
 	IconArrowLeft,
+	IconChartDots,
+	IconMessage,
+	IconMicrophone,
 	IconPhoneCall,
 	IconPhoneOff,
 	IconPlayerStop,
 	IconSend,
+	IconTestPipe,
 } from "@tabler/icons-react";
+import { useState } from "react";
 import type { PhoneCharacter } from "@/engine/phone/characters";
 import { usePhoneCall } from "@/engine/phone/usePhoneCall";
+import { PHONE_EMOTION_LABELS, PHONE_STAGE_LABELS } from "@/engine/phone/types";
 import { BASIC_VOICE_NOTICE } from "@/hooks/useVoiceDialogue";
 import CallStage from "./CallStage";
 import CallStatusStrip from "./CallStatusStrip";
 import EmotionPanel from "./EmotionPanel";
 import QuickTestBar from "./QuickTestBar";
 import TranscriptLog from "./TranscriptLog";
+import "./PhonePanel.css";
 
-/**
- * PhonePanel —— 一通演示电话的完整界面。
- *
- * 布局（桌面 → 移动端同构，只是从三栏塌成一栏）：
- *   ┌ 头部：返回角色卡 · 名字/脾气 · 停止通话 ┐
- *   ├ 左：程序化角色形象（口型由真实 TTS 输出驱动）
- *   ├ 中：状态条 + 四维情绪 + 转写 + 事件日志 │
- *   └ 底：快捷用例 + 实时转写 + 文本输入      ┘
- *
- * 数据全部来自 `usePhoneCall`：它内部用 `recordId: 0` 走 demo ASR，回复来自
- * `POST /api/voice-demo/chat/stream`（后端权威角色 Prompt），播报走 `DemoTTSPlayer`。
- * 这里不 import 任何训练 store / 评分。
- */
+/** 上方只读：动态角色 + 对话/运行数据。下方控制坞：语音为主，文字与测试为辅助。 */
 export interface PhonePanelProps {
 	character: PhoneCharacter;
 	onBack: () => void;
@@ -51,207 +32,167 @@ export interface PhonePanelProps {
 
 export default function PhonePanel({ character, onBack, reducedMotion = false }: PhonePanelProps) {
 	const call = usePhoneCall({ characterId: character.id });
-	const started = call.dialed;
-	const listening = call.voicePhase === "listening" && !call.speaking;
+	const [panelMode, setPanelMode] = useState<"conversation" | "diagnostics">("conversation");
+	const [textOpen, setTextOpen] = useState(false);
+	const [testsOpen, setTestsOpen] = useState(false);
 	const narrow = useMediaQuery("(max-width: 48em)") === true;
-
-	const stop = () => call.stopCall();
+	const textVisible = textOpen || call.continuousFailed || !call.voiceSupported || Boolean(call.voiceNotice);
+	const voiceStatus = !call.continuousArmed
+		? "语音尚未开启"
+		: call.speaking
+			? "对方播报中，可直接插话"
+			: call.speechActive
+				? "正在听你说话"
+				: "语音聆听中";
 
 	const submitDraft = () => {
 		const text = call.draft.trim();
-		if (!text) return;
+		if (!text || !call.dialed) return;
 		call.setDraft("");
 		call.handleUserText(text);
 	};
 
 	return (
-		<Stack gap="sm" data-testid="phone-panel">
-			<Card withBorder radius="lg" padding="sm">
-				<Group justify="space-between" wrap="wrap" gap="sm">
-					<Group gap="sm" wrap="nowrap" style={{ flex: "1 1 140px", minWidth: 0 }}>
-						<Tooltip label="返回角色卡" withArrow>
-							<ActionIcon variant="subtle" color="gray" onClick={onBack} aria-label="返回角色卡">
-								<IconArrowLeft size={18} />
-							</ActionIcon>
-						</Tooltip>
-						<Stack gap={0} style={{ minWidth: 0 }}>
-							<Text fw={600}>{character.name}</Text>
-							<Text size="xs" c="dimmed" lineClamp={1}>
-								{character.temperament} · {character.voice}
-							</Text>
-						</Stack>
-					</Group>
-					<Group gap="xs" wrap="nowrap" style={{ marginLeft: "auto" }}>
-						{started && (
-							<Button
-								color="red"
-								variant="light"
-								leftSection={<IconPhoneOff size={16} />}
-								onClick={stop}
-							>
-								停止通话
-							</Button>
-						)}
-					</Group>
-				</Group>
-			</Card>
+		<Stack className="phone-panel" gap="md" data-testid="phone-panel">
+			<Group justify="space-between" align="flex-start" className="phone-heading">
+				<Box>
+					<Text fw={650} size="lg">{character.name}</Text>
+					<Text size="sm" c="dimmed">{character.temperament}</Text>
+				</Box>
+				<Badge variant="outline" color={call.dialed ? "teal" : "gray"}>
+					{PHONE_STAGE_LABELS[call.stage]}
+				</Badge>
+			</Group>
 
-			{!started ? (
-				<Card withBorder radius="lg" padding="md">
-					<Group align="center" wrap="wrap" gap="lg">
-						<Box style={{ width: narrow ? "100%" : 220, flexShrink: 0 }}>
-							<CallStage
-								character={character}
-								label={call.label}
-								voicePhase="idle"
-								speaking={false}
-								listening={false}
-								speechActive={false}
-								level={0}
-								reducedMotion={reducedMotion}
-								compact={narrow}
-							/>
-						</Box>
-						<Stack gap="sm" style={{ flex: "1 1 260px", minWidth: 0 }}>
-							<Title order={4} size="h5">
-								准备与{character.name}通话
-							</Title>
-							<Text size="sm" c="dimmed">
-								{character.temperament}
-							</Text>
-							<Text size="sm">{character.callAbout}</Text>
-							<Text size="xs" c="dimmed">
-								音色：{character.voice}
-							</Text>
-							<Button
-								leftSection={<IconPhoneCall size={16} />}
-								onClick={call.startCall}
-								w={narrow ? "100%" : undefined}
-								mt={4}
-								style={{ alignSelf: "flex-start" }}
-							>
-								开始通话
-							</Button>
-						</Stack>
-					</Group>
-				</Card>
-			) : (
-				<>
-					<CallStatusStrip
-				stage={call.stage}
-				voicePhase={call.voicePhase}
-				continuousArmed={call.continuousArmed}
-				basicVoiceMode={call.basicVoiceMode}
-				continuousFailed={call.continuousFailed}
-				ttsSpeaking={call.speaking}
-				patientReplying={call.stage === "patient_speaking"}
-			/>
-
-			{(call.continuousFailed || call.basicVoiceMode) && (
-				<Alert color="yellow" variant="light" title="语音模式提示">
-					{call.continuousFailed
-						? "持续对谈启动失败（麦克风权限或浏览器限制）。可用下方文本输入继续演示。"
-						: `${BASIC_VOICE_NOTICE}：VAD 跟不上实时，仅用云转写判句。`}
-				</Alert>
-			)}
-			{call.voiceNotice && !call.continuousFailed && !call.basicVoiceMode && (
-				<Text size="xs" c="dimmed">
-					{call.voiceNotice}
-				</Text>
-			)}
-
-			<Box
-				style={{
-					display: "grid",
-					gridTemplateColumns: `repeat(auto-fit, minmax(min(100%, 320px), 1fr))`,
-					gap: "var(--mantine-spacing-md)",
-					alignItems: "start",
-				}}
-			>
-				<Card withBorder radius="lg" padding="sm">
+			<Box className="phone-workspace">
+				<Box className="phone-visual" aria-label="角色状态">
 					<CallStage
 						character={character}
 						label={call.label}
-						voicePhase={call.voicePhase}
+						stage={call.stage}
 						speaking={call.speaking}
-						listening={listening}
 						speechActive={call.speechActive}
 						level={call.ttsLevel}
 						reducedMotion={reducedMotion}
-						compact={narrow}
 					/>
-				</Card>
-				<Card withBorder radius="lg" padding="sm">
-					<Stack gap="sm">
-						<EmotionPanel
-							emotion={call.emotion}
-							label={call.label}
-							ttsEmotion={call.metrics.ttsEmotion}
-						/>
-						<Group gap="xs" wrap="wrap">
-							<Badge variant="light" color={call.voiceSupported ? "teal" : "red"}>
-								{call.voiceSupported ? "语音输入可用" : "语音输入不可用"}
-							</Badge>
-							<Badge variant="light" color={call.turnDetection ? "green" : "yellow"}>
-								{call.turnDetection ? "VAD 轮次检测" : "无 VAD（云转写判句）"}
-							</Badge>
-							<Badge variant="light" color={started ? "blue" : "gray"}>
-								{started ? "通话中" : "未开始"}
-							</Badge>
-						</Group>
-						<TranscriptLog
-							lines={call.lines}
-							log={call.log}
-							metrics={call.metrics}
-							liveTranscript={call.transcript}
-							stacked={narrow}
-							height={narrow ? 72 : 240}
-						/>
-					</Stack>
-				</Card>
+					<Box className="phone-emotion">
+						<EmotionPanel emotion={call.emotion} label={call.label} ttsEmotion={call.metrics.ttsEmotion} compact />
+					</Box>
+				</Box>
+
+				<Stack className="phone-data" gap="sm">
+					<Group justify="space-between" gap="sm" wrap="wrap">
+						<Text fw={600}>{panelMode === "conversation" ? "对话记录" : "运行数据"}</Text>
+						<Text size="xs" c="dimmed">{PHONE_EMOTION_LABELS[call.label]}</Text>
+					</Group>
+					<CallStatusStrip
+						stage={call.stage}
+						voicePhase={call.voicePhase}
+						continuousArmed={call.continuousArmed}
+						basicVoiceMode={call.basicVoiceMode}
+						continuousFailed={call.continuousFailed}
+						ttsSpeaking={call.speaking}
+						patientReplying={call.patientReplying}
+					/>
+					{(call.continuousFailed || call.basicVoiceMode) && (
+						<Alert color="yellow" variant="light">
+							{call.continuousFailed
+								? "持续语音不可用，请展开底部文字输入。"
+								: `${BASIC_VOICE_NOTICE}，语音仍可通过云转写提交。`}
+						</Alert>
+					)}
+					{call.voiceNotice && !call.continuousFailed && !call.basicVoiceMode && (
+						<Text size="sm" c="dimmed">{call.voiceNotice}</Text>
+					)}
+					<TranscriptLog
+						lines={call.lines}
+						log={call.log}
+						metrics={call.metrics}
+						liveTranscript={call.transcript}
+						mode={panelMode}
+						height={narrow ? 280 : 420}
+					/>
+				</Stack>
 			</Box>
 
-			<Card withBorder radius="lg" padding="sm">
-				<Stack gap="sm">
-					<QuickTestBar onRun={call.runQuickTest} disabled={!started} compact={narrow} />
-					<Flex direction={narrow ? "column" : "row"} gap="xs" align={narrow ? "stretch" : "flex-end"}>
+			<Box className="phone-control-dock" data-testid="phone-controls">
+				<Group gap="xs" wrap="wrap" className="phone-primary-controls">
+					<Button variant="subtle" color="gray" leftSection={<IconArrowLeft size={16} />} onClick={onBack}>
+						角色
+					</Button>
+					{call.dialed ? (
+						<Button color="red" variant="light" leftSection={<IconPhoneOff size={16} />} onClick={call.stopCall}>
+							结束通话
+						</Button>
+					) : (
+						<Button leftSection={<IconPhoneCall size={16} />} onClick={call.startCall}>
+							开始通话
+						</Button>
+					)}
+					<Button
+						variant="light"
+						color="orange"
+						leftSection={<IconPlayerStop size={16} />}
+						onClick={() => call.handleBargeIn("manual")}
+						disabled={!call.speaking}
+					>
+						停播
+					</Button>
+					<Group gap={6} className="phone-voice-status" aria-live="polite">
+						<IconMicrophone size={16} />
+						<Text size="sm">{voiceStatus}</Text>
+					</Group>
+					<Group gap={4} wrap="nowrap">
+						<Button
+							variant={textVisible ? "light" : "subtle"}
+							leftSection={<IconMessage size={16} />}
+							onClick={() => setTextOpen((open) => !open)}
+							aria-expanded={textVisible}
+						>
+							文字
+						</Button>
+						<Button
+							variant={testsOpen ? "light" : "subtle"}
+							leftSection={<IconTestPipe size={16} />}
+							onClick={() => setTestsOpen((open) => !open)}
+							aria-expanded={testsOpen}
+						>
+							测试
+						</Button>
+						<Button
+							variant={panelMode === "diagnostics" ? "light" : "subtle"}
+							leftSection={<IconChartDots size={16} />}
+							onClick={() => setPanelMode((mode) => (mode === "conversation" ? "diagnostics" : "conversation"))}
+							aria-pressed={panelMode === "diagnostics"}
+						>
+							诊断
+						</Button>
+					</Group>
+				</Group>
+
+				{textVisible && (
+					<form
+						className="phone-text-controls"
+						onSubmit={(event) => {
+							event.preventDefault();
+							submitDraft();
+						}}
+					>
 						<TextInput
 							style={{ flex: 1 }}
-							placeholder="输入文字，或直接说话"
+							placeholder={call.dialed ? "文字是辅助输入，也可以直接说话" : "先开始通话"}
 							value={call.draft}
-							onChange={(e) => call.setDraft(e.currentTarget.value)}
-							onKeyDown={(e) => {
-								if (e.key === "Enter" && !e.shiftKey) submitDraft();
-							}}
-							aria-label="文本输入"
+							onChange={(event) => call.setDraft(event.currentTarget.value)}
+							disabled={!call.dialed}
+							aria-label="文字输入"
 						/>
-						<Group gap="xs" wrap="nowrap" justify={narrow ? "flex-end" : "flex-start"}>
-							<Button
-								variant="filled"
-								onClick={submitDraft}
-								disabled={!call.draft.trim()}
-								leftSection={<IconSend size={16} />}
-							>
-								发送
-							</Button>
-							<Tooltip label="立即停播（打断）" withArrow>
-								<ActionIcon
-									variant="light"
-									color="red"
-									size="lg"
-									onClick={() => call.handleBargeIn("manual")}
-									disabled={!call.speaking}
-									aria-label="停播"
-								>
-									<IconPlayerStop size={18} />
-								</ActionIcon>
-							</Tooltip>
-						</Group>
-					</Flex>
-				</Stack>
-				</Card>
-				</>
-			)}
+						<Button type="submit" disabled={!call.dialed || !call.draft.trim()} leftSection={<IconSend size={15} />}>
+							发送
+						</Button>
+					</form>
+				)}
+				{testsOpen && <QuickTestBar onRun={call.runQuickTest} disabled={!call.dialed} compact={narrow} />}
+			</Box>
 		</Stack>
 	);
 }

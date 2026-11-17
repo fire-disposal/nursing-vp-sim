@@ -131,10 +131,15 @@ describe("与训练链路无关", () => {
 		expect(voice.harness.start).toHaveBeenCalledTimes(1);
 	});
 
-	it("开始通话播固定开场白，不等模型", () => {
+	it("开始通话播固定开场白，不等模型", async () => {
 		const { result, tts, chat } = renderCall("zhou-zhenguo");
 		act(() => result.current.startCall());
 		expect(result.current.stage).toBe("greeting");
+		await act(async () => {
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		expect(result.current.stage).toBe("listening");
 		expect(tts.spoken[0]).toContain("周建国");
 		expect(chat.streamChat).not.toHaveBeenCalled();
 	});
@@ -160,7 +165,7 @@ describe("handleUserText → LLM 流 → TTS", () => {
 		};
 		expect(first.character_id).toBe("su-xiaoman");
 		expect(first.emotion_state).toBeTruthy();
-		expect(first.history).toEqual([{ role: "student", content: "你好呀" }]);
+		expect(first.history).toEqual([{ role: "user", content: "你好呀" }]);
 
 		await act(async () => {
 			chat.turns[0].chunk("我在呢，");
@@ -180,10 +185,37 @@ describe("handleUserText → LLM 流 → TTS", () => {
 		act(() => result.current.handleUserText("那明天见？"));
 		const second = chat.streamChat.mock.calls[1][0] as { history: DemoHistoryMessage[] };
 		expect(second.history).toEqual([
-			{ role: "student", content: "你好呀" },
-			{ role: "patient", content: "我在呢，你说。" },
-			{ role: "student", content: "那明天见？" },
+			{ role: "user", content: "你好呀" },
+			{ role: "assistant", content: "我在呢，你说。" },
+			{ role: "user", content: "那明天见？" },
 		]);
+	});
+
+	it("等待回复与真实回复分开，空响应不产生患者气泡", async () => {
+		const { result, chat } = renderCall("lin-wanqing");
+		act(() => result.current.handleUserText("我快到了"));
+		expect(result.current.stage).toBe("waiting_reply");
+		expect(result.current.lines.filter((line) => line.role === "patient")).toHaveLength(0);
+
+		await act(async () => {
+			chat.turns[0].chunk("好，你到了告诉我。");
+		});
+		expect(result.current.stage).toBe("patient_speaking");
+		expect(result.current.lines.filter((line) => line.role === "patient")).toHaveLength(1);
+
+		await act(async () => {
+			chat.turns[0].done();
+			await Promise.resolve();
+		});
+		expect(result.current.stage).toBe("listening");
+
+		act(() => result.current.handleUserText("那我再联系你"));
+		await act(async () => {
+			chat.turns[1].done();
+			await Promise.resolve();
+		});
+		expect(result.current.lines.filter((line) => line.role === "patient")).toHaveLength(1);
+		expect(result.current.stage).toBe("listening");
 	});
 
 	it("长回复用例传 test_mode=long_response", () => {
@@ -224,7 +256,7 @@ describe("打断", () => {
 		act(() => onBargeIn?.());
 		expect(tts.stopCalls()).toBeGreaterThan(0);
 		expect(result.current.metrics.stopMs).not.toBeNull();
-		expect(result.current.lines.some((l) => l.interrupted)).toBe(true);
+		expect(result.current.lines.some((l) => l.state === "interrupted")).toBe(true);
 		// 打断后旧轮的迟到帧不再改变气泡
 		const textAfter = result.current.lines.at(-1)?.text;
 		await act(async () => {

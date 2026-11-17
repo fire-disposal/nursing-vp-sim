@@ -1,0 +1,193 @@
+.phone-panel {
+	min-height: min(820px, calc(100dvh - 48px));
+}
+
+.phone-heading {
+	padding-inline: 2px;
+}
+
+.phone-workspace {
+	display: grid;
+	grid-template-columns: minmax(240px, 0.82fr) minmax(0, 1.5fr);
+	gap: var(--mantine-spacing-xl);
+	align-items: stretch;
+	min-width: 0;
+}
+
+.phone-visual {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	gap: var(--mantine-spacing-md);
+	min-width: 0;
+	padding-inline-end: var(--mantine-spacing-xl);
+	border-inline-end: 1px solid var(--mantine-color-gray-3);
+}
+
+.phone-stage-frame {
+	position: relative;
+	width: min(100%, 340px);
+}
+
+.phone-stage-badge {
+	position: absolute;
+	bottom: 12px;
+	inset-inline: 0;
+	display: flex;
+	justify-content: center;
+	pointer-events: none;
+}
+
+.phone-emotion {
+	width: min(100%, 300px);
+	margin-inline: auto;
+}
+
+.phone-data {
+	min-width: 0;
+	align-content: start;
+}
+
+.phone-message {
+	display: flex;
+	flex-direction: column;
+	max-width: min(88%, 620px);
+}
+
+.phone-message-user {
+	margin-inline-start: auto;
+	align-items: flex-end;
+}
+
+.phone-message-patient {
+	margin-inline-end: auto;
+	align-items: flex-start;
+}
+
+.phone-message-bubble {
+	margin-top: 3px;
+	padding: 9px 12px;
+	border-radius: 12px;
+	background: var(--mantine-color-gray-1);
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.phone-message-user .phone-message-bubble {
+	background: var(--mantine-color-teal-1);
+	border-end-end-radius: 4px;
+}
+
+.phone-message-patient .phone-message-bubble {
+	border-end-start-radius: 4px;
+}
+
+.phone-conversation-empty {
+	padding: var(--mantine-spacing-xl) var(--mantine-spacing-md);
+	text-align: center;
+}
+
+.phone-live-preview {
+	padding: 10px 12px;
+	border: 1px dashed var(--mantine-color-teal-5);
+	border-radius: 10px;
+	background: var(--mantine-color-teal-0);
+}
+
+.phone-event-row {
+	display: grid;
+	grid-template-columns: 112px minmax(0, 1fr);
+	gap: var(--mantine-spacing-sm);
+	align-items: start;
+}
+
+.phone-event-meta {
+	padding-top: 2px;
+	font-variant-numeric: tabular-nums;
+}
+
+.phone-control-dock {
+	position: sticky;
+	bottom: 0;
+	z-index: 5;
+	display: grid;
+	gap: var(--mantine-spacing-sm);
+	margin-top: auto;
+	padding: var(--mantine-spacing-sm) 0 var(--mantine-spacing-xs);
+	border-top: 1px solid var(--mantine-color-gray-3);
+	background: var(--mantine-color-body);
+}
+
+.phone-primary-controls {
+	align-items: center;
+}
+
+.phone-voice-status {
+	flex: 1 1 190px;
+	min-width: 160px;
+	color: var(--mantine-color-teal-8);
+}
+
+.phone-text-controls {
+	display: flex;
+	gap: var(--mantine-spacing-xs);
+	align-items: center;
+}
+
+@media (max-width: 48em) {
+	.phone-panel {
+		min-height: calc(100dvh - 32px);
+	}
+
+	.phone-workspace {
+		grid-template-columns: 1fr;
+		gap: var(--mantine-spacing-md);
+	}
+
+	.phone-visual {
+		padding: 0 0 var(--mantine-spacing-md);
+		border-inline-end: 0;
+		border-bottom: 1px solid var(--mantine-color-gray-3);
+	}
+
+	.phone-stage-frame {
+		width: min(100%, 210px);
+	}
+
+	.phone-emotion {
+		display: none;
+	}
+
+	.phone-control-dock {
+		bottom: 64px;
+		padding-bottom: var(--mantine-spacing-sm);
+	}
+
+	.phone-primary-controls {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+
+	.phone-primary-controls > .mantine-Button-root {
+		padding-inline: 8px;
+	}
+
+	.phone-primary-controls > .mantine-Group-root:last-child {
+		grid-column: 1 / -1;
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		width: 100%;
+	}
+
+	.phone-voice-status {
+		grid-column: 1 / -1;
+		order: unset;
+		flex-basis: auto;
+		min-height: 24px;
+	}
+
+	.phone-event-row {
+		grid-template-columns: 1fr;
+		gap: 0;
+	}
+}

@@ -18,7 +18,7 @@ function streamOf(chunks: Uint8Array[]): ReadableStream<Uint8Array> {
 const TURN = {
 	character_id: "su-xiaoman",
 	session_id: "phone-test-session",
-	history: [{ role: "student" as const, content: "你好" }],
+	history: [{ role: "user" as const, content: "你好" }],
 	emotion_state: "anxious_cooperative" as const,
 };
 
@@ -79,7 +79,7 @@ describe("演示对话链路", () => {
 
 	it("历史只保留最近若干条", () => {
 		const history = Array.from({ length: 20 }, (_, i) => ({
-			role: (i % 2 === 0 ? "student" : "patient") as "student" | "patient",
+			role: (i % 2 === 0 ? "user" : "assistant") as "user" | "assistant",
 			content: `m${i}`,
 		}));
 		expect(trimHistory(history, 4).map((m) => m.content)).toEqual(["m16", "m17", "m18", "m19"]);
