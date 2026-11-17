@@ -2,7 +2,7 @@
 
 > 快照性记录，不是运行期契约。后续以代码与 `docs/architecture.md` 为准。
 >
-> 范围：普通问诊训练（`history_taking`）及其附属实体；同时区分情境训练的 LLM 工具。
+> 范围：普通问诊训练（`history_taking`）及其附属实体。
 > 方法：静态代码观察。未运行 LLM 演练，未接触生产数据，未做学生实测。
 > 状态：观察结论与待验证建议，不构成实施承诺。
 
@@ -15,14 +15,13 @@
 
 ## 已确认事实
 
-- 当前只有 `history_taking` 具备真实学生运行入口；`clinical_reasoning` 仍只支持编写、发布与目录展示，训练入口明确拒绝。
+- 两条 workflow 都可开始训练：`history_taking` 与 `clinical_reasoning` 均为 `runtime_ready=True`，V2 在前端 `scene-registry.ts` 有独立场景，患者回合在 `router/chat.py` 分流到 `clinical_reasoning.llm`。
 - 普通训练只有三个静态 Activity：床旁检查、护理记录、随堂测验。没有运行时插件发现或安装机制。
 - 护理记录是唯一的正式学生产物，也是当前唯一可配置为交卷门禁的产物。
 - 护理记录只有已提交的冻结版本进入评分；未提交草稿不进入评分证据。
 - 默认不要求提交护理记录，是否必须提交由单个病例声明。界面上的固定“结束前必须提交”提示与此规则不一致。
 - 随堂测验是独立辅助能力：不进入患者上下文、不参与评分，也不构成完成产物。
 - 床旁检查结果同时进入患者上下文与评分证据；其动作审计时间线已经是训练过程的一部分。
-- 情境训练使用另一套由主持人 LLM 调用的世界演绎工具。它与普通训练 Activity 的执行者、状态模型和持久化方式不同，不应为名称一致而合并。
 
 ## 待验证的产品假设
 
@@ -71,5 +70,4 @@
 - 清单投影：`backend/modules/training/manifest.py`
 - 护理评估评分注入：`backend/modules/training/scoring/engine.py`
 - 评分复盘与再练习：`backend/modules/training/scoring/review_focus.py`、`backend/modules/training/practice.py`
-- 学生训练页与工具面板：`frontend/src/pages/TrainingEntry.tsx`、`frontend/src/components/training/workspace/`
-- V3 概念资产：`backend/modules/scenario_training/{schema,validation,case_folder}.py`（运行期实现已于 2026-11 删除）
+- 学生训练页与工具面板：`frontend/src/pages/practice/TrainingEntry.tsx`、`frontend/src/components/training/workspace/`

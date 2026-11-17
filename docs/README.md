@@ -10,7 +10,6 @@
 | [database.md](database.md) | 迁移规则（`ddl/` 与 `data/` 目录约定）、备份 |
 | [llm.md](llm.md) | 模型档位与用途映射、成本与降级口径 |
 | [operations.md](operations.md) | 部署、备份、监控、应急预案 |
-| [scenario.md](scenario.md) | 情境训练 V3 核心构想与保留的概念资产（无运行时） |
 | [curriculum-fit.md](curriculum-fit.md) | 《健康评估》教材版本、章节适配、病例覆盖与缺口 |
 | [sp-script.md](sp-script.md) | SP 剧本标准与仓库对应物（外部领域参照，非契约） |
 | [ops/](ops/) | 排障与运维速查：诊断契约、院校隔离、前端 UI 约定、语音/LLM 排障、事故复盘 |

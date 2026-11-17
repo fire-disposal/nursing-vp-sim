@@ -1250,3 +1250,11 @@ V2 患者上下文改为稳定人设/完整病史与生活背景/证据 ID 映�
 ### 深色入口与评分稳定性
 
 盲盒入口背景/边框改用 Mantine `brand-light`/`brand-outline` 语义变量，避免深色模式沿用浅色背景导致文字消失。评分阶段预算耗尽后立即走既有超时路径，不再额外延长 15 秒；成绩写入使用训练记录行锁，并在同一事务插入 Score 与置 completed，消除清扫并发造成的“有成绩但 failed”。已有更新重试接管（pending）时旧 worker 不再写入成绩。
+
+## 2026.11 — 删除 V3 情境概念资产，收敛到 V1/V2 两条闭包
+
+**删掉半套**：`backend/modules/scenario_training/**`（`schema` / `validation` / `case_folder` / `standard_case` 与五个病例文件夹）连同 `tests/scenario_training/**`、`docs/scenario.md` 一并删除。运行期实现在 2026-11 已下线，剩下的概念资产只被 AI 读过；原文在 git 历史可查。
+
+`docs/README.md`、`docs/curriculum-fit.md`、`docs/ops/training-core-observation-20261107.md`、`docs/sp-script.md` 里的 V3 指向同步收掉。观察文档另更正两条与代码不符的事实：V2 入口并未被拒（两条 workflow 都是 `runtime_ready=True`，`scene-registry.ts` 有独立场景），训练页路径为 `frontend/src/pages/practice/TrainingEntry.tsx`。
+
+**验收**：后端 `ruff` / `ty` 干净，`pytest` 全绿，前端无改动。
