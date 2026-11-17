@@ -147,10 +147,10 @@ describe("handleUserText → LLM 流 → TTS", () => {
 		const first = chat.streamChat.mock.calls[0][0] as {
 			character_id: string;
 			history: DemoHistoryMessage[];
-			emotion_state: { dominant_state?: string };
+			emotion_state: string;
 		};
 		expect(first.character_id).toBe("su-xiaoman");
-		expect(first.emotion_state.dominant_state).toBeTruthy();
+		expect(first.emotion_state).toBeTruthy();
 		expect(first.history).toEqual([]);
 
 		await act(async () => {

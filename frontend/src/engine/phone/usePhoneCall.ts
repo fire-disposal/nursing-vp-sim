@@ -156,6 +156,8 @@ export function usePhoneCall({
 	const interruptedRef = useRef(false);
 	/** 最近 7 秒患者实际念出的句子（归一化），用于丢弃 ASR 回录。 */
 	const recentTtsRef = useRef<Array<{ norm: string; at: number }>>([]);
+	const lastPatientTextRef = useRef("");
+	const lastPatientAtRef = useRef(0);
 	/** 当前在途的一轮（abort 用）。 */
 	const turnAbortRef = useRef<AbortController | null>(null);
 	const patientLineIdRef = useRef<number | null>(null);
@@ -184,6 +186,11 @@ export function usePhoneCall({
 	}
 	const ttsEchoLevel = useCallback(() => playerRef.current?.outputLevel() ?? 0, []);
 	const ttsEchoGuard = useCallback((text: string) => isTtsEcho(text, recentTtsRef.current), []);
+	const isEchoLike = useCallback((text: string) => {
+		if (isTtsEcho(text, recentTtsRef.current)) return true;
+		if (!lastPatientTextRef.current || performance.now() - lastPatientAtRef.current > 8000) return false;
+		return similarSpeech(normalizeSpeech(text), normalizeSpeech(lastPatientTextRef.current));
+	}, []);
 
 	useEffect(() => {
 		if (!speaking) {
@@ -207,6 +214,8 @@ export function usePhoneCall({
 	/** 患者消息的流式追加：同一个占位气泡逐块长大。 */
 	const appendPatientChunk = useCallback((chunk: string) => {
 		replyTextRef.current += chunk;
+		lastPatientTextRef.current = replyTextRef.current;
+		lastPatientAtRef.current = performance.now();
 		const id = patientLineIdRef.current;
 		if (id === null) return;
 		setLines((prev) => prev.map((line) => (line.id === id ? { ...line, text: replyTextRef.current } : line)));
@@ -291,6 +300,8 @@ export function usePhoneCall({
 			const abort = new AbortController();
 			turnAbortRef.current = abort;
 			replyTextRef.current = "";
+			lastPatientTextRef.current = "";
+			lastPatientAtRef.current = 0;
 			lineSeqRef.current += 1;
 			const placeholderId = lineSeqRef.current;
 			patientLineIdRef.current = placeholderId;
@@ -310,7 +321,7 @@ export function usePhoneCall({
 					character_id: character.id,
 					session_id: sessionIdRef.current,
 					history: trimHistory(historyRef.current),
-					emotion_state: { ...emotionRef.current, dominant_state: dominantLabel(emotionRef.current) },
+					emotion_state: dominantLabel(emotionRef.current),
 					...(testMode ? { test_mode: testMode } : {}),
 				},
 				{
@@ -440,7 +451,7 @@ export function usePhoneCall({
 
 	const voice = voiceHook({
 		onSend: (text) => {
-			if (isTtsEcho(text, recentTtsRef.current)) {
+			if (isEchoLike(text)) {
 				pushLog("system", "忽略患者语音回录");
 				return;
 			}
@@ -478,6 +489,8 @@ export function usePhoneCall({
 		setLog([]);
 		historyRef.current = [];
 		recentTtsRef.current = [];
+		lastPatientTextRef.current = "";
+		lastPatientAtRef.current = 0;
 		setDialed(true);
 		setMetrics({ firstBlockMs: null, stopMs: null, sentenceMs: null, firstTokenMs: null, voice: null, ttsEmotion: null });
 		stageRef.current = "greeting";
@@ -503,6 +516,8 @@ export function usePhoneCall({
 		setSpeaking(false);
 		setPatientReplying(false);
 		recentTtsRef.current = [];
+		lastPatientTextRef.current = "";
+		lastPatientAtRef.current = 0;
 		stageRef.current = "ended";
 		setStage("ended");
 		setDialed(false);

@@ -1,4 +1,4 @@
-import type { EmotionVector, PhoneEmotionLabel } from "./types";
+import type { PhoneEmotionLabel } from "./types";
 import { accessHeaders } from "@/utils/accessContext";
 
 /**
@@ -22,8 +22,8 @@ export interface DemoChatTurn {
 	character_id: string;
 	session_id: string;
 	history: DemoHistoryMessage[];
-	/** 当前四维向量 + 主导标签：后端据此写语气，前端据此挑 TTS 情绪。 */
-	emotion_state: EmotionVector & { dominant_state?: PhoneEmotionLabel };
+	/** 当前主导情绪标签：后端只据此写语气与日志；四维向量留在本地状态机。 */
+	emotion_state: PhoneEmotionLabel;
 	/** 快捷用例：让后端给一段长回复（验证打断链路）。 */
 	test_mode?: "long_response";
 }

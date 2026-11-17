@@ -19,7 +19,7 @@ const TURN = {
 	character_id: "su-xiaoman",
 	session_id: "phone-test-session",
 	history: [{ role: "student" as const, content: "你好" }],
-	emotion_state: { trust: 0.5, anxiety: 0.6, irritation: 0.1, cooperation: 0.7, dominant_state: "anxious_cooperative" as const },
+	emotion_state: "anxious_cooperative" as const,
 };
 
 describe("演示对话链路", () => {
