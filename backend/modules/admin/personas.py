@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Annotated
 
-from fastapi import APIRouter, Depends, Request
-from sqlalchemy import func
+from fastapi import APIRouter, Depends, Query, Request
+from sqlalchemy import func, or_
 
 from core.access import clear_access_cache, grantable_personas, granted_personas
 from core.access import replace_personas as replace_school_personas
@@ -31,13 +31,16 @@ from core.tenant import Scope, TenantScope, scope_query
 from core.unit_of_work import unit_of_work
 from models import School, User, UserSchoolPersona
 from schemas import (
+    PaginatedResponse,
     PersonaCatalogItem,
+    PersonaGrantTarget,
     UserPersonasResponse,
     UserPersonasUpdateRequest,
 )
 
 if TYPE_CHECKING:
-    from sqlalchemy.orm import Query, Session
+    from sqlalchemy.orm import Query as SaQuery
+    from sqlalchemy.orm import Session
 
 
 class PersonaService:
@@ -67,7 +70,7 @@ class PersonaService:
             for definition in PERSONAS.values()
         ]
 
-    def _scoped_user_query(self) -> Query:
+    def _scoped_user_query(self) -> SaQuery:
         """作用域内的用户（``user_count`` 与目标校验共用同一谓词）。"""
         return scope_query(self.db.query(User), User.school_id, self.scope)
 
@@ -108,6 +111,45 @@ class PersonaService:
             return list(PERSONA_KEYS)
         active_school = school_id if school_id is not None else user.school_id
         return sorted(granted_personas(self.db, user, active_school))
+
+    def grant_targets(self, *, search: str, offset: int, limit: int) -> tuple[list[PersonaGrantTarget], int]:
+        """授权页用户列表：只要求 ``role_manage``，不依赖更宽的 ``user_manage``。
+
+        返回字段收敛到授权所需的最小集合；院校边界仍由 ``scope`` 收窄。
+        """
+        query = scope_query(self.db.query(User), User.school_id, self.scope)
+        keyword = search.strip()
+        if keyword:
+            like = f"%{keyword}%"
+            query = query.filter(
+                or_(
+                    User.username.ilike(like),
+                    User.display_name.ilike(like),
+                    User.student_id.ilike(like),
+                )
+            )
+        total = query.count()
+        rows = query.order_by(User.id).offset(offset).limit(limit).all()
+        school_ids = {u.school_id for u in rows if u.school_id is not None}
+        names = (
+            {sid: name for sid, name in self.db.query(School.id, School.name).filter(School.id.in_(school_ids)).all()}
+            if school_ids
+            else {}
+        )
+        items = [
+            PersonaGrantTarget(
+                id=u.id,
+                username=u.username,
+                display_name=u.display_name,
+                student_id=u.student_id,
+                school_id=u.school_id,
+                school_name=names.get(u.school_id) if u.school_id is not None else None,
+                personas=self.granted(u),
+                is_superadmin=is_super_admin(u),
+            )
+            for u in rows
+        ]
+        return items, total
 
     # ── 写入 ──
 
@@ -191,6 +233,20 @@ class PersonaService:
 router = APIRouter(tags=["视角授权"])
 
 _Grantor = Annotated[User, Depends(require_permission("role_manage"))]
+
+
+@router.get("/personas/users", response_model=PaginatedResponse[PersonaGrantTarget])
+def list_grant_targets(
+    current_user: _Grantor,
+    db: DbSession,
+    scope: Scope,
+    search: str = Query(default="", max_length=80),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+) -> PaginatedResponse[PersonaGrantTarget]:
+    """授权页用户列表：只需 ``role_manage``，返回身份/院校/当前视角的最小集合。"""
+    items, total = PersonaService(db, scope).grant_targets(search=search, offset=offset, limit=limit)
+    return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
 
 @router.get("/personas", response_model=list[PersonaCatalogItem])

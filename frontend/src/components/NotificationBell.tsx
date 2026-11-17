@@ -1,4 +1,4 @@
-import { Box, Button, Center, Group, Loader, Text, } from "@mantine/core";
+import { ActionIcon, Box, Button, Center, Group, Loader, Text } from "@mantine/core";
 import { IconBell, } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
@@ -134,17 +134,15 @@ export default function NotificationBell() {
 
 	return (
 		<>
-			<Button
+			<ActionIcon
 				type="button"
-				variant="subtle"
-				color="gray"
-				size="xs"
-				w={32}
-				h={32}
-				p={0}
+				variant="default"
+				size={36}
+				hiddenFrom="sm"
 				onClick={() => setOpen(true)}
 				aria-label={`通知${unreadCount > 0 ? `（${unreadCount} 条未读）` : ""}`}
-				style={{ position: "relative" }}
+				title="通知"
+				style={{ position: "relative", overflow: "visible" }}
 			>
 				<motion.div
 					animate={unreadCount > 0 ? { scale: [1, 1.15, 1] } : { scale: 1 }}
@@ -170,6 +168,50 @@ export default function NotificationBell() {
 							color: "white",
 							background: "var(--mantine-color-red-6)",
 							borderRadius: "50%",
+						}}
+					>
+						{unreadCount > 99 ? "99+" : unreadCount}
+					</motion.span>
+				)}
+			</ActionIcon>
+
+			<Button
+				type="button"
+				variant="default"
+				size="sm"
+				visibleFrom="sm"
+				onClick={() => setOpen(true)}
+				leftSection={
+					<motion.div
+						animate={unreadCount > 0 ? { scale: [1, 1.15, 1] } : { scale: 1 }}
+						transition={unreadCount > 0 ? { repeat: Infinity, repeatDelay: 3, duration: 0.4 } : {}}
+					>
+						<IconBell size={16} />
+					</motion.div>
+				}
+				aria-label={`通知${unreadCount > 0 ? `（${unreadCount} 条未读）` : ""}`}
+				style={{ position: "relative", overflow: "visible" }}
+			>
+				通知
+				{unreadCount > 0 && (
+					<motion.span
+						initial={{ scale: 0 }}
+						animate={{ scale: 1 }}
+						style={{
+							position: "absolute",
+							top: -6,
+							right: -6,
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "center",
+							minWidth: 18,
+							height: 18,
+							paddingInline: 4,
+							fontSize: 11,
+							fontWeight: 700,
+							color: "white",
+							background: "var(--mantine-color-red-6)",
+							borderRadius: 9,
 						}}
 					>
 						{unreadCount > 99 ? "99+" : unreadCount}

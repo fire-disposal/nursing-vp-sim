@@ -19,6 +19,8 @@
 
 **权限审计修复**：`f2c6d9a4b1e8` 把历史 `platform→ops` 转换出的院校 ops 账号提升为超管并清理院校行，避免登录时 ops 闸门锁死；自助改学号纳入院校唯一性校验与档案同步；跨校读取视角授予返回 404；降级插回授予时跳过已删除账号。WebSocket 握手后不重查撤权的窗口仍作为残余风险记录。
 
+**语音演示鉴权**：`voice-demo` 的角色/聊天/TTS/ASR 只要求系统内登录，不做 persona/院校区分；前端 axios、SSE、裸 fetch 与 WebSocket 统一从 `accessContext` 取会话头，修复超管学生视角下 TTS 仍按 ops 默认身份 403、聊天裸 fetch 缺 Authorization 的分叉。`ops` 补 `role_manage` 并新增 `PersonasPage` 专用用户查询，避免“有入口但列表接口 403”。
+
 **电话实验室**：学生侧四位虚构角色自由对话，真实 LLM 独立用途 `voice_demo`，四维情绪驱动 TTS。角色选择、程序化角色形象、VAD/ASR/TTS 状态、转写与打断测试不关联训练业务；实验采集使用独立 `voice_demo_logs`，不提供日志查看 UI。
 
 **静态资源**：护士头像从 721px PNG（约 200KB）改为 256px WebP（约 4KB），并统一异步解码；`/assets/*` 继续使用一年 immutable 缓存，首次加载与弱网明显改善。

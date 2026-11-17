@@ -95,6 +95,22 @@ def test_cross_school_grant_read_is_404(pg_session):
         _service(pg_session, school_a, actor).target_school(target, school_b.id, actor)
 
 
+def test_grant_targets_only_returns_caller_school(pg_session):
+    """授权页用户列表与授予同源：院校外账号不可见，且只需要 role_manage 视角能力。"""
+    school_a = _school(pg_session, "A")
+    school_b = _school(pg_session, "B")
+    actor = _actor(pg_session, school=school_a, perms=set(PERSONAS["ops"].permissions))
+    target = _target(pg_session, school_a)
+    outsider = _target(pg_session, school_b)
+
+    items, total = _service(pg_session, school_a, actor).grant_targets(search="", offset=0, limit=50)
+    ids = {item.id for item in items}
+
+    assert total >= 1
+    assert target.id in ids
+    assert outsider.id not in ids
+
+
 def test_platform_account_target_is_not_editable(pg_session):
     school = _school(pg_session, "A")
     actor = _actor(pg_session, school=school, perms=set(PERSONAS["admin"].permissions))

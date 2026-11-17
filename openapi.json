@@ -2274,6 +2274,96 @@
         }
       }
     },
+    "/api/admin/personas/users": {
+      "get": {
+        "tags": [
+          "管理",
+          "视角授权"
+        ],
+        "summary": "List Grant Targets",
+        "description": "授权页用户列表：只需 ``role_manage``，返回身份/院校/当前视角的最小集合。",
+        "operationId": "list_grant_targets_api_admin_personas_users_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 80,
+              "default": "",
+              "title": "Search"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "X-School-Scope",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-School-Scope"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse_PersonaGrantTarget_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/personas": {
       "get": {
         "tags": [
@@ -15609,6 +15699,37 @@
         ],
         "title": "PaginatedResponse[LLMCallLogItem]"
       },
+      "PaginatedResponse_PersonaGrantTarget_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PersonaGrantTarget"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit"
+        ],
+        "title": "PaginatedResponse[PersonaGrantTarget]"
+      },
       "PaginatedResponse_QuestionnaireResponseItem_": {
         "properties": {
           "items": {
@@ -15881,6 +16002,75 @@
         ],
         "title": "PersonaCatalogItem",
         "description": "视角目录项：预设 + 作用域 + **调用者作用域内**持有该视角的人数。\n\n``user_count`` 按调用者的 ``TenantScope`` 统计（平台全局 / 院校本校），\n超管派生拥有的视角也计入（它没有 ``user_school_personas`` 行）。"
+      },
+      "PersonaGrantTarget": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "student_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Id"
+          },
+          "school_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Id"
+          },
+          "school_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School Name"
+          },
+          "personas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Personas"
+          },
+          "is_superadmin": {
+            "type": "boolean",
+            "title": "Is Superadmin",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "display_name"
+        ],
+        "title": "PersonaGrantTarget",
+        "description": "授权页所需的最小账号信息：身份 + 院校 + 当前视角。"
       },
       "QAAskResponse": {
         "properties": {
@@ -21131,7 +21321,8 @@
           "student_id": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 30
               },
               {
                 "type": "null"

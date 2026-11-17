@@ -68,6 +68,7 @@ _ADMIN = {
 #: `ops` = 原 ops ∪ 原 platform：跨院校的管理面（院校管理、密钥、审计、成本、诊断）。
 _OPS = {
     "school_manage",
+    "role_manage",
     "llm_monitor",
     "api_manage",
     "audit_view",
@@ -460,10 +461,12 @@ def test_platform_non_platform_persona_auto_selects_school(pg_session):
 def test_ops_is_the_union_of_the_old_ops_and_platform_presets():
     old_ops = {"llm_monitor", "api_manage", "audit_view", "audit_export", "feedback_review", "export_data"}
     old_platform = {"school_manage", "api_manage", "audit_view", "audit_export", "llm_monitor", "export_data"}
+    # 授权管理是跨院校系统面：超管在 ops 视角下要能直接进入「视角管理」。
+    deliberate_addition = {"role_manage"}
 
-    assert set(PERSONAS["ops"].permissions) == old_ops | old_platform
-    # 合并不该顺手放大：并集之外的键一个都不能有
-    assert set(PERSONAS["ops"].permissions) - (old_ops | old_platform) == set()
+    assert set(PERSONAS["ops"].permissions) == old_ops | old_platform | deliberate_addition
+    # 除显式新增的授权管理外，合并不该顺手放大
+    assert set(PERSONAS["ops"].permissions) - (old_ops | old_platform | deliberate_addition) == set()
 
 
 def test_ops_keeps_platform_scope_and_platform_account_requirement():

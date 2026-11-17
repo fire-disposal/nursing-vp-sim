@@ -1,4 +1,5 @@
 import type { EmotionVector, PhoneEmotionLabel } from "./types";
+import { accessHeaders } from "@/utils/accessContext";
 
 /**
  * 演示 LLM 链路 —— `POST /api/voice-demo/chat/stream`（SSE）。
@@ -61,7 +62,7 @@ export async function streamDemoChat(turn: DemoChatTurn, options: DemoChatOption
 	if (signal?.aborted) return "";
 	const response = await fetchImpl(DEMO_CHAT_PATH, {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
+		headers: { "Content-Type": "application/json", ...accessHeaders() },
 		body: JSON.stringify(buildChatRequest(turn)),
 		signal,
 	}).catch((err: unknown) => {

@@ -17,8 +17,9 @@
 独立用途 `voice_demo` 复用 Provider 路由、密钥与成本统计；本地四维情绪状态机驱动
 长回复打断、VAD/ASR 状态和 TTS 情绪表现。对话历史只留在当前页面，另设
 `voice_demo_logs` 仅用于实验采集，不提供日志查看 UI，也不作为正式训练档案。
-`/api/voice-demo/asr` 与 `/api/voice-demo/tts/stream` 仅要求 `training_access`，不读取或
-写入训练业务数据；语音调用日志的 `record_id` 为 NULL，费用仍按真实 ASR/TTS 用量产生。
+`/api/voice-demo/asr` 与 `/api/voice-demo/tts/stream` 只要求系统内已登录账号，不读取或
+写入训练业务数据；persona/院校不参与这条链路。语音调用日志的 `record_id` 为 NULL，
+费用仍按真实 ASR/TTS 用量产生。
 
 首次部署可在后端 `.env` 设置 `VOLC_TTS_API_KEY` 与 `VOLC_ASR_API_KEY`。每个通道只在
 数据库对应 Key 为空且从未完成 ENV 初始化时写入一次，并分别记录初始化状态。管理页之后

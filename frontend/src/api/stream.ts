@@ -1,5 +1,6 @@
 import useAuthStore from "@/stores/authStore";
 import { waitForOnline } from "@/utils/network";
+import { accessHeaders } from "@/utils/accessContext";
 import type { SSEHandlers } from "./sse";
 import { readSSEStream } from "./sse";
 import { getApiErrorMessage } from "@/utils/error";
@@ -26,13 +27,12 @@ export interface PostStreamOptions {
  */
 export async function postStream({ url, body, signal, reportFailure, handlers }: PostStreamOptions) {
 	const doFetch = (timeoutSignal?: AbortSignal): Promise<Response> => {
-		const token = useAuthStore.getState().token;
 		const combined = signal ? combineAbortSignals(signal, timeoutSignal) : timeoutSignal;
 		return fetch(url, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
-				Authorization: `Bearer ${token}`,
+				...accessHeaders(),
 			},
 			body: JSON.stringify(body),
 			signal: combined,

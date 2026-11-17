@@ -146,17 +146,26 @@ async def _forward(session: AsrSession, websocket: WebSocket, state: dict[str, A
             return
 
 
-async def _authorize(websocket: WebSocket, token: str, record_id: int | None) -> tuple[int, str] | None:
-    """鉴权 + 权限 +（训练路径）记录归属 + 取密钥。失败时已按关闭码关闭连接。
+async def _authorize(
+    websocket: WebSocket,
+    token: str,
+    record_id: int | None,
+    *,
+    persona: str = "",
+    school: str = "",
+) -> tuple[int, str] | None:
+    """鉴权 +（训练路径）权限/记录归属 + 取密钥。失败时已按关闭码关闭连接。
 
-    ``record_id is None`` 是语音演示路径：只需要 ``training_access``，不校验训练
-    记录归属；训练路径（``record_id >= 1``）的校验与失败码保持原样。
+    ``record_id is None`` 是语音演示路径：只验证系统内登录用户，不校验训练记录
+    或 persona 权限；训练路径的校验与失败码保持原样。
     """
     identity = await asyncio.to_thread(authenticate_ws_token, token)
     if identity is None:
         await websocket.close(code=WS_CLOSE_UNAUTHORIZED)
         return None
-    if not await asyncio.to_thread(resolve_ws_access, identity.user_id):
+    if record_id is not None and not await asyncio.to_thread(
+        resolve_ws_access, identity.user_id, persona=persona, school=school
+    ):
         await websocket.close(code=WS_CLOSE_FORBIDDEN)
         return None
     if record_id is not None and record_id <= 0:
@@ -180,7 +189,14 @@ async def _authorize(websocket: WebSocket, token: str, record_id: int | None) ->
     return None
 
 
-async def _run_stream(websocket: WebSocket, token: str, record_id: int | None) -> None:
+async def _run_stream(
+    websocket: WebSocket,
+    token: str,
+    record_id: int | None,
+    *,
+    persona: str = "",
+    school: str = "",
+) -> None:
     """一条 ASR 连线的完整生命周期：鉴权 → 连接上游 → 双向桥 → 计费日志 → 关闭。
 
     ``record_id is None`` 为语音演示：同样的上游桥接与计费口径，但日志
@@ -188,7 +204,7 @@ async def _run_stream(websocket: WebSocket, token: str, record_id: int | None) -
     """
     await websocket.accept()
 
-    authorized = await _authorize(websocket, token, record_id)
+    authorized = await _authorize(websocket, token, record_id, persona=persona, school=school)
     if authorized is None:
         return
     user_id, api_key = authorized
@@ -244,9 +260,11 @@ async def asr_stream(
     websocket: WebSocket,
     token: str = Query(default=""),
     record_id: int = Query(default=0),
+    persona: str = Query(default=""),
+    school: str = Query(default=""),
 ):
     """训练路径：必须带本人 record_id（``0``/缺失 → 4000 提前关闭）。"""
-    await _run_stream(websocket, token, record_id)
+    await _run_stream(websocket, token, record_id, persona=persona, school=school)
 
 
 @router.websocket("/api/voice-demo/asr")
@@ -254,7 +272,7 @@ async def voice_demo_asr(
     websocket: WebSocket,
     token: str = Query(default=""),
 ):
-    """语音演示路径：同源 ASR 桥，只要求 ``training_access``；不需要 record_id。"""
+    """语音演示路径：只验证系统内登录用户；不需要 record_id、persona 或院校。"""
     await _run_stream(websocket, token, None)
 
 

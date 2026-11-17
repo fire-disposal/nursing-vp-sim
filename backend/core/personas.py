@@ -108,6 +108,7 @@ PERSONAS: dict[str, PersonaDef] = {
         requires_superadmin=True,
         permissions=(
             "school_manage",
+            "role_manage",
             "llm_monitor",
             "api_manage",
             "audit_view",

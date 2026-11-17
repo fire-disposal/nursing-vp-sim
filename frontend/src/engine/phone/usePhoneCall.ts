@@ -202,7 +202,7 @@ export function usePhoneCall({
 					pushLog("tts", `首块音频 ${Math.round(event.ms)}ms${event.fallback ? "（浏览器兜底）" : ""}`);
 					break;
 				case "fallback":
-					pushLog("system", "服务端语音不可用，已切到浏览器朗读");
+					pushLog("system", `服务端语音不可用（${event.reason}），已切到浏览器朗读`);
 					break;
 				case "stopped":
 					setSpeaking(false);

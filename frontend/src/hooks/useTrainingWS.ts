@@ -19,6 +19,7 @@ import { useEffect, useRef } from "react";
 import useAuthStore from "@/stores/authStore";
 import { usePersonaStore } from "@/stores/personaStore";
 import { useSchoolScopeStore } from "@/stores/schoolScopeStore";
+import { wsAccessParams } from "@/utils/accessContext";
 
 export interface TrainingWSMessage {
 	type: string;
@@ -56,15 +57,7 @@ export function subscribeWSConnection(fn: (connected: boolean) => void): () => v
 }
 
 function buildWsUrl(): string {
-	const token = useAuthStore.getState().token ?? "";
-	const params = new URLSearchParams({ token });
-	// 视角/院校随连接带上：浏览器 WebSocket 不能自带请求头，服务端用查询参数按与
-	// HTTP 请求头（`X-View-Persona` / `X-School-Scope`）同一语义解析。不带时服务端回落
-	// 默认视角 —— 平台账号的默认视角是 `ops`，它没有 `training_access`，推送通道会被 4003 拒掉。
-	const persona = usePersonaStore.getState().active;
-	if (persona) params.set("persona", persona);
-	const scopedSchool = useSchoolScopeStore.getState().school;
-	if (scopedSchool) params.set("school", String(scopedSchool.id));
+	const params = new URLSearchParams(wsAccessParams());
 	const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
 	return `${proto}//${window.location.host}/api/training/ws?${params.toString()}`;
 }

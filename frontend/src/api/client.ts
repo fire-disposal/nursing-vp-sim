@@ -1,7 +1,6 @@
 import axios from "axios";
 import useAuthStore, { isRefreshing, setRefreshing } from "@/stores/authStore";
-import { usePersonaStore } from "@/stores/personaStore";
-import { useSchoolScopeStore } from "@/stores/schoolScopeStore";
+import { accessHeaders } from "@/utils/accessContext";
 
 export const api = axios.create({
 	baseURL: "/api",
@@ -22,23 +21,8 @@ const processQueue = (error: unknown) => {
 };
 
 api.interceptors.request.use((config) => {
-	const token = useAuthStore.getState().token;
-	if (token) {
-		config.headers.Authorization = `Bearer ${token}`;
-	}
-	// 平台角色的「当前院校」工作视图。服务端只对平台角色生效（院校角色的院校是硬边界），
-	// 因此这里无条件带上：没有作用域时不带，院校角色带了也不会被采纳。
-	const scopedSchool = useSchoolScopeStore.getState().school;
-	if (scopedSchool) {
-		config.headers["X-School-Scope"] = String(scopedSchool.id);
-	}
-	// 当前生效视角：权限口径由它决定（服务端按视角预设算 `permissions`）。
-	// 未选择（未登录 / 旧后端没有 personas）时不带，服务端回落到默认视角。
-	if (token) {
-		const activePersona = usePersonaStore.getState().active;
-		if (activePersona) {
-			config.headers["X-View-Persona"] = activePersona;
-		}
+	for (const [key, value] of Object.entries(accessHeaders())) {
+		config.headers.set(key, value);
 	}
 	return config;
 });

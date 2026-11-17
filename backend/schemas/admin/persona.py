@@ -37,3 +37,17 @@ class UserPersonasUpdateRequest(BaseModel):
 
     model_config = _REQ_CFG
     personas: list[str] = Field(default_factory=list, description="要授予的视角 key；全量替换")
+
+
+class PersonaGrantTarget(BaseModel):
+    """授权页所需的最小账号信息：身份 + 院校 + 当前视角。"""
+
+    model_config = _RESP_CFG
+    id: int
+    username: str
+    display_name: str
+    student_id: str | None = None
+    school_id: int | None = None
+    school_name: str | None = None
+    personas: list[str] = Field(default_factory=list)
+    is_superadmin: bool = False

@@ -1,7 +1,7 @@
 import { createBrowserTTS } from "@/engine/tts/browser-tts";
 import { PcmStreamPlayer } from "@/engine/tts/pcm-player";
 import { MAX_TTS_LENGTH, SentenceSegmenter } from "@/engine/tts/segmenter";
-import useAuthStore from "@/stores/authStore";
+import { accessHeaders } from "@/utils/accessContext";
 
 /**
  * DemoTTSPlayer —— 演示电话的**独立** TTS 播放器。
@@ -294,7 +294,6 @@ export class DemoTTSPlayer {
 
 	/** 请求契约：JSON body + 三个回显头。503 = 服务端阈值保护，按兜底处理。 */
 	private async requestStream(text: string, signal: AbortSignal): Promise<ReadableStream<Uint8Array>> {
-		const token = useAuthStore.getState().token;
 		const body: DemoTTSRequest = {
 			text,
 			emotion_state: this.emotion,
@@ -306,13 +305,14 @@ export class DemoTTSPlayer {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
-				...(token ? { Authorization: `Bearer ${token}` } : {}),
+				...accessHeaders(),
 			},
 			body: JSON.stringify(body),
 			signal,
 		});
 		if (!response.ok) {
-			throw new Error(`TTS 流失败：HTTP ${response.status}`);
+			const detail = await response.text().catch(() => "");
+			throw new Error(`TTS 流失败：HTTP ${response.status}${detail ? ` · ${detail.slice(0, 160)}` : ""}`);
 		}
 		if (!response.body) throw new Error("TTS 流为空");
 		const sampleRate = Number(response.headers?.get("X-TTS-Sample-Rate") ?? 0);
@@ -335,7 +335,6 @@ export class DemoTTSPlayer {
 	private async speakFallback(text: string): Promise<void> {
 		try {
 			this.fallback.emotion = this.emotion;
-			this.emit({ type: "fallback", reason: "browser" });
 			this.markFirstBlock();
 			await this.fallback.speak(text);
 			this.blocks += 1;

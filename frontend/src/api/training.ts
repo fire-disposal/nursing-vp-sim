@@ -1,7 +1,7 @@
 import type { ApiPath } from "./api-path";
 import type { components } from "./api-types.gen";
 import { api } from "./client";
-import useAuthStore from "@/stores/authStore";
+import { accessHeaders } from "@/utils/accessContext";
 
 type Schemas = components["schemas"];
 
@@ -126,9 +126,7 @@ export async function pauseTrainingOnHide(
 	id: number | string,
 	options?: { questionnaire?: boolean },
 ): Promise<string> {
-	const token = useAuthStore.getState().token;
-	const headers: Record<string, string> = { "Content-Type": "application/json" };
-	if (token) headers.Authorization = `Bearer ${token}`;
+	const headers: Record<string, string> = { "Content-Type": "application/json", ...accessHeaders() };
 	const query = options?.questionnaire ? "?questionnaire=true" : "";
 	const response = await fetch(`/api/training/records/${id}/pause${query}`, {
 		method: "POST",

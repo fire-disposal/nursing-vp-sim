@@ -16,6 +16,7 @@ from schemas.admin.classes import (
 from schemas.admin.llm import LLMCallLogItem, LLMStatsResponse
 from schemas.admin.persona import (
     PersonaCatalogItem,
+    PersonaGrantTarget,
     UserPersonasResponse,
     UserPersonasUpdateRequest,
 )
@@ -45,6 +46,7 @@ __all__ = [
     "LLMCallLogItem",
     "LLMStatsResponse",
     "PersonaCatalogItem",
+    "PersonaGrantTarget",
     "TeacherSummaryItem",
     "TrendStats",
     "UserPersonasResponse",

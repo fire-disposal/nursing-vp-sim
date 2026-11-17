@@ -1,4 +1,4 @@
-import useAuthStore from "@/stores/authStore";
+import { accessHeaders } from "@/utils/accessContext";
 
 export interface VolcTTSRequest {
 	text: string;
@@ -21,12 +21,11 @@ export class VolcTTSProvider {
 		recordId: number,
 		signal: AbortSignal,
 	): Promise<ReadableStream<Uint8Array>> {
-		const token = useAuthStore.getState().token;
 		const response = await fetch("/api/tts/stream", {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
-				...(token ? { Authorization: `Bearer ${token}` } : {}),
+				...accessHeaders(),
 			},
 			body: JSON.stringify({ text, record_id: recordId } satisfies VolcTTSRequest),
 			signal,

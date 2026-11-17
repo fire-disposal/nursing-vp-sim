@@ -18,18 +18,15 @@
 """
 
 import logging
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from core.budget import assert_within_budget
-from core.deps import DbSession
+from core.deps import CurrentUser, DbSession
 from core.exceptions import NotFoundError
 from core.rate_limits import check_tts_limit
-from core.security import require_permission
 from infra.tts.circuit import CircuitOpenError
-from models import User
 from modules.voice.demo_chat import stream_demo_reply
 from modules.voice.demo_prompt import CHARACTERS, get_character
 from modules.voice.service import TTSConnectionProvider, TTSService
@@ -39,8 +36,7 @@ log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/voice-demo", tags=["Voice Demo"])
 
-#: 演示页与训练页同属学生训练视角：能进训练就能开口说话。
-require_training_access = require_permission("training_access")
+#: 演示页不读写训练数据，只要求系统内已登录账号；权限/院校不参与这条链路。
 
 #: 与训练流一致的 SSE 头：关掉代理缓冲与缓存，否则逐字下发会攒成一坨。
 _SSE_HEADERS = {"X-Accel-Buffering": "no", "Cache-Control": "no-cache"}
@@ -48,7 +44,7 @@ _SSE_HEADERS = {"X-Accel-Buffering": "no", "Cache-Control": "no-cache"}
 
 @router.get("/characters")
 async def list_characters(
-    current_user: Annotated[User, Depends(require_training_access)],
+    current_user: CurrentUser,
 ) -> list[VoiceDemoCharacterItem]:
     """四个虚构角色（人设与音色的唯一来源）。"""
     return [VoiceDemoCharacterItem(**c.to_public()) for c in CHARACTERS.values()]
@@ -61,7 +57,7 @@ async def list_characters(
 )
 async def chat_stream(
     req: VoiceDemoChatRequest,
-    current_user: Annotated[User, Depends(require_training_access)],
+    current_user: CurrentUser,
     db: DbSession,
     request: Request,
 ) -> StreamingResponse:
@@ -100,7 +96,7 @@ async def chat_stream(
 )
 async def synthesize_demo_stream(
     req: VoiceDemoTTSRequest,
-    current_user: Annotated[User, Depends(require_training_access)],
+    current_user: CurrentUser,
     db: DbSession,
     request: Request,
 ) -> StreamingResponse:

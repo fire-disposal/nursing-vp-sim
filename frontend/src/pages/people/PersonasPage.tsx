@@ -28,13 +28,14 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+	getPersonaGrantTargets,
 	getPersonas,
 	getUserPersonas,
+	type PersonaGrantTarget,
 	type PersonaPreset,
 	type PersonaScope,
 	setUserPersonas,
 } from "@/api/admin/personas";
-import { getUsers } from "@/api/admin/users";
 import { queryKeys } from "@/api/query-keys";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ui/confirm";
@@ -71,21 +72,7 @@ const PERMISSION_LABELS = new Map(
 	PERMISSION_DEFS.map((d) => [d.key as string, d.label]),
 );
 
-interface UserOption {
-	id: number;
-	username: string;
-	display_name: string;
-	student_id: string | null;
-	school_name?: string | null;
-	personas?: string[];
-	/** 平台账号的视角由代码派生（全视角），不落授予行，因此不可编辑。 */
-	is_superadmin?: boolean;
-}
-
-interface UserListResponse {
-	items: UserOption[];
-	total: number;
-}
+type UserOption = PersonaGrantTarget;
 
 const PAGE_SIZE = 20;
 
@@ -128,8 +115,8 @@ export default function PersonasPage() {
 	const usersQuery = useQuery({
 		queryKey: [...queryKeys.admin.personasUsers(search), page],
 		queryFn: () =>
-			getUsers({ search: search || undefined, limit: PAGE_SIZE, offset: page * PAGE_SIZE }).then(
-				(r) => r.data as unknown as UserListResponse,
+			getPersonaGrantTargets({ search: search || undefined, limit: PAGE_SIZE, offset: page * PAGE_SIZE }).then(
+				(r) => r.data,
 			),
 		staleTime: 30_000,
 	});

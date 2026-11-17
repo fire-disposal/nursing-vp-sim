@@ -14,6 +14,8 @@
  * 由状态机决定是否再开一轮）。
  */
 
+import { wsAccessParams } from "@/utils/accessContext";
+
 export type VolcAsrCloseReason = "disabled" | "unauthorized" | "forbidden" | "upstream" | "closed";
 
 export interface VolcAsrHandlers {
@@ -57,6 +59,10 @@ export function buildAsrUrl(base: string, token: string, recordId: number): stri
 	const url = new URL(base, window.location.href);
 	url.searchParams.set("token", token);
 	if (recordId > 0) url.searchParams.set("record_id", String(recordId));
+	// 训练通道需要触发者视角/院校；演示通道服务端只验证登录，会忽略这两项。
+	for (const [key, value] of Object.entries(wsAccessParams())) {
+		if (key !== "token") url.searchParams.set(key, value);
+	}
 	if (url.protocol === "http:") url.protocol = "ws:";
 	else if (url.protocol === "https:") url.protocol = "wss:";
 	return url.toString();

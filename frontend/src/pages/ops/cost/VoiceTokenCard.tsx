@@ -9,7 +9,7 @@ import { useToast } from "@/components/Toast";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Divider } from "@mantine/core";
 import { PcmStreamPlayer } from "@/engine/tts/pcm-player";
-import useAuthStore from "@/stores/authStore";
+import { accessHeaders } from "@/utils/accessContext";
 
 // ── API helpers (thin, type-safe) ──
 
@@ -22,12 +22,11 @@ const saveConfig = (data: Partial<components["schemas"]["VoiceConfigUpdateReques
 const checkStatus = () => api.post<VoiceStatus>("/admin/voice/config/test-tts").then((r) => r.data);
 
 async function streamFromPool(text: string, speaker: string, signal: AbortSignal): Promise<ReadableStream<Uint8Array>> {
-	const token = useAuthStore.getState().token;
 	const r = await fetch("/api/admin/voice/config/test-stream", {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",
-			...(token ? { Authorization: `Bearer ${token}` } : {}),
+			...accessHeaders(),
 		},
 		body: JSON.stringify({ text, speaker }),
 		signal,

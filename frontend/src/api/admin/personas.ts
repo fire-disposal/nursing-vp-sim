@@ -26,8 +26,30 @@ export interface UserPersonas {
 	personas: string[];
 }
 
+export interface PersonaGrantTarget {
+	id: number;
+	username: string;
+	display_name: string;
+	student_id: string | null;
+	school_id: number | null;
+	school_name: string | null;
+	personas: string[];
+	is_superadmin: boolean;
+}
+
+export interface PersonaGrantTargetPage {
+	items: PersonaGrantTarget[];
+	total: number;
+	offset: number;
+	limit: number;
+}
+
 export const getPersonas = () =>
 	api.get<PersonaPreset[]>("/admin/personas");
+
+/** 授权页用户列表：只要求 role_manage，返回授权所需的最小字段。 */
+export const getPersonaGrantTargets = (params: { search?: string; offset?: number; limit?: number } = {}) =>
+	api.get<PersonaGrantTargetPage>("/admin/personas/users", { params });
 
 export const getUserPersonas = (userId: number | string) =>
 	api.get<UserPersonas>(`/admin/users/${userId}/personas`);

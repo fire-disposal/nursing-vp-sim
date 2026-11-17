@@ -414,6 +414,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/personas/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Grant Targets
+         * @description 授权页用户列表：只需 ``role_manage``，返回身份/院校/当前视角的最小集合。
+         */
+        get: operations["list_grant_targets_api_admin_personas_users_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/personas": {
         parameters: {
             query?: never;
@@ -4334,6 +4354,17 @@ export interface components {
             /** Limit */
             limit: number;
         };
+        /** PaginatedResponse[PersonaGrantTarget] */
+        PaginatedResponse_PersonaGrantTarget_: {
+            /** Items */
+            items: components["schemas"]["PersonaGrantTarget"][];
+            /** Total */
+            total: number;
+            /** Offset */
+            offset: number;
+            /** Limit */
+            limit: number;
+        };
         /** PaginatedResponse[QuestionnaireResponseItem] */
         PaginatedResponse_QuestionnaireResponseItem_: {
             /** Items */
@@ -4459,6 +4490,31 @@ export interface components {
              * @default false
              */
             grantable: boolean;
+        };
+        /**
+         * PersonaGrantTarget
+         * @description 授权页所需的最小账号信息：身份 + 院校 + 当前视角。
+         */
+        PersonaGrantTarget: {
+            /** Id */
+            id: number;
+            /** Username */
+            username: string;
+            /** Display Name */
+            display_name: string;
+            /** Student Id */
+            student_id?: string | null;
+            /** School Id */
+            school_id?: number | null;
+            /** School Name */
+            school_name?: string | null;
+            /** Personas */
+            personas?: string[];
+            /**
+             * Is Superadmin
+             * @default false
+             */
+            is_superadmin: boolean;
         };
         /** QAAskResponse */
         QAAskResponse: {
@@ -7983,6 +8039,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_grant_targets_api_admin_personas_users_get: {
+        parameters: {
+            query?: {
+                search?: string;
+                offset?: number;
+                limit?: number;
+            };
+            header?: {
+                "X-School-Scope"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponse_PersonaGrantTarget_"];
                 };
             };
             /** @description Validation Error */

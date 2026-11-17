@@ -2,7 +2,7 @@
 
 全程不联网、不连真实语音服务：ASR 用假 WebSocket + 假上游会话，TTS 用假连接池。
 判据：
-- 演示 ASR 只要 ``training_access``，**不需要** record_id，日志 ``record_id`` 为 NULL；
+- 演示 ASR 只要求系统内已登录，**不需要** record_id、persona 或院校；日志 ``record_id`` 为 NULL；
 - 训练 ASR 仍然要求本人记录（record_id 缺失/0 → 4000，非本人 → 4003）；
 - 演示 TTS 没有任何 ``TrainingRecord`` 查询，情绪/分组/音色真的进了上游请求；
 - 演示 TTS 的调用日志 ``record_id`` 为 NULL，成本口径与训练一致。
@@ -111,7 +111,7 @@ def _patch_asr(monkeypatch, *, api_key: str = "asr-key", upstream=None, user_id:
     upstream = upstream or _FakeUpstream()
 
     monkeypatch.setattr(asr_router, "authenticate_ws_token", lambda token: SimpleNamespace(user_id=user_id))
-    monkeypatch.setattr(asr_router, "resolve_ws_access", lambda uid: True)
+    monkeypatch.setattr(asr_router, "resolve_ws_access", lambda uid, **_: True)
     monkeypatch.setattr(asr_router, "SessionLocal", _NullSession)
     monkeypatch.setattr(asr_router, "load_asr_api_key", lambda db: api_key)
 
@@ -150,17 +150,18 @@ class TestDemoAsr:
         assert logs[0]["audio_bytes"] == 320
         assert logs[0]["text_length"] == len("我好难受。")
 
-    def test_demo_route_rejects_missing_access(self, monkeypatch):
+    def test_demo_route_ignores_persona_permissions(self, monkeypatch):
+        """演示 ASR 只验证登录：persona 无权也不影响，因为不读写训练数据。"""
         _patch_asr(monkeypatch)
         logs = _patch_asr_log(monkeypatch)
-        monkeypatch.setattr(asr_router, "resolve_ws_access", lambda uid: False)
-        ws = _FakeWebSocket([])
+        monkeypatch.setattr(asr_router, "resolve_ws_access", lambda uid, **_: False)
+        ws = _FakeWebSocket(_stop_messages())
 
         asyncio.run(asyncio.wait_for(asr_router.voice_demo_asr(ws, token="t"), timeout=5))
 
-        assert ws.close_codes == [4003]  # WS_CLOSE_FORBIDDEN
-        assert ws.sent_json == []
-        assert logs == []  # 未通过鉴权不产生计费日志
+        assert 4003 not in ws.close_codes
+        assert logs
+        assert logs[0]["record_id"] is None
 
     def test_demo_route_rejects_bad_token(self, monkeypatch):
         _patch_asr(monkeypatch)
@@ -534,13 +535,14 @@ class TestDemoTtsRoute:
         assert resp.status_code == 422
         assert pool.captured == []
 
-    def test_requires_training_access(self):
+    def test_any_authenticated_user_can_synthesize(self):
+        """演示 TTS 不做 persona 权限区分：系统内登录用户即可。"""
         pool = _Pool()
-        resp = _demo_client(pool, permissions=("qa_access",)).post(
+        resp = _demo_client(pool, permissions=()).post(
             "/api/voice-demo/tts/stream", json={"text": "嗯", "emotion_state": "neutral", "section_id": "s"}
         )
-        assert resp.status_code == 403
-        assert pool.captured == []
+        assert resp.status_code == 200
+        assert pool.captured
 
     @pytest.mark.parametrize(
         "payload",
@@ -773,14 +775,15 @@ class TestDemoChatRoute:
         assert resp.status_code == 400
         assert fake.calls == []
 
-    def test_requires_training_access(self):
+    def test_any_authenticated_user_can_chat(self):
+        """演示聊天不做 persona 权限区分：系统内登录用户即可。"""
         fake = _FakeLLM(["嗯"])
         resp = self._client(fake, permissions=()).post(
             "/api/voice-demo/chat/stream",
             json={"character_id": "su-xiaoman", "session_id": "s1", "history": [{"role": "user", "content": "hi"}]},
         )
-        assert resp.status_code == 403
-        assert fake.calls == []
+        assert resp.status_code == 200
+        assert fake.calls
 
     def test_streams_sse_with_long_response_flag(self):
         fake = _FakeLLM(["先说一句，", "再补一句。"])
