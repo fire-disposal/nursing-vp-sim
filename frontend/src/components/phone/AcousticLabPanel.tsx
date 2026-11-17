@@ -27,6 +27,7 @@ export default function AcousticLabPanel() {
 	const token = useAuthStore((s) => s.token);
 	const [result, setResult] = useState<EchoCalibrationResult | null>(null);
 	const [running, setRunning] = useState(false);
+	const [step, setStep] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [speaker, setSpeaker] = useState(PHONE_CHARACTERS[2]?.speaker ?? PHONE_CHARACTERS[0]?.speaker ?? "");
 	const [text, setText] = useState("你好，我正在测试这条语音链路。");
@@ -73,6 +74,7 @@ export default function AcousticLabPanel() {
 		resultRef.current = next;
 		setResult(next);
 		setRunning(false);
+		setStep("");
 		calibrationRef.current?.(next);
 		calibrationRef.current = null;
 	}, []);
@@ -112,6 +114,7 @@ export default function AcousticLabPanel() {
 		playerRef.current?.dispose();
 		playerRef.current = null;
 		setRunning(false);
+		setStep("");
 		waveRef.current = createWaves();
 		if (waveRenderTimerRef.current !== null) window.clearTimeout(waveRenderTimerRef.current);
 		waveRenderTimerRef.current = null;
@@ -131,6 +134,7 @@ export default function AcousticLabPanel() {
 		resultRef.current = null;
 		setError(null);
 		setRunning(true);
+		setStep("请求麦克风与 ASR…");
 		try {
 			const player = new PcmStreamPlayer();
 			playerRef.current = player;
@@ -142,17 +146,19 @@ export default function AcousticLabPanel() {
 				calibrationRef.current = () => resolve();
 			});
 			voice.start();
-			await Promise.race([
-				ready,
-				new Promise<void>((_, reject) => setTimeout(() => reject(new Error("麦克风未就绪")), 5000)),
-			]);
+			await withTimeout(ready, 4000, "麦克风或 ASR 未就绪");
+			setStep("播放三次滴声…");
 			voice.beginEchoCalibration();
-			await player.playConnectTone();
-			await calibrated;
+			await withTimeout(player.playConnectTone(), 3000, "校准音播放超时");
+			setStep("分析起音时间差…");
+			await withTimeout(calibrated, 4000, "未收到校准结果");
 		} catch (err) {
 			if (runRef.current !== run) return;
+			runRef.current += 1;
 			setRunning(false);
+			setStep("");
 			setError((err as Error)?.message ?? "校准失败");
+			voiceStopRef.current();
 		}
 	};
 
@@ -194,10 +200,11 @@ export default function AcousticLabPanel() {
 
 				<div className="acoustic-lab-layout">
 					<Stack gap="sm" className="acoustic-lab-controls">
-						<Group gap="xs">
+						<Group gap="xs" align="center">
 							<Button size="xs" leftSection={<IconRefresh size={14} />} onClick={() => void startCalibration()} loading={running}>
 								开始校准
 							</Button>
+							{running && step && <Text size="xs" c="dimmed">{step}</Text>}
 							<Button size="xs" variant="subtle" color="gray" leftSection={<IconPlayerStop size={14} />} onClick={stop}>
 								停止
 							</Button>
@@ -280,6 +287,13 @@ export default function AcousticLabPanel() {
 			</Stack>
 		</Card>
 	);
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+	return Promise.race([
+		promise,
+		new Promise<T>((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
+	]);
 }
 
 function db(level: number): string {
