@@ -45,11 +45,13 @@ export default function AcousticLabPanel() {
 		const calibration = resultRef.current;
 		const delay = calibration?.status === "success" ? calibration.delayMs : 0;
 		const gain = calibration?.status === "success" ? calibration.gain ?? 0 : 0;
-		const reference = player.readReference(performance.now() - data.length / 16 - delay, data.length);
+		const referenceStart = performance.now() - data.length / 16 - delay;
+		const actual = player.readReference(referenceStart, data.length);
+		const ideal = idealMarkerReference(referenceStart, data.length, player.markerOnsets());
 		const current = waveRef.current;
 		for (let i = 0; i < data.length; i += 1) {
 			const mic = data[i] ?? 0;
-			const ref = reference[i] ?? 0;
+			const ref = ideal[i] !== 0 ? (ideal[i] ?? 0) : (actual[i] ?? 0);
 			current.tts.push(ref);
 			current.mic.push(mic);
 			current.clean.push(mic - gain * ref);
@@ -131,6 +133,7 @@ export default function AcousticLabPanel() {
 				ready,
 				new Promise<void>((_, reject) => setTimeout(() => reject(new Error("麦克风未就绪")), 5000)),
 			]);
+			voice.beginEchoCalibration();
 			await player.playConnectTone();
 			await calibrated;
 		} catch (err) {
@@ -234,6 +237,9 @@ export default function AcousticLabPanel() {
 								<Badge size="xs" variant="light" color={voice.continuousArmed ? "teal" : "gray"}>
 									{voice.continuousArmed ? "收音持续中" : "未收音"}
 								</Badge>
+								<Button size="compact-xs" variant="subtle" onClick={voice.continuousArmed ? () => voice.stop() : () => voice.start()}>
+									{voice.continuousArmed ? "停止监测" : "开始监测"}
+								</Button>
 							</Group>
 							<Select
 								size="xs"
@@ -273,6 +279,20 @@ function calibrationReason(reason: EchoCalibrationResult["reason"]): string {
 		default:
 			return "声学特征匹配失败";
 	}
+}
+
+function idealMarkerReference(startMs: number, length: number, onsets: number[]): Float32Array {
+	const output = new Float32Array(length);
+	for (let i = 0; i < length; i += 1) {
+		const time = startMs + i / 16;
+		for (const onset of onsets) {
+			if (time >= onset && time < onset + 120) {
+				output[i] = Math.sin((2 * Math.PI * 1000 * (time - onset)) / 1000) * 0.55;
+				break;
+			}
+		}
+	}
+	return output;
 }
 
 function downsampleFrame(channel: Float32Array, sampleRate: number): Float32Array {

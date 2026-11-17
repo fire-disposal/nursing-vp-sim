@@ -24,6 +24,8 @@ const ECHO_RATIO_MAX = 2.5;
 const ECHO_ABS_MIN = 0.0025;
 const ECHO_CALIBRATION_MS = 1600;
 const ECHO_CALIBRATION_MIN_SAMPLES = 12;
+const ECHO_ONSET_MIN_MS = 25;
+const ECHO_INTERVAL_TOLERANCE_MS = 100;
 /** 校准完成前也按常见声学延迟取参考，避免拿“当前帧”对“已到麦克风的旧回声”。 */
 const ECHO_FALLBACK_DELAY_MS = 120;
 
@@ -156,11 +158,11 @@ export class EchoGate {
 				active = true;
 				start = item.t;
 			} else if (item.level < threshold && active) {
-				if (item.t - start >= 60) onsets.push(start);
+				if (item.t - start >= ECHO_ONSET_MIN_MS) onsets.push(start);
 				active = false;
 			}
 		}
-		if (active && history.length > 0 && history[history.length - 1].t - start >= 60) onsets.push(start);
+		if (active && history.length > 0 && history[history.length - 1].t - start >= ECHO_ONSET_MIN_MS) onsets.push(start);
 		return onsets;
 	}
 
@@ -181,13 +183,13 @@ export class EchoGate {
 		const refPeak = Math.max(0, ...this.refHistory.map((item) => item.level));
 		const micPeak = Math.max(0, ...mic.map((sample) => Math.max(0, sample.level - this.noiseFloor)));
 		const refThreshold = refPeak * 0.2;
-		const micThreshold = this.noiseFloor + Math.max(this.noiseFloor * 1.5, micPeak * 0.2, ECHO_ABS_MIN * 2);
+		const micThreshold = this.noiseFloor + Math.max(this.noiseFloor * 1.25, micPeak * 0.08, ECHO_ABS_MIN * 1.5);
 		const detectedRefOnsets = this.detectOnsets(this.refHistory, refThreshold).slice(0, 3);
 		const knownRefOnsets = this.markerOnsets?.() ?? [];
 		const refOnsets = knownRefOnsets.length === 3 ? knownRefOnsets : detectedRefOnsets;
 		const micOnsets = this.detectOnsets(mic, micThreshold);
 
-		let best: { delayMs: number; error: number; onset: number } | null = null;
+		let best: { delayMs: number; error: number; onsets: number[]; refIndices: number[] } | null = null;
 		if (refOnsets.length === 3) {
 			const refGap1 = refOnsets[1] - refOnsets[0];
 			const refGap2 = refOnsets[2] - refOnsets[1];
@@ -200,37 +202,65 @@ export class EchoGate {
 						);
 						const delayMs = micOnsets[i] - refOnsets[0];
 						if (delayMs < 0 || delayMs > 1000) continue;
-						if (best === null || gapError < best.error) best = { delayMs, error: gapError, onset: micOnsets[i] };
+						if (best === null || gapError < best.error) {
+							best = { delayMs, error: gapError, onsets: [micOnsets[i], micOnsets[j], micOnsets[k]], refIndices: [0, 1, 2] };
+						}
+					}
+				}
+			}
+		}
+
+		// 少一枚起音时，用两次滴声的已知间隔做后备；时间差成立即可。
+		if (refOnsets.length === 3 && micOnsets.length >= 2) {
+			for (const [a, b] of [[0, 1], [1, 2], [0, 2]] as const) {
+				const expected = refOnsets[b] - refOnsets[a];
+				for (let i = 0; i < micOnsets.length - 1; i += 1) {
+					for (let j = i + 1; j < micOnsets.length; j += 1) {
+						const gapError = Math.abs(micOnsets[j] - micOnsets[i] - expected);
+						const delayMs = micOnsets[i] - refOnsets[a];
+						if (delayMs < 0 || delayMs > 1000) continue;
+						if (best === null || gapError < best.error) {
+							best = { delayMs, error: gapError, onsets: [micOnsets[i], micOnsets[j]], refIndices: [a, b] };
+						}
 					}
 				}
 			}
 		}
 
 		let gain: number | null = null;
-		if (best !== null && best.error <= 60) {
+		if (best !== null && best.error <= ECHO_INTERVAL_TOLERANCE_MS) {
 			const ratios: number[] = [];
-			for (const onset of [best.onset, best.onset + (refOnsets[1] - refOnsets[0]), best.onset + (refOnsets[2] - refOnsets[0])]) {
-				for (const sample of mic) {
-					if (sample.t < onset || sample.t > onset + 150) continue;
-					const ref = this.refAt(sample.t - best.delayMs);
-					const level = sample.level - this.noiseFloor;
-					if (ref !== null && ref >= ECHO_ABS_MIN && level >= ECHO_ABS_MIN) {
-						const ratio = level / ref;
-						if (ratio >= 0.05 && ratio <= 3.5) ratios.push(ratio);
-					}
+			for (let q = 0; q < best.onsets.length; q += 1) {
+				const micOnset = best.onsets[q];
+				const refOnset = refOnsets[best.refIndices[q]];
+				const micPeak = Math.max(
+					0,
+					...mic
+						.filter((sample) => sample.t >= micOnset && sample.t <= micOnset + 140)
+						.map((sample) => Math.max(0, sample.level - this.noiseFloor)),
+				);
+				const refPeak = Math.max(
+					0,
+					...this.refHistory
+						.filter((item) => item.t >= refOnset && item.t <= refOnset + 140)
+						.map((item) => item.level),
+				);
+				if (micPeak >= ECHO_ABS_MIN && refPeak >= ECHO_ABS_MIN) {
+					const ratio = micPeak / refPeak;
+					if (ratio > 0 && Number.isFinite(ratio)) ratios.push(ratio);
 				}
 			}
-			if (ratios.length >= 6) {
+			if (ratios.length > 0) {
 				const sorted = [...ratios].sort((a, b) => a - b);
-				const candidate = sorted[Math.floor(sorted.length / 2)];
-				if (candidate >= 0.05 && candidate <= 3.5) gain = candidate;
+				gain = sorted[Math.floor(sorted.length / 2)];
 			}
 		}
 
 		const score = best === null ? null : Math.max(0, 1 - best.error / 100);
-		if (best !== null && gain !== null && best.error <= 60) {
+		if (best !== null && gain !== null && best.error <= ECHO_INTERVAL_TOLERANCE_MS) {
 			this.delayMs = best.delayMs;
-			this.gain = gain;
+			// 时间差已经成立，增益只做限幅，不因幅度差把整次校准判失败。
+			this.gain = Math.min(3.5, Math.max(0.05, gain));
 		}
 		const reason =
 			this.gain !== null

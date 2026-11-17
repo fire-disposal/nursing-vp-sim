@@ -44,6 +44,8 @@ export interface AsrSession extends AsrEventHandlers {
 	start(): void;
 	/** 停止并释放（关 WS / 停 VAD；保留麦克风由调用方决定）。 */
 	stop(): void;
+	/** 麦克风与上游就绪后，由调用方显式开始回声校准采样。 */
+	beginEchoCalibration?(): void;
 	/**
 	 * `true` = 该会话会自行上报 VAD 轮次事件（`speechStart`/`RealStart`/`End`）。
 	 * 校准期/运行中降级会把它改成 `false`（同一会话就此退回 interim 驱动）。

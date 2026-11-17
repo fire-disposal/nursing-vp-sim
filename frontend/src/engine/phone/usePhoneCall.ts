@@ -507,6 +507,7 @@ export function usePhoneCall({
 				new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 5000)),
 			]);
 			if (!ready) throw new Error("麦克风未就绪，无法开始声学匹配");
+			voiceRef.current?.beginEchoCalibration();
 			await player.playConnectTone?.();
 			const result = await Promise.race([
 				calibrationResult,

@@ -123,6 +123,8 @@ export interface UseVoiceDialogueResult {
 	basicVoiceMode: boolean;
 	/** 开启聆听（持续模式=打开常开麦克风；按住模式=开始一次识别）。 */
 	start: () => void;
+	/** 麦克风与 ASR 就绪后显式开始回声校准采样。 */
+	beginEchoCalibration: () => void;
 	/** 停止聆听（持续模式=关闭常开麦克风；按住模式=立即收尾发送）。 */
 	stop: () => void;
 	/** 按住说话：按下开始聆听。 */
@@ -379,6 +381,11 @@ export function useVoiceDialogue({
 		},
 		[fallbackProvider],
 	);
+
+	/** 在播放校准音前显式启动采集侧校准。 */
+	const beginEchoCalibration = useCallback(() => {
+		sessionRef.current?.beginEchoCalibration?.();
+	}, []);
 
 	/** 开始聆听：通过 ASR 供应商拉起一次识别会话。 */
 	const start = useCallback(() => {
@@ -704,6 +711,7 @@ export function useVoiceDialogue({
 		interrupted,
 		basicVoiceMode,
 		start,
+		beginEchoCalibration,
 		stop,
 		pressStart,
 		pressEnd,

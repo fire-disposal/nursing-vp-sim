@@ -51,6 +51,7 @@ export function createVolcAsrProvider(
 				stop: () => {
 					void teardown();
 				},
+				beginEchoCalibration: () => capture?.beginEchoCalibration(),
 			};
 
 			let closed = false;
@@ -121,10 +122,7 @@ export function createVolcAsrProvider(
 						path: path ?? (sessionOptions.recordId === 0 ? "/api/voice-demo/asr" : "/api/asr/stream"),
 						token: sessionOptions.token,
 						recordId: sessionOptions.recordId,
-						onReady: () => {
-							capture?.beginEchoCalibration();
-							emit("onReady");
-						},
+						onReady: () => emit("onReady"),
 						onPartial: (text) => {
 							emit("onPartial", text);
 							// VAD 缺席（初始化失败/校准期降级）：由中间结果驱动静音窗口
