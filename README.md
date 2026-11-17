@@ -10,7 +10,7 @@
 
 ## 选型
 
-基于 FastAPI + React 的训练平台，前端 React 19 + Mantine，后端 FastAPI + SQLAlchemy，数据 PostgreSQL 15，语音火山引擎 ASR/TTS 与浏览器 VAD，部署 Docker Compose + Nginx。
+基于 FastAPI + React 的训练平台，前端 React 19 + Mantine，后端 FastAPI + SQLAlchemy，数据 PostgreSQL 15，语音火山引擎 ASR/TTS 与浏览器 VAD，部署 Docker Compose + Caddy。
 
 - 前端
   - React 19
@@ -40,7 +40,7 @@
   - 浏览器 Silero VAD
 - 部署
   - Docker Compose
-  - Nginx
+  - Caddy
   - GitHub Actions
 
 ## 功能

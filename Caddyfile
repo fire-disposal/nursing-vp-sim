@@ -1,0 +1,70 @@
+{
+	auto_https off
+}
+
+:80 {
+	root * /usr/share/caddy
+	encode gzip
+
+	header {
+		X-Frame-Options DENY
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+	@index path / /index.html
+	header @index Cache-Control "no-cache, must-revalidate"
+	header /assets/* Cache-Control "public, max-age=31536000, immutable"
+	header /vad/* Cache-Control "public, max-age=86400"
+
+	@blocked_path path_regexp (?i)^/(\.git|\.env|\.svn|wp-admin|wp-login|phpmyadmin|adminer|config\.php|xmlrpc\.php)
+	@blocked_ext path_regexp (?i)\.(php|asp|aspx|jsp)$
+	@blocked_ua header_regexp User-Agent (?i)(gobuster|nikto|sqlmap|nmap|dirbuster|wpscan|zgrab)
+	@blocked_method not method GET POST HEAD PUT PATCH DELETE OPTIONS
+	handle @blocked_path {
+		abort
+	}
+	handle @blocked_ext {
+		abort
+	}
+	handle @blocked_ua {
+		abort
+	}
+	handle @blocked_method {
+		abort
+	}
+
+	# 边缘 Caddy 已写入 X-Real-IP 时原样透传；只有直连容器才回退到直连地址。
+	@real_ip_present header X-Real-IP *
+	@real_ip_missing not header X-Real-IP *
+
+	handle /api/asr/stream {
+		reverse_proxy backend:8000 {
+			header_up @real_ip_present X-Real-IP {http.request.header.X-Real-IP}
+			header_up @real_ip_missing X-Real-IP {remote_host}
+			flush_interval -1
+			transport http {
+				read_timeout 3600s
+				write_timeout 120s
+				dial_timeout 10s
+			}
+		}
+	}
+
+	handle /api/* {
+		reverse_proxy backend:8000 {
+			header_up @real_ip_present X-Real-IP {http.request.header.X-Real-IP}
+			header_up @real_ip_missing X-Real-IP {remote_host}
+			flush_interval -1
+			transport http {
+				read_timeout 300s
+				write_timeout 120s
+				dial_timeout 10s
+			}
+		}
+	}
+
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
+}

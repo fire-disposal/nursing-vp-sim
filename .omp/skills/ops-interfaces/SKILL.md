@@ -12,7 +12,7 @@ description: nursing-vp-sim 观测/运维接口总览：反馈、前端遥测、
 | `GET /api/diagnose?token=<DIAGNOSE_TOKEN>` | Agent 故障诊断（按需）、CI 部署冒烟、admin 看板（`/admin/ops/dashboard`） | 机器可读快照，`schema_version: 3`；**按需调用，无周期性消费者**（不要为其引入调度器） |
 | `POST /api/telemetry` | 前端错误上报（ErrorBoundary / `window.error` / unhandledrejection） | 204；每 IP 5 次/60s；单批 ≤20 条 |
 | `GET /api/health` | 存活与版本（公开） | `{status, version}` |
-| `GET /api/metrics` | 宿主 monitor 本地读取 | 进程口径；nginx 对公网 `return 444`；形状**冻结** |
+| `GET /api/metrics` | 宿主 monitor 本地读取 | 进程口径；Caddy 对公网 `abort`；形状**冻结** |
 
 ## 诊断接口口径（v3）
 

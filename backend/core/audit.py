@@ -117,7 +117,7 @@ def _request_fields(request: Request | None) -> dict[str, Any]:
             "request_method": None,
             "request_path": None,
         }
-    # 复用限流那套信任模型（只有 nginx 覆盖写的头才可信），不要另写一份 IP 取值
+    # 复用限流那套信任模型（只有 Caddy 写入或透传的头才可信），不要另写一份 IP 取值
     from core.rate_limits import get_client_ip
 
     client_ip: str | None

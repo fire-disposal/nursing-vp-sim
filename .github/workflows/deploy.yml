@@ -275,8 +275,8 @@ jobs:
           tar -C "$STAGE" -czf - . \
             | ssh "$USER@$HOST" "mkdir -p '$DEPLOY_DIR' && tar -xzf - -C '$DEPLOY_DIR'"
 
-          # nginx 已于 2026-10-23 退役（边缘切换到 Caddy，见 server-ops/NETWORK.md §9.7）。
-          # 本步骤不再安装 vhost / reload nginx；站点路由由 Caddy 的 base 配置负责。
+          # 宿主与前端容器均使用 Caddy；站点路由由 server-ops 的边缘配置负责，
+          # 本仓库只发布容器，不下发或重载宿主站点配置。
 
           ssh "$USER@$HOST" 'bash -s' << DEPLOY
             set -e

@@ -1,6 +1,6 @@
 # 09 — 运维安全指南
 
-> 适用版本: v2026.07.29 起 | 最后更新: 2026-09-14
+> 适用版本: v2026.11.17 起 | 最后更新: 2026-11-17
 
 面对生产环境运维人员的操作手册，涵盖部署流程、回滚、备份、安全加固要点、应急预案。
 
@@ -36,7 +36,7 @@ PR 创建 → commit-format.yml 门禁
      ▼ deploy.yml（推送 v* tag 触发；也可手动 dispatch 指定历史版本）
      │  （`production` 未配 Required reviewers → 无审批等待，直接进入部署）
      │
-  校验迁移/镜像 → 下发 nginx 配置（暂存 → 备份 → 安装 → `nginx -t` → reload，任一步失败即恢复原配置并中止）
+  校验迁移/镜像 → 构建前端 Caddy 镜像（宿主站点配置由 server-ops 独立管理）
     → 备份DB（失败即停） → 拉镜像 → 记录当前 Alembic revision
     → 迁移：新镜像一次性容器执行 `alembic upgrade head`（失败即停，不启动新服务）
     → 启动服务 → 健康检查
@@ -64,7 +64,7 @@ production 以部署前 `pg_dump` 备份作为最终兜底。
 首次部署时 `deploy.yml` 自动执行：
 
 1. `sudo mkdir -p /opt/nursing-vp-sim/backups`
-2. 同步 compose、rollback、backup、monitor、nginx 配置到服务器
+2. 同步 compose、rollback、backup、monitor 配置到服务器
 3. 备份数据库（pre-deploy，失败即停）
 4. 拉取镜像，并用新镜像一次性容器执行 `alembic upgrade head`
 5. 启动服务
@@ -322,7 +322,7 @@ pre-commit hook（`check-migration-autogen.js`）强制：
 
 ### 系统完全不可访问 (HTTP 5xx / 连接超时)
 
-**可能原因**: Docker 容器崩溃 / 宿主机资源耗尽 / Nginx 异常 / 磁盘满
+**可能原因**: Docker 容器崩溃 / 宿主机资源耗尽 / Caddy 异常 / 磁盘满
 
 **诊断步骤**:
 ```bash
@@ -424,8 +424,9 @@ echo | openssl s_client -servername iomt.205716.xyz -connect iomt.205716.xyz:443
 
 **应急措施**:
 ```bash
-sudo certbot renew --force-renewal
-sudo nginx -s reload
+# iomt 证书由 Caddy 自动管理，先检查 ACME 续期错误并重载
+sudo journalctl -u caddy -n 100 --no-pager
+sudo systemctl reload caddy
 ```
 
 ---
@@ -447,7 +448,7 @@ sudo nginx -s reload
 | # | 薄弱点 | 风险 | 分类 | 应对 |
 |---|--------|------|------|------|
 | 2 | **Docker 容器资源上限** | 任一容器可耗尽宿主机资源 | 📌 已配置 | compose 已加 `mem_limit`（backend 640m / db 512m / frontend 128m） |
-| 3 | **无 Nginx 级速率限制** | 仅 Python 层 `rate_limits.py`（按 user_id），大流量 DDoS 可消耗 FastAPI 资源 | 🏛️ 已充分 | Python 层覆盖高危端点；当前流量低无需 nginx 层 |
+| 3 | **无 Caddy 级速率限制** | 仅 Python 层 `rate_limits.py`（按 user_id），大流量 DDoS 可消耗 FastAPI 资源 | 🏛️ 已充分 | Python 层覆盖高危端点；当前流量低无需 Caddy 层 |
 | 4 | **JWT Token 无主动撤销机制** | 角色变更后旧 token 仍有效（最长 8h） | 🏛️ 固有约束 | 紧急改 JWT_SECRET_KEY 全局失效 |
 | 5 | **Token 存储在 localStorage** | XSS 可窃取 | 🏛️ 固有约束 | CSP + React XSS 防护；长期向 HttpOnly Cookie |
 | 7 | **LLM 环境变量兜底无限额** | 所有 DB 密钥失效后回退 `.env` key | ⚠️ 已缓解 | DeepSeek 控制台已设硬限额 |
@@ -558,7 +559,7 @@ curl "https://iomt.205716.xyz/api/diagnose?token=***"
 ——每个 worker 把去重后的增量写入共享归档，快照时合并「本进程增量 + 归档」，因此
 `frontend_errors.count` 与 `groups` 是跨 worker 口径，且随容器重建保留（`ai_vp_diagnostics` 卷）。
 `groups[]` 现在带 `ua`（出事端浏览器）、`fingerprint`、`first_seen`，机房/旧浏览器类环境问题
-无需再翻 nginx 日志反查。归档路径与环境变量见 [`ops/diagnostics.md`](ops/diagnostics.md)。
+无需再翻 Caddy 访问日志反查。归档路径与环境变量见 [`ops/diagnostics.md`](ops/diagnostics.md)。
 
 **前端浏览器下限**见 [`01-architecture.md`](01-architecture.md#浏览器下限与垫片)：机房镜像停在
 Chromium 92，低于该版本的浏览器若缺内置 API（如 `Object.hasOwn`）会在渲染期崩到

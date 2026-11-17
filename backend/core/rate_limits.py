@@ -68,12 +68,12 @@ def get_rate_limiter(request: Request) -> "PgRateLimiter":
 def get_client_ip(request: Request) -> str:
     """真实客户端 IP 的唯一取值策略（限流/遥测共用一个实现）。
 
-    信任模型：只有反向代理（nginx）写入的头才可信，客户端自带值必须被覆盖。
+    信任模型：边缘与容器 Caddy 负责写入或透传真实客户端头，客户端伪造值不进入信任链。
 
-    - ``X-Real-IP``：nginx 用 ``proxy_set_header X-Real-IP $remote_addr`` **覆盖**写入，
-      最可信，优先取用；
-    - ``X-Forwarded-For``：nginx 用 ``$proxy_add_x_forwarded_for`` **追加**真实对端地址，
-      因此最后一个元素才是代理写入的，取尾段；
+    - ``X-Real-IP``：边缘 Caddy 覆盖写入，容器 Caddy 原样透传；仅直连容器时回退到
+      直连对端地址，最可信，优先取用；
+    - ``X-Forwarded-For``：代理由近及远追加对端地址，因此最后一个元素才是当前代理
+      写入的地址，取尾段；
     - **绝不取 XFF 第一段**——那是客户端可以随意伪造的值，用它做限流键等于限流失效
       （每次换一个伪造 IP 就得到一个新的 ``login:{ip}`` 桶）。
 

@@ -80,11 +80,11 @@ ssh yecaoyun "docker exec nursing-db psql -U nursing -d nursing_vp -c 'SELECT 1'
 ssh yecaoyun "docker logs nursing-db --tail 30"
 ```
 
-## DNS / Nginx
+## DNS / Caddy
 
 ```bash
-# 检查 nginx 配置（必须先通过校验再 reload：校验失败时 reload 会静默保留旧配置）
-ssh yecaoyun "sudo nginx -t && sudo nginx -s reload"
+# 先校验配置再 reload，失败时不要重载
+ssh yecaoyun "caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy"
 
 # 测试域名
 ssh yecaoyun "curl -sI https://iomt.205716.xyz | head -5"
