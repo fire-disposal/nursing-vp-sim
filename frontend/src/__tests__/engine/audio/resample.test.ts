@@ -102,4 +102,16 @@ describe("EchoGate", () => {
 		expect(gate.isEcho(0.3)).toBe(false);
 		vi.restoreAllMocks();
 	});
+
+	it("learns the device echo gain during quiet TTS and narrows the band", async () => {
+		const { EchoGate } = await import("@/engine/audio/mic");
+		const gate = new EchoGate();
+		gate.setReference(0.2);
+		for (let i = 0; i < 20; i += 1) gate.observe(0.1);
+		gate.observe(0.1, performance.now() + 5000);
+
+		expect(gate.calibrated).toBe(true);
+		expect(gate.isEcho(0.1)).toBe(true); // learned echo gain 0.5
+		expect(gate.isEcho(0.5)).toBe(false); // real speech much louder than echo path
+	});
 });

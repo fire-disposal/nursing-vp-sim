@@ -22,6 +22,8 @@ const SCRIPT_PROCESSOR_SIZE = 4096;
 const ECHO_RATIO_MIN = 0.45;
 const ECHO_RATIO_MAX = 2.5;
 const ECHO_ABS_MIN = 0.0025;
+const ECHO_CALIBRATION_MS = 1800;
+const ECHO_CALIBRATION_MIN_SAMPLES = 12;
 
 export interface MicCaptureConstraintsOptions {
 	deviceId?: string;
@@ -68,9 +70,47 @@ function rms(channel: Float32Array): number {
  */
 export class EchoGate {
 	private reference = 0;
+	private gain: number | null = null;
+	private samples: number[] = [];
+	private calibrating = false;
+	private calibrationUntil = 0;
+
+	/** 在首次 TTS 播放、环境安静时调用；1.8 秒内采集中位数回授增益。 */
+	beginCalibration(now = performance.now()): void {
+		this.samples = [];
+		this.calibrating = true;
+		this.calibrationUntil = now + ECHO_CALIBRATION_MS;
+	}
+
+	get calibrated(): boolean {
+		return this.gain !== null;
+	}
 
 	setReference(level: number): void {
-		this.reference = Number.isFinite(level) && level > 0 ? level : 0;
+		const next = Number.isFinite(level) && level > 0 ? level : 0;
+		if (next >= ECHO_ABS_MIN && this.reference < ECHO_ABS_MIN && !this.calibrating && this.gain === null) {
+			this.beginCalibration();
+		}
+		this.reference = next;
+	}
+
+	/** 每 50ms 的麦克风/参考帧：校准期只收合理比例，避免用户说话污染。 */
+	observe(micLevel: number, now = performance.now()): void {
+		if (!this.calibrating) return;
+		if (this.reference >= ECHO_ABS_MIN && micLevel >= ECHO_ABS_MIN) {
+			const ratio = micLevel / this.reference;
+			if (ratio >= 0.05 && ratio <= 3.5) this.samples.push(ratio);
+		}
+		if (now >= this.calibrationUntil || this.samples.length >= 60) this.finishCalibration();
+	}
+
+	private finishCalibration(): void {
+		this.calibrating = false;
+		if (this.samples.length < ECHO_CALIBRATION_MIN_SAMPLES) return;
+		const sorted = [...this.samples].sort((a, b) => a - b);
+		const median = sorted[Math.floor(sorted.length / 2)] ?? null;
+		if (median !== null && median >= 0.05 && median <= 3.5) this.gain = median;
+		this.samples = [];
 	}
 
 	/** 患者是否正在出声（参考电平非零）。 */
@@ -82,6 +122,10 @@ export class EchoGate {
 	isEcho(micLevel: number): boolean {
 		if (!this.playing) return false;
 		const ratio = micLevel / this.reference;
+		if (this.gain !== null) {
+			// 校准后围绕该设备实际回授增益取带，比固定 [0.45,2.5] 更窄。
+			return ratio >= this.gain * 0.55 && ratio <= this.gain * 1.9;
+		}
 		return ratio >= ECHO_RATIO_MIN && ratio < ECHO_RATIO_MAX;
 	}
 }
@@ -186,6 +230,7 @@ export class MicCapture {
 				const level = rms(buffer);
 				this.latestMicLevel = level;
 				if (options.echoLevel) this.echo.setReference(options.echoLevel());
+				this.echo.observe(level);
 				carry += buffer.length / this.sampleRate;
 				// 约 50ms 一批：够做 250ms 判定，又不会每 128 样本回调一次
 				if (carry >= 0.05) {
@@ -210,6 +255,7 @@ export class MicCapture {
 		for (let i = 0; i < pcm.length; i += 1) sum += pcm[i] * pcm[i];
 		const level = Math.sqrt(sum / pcm.length) / 32768;
 		this.latestMicLevel = level;
+		this.echo.observe(level);
 		return this.echo.isEcho(level);
 	}
 
