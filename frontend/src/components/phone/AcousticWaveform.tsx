@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Box, Text } from "@mantine/core";
-import type { WaveRing } from "./waveRing";
+import type { WaveRing } from "@/engine/audio/waveRing";
 
 export interface AcousticWaveformProps {
 	title: string;

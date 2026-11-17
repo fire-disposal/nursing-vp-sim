@@ -12,8 +12,8 @@
  * 注册名必须与 `src/engine/audio/mic.ts` 的 `PCM_WORKLET_NAME` 一致。
  */
 const PROCESSOR_NAME = "pcm-capture";
-/** 每批上限（字节）：128 样本的渲染量子攒到约 100ms 再发，减少消息数。 */
-const MAX_CHUNK_SAMPLES = 1600;
+/** 每批上限（样本）：16kHz 下固定 50ms 一批，避免每 128 样本量子都发消息。 */
+const MAX_CHUNK_SAMPLES = 800;
 
 class PcmCaptureProcessor extends AudioWorkletProcessor {
 	constructor() {
@@ -83,7 +83,6 @@ class PcmCaptureProcessor extends AudioWorkletProcessor {
 		}
 		this.pos -= channel.length;
 		this.lastSample = channel[channel.length - 1];
-		this.flush();
 		return true;
 	}
 }

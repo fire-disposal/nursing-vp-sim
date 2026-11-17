@@ -266,10 +266,10 @@ export class EchoGate {
 		}
 
 		const score = best === null ? null : Math.max(0, 1 - best.error / 100);
-		if (best !== null && gain !== null && best.error <= ECHO_INTERVAL_TOLERANCE_MS) {
+		if (best !== null && best.error <= ECHO_INTERVAL_TOLERANCE_MS) {
 			this.delayMs = best.delayMs;
-			// 时间差已经成立，增益只做限幅，不因幅度差把整次校准判失败。
-			this.gain = Math.min(3.5, Math.max(0.05, gain));
+			// 时间差已经成立，增益只做限幅/兜底，不参与成败判定。
+			this.gain = gain === null ? 0.5 : Math.min(3.5, Math.max(0.05, gain));
 		}
 		const reason =
 			this.gain !== null
