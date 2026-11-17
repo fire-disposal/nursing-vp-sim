@@ -58,6 +58,7 @@ export type DemoTTSListener = (event:
 type DemoTTSPlayerCore = Pick<PcmStreamPlayer, "playStream" | "stop" | "prime" | "waitIdle" | "dispose"> & {
 	outputLevel?: () => number;
 	playConnectTone?: () => Promise<void>;
+	readReference?: (startMs: number, length: number) => Float32Array;
 };
 
 export interface DemoTTSConfig {
@@ -129,6 +130,11 @@ export class DemoTTSPlayer {
 		} catch {
 			return 0;
 		}
+	}
+
+	/** ASR 反相抵消：读取指定时间轴的 16kHz 参考波形。 */
+	readReference(startMs: number, length: number): Float32Array {
+		return this.player.readReference?.(startMs, length) ?? new Float32Array(length);
 	}
 
 	/** 接通校准音：先出声，再播开场白，给回声门留出延迟/增益样本。 */

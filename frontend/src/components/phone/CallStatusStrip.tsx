@@ -1,5 +1,6 @@
 import { Badge, Group, Tooltip } from "@mantine/core";
-import { IconActivity, IconMicrophone, IconMicrophoneOff, IconVolume } from "@tabler/icons-react";
+import { IconActivity, IconCheck, IconLoader2, IconMicrophone, IconMicrophoneOff, IconVolume, IconX } from "@tabler/icons-react";
+import type { PhoneCalibration } from "@/engine/phone/usePhoneCall";
 import type { PhoneStage } from "@/engine/phone/types";
 import { PHONE_STAGE_LABELS } from "@/engine/phone/types";
 import type { VoicePhase } from "@/hooks/voiceTypes";
@@ -22,6 +23,7 @@ export interface CallStatusStripProps {
 	continuousFailed: boolean;
 	ttsSpeaking: boolean;
 	patientReplying: boolean;
+	calibration: PhoneCalibration | null;
 }
 
 export default function CallStatusStrip({
@@ -32,6 +34,7 @@ export default function CallStatusStrip({
 	continuousFailed,
 	ttsSpeaking,
 	patientReplying,
+	calibration,
 }: CallStatusStripProps) {
 	const vadLabel = continuousFailed
 		? "不可用"
@@ -57,6 +60,33 @@ export default function CallStatusStrip({
 
 	return (
 		<Group gap="xs" wrap="wrap" data-testid="call-status">
+			<Tooltip
+				label={
+					calibration?.status === "success"
+						? `延迟 ${calibration.delayMs}ms，增益 ${calibration.gain?.toFixed(3)}，相关度 ${calibration.score?.toFixed(2) ?? "稳定电平"}`
+						: calibration?.status === "failed"
+							? "未通过声学匹配，双工未开放"
+							: "等待三音符包络匹配"
+				}
+				withArrow
+			>
+				<Badge
+					variant="light"
+					color={calibration?.status === "success" ? "green" : calibration?.status === "failed" ? "red" : "yellow"}
+					leftSection={
+						calibration?.status === "success" ? <IconCheck size={12} /> : calibration?.status === "failed" ? <IconX size={12} /> : <IconLoader2 size={12} />
+					}
+					data-testid="calibration-badge"
+				>
+					{calibration?.status === "success"
+						? `匹配成功 ${calibration.delayMs}ms`
+						: calibration?.status === "failed"
+							? "匹配失败"
+							: calibration?.status === "pending"
+								? "校准中"
+								: "未校准"}
+				</Badge>
+			</Tooltip>
 			<Tooltip label="语音活动检测：识别是否有人开口、何时算一句话说完" withArrow>
 				<Badge
 					variant="light"

@@ -1,3 +1,5 @@
+import type { EchoCalibrationResult } from "@/engine/audio/mic";
+
 /** 一次 ASR 会话的**中间**结果载荷：句子还没落定。 */
 export interface AsrResult {
 	/** 当前累计转写文本（含 interim）。 */
@@ -78,5 +80,9 @@ export interface AsrProvider {
 		audioContext?: AudioContext;
 		/** 患者 TTS 当前输出 RMS；用于回声门，避免回录被当成学生说话。 */
 		echoLevel?: () => number;
+		/** 接通音校准完成；电话页据此开放双工并显示校准徽章。 */
+		onEchoCalibration?: (result: EchoCalibrationResult) => void;
+		/** 16kHz TTS 参考波形，供发送前反相抵消。 */
+		echoReference?: (startMs: number, length: number) => Float32Array;
 	}): AsrSession;
 }

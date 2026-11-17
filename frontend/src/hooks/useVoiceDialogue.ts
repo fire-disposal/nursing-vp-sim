@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { EchoCalibrationResult } from "@/engine/audio/mic";
 import {
 	defaultAsrProvider,
 	fallbackAsrProvider,
@@ -84,6 +85,10 @@ export interface UseVoiceDialogueOptions {
 	onSpeechStart?: () => void;
 	/** 患者 TTS 当前输出 RMS；传到底层回声门，丢弃回录 PCM 与 VAD 假轮次。 */
 	echoLevel?: () => number;
+	/** 接通音校准完成，电话页必须等到 success 才开放双工。 */
+	onEchoCalibration?: (result: EchoCalibrationResult) => void;
+	/** 16kHz TTS 参考波形，供 ASR 发送前反相抵消。 */
+	echoReference?: (startMs: number, length: number) => Float32Array;
 	/** 打断闸门：默认 vad；电话页用 asr，等文本确认后再停播。 */
 	bargeInGate?: "vad" | "asr";
 	/** 额外文本闸门：返回 true 表示这句不允许触发打断。 */
@@ -136,6 +141,8 @@ export function useVoiceDialogue({
 	token,
 	onSpeechStart,
 	echoLevel,
+	onEchoCalibration,
+	echoReference,
 	bargeInGate,
 	bargeInGuard,
 	bargeInMinChars,
@@ -389,6 +396,8 @@ export function useVoiceDialogue({
 				token: token ?? undefined,
 				vad: wantContinuous,
 				echoLevel,
+				onEchoCalibration,
+				echoReference,
 			});
 		} catch (err) {
 			console.warn("[useVoiceDialogue] 识别会话创建失败", err);

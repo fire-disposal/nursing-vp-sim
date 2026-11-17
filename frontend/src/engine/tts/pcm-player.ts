@@ -20,6 +20,10 @@ export class PcmStreamPlayer {
 	private analyser: AnalyserNode | null = null;
 	private endTime = 0;
 	private sources = new Set<AudioBufferSourceNode>();
+	/** 16kHz、按 performance.now() 对齐的十秒参考波形，供 ASR 反相抵消。 */
+	private referencePcm = new Float32Array(16_000 * 10);
+	private referenceStartMs = 0;
+	private referenceWritten = 0;
 
 	/** Create/resume the AudioContext. Returns a running context. */
 	async prime(): Promise<AudioContext> {
@@ -99,6 +103,7 @@ export class PcmStreamPlayer {
 				src.connect(this.master ?? ctx.destination);
 				const at = Math.max(ctx.currentTime + 0.05, this.endTime);
 				src.start(at);
+				this.appendReference(f32, at, SAMPLE_RATE);
 				this.endTime = at + audio.duration;
 				this.sources.add(src);
 				src.onended = () => this.sources.delete(src);
@@ -145,6 +150,7 @@ export class PcmStreamPlayer {
 		src.connect(this.master ?? ctx.destination);
 		const at = Math.max(ctx.currentTime + 0.05, this.endTime);
 		src.start(at);
+		this.appendReference(data, at, sampleRate);
 		this.endTime = at + buffer.duration;
 		this.sources.add(src);
 		await new Promise<void>((resolve) => {
@@ -153,6 +159,44 @@ export class PcmStreamPlayer {
 				resolve();
 			};
 		});
+	}
+
+	/** 把调度到 AudioContext 时间线的波形重采样为 ASR 的 16kHz 参考。 */
+	private appendReference(samples: Float32Array, atContextSeconds: number, sourceRate: number): void {
+		if (!this.ctx || samples.length === 0) return;
+		const startMs = performance.now() - this.ctx.currentTime * 1000 + atContextSeconds * 1000;
+		if (this.referenceWritten === 0) this.referenceStartMs = startMs;
+		const ratio = sourceRate / 16_000;
+		const count = Math.floor(samples.length / ratio);
+		const firstIndex = Math.round((startMs - this.referenceStartMs) * 16);
+		for (let i = 0; i < count; i += 1) {
+			const index = firstIndex + i;
+			if (index < 0) continue;
+			if (index >= this.referenceWritten + this.referencePcm.length) {
+				this.referencePcm.fill(0);
+				this.referenceWritten = index;
+			}
+			const position = i * ratio;
+			const left = Math.floor(position);
+			const right = Math.min(samples.length - 1, left + 1);
+			const mix = position - left;
+			this.referencePcm[index % this.referencePcm.length] = (samples[left] ?? 0) * (1 - mix) + (samples[right] ?? 0) * mix;
+			this.referenceWritten = Math.max(this.referenceWritten, index + 1);
+		}
+	}
+
+	/** 读取 performance.now() 时间轴上的参考样本；没有覆盖的区间返回静音。 */
+	readReference(startMs: number, length: number): Float32Array {
+		const out = new Float32Array(length);
+		if (this.referenceWritten === 0) return out;
+		const firstIndex = Math.round((startMs - this.referenceStartMs) * 16);
+		for (let i = 0; i < length; i += 1) {
+			const index = firstIndex + i;
+			if (index < 0 || index >= this.referenceWritten) continue;
+			if (index < this.referenceWritten - this.referencePcm.length) continue;
+			out[i] = this.referencePcm[index % this.referencePcm.length] ?? 0;
+		}
+		return out;
 	}
 
 	/** 当前输出 RMS（0..1），供回声门判断麦克风能量是否来自本播放器。 */
@@ -191,6 +235,8 @@ export class PcmStreamPlayer {
 		this.ctx = null;
 		this.master = null;
 		this.analyser = null;
+		this.referenceWritten = 0;
+		this.referencePcm.fill(0);
 		if (ctx && ctx.state !== "closed") {
 			void ctx.close().catch(() => {
 				/* already closing */

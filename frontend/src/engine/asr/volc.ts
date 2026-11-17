@@ -100,6 +100,8 @@ export function createVolcAsrProvider(
 						stream: sessionOptions.stream ?? null,
 						audioContext: sessionOptions.audioContext ?? null,
 						echoLevel: sessionOptions.echoLevel,
+						onEchoCalibration: sessionOptions.onEchoCalibration,
+						echoReference: sessionOptions.echoReference,
 						pcm: { onPcm: (pcm) => connection?.send(pcm) },
 					});
 				} catch (err) {

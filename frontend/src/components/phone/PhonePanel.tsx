@@ -93,6 +93,7 @@ export default function PhonePanel({ character, onBack, reducedMotion = false }:
 						continuousFailed={call.continuousFailed}
 						ttsSpeaking={call.speaking}
 						patientReplying={call.patientReplying}
+						calibration={call.calibration}
 					/>
 					{(call.continuousFailed || call.basicVoiceMode) && (
 						<Alert color="yellow" variant="light">

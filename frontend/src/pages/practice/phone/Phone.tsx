@@ -3,6 +3,7 @@ import { IconPhone } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import CharacterGrid from "@/components/phone/CharacterGrid";
+import AcousticLabPanel from "@/components/phone/AcousticLabPanel";
 import PhonePanel from "@/components/phone/PhonePanel";
 import { useReducedMotion } from "@/components/phone/hooks";
 import { findCharacter, type PhoneCharacter } from "@/engine/phone/characters";
@@ -70,7 +71,10 @@ export default function Phone() {
 						reducedMotion={reducedMotion}
 					/>
 				) : (
-					<CharacterGrid onPick={handlePick} reducedMotion={reducedMotion} />
+					<>
+						<CharacterGrid onPick={handlePick} reducedMotion={reducedMotion} />
+						<AcousticLabPanel />
+					</>
 				)}
 			</Stack>
 		</Container>

@@ -27,6 +27,14 @@ const ECHO_CALIBRATION_MIN_SAMPLES = 12;
 /** 校准完成前也按常见声学延迟取参考，避免拿“当前帧”对“已到麦克风的旧回声”。 */
 const ECHO_FALLBACK_DELAY_MS = 120;
 
+export interface EchoCalibrationResult {
+	status: "success" | "failed";
+	delayMs: number;
+	gain: number | null;
+	/** 包络互相关系数；稳定电平回退校准时为 null。 */
+	score: number | null;
+}
+
 export interface MicCaptureConstraintsOptions {
 	deviceId?: string;
 }
@@ -71,6 +79,8 @@ function rms(channel: Float32Array): number {
  * 只有两者接近才判定为回声。纯逻辑、无浏览器 API，可直接单测。
  */
 export class EchoGate {
+	/** 校准完成回调；成功与失败都必须上报，调用方不能盲等。 */
+	onResult?: (result: EchoCalibrationResult) => void;
 	private reference = 0;
 	private gain: number | null = null;
 	private delayMs = 0;
@@ -90,6 +100,10 @@ export class EchoGate {
 
 	get calibrated(): boolean {
 		return this.gain !== null;
+	}
+
+	get gainValue(): number | null {
+		return this.gain;
 	}
 
 	/** 当前校准得到的声学延迟（ms），调试/观测用。 */
@@ -129,7 +143,11 @@ export class EchoGate {
 	private finishCalibration(): void {
 		this.calibrating = false;
 		const mic = this.micHistory;
-		if (mic.length < ECHO_CALIBRATION_MIN_SAMPLES) return;
+		if (mic.length < ECHO_CALIBRATION_MIN_SAMPLES) {
+			this.micHistory = [];
+			this.onResult?.({ status: "failed", delayMs: this.delayMs, gain: null, score: null });
+			return;
+		}
 
 		let best: { lagMs: number; gain: number; score: number } | null = null;
 		for (let lagMs = 0; lagMs <= 1000; lagMs += 20) {
@@ -165,7 +183,7 @@ export class EchoGate {
 			if (best === null || score > best.score) best = { lagMs, gain, score };
 		}
 
-		if (best !== null && best.score >= 0.5 && best.gain >= 0.05 && best.gain <= 3.5) {
+		if (best !== null && best.score >= 0.6 && best.gain >= 0.05 && best.gain <= 3.5) {
 			this.delayMs = best.lagMs;
 			this.gain = best.gain;
 		} else if (best === null) {
@@ -189,6 +207,12 @@ export class EchoGate {
 		if (import.meta.env.DEV) {
 			console.info("[echo] calibration", { delayMs: this.delayMs, gain: this.gain, score: best?.score ?? null });
 		}
+		this.onResult?.({
+			status: this.gain === null ? "failed" : "success",
+			delayMs: this.delayMs,
+			gain: this.gain,
+			score: best?.score ?? null,
+		});
 		this.micHistory = [];
 	}
 
@@ -222,6 +246,10 @@ export interface MicCaptureOptions extends MicCaptureConstraintsOptions {
 	onFrame?: (channel: Float32Array, sampleRate: number) => void;
 	/** 患者 TTS 当前输出 RMS；持续写入回声门，用于丢弃回录 PCM。 */
 	echoLevel?: () => number;
+	/** 接通音校准完成：只有 success 才允许进入双工。 */
+	onEchoCalibration?: (result: EchoCalibrationResult) => void;
+	/** 16kHz 参考波形，起始时间为 performance.now() 时间轴。 */
+	echoReference?: (startMs: number, length: number) => Float32Array;
 	pcm?: Pick<MicCaptureHandlers, "onPcm">;
 }
 
@@ -241,6 +269,7 @@ export class MicCapture {
 	private closed = false;
 	private latestMicLevel = 0;
 	private echoLevel?: () => number;
+	private echoReference?: (startMs: number, length: number) => Float32Array;
 
 	private constructor(stream: MediaStream, context: AudioContext, source: MediaStreamAudioSourceNode) {
 		this.stream = stream;
@@ -291,12 +320,14 @@ export class MicCapture {
 	 * 麦克风**不**连 destination（会回声啸叫）：AnalyserNode 拉不拉得动图由 worklet 保证。
 	 */
 	private start(options: MicCaptureOptions): void {
+		this.echo.onResult = options.onEchoCalibration;
 		this.echoLevel = options.echoLevel;
+		this.echoReference = options.echoReference;
 		const basePcm = pcmSink(options.pcm?.onPcm);
 		const pcm = basePcm
 			? (data: unknown) => {
-					if (this.isEchoPcm(data)) return;
-					basePcm(data);
+					const cleaned = this.cleanPcm(data);
+					if (cleaned) basePcm(cleaned);
 				}
 			: null;
 		void this.attachWorklet(pcm).catch(() => this.attachScriptProcessor(pcm));
@@ -327,19 +358,29 @@ export class MicCapture {
 		}
 	}
 
-	/** PCM 帧是否主要是患者回放：是则不送上游 ASR。 */
-	private isEchoPcm(data: unknown): boolean {
+	/** 先丢明显回录，再按校准偏移/增益做 mic - gain × delayedReference。 */
+	private cleanPcm(data: unknown): unknown | null {
 		if (this.echoLevel) this.echo.setReference(this.echoLevel());
 		const message = data as { type?: string; buffer?: ArrayBuffer } | null;
-		if (message?.type !== "pcm" || !(message.buffer instanceof ArrayBuffer)) return false;
+		if (message?.type !== "pcm" || !(message.buffer instanceof ArrayBuffer)) return null;
 		const pcm = new Int16Array(message.buffer);
-		if (pcm.length === 0) return false;
+		if (pcm.length === 0) return null;
 		let sum = 0;
 		for (let i = 0; i < pcm.length; i += 1) sum += pcm[i] * pcm[i];
 		const level = Math.sqrt(sum / pcm.length) / 32768;
 		this.latestMicLevel = level;
-		// 校准只用 analyser 的实时帧；PCM 块带缓冲延迟，塞进延迟估计会引入偏差。
-		return this.echo.isEcho(level);
+		if (this.echo.isEcho(level)) return null;
+		const gain = this.echo.gainValue;
+		if (gain === null || !this.echoReference) return data;
+
+		const startMs = performance.now() - (pcm.length / 16) - this.echo.delay;
+		const reference = this.echoReference(startMs, pcm.length);
+		const cleaned = new Int16Array(pcm.length);
+		for (let i = 0; i < pcm.length; i += 1) {
+			const value = (pcm[i] ?? 0) - Math.round((reference[i] ?? 0) * gain * 32768);
+			cleaned[i] = Math.max(-32768, Math.min(32767, value));
+		}
+		return { type: "pcm", buffer: cleaned.buffer };
 	}
 
 	private async attachWorklet(pcm: ((data: unknown) => void) | null): Promise<void> {

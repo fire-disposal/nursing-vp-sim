@@ -7,6 +7,7 @@ import { streamDemoChat, trimHistory, type DemoHistoryMessage } from "@/engine/p
 import { EMOTION_DIMS, dominantLabel } from "@/engine/phone/emotion";
 import { applyEmotionEffect } from "@/engine/phone/emotionEffect";
 import { DemoTTSPlayer } from "@/engine/phone/ttsPlayer";
+import type { EchoCalibrationResult } from "@/engine/audio/mic";
 import {
 	initialPhoneCallState,
 	phoneCallReducer,
@@ -42,6 +43,13 @@ export interface PhoneCallMetrics {
 	ttsEmotion: string | null;
 }
 
+export interface PhoneCalibration {
+	status: "pending" | "success" | "failed";
+	delayMs: number | null;
+	gain: number | null;
+	score: number | null;
+}
+
 export interface UsePhoneCallResult {
 	character: PhoneCharacter | null;
 	emotion: EmotionVector;
@@ -50,6 +58,7 @@ export interface UsePhoneCallResult {
 	lines: PhoneCallLine[];
 	log: PhoneLogEntry[];
 	metrics: PhoneCallMetrics;
+	calibration: PhoneCalibration | null;
 	transcript: string;
 	voicePhase: UseVoiceDialogueResult["phase"];
 	speechActive: boolean;
@@ -108,6 +117,7 @@ export function usePhoneCall({
 	const [ttsLevel, setTtsLevel] = useState(0);
 	const [dialed, setDialed] = useState(false);
 	const [metrics, setMetrics] = useState<PhoneCallMetrics>(EMPTY_METRICS);
+	const [calibration, setCalibration] = useState<PhoneCalibration | null>(null);
 
 	const stageRef = useRef<PhoneStage>("idle");
 	const emotionRef = useRef<EmotionVector>(character?.initial ?? EMPTY);
@@ -126,6 +136,7 @@ export function usePhoneCall({
 	const lastPatientTextRef = useRef("");
 	const openingTextRef = useRef("");
 	const voiceRef = useRef<UseVoiceDialogueResult | null>(null);
+	const calibrationWaitRef = useRef<((result: EchoCalibrationResult) => void) | null>(null);
 
 	const playerRef = useRef<DemoTTSPlayer | null>(null);
 	if (!playerRef.current) {
@@ -153,6 +164,16 @@ export function usePhoneCall({
 		if (norm.length >= 2 && patient.includes(norm)) return true;
 		return similarSpeech(norm, patient);
 	}, []);
+
+	const onEchoCalibration = useCallback((result: EchoCalibrationResult) => {
+		setCalibration(result);
+		calibrationWaitRef.current?.(result);
+		calibrationWaitRef.current = null;
+	}, []);
+	const ttsEchoReference = useCallback(
+		(startMs: number, length: number) => playerRef.current?.readReference(startMs, length) ?? new Float32Array(length),
+		[],
+	);
 
 	useEffect(() => {
 		if (!speaking) {
@@ -218,6 +239,7 @@ export function usePhoneCall({
 		setLog([]);
 		setDialed(false);
 		setMetrics(EMPTY_METRICS);
+		setCalibration(null);
 		historyRef.current = [];
 		recentTtsRef.current = [];
 		lastPatientTextRef.current = "";
@@ -411,6 +433,8 @@ export function usePhoneCall({
 		token,
 		onBargeIn: () => stopPatient("user"),
 		echoLevel: ttsEchoLevel,
+		onEchoCalibration,
+		echoReference: ttsEchoReference,
 		bargeInGate: "asr",
 		bargeInGuard: isEchoLike,
 		bargeInMinChars: 2,
@@ -427,49 +451,6 @@ export function usePhoneCall({
 		}
 	}, [liveTranscript, setStage]);
 
-	const startCall = useCallback(() => {
-		const player = playerRef.current;
-		if (!character || !player) return;
-		const callSeq = ++callSeqRef.current;
-		turnSeqRef.current += 1;
-		activeTurnRef.current?.abort.abort();
-		activeTurnRef.current = null;
-		const initial = character.initial;
-		emotionRef.current = initial;
-		setEmotion(initial);
-		setLog([]);
-		historyRef.current = [];
-		recentTtsRef.current = [];
-		setDialed(true);
-		setMetrics(EMPTY_METRICS);
-		interruptedRef.current = false;
-		pushLog("system", `接通：${character.name}`);
-		const opener = openingLine(character);
-		historyRef.current = [{ role: "assistant", content: opener }];
-		lastPatientTextRef.current = opener;
-		openingTextRef.current = opener;
-		openingLineIdRef.current = ++lineSeqRef.current;
-		stageRef.current = "greeting";
-		dispatch({
-			type: "opening",
-			line: { id: openingLineIdRef.current, role: "patient", text: opener, state: "complete" },
-		});
-		voice.start();
-		void (async () => {
-			await player.prime();
-			await player.playConnectTone?.();
-			if (callSeqRef.current !== callSeq || stageRef.current !== "greeting") return;
-			await speakWhole(opener);
-			if (callSeqRef.current !== callSeq || stageRef.current !== "greeting") return;
-			openingLineIdRef.current = null;
-			setStage("listening");
-		})().catch((err: unknown) => {
-			if (callSeqRef.current !== callSeq) return;
-			pushLog("error", (err as Error)?.message ?? "开场白播放失败");
-			setStage("listening");
-		});
-	}, [character, pushLog, setStage, speakWhole, voice]);
-
 	/** 立即停止所有外部工作，并作废尚未落地的音频/文本回调。 */
 	const shutdown = useCallback(() => {
 		callSeqRef.current += 1;
@@ -483,11 +464,80 @@ export function usePhoneCall({
 		setSpeaking(false);
 	}, []);
 
+	const startCall = useCallback(() => {
+		const player = playerRef.current;
+		if (!character || !player) return;
+		const callSeq = ++callSeqRef.current;
+		turnSeqRef.current += 1;
+		activeTurnRef.current?.abort.abort();
+		activeTurnRef.current = null;
+		const initial = character.initial;
+		emotionRef.current = initial;
+		setEmotion(initial);
+		setLog([]);
+		dispatch({ type: "reset" });
+		setStage("greeting");
+		historyRef.current = [];
+		recentTtsRef.current = [];
+		lastPatientTextRef.current = "";
+		openingTextRef.current = "";
+		setDialed(true);
+		setMetrics(EMPTY_METRICS);
+		setCalibration({ status: "pending", delayMs: null, gain: null, score: null });
+		interruptedRef.current = false;
+		pushLog("system", `接通：${character.name}，开始声学校准`);
+		const calibrationResult = new Promise<EchoCalibrationResult>((resolve) => {
+			calibrationWaitRef.current = resolve;
+		});
+		voice.start();
+		void (async () => {
+			await player.prime();
+			await player.playConnectTone?.();
+			const result = await Promise.race([
+				calibrationResult,
+				new Promise<EchoCalibrationResult>((resolve) =>
+					setTimeout(() => resolve({ status: "failed", delayMs: 0, gain: null, score: null }), 4000),
+				),
+			]);
+			if (callSeqRef.current !== callSeq || stageRef.current !== "greeting") return;
+			if (result.status !== "success") {
+				shutdown();
+				setCalibration(result);
+				setDialed(false);
+				setStage("idle");
+				pushLog("error", "声学匹配失败，未进入双工。请保持安静、降低扬声器音量后重试。");
+				return;
+			}
+			pushLog("system", `声学匹配成功：${result.delayMs}ms，相关度 ${(result.score ?? 0).toFixed(2)}`);
+			const opener = openingLine(character);
+			historyRef.current = [{ role: "assistant", content: opener }];
+			lastPatientTextRef.current = opener;
+			openingTextRef.current = opener;
+			openingLineIdRef.current = ++lineSeqRef.current;
+			dispatch({
+				type: "opening",
+				line: { id: openingLineIdRef.current, role: "patient", text: opener, state: "complete" },
+			});
+			await speakWhole(opener);
+			if (callSeqRef.current !== callSeq || stageRef.current !== "greeting") return;
+			openingLineIdRef.current = null;
+			setStage("listening");
+		})().catch((err: unknown) => {
+			if (callSeqRef.current !== callSeq) return;
+			shutdown();
+			setDialed(false);
+			setStage("idle");
+			setCalibration({ status: "failed", delayMs: null, gain: null, score: null });
+			pushLog("error", (err as Error)?.message ?? "声学校准失败");
+		});
+	}, [character, pushLog, setStage, shutdown, speakWhole, voice]);
+
 	const stopCall = useCallback(() => {
 		shutdown();
 		recentTtsRef.current = [];
 		lastPatientTextRef.current = "";
 		openingTextRef.current = "";
+		setCalibration(null);
 		setStage("ended");
 		setDialed(false);
 		pushLog("system", "通话已结束");
@@ -519,6 +569,7 @@ export function usePhoneCall({
 		lines: call.lines,
 		log,
 		metrics,
+		calibration,
 		transcript: liveTranscript,
 		voicePhase: voice.phase,
 		speechActive: voice.speechActive,
