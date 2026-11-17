@@ -280,9 +280,7 @@ export class EchoGate {
 						? "no_mic_onsets"
 						: best === null
 							? "no_mic_onsets"
-							: best.error > 60
-								? "interval_mismatch"
-								: "low_gain";
+							: "interval_mismatch";
 		if (import.meta.env.DEV) {
 			console.info("[echo] calibration", {
 				delayMs: this.delayMs,
@@ -348,6 +346,8 @@ export interface MicCaptureOptions extends MicCaptureConstraintsOptions {
 	onEchoSuppression?: (result: EchoSuppressionResult) => void;
 	/** 真正送往 ASR 的 16k PCM，用于工作台展示反相器输出。 */
 	onCleanedPcm?: (samples: Int16Array) => void;
+	/** 同一时间戳下的原始/反相 PCM 帧，供波形对齐。 */
+	onPcmFrame?: (frame: { mic: Int16Array; clean: Int16Array; endMs: number }) => void;
 	pcm?: Pick<MicCaptureHandlers, "onPcm">;
 }
 
@@ -370,6 +370,7 @@ export class MicCapture {
 	private echoReference?: (startMs: number, length: number) => Float32Array;
 	private onEchoSuppression?: (result: EchoSuppressionResult) => void;
 	private onCleanedPcm?: (samples: Int16Array) => void;
+	private onPcmFrame?: (frame: { mic: Int16Array; clean: Int16Array; endMs: number }) => void;
 
 	private constructor(stream: MediaStream, context: AudioContext, source: MediaStreamAudioSourceNode) {
 		this.stream = stream;
@@ -426,6 +427,7 @@ export class MicCapture {
 		this.echoReference = options.echoReference;
 		this.onEchoSuppression = options.onEchoSuppression;
 		this.onCleanedPcm = options.onCleanedPcm;
+		this.onPcmFrame = options.onPcmFrame;
 		const basePcm = pcmSink(options.pcm?.onPcm);
 		const pcm = basePcm
 			? (data: unknown) => {
@@ -469,6 +471,7 @@ export class MicCapture {
 		if (message?.type !== "pcm" || !(rawBuffer instanceof ArrayBuffer)) return null;
 		const pcm = new Int16Array(rawBuffer);
 		if (pcm.length === 0) return null;
+		const endMs = performance.now();
 		let micEnergy = 0;
 		for (let i = 0; i < pcm.length; i += 1) micEnergy += (pcm[i] ?? 0) * (pcm[i] ?? 0);
 		const level = Math.sqrt(micEnergy / pcm.length) / 32768;
@@ -477,10 +480,11 @@ export class MicCapture {
 		const gain = this.echo.gainValue;
 		if (gain === null || !this.echoReference) {
 			this.onCleanedPcm?.(pcm);
+			this.onPcmFrame?.({ mic: pcm, clean: pcm, endMs });
 			return this.echo.isEcho(level) ? null : data;
 		}
 
-		const baseStart = performance.now() - pcm.length / 16 - this.echo.delay;
+		const baseStart = endMs - pcm.length / 16 - this.echo.delay;
 		const scales = [0, 0.5, 0.75, 1, 1.25] as const;
 		let best: { delta: number; scale: number; polarity: 1 | -1; energy: number } | null = null;
 		for (let delta = -80; delta <= 80; delta += 8) {
@@ -508,6 +512,7 @@ export class MicCapture {
 
 		if (best === null || best.scale === 0) {
 			this.onCleanedPcm?.(pcm);
+			this.onPcmFrame?.({ mic: pcm, clean: pcm, endMs });
 			return this.echo.isEcho(level) ? null : data;
 		}
 
@@ -521,6 +526,7 @@ export class MicCapture {
 		}
 		const cleanLevel = Math.sqrt(best.energy / pcm.length) / 32768;
 		this.onCleanedPcm?.(cleaned);
+		this.onPcmFrame?.({ mic: pcm, clean: cleaned, endMs });
 		this.onEchoSuppression?.({
 			micLevel: level,
 			cleanLevel,

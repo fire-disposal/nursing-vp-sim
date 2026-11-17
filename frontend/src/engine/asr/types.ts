@@ -89,6 +89,7 @@ export interface AsrProvider {
 		markerOnsets?: () => number[];
 		onEchoSuppression?: (result: EchoSuppressionResult) => void;
 		onCleanedPcm?: (samples: Int16Array) => void;
+		onPcmFrame?: (frame: { mic: Int16Array; clean: Int16Array; endMs: number }) => void;
 		/** 真实麦克风帧，供声学工作面板使用。 */
 		onFrame?: (channel: Float32Array, sampleRate: number) => void;
 	}): AsrSession;

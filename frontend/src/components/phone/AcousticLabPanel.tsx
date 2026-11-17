@@ -52,25 +52,20 @@ export default function AcousticLabPanel() {
 		}, 100);
 	}, []);
 
-	const onFrame = useCallback((channel: Float32Array, sampleRate: number) => {
+	const onPcmFrame = useCallback(({ mic, clean, endMs }: { mic: Int16Array; clean: Int16Array; endMs: number }) => {
 		const player = playerRef.current;
-		const data = downsampleFrame(channel, sampleRate);
-		if (!player || data.length === 0) return;
+		if (!player || mic.length === 0) return;
 		const calibration = resultRef.current;
 		const delay = calibration?.status === "success" ? calibration.delayMs : 0;
-		const referenceStart = performance.now() - data.length / 16 - delay;
-		const actual = player.readReference(referenceStart, data.length);
-		const ideal = idealMarkerReference(referenceStart, data.length, player.markerOnsets());
+		const referenceStart = endMs - mic.length / 16 - delay;
+		const actual = player.readReference(referenceStart, mic.length);
+		const ideal = idealMarkerReference(referenceStart, mic.length, player.markerOnsets());
+		const reference = new Float32Array(mic.length);
+		for (let i = 0; i < mic.length; i += 1) reference[i] = ideal[i] !== 0 ? (ideal[i] ?? 0) : (actual[i] ?? 0);
 		const current = waveRef.current;
-		const reference = new Float32Array(data.length);
-		for (let i = 0; i < data.length; i += 1) reference[i] = ideal[i] !== 0 ? (ideal[i] ?? 0) : (actual[i] ?? 0);
 		current.tts.push(reference);
-		current.mic.push(data);
-		scheduleWaveRender();
-	}, [scheduleWaveRender]);
-
-	const onCleanedPcm = useCallback((samples: Int16Array) => {
-		waveRef.current.clean.push(samples, 1 / 32768);
+		current.mic.push(mic, 1 / 32768);
+		current.clean.push(clean, 1 / 32768);
 		scheduleWaveRender();
 	}, [scheduleWaveRender]);
 
@@ -103,10 +98,9 @@ export default function AcousticLabPanel() {
 		echoReference: (startMs, length) => playerRef.current?.readReference(startMs, length) ?? new Float32Array(length),
 		markerOnsets: () => playerRef.current?.markerOnsets() ?? [],
 		onEchoSuppression,
-		onCleanedPcm,
+		onPcmFrame,
 		onEchoCalibration,
 		onVoiceReady,
-		onFrame,
 	});
 
 	const voiceStopRef = useRef(voice.stop);
@@ -319,19 +313,6 @@ function idealMarkerReference(startMs: number, length: number, onsets: number[])
 				break;
 			}
 		}
-	}
-	return output;
-}
-
-function downsampleFrame(channel: Float32Array, sampleRate: number): Float32Array {
-	const ratio = sampleRate / 16_000;
-	const output = new Float32Array(Math.floor(channel.length / ratio));
-	for (let i = 0; i < output.length; i += 1) {
-		const position = i * ratio;
-		const left = Math.floor(position);
-		const right = Math.min(channel.length - 1, left + 1);
-		const mix = position - left;
-		output[i] = (channel[left] ?? 0) * (1 - mix) + (channel[right] ?? 0) * mix;
 	}
 	return output;
 }
