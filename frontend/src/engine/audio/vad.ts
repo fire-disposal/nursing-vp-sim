@@ -42,9 +42,12 @@ export const VAD_ASSET_PATH = "/vad/";
 export const VAD_WORKLET = "vad.worklet.bundle.min.js";
 export const VAD_MODEL = "silero_vad_v5.onnx";
 
-/** 轮次判定的 VAD 参数：短噪声（<250ms）不算说话，900ms 静音才收尾。 */
+/** 轮次判定的 VAD 参数：短噪声（<450ms）不算说话，900ms 静音才收尾。 */
 export const VAD_TUNING = {
-	minSpeechMs: 250,
+	// Silero/vad-web 默认 0.3 对空调噪声、键盘声都太敏感；电话页要的是"人声够持续"。
+	positiveSpeechThreshold: 0.6,
+	negativeSpeechThreshold: 0.35,
+	minSpeechMs: 450,
 	redemptionMs: 900,
 	preSpeechPadMs: 500,
 } as const;

@@ -14,7 +14,15 @@ interface Harness {
 	audible: { value: boolean };
 }
 
-function makeHarness(options: { audible?: boolean; finalTimeoutMs?: number; endpointMs?: number } = {}): Harness {
+function makeHarness(
+	options: {
+		audible?: boolean;
+		finalTimeoutMs?: number;
+		endpointMs?: number;
+		bargeInGate?: "vad" | "asr";
+		bargeInGuard?: (text: string) => boolean;
+	} = {},
+): Harness {
 	const sent: string[] = [];
 	const transcripts: string[] = [];
 	const audible = { value: options.audible ?? false };
@@ -33,6 +41,8 @@ function makeHarness(options: { audible?: boolean; finalTimeoutMs?: number; endp
 			patientAudible: () => audible.value,
 			finalTimeoutMs: options.finalTimeoutMs ?? 2500,
 			endpointMs: options.endpointMs ?? 1200,
+			bargeInGate: options.bargeInGate,
+			bargeInGuard: options.bargeInGuard,
 		},
 	);
 	return {
@@ -237,6 +247,33 @@ describe("轮次：无 VAD 的降级路径", () => {
 		const h = makeHarness({ audible: true, endpointMs: 800 });
 		h.controller.start();
 		h.controller.interim("等一下");
+		expect(h.barges).toBe(1);
+	});
+});
+
+describe("电话页：ASR 确认后才允许打断", () => {
+	it("VAD real start alone does not stop the patient", () => {
+		const h = makeHarness({ audible: true, bargeInGate: "asr" });
+		h.controller.start();
+		h.controller.speechStart();
+		h.controller.speechRealStart();
+		expect(h.barges).toBe(0);
+
+		h.controller.partial("等一下");
+		expect(h.barges).toBe(1);
+	});
+
+	it("echo-like text is blocked by the barge-in guard", () => {
+		const h = makeHarness({
+			audible: true,
+			bargeInGate: "asr",
+			bargeInGuard: (text) => text.includes("我这边几分钟后"),
+		});
+		h.controller.start();
+		h.controller.partial("我这边几分钟后到");
+		expect(h.barges).toBe(0);
+
+		h.controller.partial("你先别说了");
 		expect(h.barges).toBe(1);
 	});
 });

@@ -45,6 +45,15 @@ export interface VoiceTurnDeps {
 	finalTimeoutMs?: number;
 	/** 无 VAD 时（interim 驱动）的静音窗口。 */
 	endpointMs?: number;
+	/**
+	 * 打断闸门：`vad` = speechRealStart 即打断（旧行为）；`asr` = 等 ASR 出现
+	 * 非空 partial/definite 才打断。电话页用 asr，避免环境噪声/回录直接停播。
+	 */
+	bargeInGate?: "vad" | "asr";
+	/** 额外的文本闸门（例如电话页丢弃 TTS 回录句）。返回 true = 不允许打断。 */
+	bargeInGuard?: (text: string) => boolean;
+	/** ASR 闸门至少需要多少个字符（默认 1；电话页用 2，挡掉单字回录/噪声）。 */
+	bargeInMinChars?: number;
 }
 
 /** 端点等待的上限：VAD 已判收尾却等不到 definite 时，本轮作废（防空转）。 */
@@ -141,12 +150,19 @@ export class VoiceTurnController {
 		this.target.onSpeechStart?.();
 	}
 
-	/** 有效语音确认（≥250ms）：此刻才允许打断患者。 */
+	/** 有效语音确认：`vad` 闸门才在这里打断；`asr` 闸门等识别文本。 */
 	speechRealStart(eventEpoch = this.epoch): void {
 		if (!this.isCurrent(eventEpoch)) return;
 		if (!this.turn) this.turn = { text: "" };
+		if ((this.deps.bargeInGate ?? "vad") !== "vad") return;
+		this.tryBarge();
+	}
+
+	private tryBarge(text?: string): void {
 		if (this.barged) return;
 		if (!this.deps.patientAudible()) return;
+		if (text && [...text.trim()].length < (this.deps.bargeInMinChars ?? 1)) return;
+		if (text && this.deps.bargeInGuard?.(text)) return;
 		this.barged = true;
 		this.target.onInterrupted?.(true);
 		try {
@@ -200,6 +216,7 @@ export class VoiceTurnController {
 		if (turn.endpointTimer) this.cancelEndpoint();
 		turn.text = text;
 		this.setTranscript(text);
+		if ((this.deps.bargeInGate ?? "vad") === "asr") this.tryBarge(text);
 	}
 
 	/** 句尾结果：非空才提交（每轮最多一次）；空 definite 不调用 onSend。 */
@@ -216,6 +233,7 @@ export class VoiceTurnController {
 			this.setPhase("listening");
 			return;
 		}
+		if ((this.deps.bargeInGate ?? "vad") === "asr") this.tryBarge(merged);
 		this.submit(merged);
 	}
 
@@ -226,15 +244,7 @@ export class VoiceTurnController {
 	interim(text: string, eventEpoch = this.epoch): void {
 		if (!this.isCurrent(eventEpoch)) return;
 		if (this.settled) return;
-		if (!this.barged && text.trim() && this.deps.patientAudible()) {
-			this.barged = true;
-			this.target.onInterrupted?.(true);
-			try {
-				this.target.onBargeIn?.();
-			} catch (err) {
-				console.error("[voice] 打断处理失败", err);
-			}
-		}
+		if (!this.barged && text.trim()) this.tryBarge(text);
 		if (!this.turn) this.turn = { text: "" };
 		const turn = this.turn;
 		// VAD 轮次路径不给 interim；这条分支只在"没有 VAD"时走到，

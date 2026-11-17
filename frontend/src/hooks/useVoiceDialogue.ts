@@ -84,6 +84,12 @@ export interface UseVoiceDialogueOptions {
 	onSpeechStart?: () => void;
 	/** 患者 TTS 当前输出 RMS；传到底层回声门，丢弃回录 PCM 与 VAD 假轮次。 */
 	echoLevel?: () => number;
+	/** 打断闸门：默认 vad；电话页用 asr，等文本确认后再停播。 */
+	bargeInGate?: "vad" | "asr";
+	/** 额外文本闸门：返回 true 表示这句不允许触发打断。 */
+	bargeInGuard?: (text: string) => boolean;
+	/** ASR 打断最小字符数，电话页用 2。 */
+	bargeInMinChars?: number;
 }
 
 export interface UseVoiceDialogueResult {
@@ -130,6 +136,9 @@ export function useVoiceDialogue({
 	token,
 	onSpeechStart,
 	echoLevel,
+	bargeInGate,
+	bargeInGuard,
+	bargeInMinChars,
 }: UseVoiceDialogueOptions): UseVoiceDialogueResult {
 	const [phase, setPhase] = useState<VoicePhase>("idle");
 	const [transcript, setTranscript] = useState("");
@@ -324,9 +333,12 @@ export function useVoiceDialogue({
 			{
 				patientAudible: () => patientAudibleRef.current,
 				endpointMs: silenceMs > 0 ? silenceMs : DEFAULT_ENDPOINT_MS,
+				bargeInGate,
+				bargeInGuard,
+				bargeInMinChars,
 			},
 		);
-	}, [send, setTranscriptBoth, silenceMs]);
+	}, [send, setTranscriptBoth, silenceMs, bargeInGate, bargeInGuard, bargeInMinChars]);
 
 	/** 云 ASR 整体降级：换供应商重开这一轮（不关闭麦克风手势）。 */
 	const downgradeToFallback = useCallback(

@@ -113,6 +113,7 @@ export class MicCapture {
 	private muted = false;
 	private closed = false;
 	private latestMicLevel = 0;
+	private echoLevel?: () => number;
 
 	private constructor(stream: MediaStream, context: AudioContext, source: MediaStreamAudioSourceNode) {
 		this.stream = stream;
@@ -163,6 +164,7 @@ export class MicCapture {
 	 * 麦克风**不**连 destination（会回声啸叫）：AnalyserNode 拉不拉得动图由 worklet 保证。
 	 */
 	private start(options: MicCaptureOptions): void {
+		this.echoLevel = options.echoLevel;
 		const basePcm = pcmSink(options.pcm?.onPcm);
 		const pcm = basePcm
 			? (data: unknown) => {
@@ -199,6 +201,7 @@ export class MicCapture {
 
 	/** PCM 帧是否主要是患者回放：是则不送上游 ASR。 */
 	private isEchoPcm(data: unknown): boolean {
+		if (this.echoLevel) this.echo.setReference(this.echoLevel());
 		const message = data as { type?: string; buffer?: ArrayBuffer } | null;
 		if (message?.type !== "pcm" || !(message.buffer instanceof ArrayBuffer)) return false;
 		const pcm = new Int16Array(message.buffer);
@@ -267,6 +270,7 @@ export class MicCapture {
 
 	/** 最近一帧是否仍是患者回放：供 VAD 事件门用。 */
 	isCurrentEcho(): boolean {
+		if (this.echoLevel) this.echo.setReference(this.echoLevel());
 		return this.echo.isEcho(this.latestMicLevel);
 	}
 

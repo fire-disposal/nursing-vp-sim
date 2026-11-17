@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { useComputedColorScheme } from "@mantine/core";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
@@ -16,33 +16,6 @@ export function useReducedMotion(): boolean {
 export function usePhoneSurface(): { dark: boolean } {
 	const scheme = useComputedColorScheme("light");
 	return { dark: scheme === "dark" };
-}
-
-/**
- * 实时"音量包络"近似值。
- *
- * 演示页不接 AnalyserNode（播放器与识别不在同一台音频图上），但口型需要动起来。
- * 所以这里在**说话期间**用一条低频正弦给出 0.25–0.85 的呼吸式数值——它驱动的是
- * 口型幅度而不是任何业务状态，不声称是真实音频包络。`reducedMotion` 时恒为 0。
- */
-export function useSpeakingLevel(active: boolean, reducedMotion: boolean): number {
-	const [level, setLevel] = useState(0);
-	useEffect(() => {
-		if (!active || reducedMotion) {
-			setLevel(0);
-			return;
-		}
-		let raf = 0;
-		const started = performance.now();
-		const tick = () => {
-			const t = (performance.now() - started) / 1000;
-			setLevel(0.25 + 0.3 * (0.5 + 0.5 * Math.sin(t * 9.4)) + 0.1 * Math.sin(t * 23.1));
-			raf = requestAnimationFrame(tick);
-		};
-		raf = requestAnimationFrame(tick);
-		return () => cancelAnimationFrame(raf);
-	}, [active, reducedMotion]);
-	return level;
 }
 
 /** `navigator.vibrate` 之类的能力探测集中在 hooks 里，组件不直接摸 navigator。 */

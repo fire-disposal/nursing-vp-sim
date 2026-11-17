@@ -10,6 +10,7 @@ import {
 	Stack,
 	Text,
 	TextInput,
+	Title,
 	Tooltip,
 } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
@@ -28,14 +29,13 @@ import CallStatusStrip from "./CallStatusStrip";
 import EmotionPanel from "./EmotionPanel";
 import QuickTestBar from "./QuickTestBar";
 import TranscriptLog from "./TranscriptLog";
-import { useSpeakingLevel } from "./hooks";
 
 /**
  * PhonePanel —— 一通演示电话的完整界面。
  *
  * 布局（桌面 → 移动端同构，只是从三栏塌成一栏）：
  *   ┌ 头部：返回角色卡 · 名字/脾气 · 停止通话 ┐
- *   ├ 左：程序化角色形象（口型/波形/眉眼）      │
+ *   ├ 左：程序化角色形象（口型由真实 TTS 输出驱动）
  *   ├ 中：状态条 + 四维情绪 + 转写 + 事件日志 │
  *   └ 底：快捷用例 + 实时转写 + 文本输入      ┘
  *
@@ -52,10 +52,6 @@ export interface PhonePanelProps {
 export default function PhonePanel({ character, onBack, reducedMotion = false }: PhonePanelProps) {
 	const call = usePhoneCall({ characterId: character.id });
 	const started = call.dialed;
-	const level = useSpeakingLevel(
-		call.speaking || call.voicePhase === "listening",
-		reducedMotion,
-	);
 	const listening = call.voicePhase === "listening" && !call.speaking;
 	const narrow = useMediaQuery("(max-width: 48em)") === true;
 
@@ -86,11 +82,7 @@ export default function PhonePanel({ character, onBack, reducedMotion = false }:
 						</Stack>
 					</Group>
 					<Group gap="xs" wrap="nowrap" style={{ marginLeft: "auto" }}>
-						{!started ? (
-							<Button leftSection={<IconPhoneCall size={16} />} onClick={call.startCall}>
-								开始通话
-							</Button>
-						) : (
+						{started && (
 							<Button
 								color="red"
 								variant="light"
@@ -104,7 +96,48 @@ export default function PhonePanel({ character, onBack, reducedMotion = false }:
 				</Group>
 			</Card>
 
-			<CallStatusStrip
+			{!started ? (
+				<Card withBorder radius="lg" padding="md">
+					<Group align="center" wrap="wrap" gap="lg">
+						<Box style={{ width: narrow ? "100%" : 220, flexShrink: 0 }}>
+							<CallStage
+								character={character}
+								label={call.label}
+								voicePhase="idle"
+								speaking={false}
+								listening={false}
+								speechActive={false}
+								level={0}
+								reducedMotion={reducedMotion}
+								compact={narrow}
+							/>
+						</Box>
+						<Stack gap="sm" style={{ flex: "1 1 260px", minWidth: 0 }}>
+							<Title order={4} size="h5">
+								准备与{character.name}通话
+							</Title>
+							<Text size="sm" c="dimmed">
+								{character.temperament}
+							</Text>
+							<Text size="sm">{character.callAbout}</Text>
+							<Text size="xs" c="dimmed">
+								音色：{character.voice}
+							</Text>
+							<Button
+								leftSection={<IconPhoneCall size={16} />}
+								onClick={call.startCall}
+								w={narrow ? "100%" : undefined}
+								mt={4}
+								style={{ alignSelf: "flex-start" }}
+							>
+								开始通话
+							</Button>
+						</Stack>
+					</Group>
+				</Card>
+			) : (
+				<>
+					<CallStatusStrip
 				stage={call.stage}
 				voicePhase={call.voicePhase}
 				continuousArmed={call.continuousArmed}
@@ -143,10 +176,9 @@ export default function PhonePanel({ character, onBack, reducedMotion = false }:
 						speaking={call.speaking}
 						listening={listening}
 						speechActive={call.speechActive}
-						level={level}
+						level={call.ttsLevel}
 						reducedMotion={reducedMotion}
 						compact={narrow}
-						bars={narrow ? 18 : 28}
 					/>
 				</Card>
 				<Card withBorder radius="lg" padding="sm">
@@ -217,7 +249,9 @@ export default function PhonePanel({ character, onBack, reducedMotion = false }:
 						</Group>
 					</Flex>
 				</Stack>
-			</Card>
+				</Card>
+				</>
+			)}
 		</Stack>
 	);
 }

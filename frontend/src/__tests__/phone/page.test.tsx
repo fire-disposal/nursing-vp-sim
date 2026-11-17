@@ -72,6 +72,7 @@ describe("电话页角色卡", () => {
 			</MemoryRouter>,
 		);
 		expect(container.querySelector('[data-testid="phone-panel"]')).toBeTruthy();
-		expect(screen.getByTestId("emotion-label")).toHaveTextContent("防御抵触");
+		expect(screen.getAllByText("何剑峰").length).toBeGreaterThan(0);
+		expect(screen.getByRole("button", { name: "开始通话" })).toBeInTheDocument();
 	});
 });

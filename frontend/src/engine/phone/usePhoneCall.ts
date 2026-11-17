@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useAuthStore from "@/stores/authStore";
 import { useVoiceDialogue, type UseVoiceDialogueResult } from "@/hooks/useVoiceDialogue";
 import { findCharacter, type PhoneCharacter } from "@/engine/phone/characters";
-import { classifyUserText, openingLine, truncateForInterrupt } from "@/engine/phone/script";
+import { classifyUserText, openingLine } from "@/engine/phone/script";
 import { streamDemoChat, trimHistory, type DemoHistoryMessage } from "@/engine/phone/chat";
 import { EMOTION_DIMS, dominantLabel } from "@/engine/phone/emotion";
 import { applyEmotionEffect } from "@/engine/phone/emotionEffect";
@@ -88,6 +88,8 @@ export interface UsePhoneCallResult {
 	setDraft: (value: string) => void;
 	/** 当前台词是否正在朗读（驱动口型）。 */
 	speaking: boolean;
+	/** 当前 TTS 实际输出 RMS（0..1），驱动口型，不做假动画。 */
+	ttsLevel: number;
 	/** 患者正在生成或出声 —— 学生此时开口即为有效打断。 */
 	patientReplying: boolean;
 	/** 已经拨出去（播过开场白或已开麦）。 */
@@ -129,6 +131,7 @@ export function usePhoneCall({
 	const [log, setLog] = useState<PhoneLogEntry[]>([]);
 	const [draft, setDraft] = useState("");
 	const [speaking, setSpeaking] = useState(false);
+	const [ttsLevel, setTtsLevel] = useState(0);
 	const [patientReplying, setPatientReplying] = useState(false);
 	const [dialed, setDialed] = useState(false);
 	const [metrics, setMetrics] = useState<PhoneCallMetrics>({
@@ -150,7 +153,6 @@ export function usePhoneCall({
 	const ttsSeqRef = useRef(0);
 	const seqRef = useRef(0);
 	const lineSeqRef = useRef(0);
-	const spokenCharsRef = useRef(0);
 	const interruptedRef = useRef(false);
 	/** 最近 7 秒患者实际念出的句子（归一化），用于丢弃 ASR 回录。 */
 	const recentTtsRef = useRef<Array<{ norm: string; at: number }>>([]);
@@ -181,6 +183,21 @@ export function usePhoneCall({
 		playerRef.current = playerFactory ? playerFactory() : new DemoTTSPlayer({ speaker: character?.speaker });
 	}
 	const ttsEchoLevel = useCallback(() => playerRef.current?.outputLevel() ?? 0, []);
+	const ttsEchoGuard = useCallback((text: string) => isTtsEcho(text, recentTtsRef.current), []);
+
+	useEffect(() => {
+		if (!speaking) {
+			setTtsLevel(0);
+			return;
+		}
+		let raf = 0;
+		const tick = () => {
+			setTtsLevel(playerRef.current?.outputLevel() ?? 0);
+			raf = requestAnimationFrame(tick);
+		};
+		raf = requestAnimationFrame(tick);
+		return () => cancelAnimationFrame(raf);
+	}, [speaking]);
 
 	const pushLog = useCallback((kind: PhoneLogEntry["kind"], text: string) => {
 		seqRef.current += 1;
@@ -412,8 +429,11 @@ export function usePhoneCall({
 		setLines((prev) => {
 			const last = prev[prev.length - 1];
 			if (last?.role !== "patient" || last.interrupted) return prev;
-			const kept = truncateForInterrupt(last.text, spokenCharsRef.current);
-			return [...prev.slice(0, -1), { ...last, interrupted: true, text: kept || "（被打断，她没说完）" }];
+			// 打断只标记状态，不吞掉已生成/未念完的文本：记录区要能复盘她原本要说什么。
+			return [
+				...prev.slice(0, -1),
+				{ ...last, interrupted: true, text: last.text || "（未收到回复内容）" },
+			];
 		});
 		settleStage();
 	}, [pushLog, settleStage]);
@@ -434,6 +454,9 @@ export function usePhoneCall({
 		token,
 		onBargeIn: handleBargeIn,
 		echoLevel: ttsEchoLevel,
+		bargeInGate: "asr",
+		bargeInGuard: ttsEchoGuard,
+		bargeInMinChars: 2,
 	});
 
 	const voiceRef = useRef(voice);
@@ -527,6 +550,7 @@ export function usePhoneCall({
 		draft,
 		setDraft,
 		speaking,
+		ttsLevel,
 		patientReplying,
 		dialed,
 		turnDetection: voice.continuousArmed && !voice.basicVoiceMode,

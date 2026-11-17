@@ -1,4 +1,4 @@
-import { Badge, Box, Group, Stack, Text } from "@mantine/core";
+import { Badge, Box, Stack, Text } from "@mantine/core";
 import { IconMicrophone, IconVolume } from "@tabler/icons-react";
 import type { PhoneCharacter } from "@/engine/phone/characters";
 import type { PhoneEmotionLabel } from "@/engine/phone/types";
@@ -25,19 +25,8 @@ export interface CallStageProps {
 	speechActive: boolean;
 	level: number;
 	reducedMotion: boolean;
-	/** 波形条数（桌面多一些）。 */
-	bars?: number;
-	/** 窄屏：缩小头像与波形，减少纵向占用。 */
+	/** 窄屏：缩小头像，减少纵向占用。 */
 	compact?: boolean;
-}
-
-export function waveformHeights(level: number, bars: number, reducedMotion: boolean): number[] {
-	if (reducedMotion) return Array.from({ length: bars }, () => 20);
-	return Array.from({ length: bars }, (_, i) => {
-		const phase = (i / bars) * Math.PI * 2;
-		const wobble = 0.5 + 0.5 * Math.sin(phase * 2.2 + level * 9);
-		return Math.round(8 + wobble * 26 * (0.35 + level));
-	});
 }
 
 export default function CallStage({
@@ -49,10 +38,8 @@ export default function CallStage({
 	speechActive,
 	level,
 	reducedMotion,
-	bars = 28,
 	compact = false,
 }: CallStageProps) {
-	const heights = waveformHeights(level, bars, reducedMotion);
 	const mine = speaking && !listening;
 	return (
 		<Stack gap="xs" align="center" data-testid="call-stage">
@@ -86,29 +73,6 @@ export default function CallStage({
 					</Box>
 				)}
 			</Box>
-			<Group
-				gap={3}
-				justify="center"
-				align="flex-end"
-				h={40}
-				wrap="nowrap"
-				aria-hidden
-				data-testid="waveform"
-				style={{ opacity: listening || speaking ? 1 : 0.35 }}
-			>
-				{heights.map((h, i) => (
-					<Box
-						key={i}
-						style={{
-							width: 4,
-							height: h,
-							borderRadius: 2,
-							background: listening ? character.palette.accent : character.palette.primary,
-							transition: reducedMotion ? undefined : "height 120ms linear",
-						}}
-					/>
-				))}
-			</Group>
 			{listening ? (
 				<Text size="xs" c="dimmed">
 					{speechActive ? `VAD 已确认你开口（${voicePhase}）` : "VAD 聆听中，等待你开口"}
