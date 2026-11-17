@@ -29,6 +29,8 @@
 
 **播放生命周期**：PCM、浏览器兜底朗读、TTS 请求和麦克风统一由 `shutdown` 终止；手动停播、新回合、结束通话、SPA 卸载和浏览器 `pagehide` 都会停止外部工作并作废迟到回调。正常通话在录音与 ASR 就绪后加载 AEC3，播放器保留 16k 参考时间线；AEC3 自适应延迟与回声路径，不再依赖滴滴校准才能开场。工作台三路波形使用同一 16k PCM 帧时间戳，绿色为 AEC3 实际送往 ASR 的输出；声学核心抽为无 UI 依赖的 `useAcousticWorkbench`，后续人物卡直接复用；PCM worklet 固定 50ms 一批，波形固定 20 秒环形缓冲、10Hz 重绘。角色卡下的声学工作面板提供 TTS 文本/音色、ASR 开始停止、最终转写与三路固定时间窗波形。
 
+**音频遥测**：电话与声学工作台每 2 秒回传 AEC3 的 `delayMs / erleDb / erlDb / referenceShort / referenceDropped / nonFiniteSamples / errors` 到 `POST /api/voice-demo/audio-telemetry`。后端用独立内存环形缓冲保存最近样本，`GET /api/voice-demo/audio-telemetry?session_id=…` 按当前用户查询；不改业务表、不阻塞通话。
+
 **静态资源**：护士头像从 721px PNG（约 200KB）改为 256px WebP（约 4KB），并统一异步解码；`/assets/*` 继续使用一年 immutable 缓存，首次加载与弱网明显改善。
 
 ## 2026.05 — 项目奠基

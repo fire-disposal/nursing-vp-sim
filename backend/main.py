@@ -389,6 +389,7 @@ from modules.scoreboard import router as _scoreboard
 from modules.training.router import router as _training
 from modules.training.router.chat import router as _chat
 from modules.voice.asr_router import router as _asr
+from modules.voice.audio_telemetry import router as _audio_telemetry
 from modules.voice.demo_router import router as _voice_demo
 from modules.voice.router import router as _tts
 
@@ -400,6 +401,7 @@ for r in (
     _auth,
     _cases,
     _asr,
+    _audio_telemetry,
     _chat,
     _diagnostics,
     _exports,

@@ -8,6 +8,7 @@ import { EMOTION_DIMS, dominantLabel } from "@/engine/phone/emotion";
 import { applyEmotionEffect } from "@/engine/phone/emotionEffect";
 import { DemoTTSPlayer } from "@/engine/phone/ttsPlayer";
 import { prepareAec3, type CancellerStats } from "@/engine/audio/aec3";
+import { reportAudioTelemetry } from "@/engine/audio/audioTelemetry";
 import {
 	initialPhoneCallState,
 	phoneCallReducer,
@@ -139,6 +140,7 @@ export function usePhoneCall({
 	const voiceRef = useRef<UseVoiceDialogueResult | null>(null);
 	const voiceReadyRef = useRef<(() => void) | null>(null);
 	const aec3AtRef = useRef(0);
+	const latestAec3Ref = useRef<CancellerStats | null>(null);
 
 	const playerRef = useRef<DemoTTSPlayer | null>(null);
 	if (!playerRef.current) {
@@ -167,6 +169,7 @@ export function usePhoneCall({
 	}, []);
 
 	const onAec3Stats = useCallback((stats: CancellerStats) => {
+		latestAec3Ref.current = stats;
 		if (stats.delayMs === null) return;
 		const now = performance.now();
 		if (now - aec3AtRef.current < 200) return;
@@ -547,6 +550,29 @@ export function usePhoneCall({
 		setDialed(false);
 		pushLog("system", "通话已结束");
 	}, [pushLog, setStage, shutdown]);
+
+	useEffect(() => {
+		if (!dialed || !character) return;
+		const timer = window.setInterval(() => {
+			const stats = latestAec3Ref.current;
+			if (!stats) return;
+			void reportAudioTelemetry({
+				session_id: sessionIdRef.current,
+				mode: "phone",
+				character_id: character.id,
+				delay_ms: stats.delayMs,
+				erle_db: stats.erleDb,
+				erl_db: stats.erlDb,
+				divergent_filter_fraction: stats.divergentFilterFraction,
+				voice: stats.voice,
+				reference_short: stats.referenceShort,
+				reference_dropped: stats.referenceDropped,
+				non_finite_samples: stats.nonFiniteSamples,
+				errors: stats.errors,
+			});
+		}, 2000);
+		return () => window.clearInterval(timer);
+	}, [character, dialed]);
 
 	useEffect(() => {
 		window.addEventListener("pagehide", stopCall);

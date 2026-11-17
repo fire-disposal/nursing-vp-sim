@@ -5,6 +5,7 @@ import { DEMO_TTS_PATH } from "@/engine/phone/ttsPlayer";
 import { PcmStreamPlayer } from "@/engine/tts/pcm-player";
 import { accessHeaders } from "@/utils/accessContext";
 import { prepareAec3, type CancellerStats } from "./aec3";
+import { reportAudioTelemetry } from "./audioTelemetry";
 import { WaveRing } from "./waveRing";
 
 export interface AcousticWaveHistory {
@@ -17,6 +18,7 @@ export interface UseAcousticWorkbenchOptions {
 	recordId?: number;
 	initialSpeaker?: string;
 	initialText?: string;
+	characterId?: string;
 }
 
 export interface UseAcousticWorkbenchResult {
@@ -55,10 +57,13 @@ export function useAcousticWorkbench({
 	recordId = 0,
 	initialSpeaker = "",
 	initialText = "你好，我正在测试这条语音链路。",
+	characterId,
 }: UseAcousticWorkbenchOptions = {}): UseAcousticWorkbenchResult {
 	const token = useAuthStore((s) => s.token);
 	const [aec3Stats, setAec3Stats] = useState<CancellerStats | null>(null);
 	const aec3AtRef = useRef(0);
+	const latestStatsRef = useRef<CancellerStats | null>(null);
+	const sessionIdRef = useRef(crypto.randomUUID());
 	const [recognized, setRecognized] = useState("");
 	const [running, setRunning] = useState(false);
 	const [step, setStep] = useState("");
@@ -88,6 +93,7 @@ export function useAcousticWorkbench({
 
 	const onAec3Stats = useCallback((next: CancellerStats) => {
 		const now = performance.now();
+		latestStatsRef.current = next;
 		if (now - aec3AtRef.current < 200) return;
 		aec3AtRef.current = now;
 		setAec3Stats(next);
@@ -125,6 +131,30 @@ export function useAcousticWorkbench({
 		setStep("");
 		waveRef.current = createWaves();
 	}, []);
+
+	// 每 2 秒上报一次最新 AEC3 统计；不随统计更新频率触发请求。
+	useEffect(() => {
+		if (!token) return;
+		const timer = window.setInterval(() => {
+			const stats = latestStatsRef.current;
+			if (!stats) return;
+			void reportAudioTelemetry({
+				session_id: sessionIdRef.current,
+				mode: "workbench",
+				character_id: characterId ?? null,
+				delay_ms: stats.delayMs,
+				erle_db: stats.erleDb,
+				erl_db: stats.erlDb,
+				divergent_filter_fraction: stats.divergentFilterFraction,
+				voice: stats.voice,
+				reference_short: stats.referenceShort,
+				reference_dropped: stats.referenceDropped,
+				non_finite_samples: stats.nonFiniteSamples,
+				errors: stats.errors,
+			});
+		}, 2000);
+		return () => window.clearInterval(timer);
+	}, [characterId, token]);
 
 	// AEC3 是 525KB WASM，空闲预热，避免第一次点击再编译造成卡顿。
 	useEffect(() => {

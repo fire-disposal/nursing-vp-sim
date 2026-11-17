@@ -35,6 +35,11 @@ export default function AcousticLabPanel() {
 							</Button>
 							{lab.running && lab.step && <Text size="xs" c="dimmed">{lab.step}</Text>}
 						</Group>
+						{lab.aec3Stats && (
+							<Text size="xs" c="dimmed">
+								AEC3 延迟 {lab.aec3Stats.delayMs ?? "—"}ms · ERLE {lab.aec3Stats.erleDb?.toFixed(1) ?? "—"}dB · 参考缺失 {lab.aec3Stats.referenceShort} · 参考丢弃 {lab.aec3Stats.referenceDropped}
+							</Text>
+						)}
 						<Text size="sm" fw={600}>TTS</Text>
 						<TextInput value={lab.text} onChange={(event) => lab.setText(event.currentTarget.value)} aria-label="TTS 测试文本" />
 						<Group gap="xs" align="flex-end" wrap="nowrap">
